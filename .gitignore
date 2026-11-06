@@ -12,3 +12,7 @@ runs/
 # Local scratch
 .DS_Store
 .pytest_cache/
+
+# Checkpoints: the shipped set (ASM-5) is committed explicitly; runs and test output are not.
+checkpoints/*
+!checkpoints/evidence/

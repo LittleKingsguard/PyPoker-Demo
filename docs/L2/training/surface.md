@@ -1,8 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
+- **Rev 2:** §4 states the record's three further keys a complete report needs (§4.1) and the vocabulary a run
+  refuses against (§4.2); §5 states the axis rule the matched capacities force (§5.1); §3.1 reads a pool's id once;
+  §6's GPU rule is the measured one
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -10,36 +13,31 @@
 Each of the six names is a module-level name of the `training` package, and nothing below one of them is
 contract (`e2e-surface.md` §1, brief §5). Six rules are shared and are stated here once (D-12, D-13):
 
-- The six are fixed: L2 refines types, record keys, defaults and error classes and never adds, removes or
-  renames an entry point (D-12, `e2e-surface.md` §1, `modules.md` §3).
-- An invalid argument is refused by raising an error that names the violated contract; no entry point coerces
-  a value, substitutes a default it did not declare, swallows an error or returns part of a record
-  (`e2e-surface.md` §2).
-- This module never claims a result and never chooses the pool's membership: it declares the lineage it
-  inherits and freezes the pool that lineage yields (`module-map.md` §3, D-16, ASM-16).
+- The six are fixed: L2 refines types, record keys, defaults and error classes and never adds, removes or renames
+  an entry point (D-12, `e2e-surface.md` §1, `modules.md` §3).
+- An invalid argument is refused by raising an error that names the violated contract; no entry point coerces a
+  value, substitutes an undeclared default, swallows an error or returns part of a record (`e2e-surface.md` §2).
+- This module never claims a result and never chooses the pool's membership: it declares the lineage it inherits
+  and freezes the pool that lineage yields (`module-map.md` §3, D-16, ASM-16).
 - No entry point plays a cell, fits a rating or assembles a report: the six call
   `evaluation.protocol|league|build_pool|pool_members|opponent`, `agents.build_learner|act|learn|save`,
   `features.build_encoder|encode|observation_spec|legal_indices|decode_action` and
   `engine.game_config|new_hand|play_hand|payoffs`, and no call outside those four lists (`module-map.md` §2, D-13).
-- The global `random` stream is moved by dealing and nothing else: every deal goes through `engine.new_hand`,
-  the project's single seeding point, and no call here seeds or advances it (ASM-2, `protocol.md` §4,
-  `engine/surface.md` §4).
+- The global `random` stream is moved by dealing and nothing else: every deal goes through `engine.new_hand`, the
+  project's single seeding point, and no call here seeds or advances it (ASM-2, `protocol.md` §4).
 - Every returned value is plain data — a mapping, a sequence of names or a path — so no record returned here
   exposes a learner, an encoder, a policy or a pool (`e2e-surface.md` §1, D-1). A record carries the keys
-  `records.md` marks **required** and, beyond them, only this module's own keys, which no caller may depend on
-  (`records.md` §1, D-13).
+  `records.md` marks **required** and, beyond them, only this module's own keys (`records.md` §1, D-13).
 
-The module's one job is the rung registry plus the one training loop every rung is a configuration of
-(`module-map.md` §1, D-3). The loop itself, the registry's content, the budgets, the notebooks and the
-checkpoints are `loop.md`'s.
+The module's one job is the rung registry plus the one loop every rung configures (`module-map.md` §1, D-3); the
+loop, the registry's content, the budgets, the notebooks and the checkpoints are `loop.md`'s.
 
 ## 2. `rungs` — the registry (`fixed` row)
 
 - **Signature:** `rungs()`.
 - **Arguments:** none: the six rungs are brief §2's, so no parameter can vary them (`e2e-surface.md` §3.5, D-3).
-- **Returns:** one mapping keyed by the six rung names in brief §2's order — `R1`, `R2`, `R3`, `R4`, `R5`,
-  `R6` — each value the resolved configuration §3 returns, so the registry is read one way and not two
-  (`ladder.md` §2, D-3).
+- **Returns:** one mapping keyed by the six rung names in brief §2's order — `R1` … `R6` — each value the resolved
+  configuration §3 returns, so the registry is read one way and not two (`ladder.md` §2, D-3).
 - **Refusals:** none; it has no argument.
 - **Determinism and ordering:** two calls return equal records in that order, and the order is never rearranged
   without an L0 decision (D-2, D-3, `ladder.md` §2). The registry's content — each rung's axis, variants,
@@ -65,6 +63,14 @@ checkpoints are `loop.md`'s.
 - **Determinism:** one name resolves one configuration. The declared `pool.id` is the id the run record will
   carry, because it is the read-back `id` of the membership through `evaluation.pool_members`
   (`ladder.md` §3, `records.md` §8, `evaluation/surface.md` §6).
+
+### 3.1 A pool's id is read once (Rev 2, measured)
+
+Resolving reads the window the repository carries — an absent checkpoint is not a member (`loop.md` §3) — and takes
+the id from `pool_members`' read-back, so a registry rung's declared id *is* the digest and its record carries one
+id, not two: two would make "both arms trained against one pool" unreadable (FAM-3.18). A configuration in no
+registry that declares its own `id` has that id carried, with the digest of what it froze not listed beside it
+(FAM-15.2).
 
 ## 4. `run` — the one loop's record (`general` row)
 
@@ -110,6 +116,29 @@ The run record's keys (`records.md` §12's **required** set is exactly these ten
 | `timings` | the cost record: hands played, wall clock, seconds per hand and the throughput, per variant and per seed — the facts `harness.timings` reports, measured by the run itself because no `harness` edge reaches this module (`records.md` §12, `e2e-surface.md` §3.6, D-7, ASM-15) |
 | `variants` | this module's own: each variant's backend, encoding, architecture, declared samples and the snapshot interval it used |
 
+### 4.1 The three further keys a complete report needs (Rev 2, measured)
+
+`evaluation.report` judges a record against **seven** families, each a key of that record, and the battery withholds
+each in turn (`battery.md` §3 FAM-11.2–11.8, `evaluation/surface.md` §13). A run is the only producer of three of
+them, and states them beside the ten keys above without claiming what it did not measure (D-6):
+
+- `header` — `protocol.md` §1's nine items, all from granted calls or this record: the game (`game_config`), the
+  vocabulary (`decode_action`), the **declared** parameter budget per variant and the baselines' declared `0`, the
+  sample budget, the cell size `evaluation.league` declares for this `table`, the seed set, the table seed, the
+  device and the checkpoint paths. D-5 forbids a notebook importing `engine` or `features` (`ladder.md` §7), so this
+  is the only route by which the game and the vocabulary reach a report.
+- `baselines` — the three pinned baselines as declared rows at the league's cell size, `measured: false`: the rows
+  are the matrix's to fill and a run plays no cell (D-16, `protocol.md` §3).
+- `axis row` — `n/a, single variant` for a one-variant rung, explicit and never a blank; a two-variant rung omits it,
+  the pair's cell being `evaluation`'s measurement. `matrix` and `rating` are the caller's to attach.
+
+### 4.2 The vocabulary a run checks against (Rev 2)
+
+A `backend`, `encoding` or `architecture.kind` is refused against **this module's own declaration** of the two
+backends, two encodings and seven kinds (`loop.md` §2, `docs/L3/agents/architecture.md` §1): `agents.learners()`
+and `features.encodings()` are not among the calls `module-map.md` §2 grants, so a run names the offending value and
+`features.build_encoder` and `agents.build_learner` remain the authority, refusing it in turn.
+
 ## 5. `fairness` — what a pair holds constant (`general` row)
 
 - **Signature:** `fairness(left, right)`.
@@ -146,6 +175,19 @@ The run record's keys (`records.md` §12's **required** set is exactly these ten
   one thing a reportable comparison may differ on is the axis it declares (D-3, D-6, `ladder.md` §4). A pair of two
   variants declaring different pools is refused too, naming both, because both arms of a pair train against one frozen
   pool (ASM-16, `ladder.md` §4).
+
+### 5.1 The axis rule the matched capacities force (Rev 2, measured)
+
+`architecture` — width and depth — is compared **only between two sides that agree on the representation family and
+on `sparsity`**. Where they differ on either, the width is the capacity match's compensation and belongs to the axis
+that caused it: ASM-10 requires a `sparse` arm to be declared wider than its dense mate, its trunk term `D·(k + W)`
+shrinking with `s`, and a token encoding to sit at a different width than a 203-wide dense one. Counting that width
+again would refuse R2–R3 (`encoding` and `architecture`) and R5's own pair (`architecture` and `connectivity`) — both
+rungs the ladder exists to report (`docs/L3/agents/architecture.md` §5). With this rule the eight reportable pairs
+differ on one axis exactly: R1–R2 `backend`; R2–R3 `encoding`; R3–R4 and R4–R5 on nothing, where the later rung's
+declared axis is still the axis it is for; R5–R6 `residual`; R4's, R5's and R6's own pairs `architecture`,
+`connectivity`, `residual`.
+
 - **Refusals:** a side that is neither a configuration nor a variant entry, naming it; two sides of different kinds; a
   configuration missing a key the comparison reads, naming it; more than one differing axis, naming them; two variants
   of one configuration declaring different pool ids (D-3, ASM-16).
@@ -158,33 +200,26 @@ The run record's keys (`records.md` §12's **required** set is exactly these ten
 - **Signature:** `devices()`.
 - **Arguments:** none: the platform is not a parameter (D-8).
 - **Returns:** one mapping read under these keys — `available`, the device names `run` accepts and always
-  containing `cpu`; `default`, the one a run uses when none is named; and `gpu`, whether the platform exposes
-  one and the name it goes by, with the reason it is unavailable where the sandbox denies it (D-8,
-  `protocol.md` §6).
-- **Rules:** `cpu` is always available and every rung and both table budgets run on it (D-8, ASM-15). A GPU is
-  reported available only when the device actually opens: a run started by this workflow is CPU-bound because
-  the file sandbox denies the device nodes, and a GPU run is the user's, started outside it (D-8,
-  `strata/platform.md`, `protocol.md` §6).
+  containing `cpu`; `default`, the one a run uses when none is named; and `gpu`, whether the platform exposes one
+  and the name it goes by, with the reason it is unavailable (D-8, `protocol.md` §6).
+- **Rules:** `cpu` is always available and every rung and both table budgets run on it (D-8, ASM-15). `gpu` is
+  reported available only when the device actually opens **and a backend reports it usable** (Rev 2, measured: the
+  device nodes open in the sandbox while the backend reports no usable device, D-8, `strata/platform.md`).
 - **Refusals:** none; it has no argument.
-- **Determinism:** two calls on one platform agree, and the answer depends on the platform and not on the
-  caller; a run records the device it used, so a GPU run and a CPU run are never confused (D-8,
-  `protocol.md` §6).
+- **Determinism:** two calls on one platform agree, and the answer depends on the platform and not on the caller;
+  a run records the device it used, so a GPU run and a CPU run are never confused (D-8, `protocol.md` §6).
 
 ## 7. `checkpoints` — the shipped index (`general` row)
 
 - **Signature:** `checkpoints()`.
 - **Arguments:** none: the shipped set is the repository's (`protocol.md` §5).
-- **Returns:** the shipped index — a mapping naming, per rung and variant and seed, that variant's final model,
-  and per rung the retained versions of the window its successor inherits. Every path it names is an artefact
-  inside the repository that `evaluation.policy_from` loads, and every artefact appears once
-  (`protocol.md` §5, `records.md` §7, `evaluation/surface.md` §12). What ships and how the window is declared
-  is `loop.md` §7.
-- **Behaviour:** the index is declared data over `checkpoints/`, never a directory scan, so a scratch file the
-  battery wrote is not a shipped artefact and is never listed (`protocol.md` §5, `battery.md` §3 FAM-12,
-  FAM-16).
-- **Refusals:** none; it has no argument. An artefact the index names and the repository does not carry is a
-  defect of the shipped set, not a silent omission — the index is not filtered to what happens to be on disk
-  (`protocol.md` §5, `records.md` §12).
-- **Determinism and ordering:** two calls return equal listings in one declared order, and no artefact is
-  listed twice, because a variant's final model and the window's retained versions never share a file
-  (ASM-18, `protocol.md` §5, `battery.md` §3 FAM-12).
+- **Returns:** the shipped index — naming per rung and variant and seed that variant's final model, and per rung the
+  retained versions of the window its successor inherits. Every path is an artefact inside the repository that
+  `evaluation.policy_from` loads, and every artefact appears once (`protocol.md` §5, `records.md` §7). What ships and
+  how the window is declared is `loop.md` §7.
+- **Behaviour:** declared data over `checkpoints/`, never a directory scan, so a scratch file the battery wrote is
+  not a shipped artefact and is never listed (`battery.md` §3 FAM-12, FAM-16).
+- **Refusals:** none. An artefact the index names and the repository does not carry is a defect of the shipped set,
+  not a silent omission — the index is not filtered to what happens to be on disk (`records.md` §12).
+- **Determinism and ordering:** two calls return equal listings in one declared order, and no artefact is listed
+  twice, because a final model and the window's retained versions never share a file (ASM-18).

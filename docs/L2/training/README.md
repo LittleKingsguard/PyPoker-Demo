@@ -25,7 +25,7 @@ configuration runs without new code (D-3, `ladder.md` §1, `battery.md` §3 FAM-
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
-| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12) |
+| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further record keys a complete report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force) — four facts a measurement forced, each with its rejected alternative |
 | `loop.md` | the ladder and its edges | the registry as data (§1); the configuration schema and the matched pair (§2); the one loop, step by step (§3); what a comparison holds constant and the R1/R2 parity rung (§4); budgets and devices (§5); the notebooks (§6); the checkpoints that ship (§7); the contracts at this edge (§8) and the battery invariants this module carries (§9) (D-3, D-7, D-8, D-16, ASM-8, ASM-18) |
 
 ## 3. Boundaries

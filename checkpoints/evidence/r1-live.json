@@ -1,0 +1,1793 @@
+{
+ "stages": {
+  "run_R1_live": {
+   "seconds": 340.50445855699945
+  },
+  "build_pool": {
+   "seconds": 1.2364005669951439e-05
+  },
+  "matrix_live": {
+   "seconds": 102.70244010700844
+  },
+  "rating": {
+   "seconds": 0.012010701990220696
+  },
+  "report": {
+   "seconds": 0.00012172997230663896
+  }
+ },
+ "errors": [],
+ "rungs": {
+  "R1": {
+   "axis": "a naive numeric encoding of the cards, in hand-rolled NumPy (D-7)",
+   "primary": "naive-numeric",
+   "carried_from": null,
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "m": 5,
+    "lineage": null,
+    "versions": []
+   },
+   "variants": [
+    {
+     "name": "naive-numeric",
+     "backend": "numpy",
+     "encoding": "flat-numeric",
+     "architecture": {
+      "kind": "naive-stack",
+      "width": 36,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    }
+   ]
+  },
+  "R2": {
+   "axis": "the same model in PyTorch, for the speed difference (D-7)",
+   "primary": "naive-numeric-torch",
+   "carried_from": "naive-numeric",
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "m": 5,
+    "lineage": "R1 naive-numeric",
+    "versions": []
+   },
+   "variants": [
+    {
+     "name": "naive-numeric-torch",
+     "backend": "torch",
+     "encoding": "flat-numeric",
+     "architecture": {
+      "kind": "naive-stack",
+      "width": 36,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    }
+   ]
+  },
+  "R3": {
+   "axis": "card tokenisation into a learned embedding (D-3)",
+   "primary": "card-tokens",
+   "carried_from": "naive-numeric-torch",
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "m": 5,
+    "lineage": "R2 naive-numeric-torch",
+    "versions": []
+   },
+   "variants": [
+    {
+     "name": "card-tokens",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "token-embedding",
+      "width": 50,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    }
+   ]
+  },
+  "R4": {
+   "axis": "width against depth, at one budget (D-3)",
+   "primary": "deep",
+   "carried_from": "card-tokens",
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "m": 5,
+    "lineage": "R3 card-tokens",
+    "versions": []
+   },
+   "variants": [
+    {
+     "name": "wide",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "wide",
+      "width": 62,
+      "depth": 1,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    },
+    {
+     "name": "deep",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "deep",
+      "width": 50,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    }
+   ]
+  },
+  "R5": {
+   "axis": "dense against sparse connectivity, at one budget (D-3)",
+   "primary": "dense",
+   "carried_from": "deep",
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "m": 5,
+    "lineage": "R4 deep",
+    "versions": []
+   },
+   "variants": [
+    {
+     "name": "dense",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "deep",
+      "width": 50,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    },
+    {
+     "name": "sparse",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "sparse",
+      "width": 62,
+      "depth": 2,
+      "sparsity": 0.5,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    }
+   ]
+  },
+  "R6": {
+   "axis": "a residual path against none, at R5's depth (D-3)",
+   "primary": "residual",
+   "carried_from": "dense",
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "m": 5,
+    "lineage": "R5 dense",
+    "versions": []
+   },
+   "variants": [
+    {
+     "name": "residual",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "residual",
+      "width": 50,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": true
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    },
+    {
+     "name": "plain",
+     "backend": "torch",
+     "encoding": "card-tokens",
+     "architecture": {
+      "kind": "plain",
+      "width": 50,
+      "depth": 2,
+      "sparsity": 0.0,
+      "residual": false
+     },
+     "samples": 1000,
+     "snapshot_every": 100
+    }
+   ]
+  }
+ },
+ "devices": {
+  "available": [
+   "cpu"
+  ],
+  "default": "cpu",
+  "gpu": {
+   "available": false,
+   "name": null,
+   "reason": "a device node opens, but torch reports no usable device"
+  }
+ },
+ "run": {
+  "rung": "R1",
+  "curves": {
+   "naive-numeric": {
+    "samples": [
+     100,
+     200,
+     300,
+     400,
+     500,
+     600,
+     700,
+     800,
+     900,
+     1000
+    ],
+    "seeds": {
+     "0": {
+      "samples": [
+       100,
+       200,
+       300,
+       400,
+       500,
+       600,
+       700,
+       800,
+       900,
+       1000
+      ],
+      "td_error": [
+       1.8542510524135272,
+       1.999341332319029,
+       1.9029237664717376,
+       2.321305230305611,
+       2.7341355753646823,
+       2.8741038831006755,
+       3.0177675884484922,
+       2.9590782174775487,
+       2.8692268307678526,
+       2.773373419523473
+      ]
+     },
+     "1": {
+      "samples": [
+       100,
+       200,
+       300,
+       400,
+       500,
+       600,
+       700,
+       800,
+       900,
+       1000
+      ],
+      "td_error": [
+       1.83843821469337,
+       2.0317828873792587,
+       2.0981715902617184,
+       2.1758935685783953,
+       2.1306692430597587,
+       2.7478266731911942,
+       1.5224859130123327,
+       2.626885858484483,
+       3.079947149371802,
+       3.087846997674313
+      ]
+     },
+     "2": {
+      "samples": [
+       100,
+       200,
+       300,
+       400,
+       500,
+       600,
+       700,
+       800,
+       900,
+       1000
+      ],
+      "td_error": [
+       1.810185429470695,
+       1.9419425439509128,
+       2.1636860229688053,
+       1.9537802979971248,
+       2.0495658250441053,
+       2.590904122948376,
+       3.233915151284932,
+       3.214114101474983,
+       3.3124730110378233,
+       3.244066022005064
+      ]
+     }
+    },
+    "spread": [
+     0.018227100808480192,
+     0.03714590258273873,
+     0.11076040608302899,
+     0.15112666953509798,
+     0.3053932113218693,
+     0.11584123458306247,
+     0.7609626283296725,
+     0.24042371736985055,
+     0.1810274703954547,
+     0.1957463043354096
+    ]
+   }
+  },
+  "pool": {
+   "id": "pool-bcbea031cb617939",
+   "lineage": null,
+   "m": 5,
+   "frozen": true,
+   "members": [
+    {
+     "id": "random",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "always-call",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "oracle",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    }
+   ]
+  },
+  "checkpoints": {
+   "naive-numeric": {
+    "0": {
+     "snapshots": [
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt"
+     ],
+     "final": "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/final.ckpt"
+    },
+    "1": {
+     "snapshots": [
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt"
+     ],
+     "final": "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/final.ckpt"
+    },
+    "2": {
+     "snapshots": [
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt"
+     ],
+     "final": "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/final.ckpt"
+    }
+   }
+  },
+  "seeds": [
+   0,
+   1,
+   2
+  ],
+  "budget": 1000,
+  "device": "cpu",
+  "params": {
+   "naive-numeric": {
+    "budget": 10000,
+    "tolerance": 0.02
+   }
+  },
+  "table": "live",
+  "timings": {
+   "naive-numeric": {
+    "0": {
+     "hands": 1000,
+     "wall_clock_seconds": 119.61296420695726,
+     "seconds_per_hand": 0.11961296420695726,
+     "hands_per_second": 8.360297787368397,
+     "device": "cpu"
+    },
+    "1": {
+     "hands": 1000,
+     "wall_clock_seconds": 104.9303360239719,
+     "seconds_per_hand": 0.1049303360239719,
+     "hands_per_second": 9.530132446841156,
+     "device": "cpu"
+    },
+    "2": {
+     "hands": 1000,
+     "wall_clock_seconds": 115.95985965,
+     "seconds_per_hand": 0.11595985965,
+     "hands_per_second": 8.62367376968449,
+     "device": "cpu"
+    }
+   }
+  },
+  "variants": {
+   "naive-numeric": {
+    "backend": "numpy",
+    "encoding": "flat-numeric",
+    "architecture": {
+     "kind": "naive-stack",
+     "width": 36,
+     "depth": 2,
+     "sparsity": 0.0,
+     "residual": false
+    },
+    "samples": 1000,
+    "snapshot_every": 100
+   }
+  },
+  "header": {
+   "game": {
+    "game": "fixed-limit texas hold'em",
+    "seats": 2,
+    "player_count": 2,
+    "button_seat": 0,
+    "blinds": [
+     1,
+     2
+    ],
+    "small_blind": 1,
+    "big_blind": 2,
+    "blind_levels": 1,
+    "starting_stack": 20,
+    "starting_stacks": [
+     20,
+     20
+    ],
+    "small_bet": 2,
+    "big_bet": 4,
+    "limit": [
+     2,
+     4
+    ],
+    "raise_cap": 4,
+    "streets": [
+     "preflop",
+     "flop",
+     "turn",
+     "river"
+    ]
+   },
+   "action space": {
+    "0": "fold",
+    "1": "check-call",
+    "2": "raise"
+   },
+   "parameter counts": {
+    "random": 0,
+    "always-call": 0,
+    "oracle": 0,
+    "naive-numeric": 10000,
+    "variant-1": 10000
+   },
+   "sample budget": 1000,
+   "cell size": 120,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "table seed": 20261105,
+   "device": "cpu",
+   "checkpoints": [
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/final.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/final.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/final.ckpt"
+   ],
+   "snapshot interval": 100
+  },
+  "baselines": {
+   "rows": [
+    {
+     "member": "random",
+     "hand count": 120,
+     "pinned": true,
+     "measured": false
+    },
+    {
+     "member": "always-call",
+     "hand count": 120,
+     "pinned": true,
+     "measured": false
+    },
+    {
+     "member": "oracle",
+     "hand count": 120,
+     "pinned": true,
+     "measured": false
+    }
+   ],
+   "note": "the three pinned baselines are pool members and table rows; the run declares the row and measures no cell (D-16, protocol.md \u00a73)"
+  },
+  "axis row": "n/a, single variant",
+  "matrix": {
+   "members": [
+    "random",
+    "always-call",
+    "oracle",
+    "variant-1"
+   ],
+   "cells": [
+    {
+     "members": [
+      "random",
+      "always-call"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 57,
+       "ties": 5,
+       "losses": 58,
+       "mean_chip_delta": 0.4083333333333333,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 58,
+       "ties": 5,
+       "losses": 57,
+       "mean_chip_delta": -0.4083333333333333,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      0
+     ],
+     "seed": 1561124916,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "random",
+      "oracle"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 57,
+       "ties": 3,
+       "losses": 60,
+       "mean_chip_delta": 0.30833333333333335,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 60,
+       "ties": 3,
+       "losses": 57,
+       "mean_chip_delta": -0.30833333333333335,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      0
+     ],
+     "seed": 925068725,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "random",
+      "variant-1"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 17,
+       "ties": 0,
+       "losses": 103,
+       "mean_chip_delta": -3.65,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 103,
+       "ties": 0,
+       "losses": 17,
+       "mean_chip_delta": 3.65,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      10119
+     ],
+     "seed": 1335095633,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "always-call",
+      "oracle"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 57,
+       "ties": 6,
+       "losses": 57,
+       "mean_chip_delta": 0.0,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 57,
+       "ties": 6,
+       "losses": 57,
+       "mean_chip_delta": 0.0,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      0
+     ],
+     "seed": 825474991,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "always-call",
+      "variant-1"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 63,
+       "ties": 6,
+       "losses": 51,
+       "mean_chip_delta": 1.05,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 51,
+       "ties": 6,
+       "losses": 63,
+       "mean_chip_delta": -1.05,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      10119
+     ],
+     "seed": 2039750472,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "oracle",
+      "variant-1"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 58,
+       "ties": 6,
+       "losses": 56,
+       "mean_chip_delta": 1.2,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 56,
+       "ties": 6,
+       "losses": 58,
+       "mean_chip_delta": -1.2,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      10119
+     ],
+     "seed": 1980548999,
+     "unlabelled": []
+    }
+   ],
+   "hands_per_cell": 120,
+   "table_seed": 20261105,
+   "table": "live",
+   "pool": "pool-bcbea031cb617939",
+   "member_records": [
+    {
+     "id": "random",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "always-call",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "oracle",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "variant-1",
+     "params": 10119,
+     "unlabelled": false
+    }
+   ],
+   "unlabelled": [],
+   "cell_count": 6
+  },
+  "rating": {
+   "values": {
+    "random": {
+     "value": -0.2822439967945899,
+     "interval": [
+      -0.4321609518099218,
+      -0.12083738741852698
+     ],
+     "hands": 360,
+     "bounded": false
+    },
+    "always-call": {
+     "value": 0.1580492551833344,
+     "interval": [
+      0.013236889781243096,
+      0.3211775575852004
+     ],
+     "hands": 360,
+     "bounded": false
+    },
+    "oracle": {
+     "value": 0.12419474161125552,
+     "interval": [
+      -0.01564104348592353,
+      0.2590611536899065
+     ],
+     "hands": 360,
+     "bounded": false
+    },
+    "variant-1": {
+     "value": 0.4098718719589115,
+     "interval": [
+      0.23612086632298054,
+      0.605888380274019
+     ],
+     "hands": 360,
+     "bounded": false
+    }
+   },
+   "method": "Bradley-Terry",
+   "anchor": "the three baselines' mean fixed at 0",
+   "bound_applied": false,
+   "bootstrap_seed": 1609833776,
+   "converged": true,
+   "bound": 10.0,
+   "tolerance": 1e-10,
+   "iterations": 27,
+   "resamples": 200,
+   "hands_per_cell": 120,
+   "members": [
+    "random",
+    "always-call",
+    "oracle",
+    "variant-1"
+   ],
+   "table_seed": 20261105,
+   "table": "live"
+  }
+ },
+ "run_wall_clock_seconds": 340.50315988092916,
+ "run_hands": 3000,
+ "pool_versions": [],
+ "pool_record": {
+  "id": "pool-bcbea031cb617939",
+  "m": 5,
+  "frozen": true,
+  "members": [
+   {
+    "id": "random",
+    "baseline": true,
+    "pinned": true,
+    "params": 0
+   },
+   {
+    "id": "always-call",
+    "baseline": true,
+    "pinned": true,
+    "params": 0
+   },
+   {
+    "id": "oracle",
+    "baseline": true,
+    "pinned": true,
+    "params": 0
+   }
+  ]
+ },
+ "r2_pool": {
+  "id": "pool-bcbea031cb617939",
+  "versions": []
+ },
+ "matrix": {
+  "members": [
+   "random",
+   "always-call",
+   "oracle",
+   "variant-1"
+  ],
+  "cells": [
+   {
+    "members": [
+     "random",
+     "always-call"
+    ],
+    "hands": 120,
+    "directions": [
+     {
+      "wins": 57,
+      "ties": 5,
+      "losses": 58,
+      "mean_chip_delta": 0.4083333333333333,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     },
+     {
+      "wins": 58,
+      "ties": 5,
+      "losses": 57,
+      "mean_chip_delta": -0.4083333333333333,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     }
+    ],
+    "params": [
+     0,
+     0
+    ],
+    "seed": 1561124916,
+    "unlabelled": []
+   },
+   {
+    "members": [
+     "random",
+     "oracle"
+    ],
+    "hands": 120,
+    "directions": [
+     {
+      "wins": 57,
+      "ties": 3,
+      "losses": 60,
+      "mean_chip_delta": 0.30833333333333335,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     },
+     {
+      "wins": 60,
+      "ties": 3,
+      "losses": 57,
+      "mean_chip_delta": -0.30833333333333335,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     }
+    ],
+    "params": [
+     0,
+     0
+    ],
+    "seed": 925068725,
+    "unlabelled": []
+   },
+   {
+    "members": [
+     "random",
+     "variant-1"
+    ],
+    "hands": 120,
+    "directions": [
+     {
+      "wins": 17,
+      "ties": 0,
+      "losses": 103,
+      "mean_chip_delta": -3.65,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     },
+     {
+      "wins": 103,
+      "ties": 0,
+      "losses": 17,
+      "mean_chip_delta": 3.65,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     }
+    ],
+    "params": [
+     0,
+     10119
+    ],
+    "seed": 1335095633,
+    "unlabelled": []
+   },
+   {
+    "members": [
+     "always-call",
+     "oracle"
+    ],
+    "hands": 120,
+    "directions": [
+     {
+      "wins": 57,
+      "ties": 6,
+      "losses": 57,
+      "mean_chip_delta": 0.0,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     },
+     {
+      "wins": 57,
+      "ties": 6,
+      "losses": 57,
+      "mean_chip_delta": 0.0,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     }
+    ],
+    "params": [
+     0,
+     0
+    ],
+    "seed": 825474991,
+    "unlabelled": []
+   },
+   {
+    "members": [
+     "always-call",
+     "variant-1"
+    ],
+    "hands": 120,
+    "directions": [
+     {
+      "wins": 63,
+      "ties": 6,
+      "losses": 51,
+      "mean_chip_delta": 1.05,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     },
+     {
+      "wins": 51,
+      "ties": 6,
+      "losses": 63,
+      "mean_chip_delta": -1.05,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     }
+    ],
+    "params": [
+     0,
+     10119
+    ],
+    "seed": 2039750472,
+    "unlabelled": []
+   },
+   {
+    "members": [
+     "oracle",
+     "variant-1"
+    ],
+    "hands": 120,
+    "directions": [
+     {
+      "wins": 58,
+      "ties": 6,
+      "losses": 56,
+      "mean_chip_delta": 1.2,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     },
+     {
+      "wins": 56,
+      "ties": 6,
+      "losses": 58,
+      "mean_chip_delta": -1.2,
+      "seat_split": {
+       "seat 0": 60,
+       "seat 1": 60
+      }
+     }
+    ],
+    "params": [
+     0,
+     10119
+    ],
+    "seed": 1980548999,
+    "unlabelled": []
+   }
+  ],
+  "hands_per_cell": 120,
+  "table_seed": 20261105,
+  "table": "live",
+  "pool": "pool-bcbea031cb617939",
+  "member_records": [
+   {
+    "id": "random",
+    "baseline": true,
+    "pinned": true,
+    "params": 0
+   },
+   {
+    "id": "always-call",
+    "baseline": true,
+    "pinned": true,
+    "params": 0
+   },
+   {
+    "id": "oracle",
+    "baseline": true,
+    "pinned": true,
+    "params": 0
+   },
+   {
+    "id": "variant-1",
+    "params": 10119,
+    "unlabelled": false
+   }
+  ],
+  "unlabelled": [],
+  "cell_count": 6
+ },
+ "rating": {
+  "values": {
+   "random": {
+    "value": -0.2822439967945899,
+    "interval": [
+     -0.4321609518099218,
+     -0.12083738741852698
+    ],
+    "hands": 360,
+    "bounded": false
+   },
+   "always-call": {
+    "value": 0.1580492551833344,
+    "interval": [
+     0.013236889781243096,
+     0.3211775575852004
+    ],
+    "hands": 360,
+    "bounded": false
+   },
+   "oracle": {
+    "value": 0.12419474161125552,
+    "interval": [
+     -0.01564104348592353,
+     0.2590611536899065
+    ],
+    "hands": 360,
+    "bounded": false
+   },
+   "variant-1": {
+    "value": 0.4098718719589115,
+    "interval": [
+     0.23612086632298054,
+     0.605888380274019
+    ],
+    "hands": 360,
+    "bounded": false
+   }
+  },
+  "method": "Bradley-Terry",
+  "anchor": "the three baselines' mean fixed at 0",
+  "bound_applied": false,
+  "bootstrap_seed": 1609833776,
+  "converged": true,
+  "bound": 10.0,
+  "tolerance": 1e-10,
+  "iterations": 27,
+  "resamples": 200,
+  "hands_per_cell": 120,
+  "members": [
+   "random",
+   "always-call",
+   "oracle",
+   "variant-1"
+  ],
+  "table_seed": 20261105,
+  "table": "live"
+ },
+ "report_families": [
+  "axis row",
+  "baselines",
+  "curves",
+  "device",
+  "header",
+  "matrix",
+  "pool",
+  "rating",
+  "rung",
+  "seeds",
+  "table",
+  "table seed"
+ ],
+ "report": {
+  "rung": "R1",
+  "seeds": [
+   0,
+   1,
+   2
+  ],
+  "table": "live",
+  "table seed": 20261105,
+  "device": "cpu",
+  "curves": {
+   "naive-numeric": {
+    "samples": [
+     100,
+     200,
+     300,
+     400,
+     500,
+     600,
+     700,
+     800,
+     900,
+     1000
+    ],
+    "seeds": {
+     "0": {
+      "samples": [
+       100,
+       200,
+       300,
+       400,
+       500,
+       600,
+       700,
+       800,
+       900,
+       1000
+      ],
+      "td_error": [
+       1.8542510524135272,
+       1.999341332319029,
+       1.9029237664717376,
+       2.321305230305611,
+       2.7341355753646823,
+       2.8741038831006755,
+       3.0177675884484922,
+       2.9590782174775487,
+       2.8692268307678526,
+       2.773373419523473
+      ]
+     },
+     "1": {
+      "samples": [
+       100,
+       200,
+       300,
+       400,
+       500,
+       600,
+       700,
+       800,
+       900,
+       1000
+      ],
+      "td_error": [
+       1.83843821469337,
+       2.0317828873792587,
+       2.0981715902617184,
+       2.1758935685783953,
+       2.1306692430597587,
+       2.7478266731911942,
+       1.5224859130123327,
+       2.626885858484483,
+       3.079947149371802,
+       3.087846997674313
+      ]
+     },
+     "2": {
+      "samples": [
+       100,
+       200,
+       300,
+       400,
+       500,
+       600,
+       700,
+       800,
+       900,
+       1000
+      ],
+      "td_error": [
+       1.810185429470695,
+       1.9419425439509128,
+       2.1636860229688053,
+       1.9537802979971248,
+       2.0495658250441053,
+       2.590904122948376,
+       3.233915151284932,
+       3.214114101474983,
+       3.3124730110378233,
+       3.244066022005064
+      ]
+     }
+    },
+    "spread": [
+     0.018227100808480192,
+     0.03714590258273873,
+     0.11076040608302899,
+     0.15112666953509798,
+     0.3053932113218693,
+     0.11584123458306247,
+     0.7609626283296725,
+     0.24042371736985055,
+     0.1810274703954547,
+     0.1957463043354096
+    ]
+   }
+  },
+  "pool": {
+   "id": "pool-bcbea031cb617939",
+   "lineage": null,
+   "m": 5,
+   "frozen": true,
+   "members": [
+    {
+     "id": "random",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "always-call",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "oracle",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    }
+   ]
+  },
+  "matrix": {
+   "members": [
+    "random",
+    "always-call",
+    "oracle",
+    "variant-1"
+   ],
+   "cells": [
+    {
+     "members": [
+      "random",
+      "always-call"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 57,
+       "ties": 5,
+       "losses": 58,
+       "mean_chip_delta": 0.4083333333333333,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 58,
+       "ties": 5,
+       "losses": 57,
+       "mean_chip_delta": -0.4083333333333333,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      0
+     ],
+     "seed": 1561124916,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "random",
+      "oracle"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 57,
+       "ties": 3,
+       "losses": 60,
+       "mean_chip_delta": 0.30833333333333335,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 60,
+       "ties": 3,
+       "losses": 57,
+       "mean_chip_delta": -0.30833333333333335,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      0
+     ],
+     "seed": 925068725,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "random",
+      "variant-1"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 17,
+       "ties": 0,
+       "losses": 103,
+       "mean_chip_delta": -3.65,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 103,
+       "ties": 0,
+       "losses": 17,
+       "mean_chip_delta": 3.65,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      10119
+     ],
+     "seed": 1335095633,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "always-call",
+      "oracle"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 57,
+       "ties": 6,
+       "losses": 57,
+       "mean_chip_delta": 0.0,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 57,
+       "ties": 6,
+       "losses": 57,
+       "mean_chip_delta": 0.0,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      0
+     ],
+     "seed": 825474991,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "always-call",
+      "variant-1"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 63,
+       "ties": 6,
+       "losses": 51,
+       "mean_chip_delta": 1.05,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 51,
+       "ties": 6,
+       "losses": 63,
+       "mean_chip_delta": -1.05,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      10119
+     ],
+     "seed": 2039750472,
+     "unlabelled": []
+    },
+    {
+     "members": [
+      "oracle",
+      "variant-1"
+     ],
+     "hands": 120,
+     "directions": [
+      {
+       "wins": 58,
+       "ties": 6,
+       "losses": 56,
+       "mean_chip_delta": 1.2,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      },
+      {
+       "wins": 56,
+       "ties": 6,
+       "losses": 58,
+       "mean_chip_delta": -1.2,
+       "seat_split": {
+        "seat 0": 60,
+        "seat 1": 60
+       }
+      }
+     ],
+     "params": [
+      0,
+      10119
+     ],
+     "seed": 1980548999,
+     "unlabelled": []
+    }
+   ],
+   "hands_per_cell": 120,
+   "table_seed": 20261105,
+   "table": "live",
+   "pool": "pool-bcbea031cb617939",
+   "member_records": [
+    {
+     "id": "random",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "always-call",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "oracle",
+     "baseline": true,
+     "pinned": true,
+     "params": 0
+    },
+    {
+     "id": "variant-1",
+     "params": 10119,
+     "unlabelled": false
+    }
+   ],
+   "unlabelled": [],
+   "cell_count": 6
+  },
+  "rating": {
+   "values": {
+    "random": {
+     "value": -0.2822439967945899,
+     "interval": [
+      -0.4321609518099218,
+      -0.12083738741852698
+     ],
+     "hands": 360,
+     "bounded": false
+    },
+    "always-call": {
+     "value": 0.1580492551833344,
+     "interval": [
+      0.013236889781243096,
+      0.3211775575852004
+     ],
+     "hands": 360,
+     "bounded": false
+    },
+    "oracle": {
+     "value": 0.12419474161125552,
+     "interval": [
+      -0.01564104348592353,
+      0.2590611536899065
+     ],
+     "hands": 360,
+     "bounded": false
+    },
+    "variant-1": {
+     "value": 0.4098718719589115,
+     "interval": [
+      0.23612086632298054,
+      0.605888380274019
+     ],
+     "hands": 360,
+     "bounded": false
+    }
+   },
+   "method": "Bradley-Terry",
+   "anchor": "the three baselines' mean fixed at 0",
+   "bound_applied": false,
+   "bootstrap_seed": 1609833776,
+   "converged": true,
+   "bound": 10.0,
+   "tolerance": 1e-10,
+   "iterations": 27,
+   "resamples": 200,
+   "hands_per_cell": 120,
+   "members": [
+    "random",
+    "always-call",
+    "oracle",
+    "variant-1"
+   ],
+   "table_seed": 20261105,
+   "table": "live"
+  },
+  "baselines": {
+   "rows": [
+    {
+     "member": "random",
+     "hand count": 120,
+     "pinned": true,
+     "measured": false
+    },
+    {
+     "member": "always-call",
+     "hand count": 120,
+     "pinned": true,
+     "measured": false
+    },
+    {
+     "member": "oracle",
+     "hand count": 120,
+     "pinned": true,
+     "measured": false
+    }
+   ],
+   "note": "the three pinned baselines are pool members and table rows; the run declares the row and measures no cell (D-16, protocol.md \u00a73)"
+  },
+  "axis row": "n/a, single variant",
+  "header": {
+   "game": {
+    "game": "fixed-limit texas hold'em",
+    "seats": 2,
+    "player_count": 2,
+    "button_seat": 0,
+    "blinds": [
+     1,
+     2
+    ],
+    "small_blind": 1,
+    "big_blind": 2,
+    "blind_levels": 1,
+    "starting_stack": 20,
+    "starting_stacks": [
+     20,
+     20
+    ],
+    "small_bet": 2,
+    "big_bet": 4,
+    "limit": [
+     2,
+     4
+    ],
+    "raise_cap": 4,
+    "streets": [
+     "preflop",
+     "flop",
+     "turn",
+     "river"
+    ]
+   },
+   "action space": {
+    "0": "fold",
+    "1": "check-call",
+    "2": "raise"
+   },
+   "parameter counts": {
+    "random": 0,
+    "always-call": 0,
+    "oracle": 0,
+    "naive-numeric": 10000,
+    "variant-1": 10000
+   },
+   "sample budget": 1000,
+   "cell size": 120,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "table seed": 20261105,
+   "device": "cpu",
+   "checkpoints": [
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/final.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/final.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
+    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/final.ckpt"
+   ],
+   "snapshot interval": 100
+  }
+ },
+ "index_summary": {
+  "shipped": [
+   "R1"
+  ],
+  "pending": [
+   "R2",
+   "R3",
+   "R4",
+   "R5",
+   "R6"
+  ],
+  "entries": 18,
+  "all_exist": true
+ },
+ "index_missing": []
+}

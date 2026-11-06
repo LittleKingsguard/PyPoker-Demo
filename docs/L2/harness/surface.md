@@ -1,6 +1,6 @@
 # harness — the callable surface
 
-- **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05 · §2, §6: totality and never-raise scoped to §1's plain data
 - **Owner of this file:** the surface — the six module-level names of `src/harness/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.6) — plus the two
   vocabularies only this module declares: the expectation kinds (§6) and the seam labels (§5)
@@ -62,7 +62,8 @@ The six names are module-level names of the `harness` package, and nothing below
     failure: it is recorded as the refusal observation above and judged by the entry covering it, so a case that
     expected the refusal passes and any other case fails (§6). This is §1's report edge — `e2e-surface.md` §2 lets a
     violated contract raise or refuse, and `drive` reports so a broken case fails rather than erroring in the
-    caller's runner (FAM-14.10, H-6).
+    caller's runner (FAM-14.10, H-6). The guarantee covers those shapes and any outcome that is §1's plain data; an
+    object whose own mapping protocol raises is no such value, and the counter behind `hands` is no kind (§6).
 - **Returns:** the case-result record:
 
 | Key | Content |
@@ -196,8 +197,8 @@ The six names are module-level names of the `harness` package, and nothing below
 | `refused` | the value is a refusal observation: a mapping whose `refused` flag is true — the shape §2's driver builds for a step that raised | the observed work returned a value rather than refusing | `e2e-surface.md` §2, `records.md` §10, §13, FAM-8, FAM-11 |
 
 - **Rules:**
-  - **Total.** Every listed kind yields a verdict for *any* observed value; a value a kind cannot read is a named
-    failure and never a pass and never a silence (`e2e-surface.md` §3.6, `records.md` §14, FAM-14.8).
+  - **Total.** Every listed kind yields a verdict for *any* observed value — the plain data of §1, one a reader raised on included — so a
+    value a kind cannot read is a named failure and never a pass and never a silence (`e2e-surface.md` §3.6, `records.md` §14, FAM-14.8).
   - **Deterministic.** One kind and one observed value give one verdict, in one process and across processes: an
     expectation reads only the value it was handed — never a clock, a stream, a file, an ambient fixture or a
     second observation (FAM-16.36).
