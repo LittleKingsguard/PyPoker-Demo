@@ -1,33 +1,28 @@
 {
  "stages": {
   "run_R1_live": {
-   "seconds": 340.50445855699945
+   "seconds": 336.03927621402545
   },
   "build_pool": {
-   "seconds": 1.2364005669951439e-05
+   "seconds": 1.1901953257620335e-05
   },
   "matrix_live": {
-   "seconds": 102.70244010700844
+   "seconds": 110.29024880903307
   },
   "rating": {
-   "seconds": 0.012010701990220696
+   "seconds": 0.01249439496314153
   },
   "report": {
-   "seconds": 0.00012172997230663896
+   "seconds": 0.00011763296788558364
   }
  },
  "errors": [],
  "rungs": {
   "R1": {
-   "axis": "a naive numeric encoding of the cards, in hand-rolled NumPy (D-7)",
-   "primary": "naive-numeric",
+   "name": "R1",
+   "axis": "encoding \u2014 a naive numeric encoding, hand-rolled NumPy (D-7)",
    "carried_from": null,
-   "pool": {
-    "id": "pool-bcbea031cb617939",
-    "m": 5,
-    "lineage": null,
-    "versions": []
-   },
+   "primary": "naive-numeric",
    "variants": [
     {
      "name": "naive-numeric",
@@ -40,21 +35,54 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     }
-   ]
-  },
-  "R2": {
-   "axis": "the same model in PyTorch, for the speed difference (D-7)",
-   "primary": "naive-numeric-torch",
-   "carried_from": "naive-numeric",
+   ],
    "pool": {
     "id": "pool-bcbea031cb617939",
+    "lineage": null,
     "m": 5,
-    "lineage": "R1 naive-numeric",
-    "versions": []
+    "frozen": true,
+    "members": []
    },
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "samples": 1000,
+   "param_budget": 10000,
+   "table": "live",
+   "device": "cpu",
+   "snapshot_every": 100
+  },
+  "R2": {
+   "name": "R2",
+   "axis": "backend \u2014 the same model in PyTorch, for the speed difference (D-7)",
+   "carried_from": "naive-numeric",
+   "primary": "naive-numeric-torch",
    "variants": [
     {
      "name": "naive-numeric-torch",
@@ -67,21 +95,220 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     }
-   ]
+   ],
+   "pool": {
+    "id": "pool-adc21204b5fef725",
+    "lineage": "naive-numeric",
+    "m": 5,
+    "frozen": true,
+    "members": [
+     {
+      "id": "R1/naive-numeric/seed-0/step-0600",
+      "path": "checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 0,
+      "step": 600,
+      "samples": 600,
+      "lineage": "naive-numeric-start",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-0/step-0700",
+      "path": "checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 0,
+      "step": 700,
+      "samples": 700,
+      "lineage": "R1/naive-numeric/seed-0/step-0600",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-0/step-0800",
+      "path": "checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 0,
+      "step": 800,
+      "samples": 800,
+      "lineage": "R1/naive-numeric/seed-0/step-0700",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-0/step-0900",
+      "path": "checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 0,
+      "step": 900,
+      "samples": 900,
+      "lineage": "R1/naive-numeric/seed-0/step-0800",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-0/step-1000",
+      "path": "checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 0,
+      "step": 1000,
+      "samples": 1000,
+      "lineage": "R1/naive-numeric/seed-0/step-0900",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-1/step-0600",
+      "path": "checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 1,
+      "step": 600,
+      "samples": 600,
+      "lineage": "R1/naive-numeric/seed-0/step-1000",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-1/step-0700",
+      "path": "checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 1,
+      "step": 700,
+      "samples": 700,
+      "lineage": "R1/naive-numeric/seed-1/step-0600",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-1/step-0800",
+      "path": "checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 1,
+      "step": 800,
+      "samples": 800,
+      "lineage": "R1/naive-numeric/seed-1/step-0700",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-1/step-0900",
+      "path": "checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 1,
+      "step": 900,
+      "samples": 900,
+      "lineage": "R1/naive-numeric/seed-1/step-0800",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-1/step-1000",
+      "path": "checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 1,
+      "step": 1000,
+      "samples": 1000,
+      "lineage": "R1/naive-numeric/seed-1/step-0900",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-2/step-0600",
+      "path": "checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 2,
+      "step": 600,
+      "samples": 600,
+      "lineage": "R1/naive-numeric/seed-1/step-1000",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-2/step-0700",
+      "path": "checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 2,
+      "step": 700,
+      "samples": 700,
+      "lineage": "R1/naive-numeric/seed-2/step-0600",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-2/step-0800",
+      "path": "checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 2,
+      "step": 800,
+      "samples": 800,
+      "lineage": "R1/naive-numeric/seed-2/step-0700",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-2/step-0900",
+      "path": "checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 2,
+      "step": 900,
+      "samples": 900,
+      "lineage": "R1/naive-numeric/seed-2/step-0800",
+      "kind": "snapshot"
+     },
+     {
+      "id": "R1/naive-numeric/seed-2/step-1000",
+      "path": "checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
+      "rung": "R1",
+      "variant": "naive-numeric",
+      "seed": 2,
+      "step": 1000,
+      "samples": 1000,
+      "lineage": "R1/naive-numeric/seed-2/step-0900",
+      "kind": "snapshot"
+     }
+    ]
+   },
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "samples": 1000,
+   "param_budget": 10000,
+   "table": "live",
+   "device": "cpu",
+   "snapshot_every": 100
   },
   "R3": {
-   "axis": "card tokenisation into a learned embedding (D-3)",
-   "primary": "card-tokens",
+   "name": "R3",
+   "axis": "tokenisation \u2014 card tokenisation into a learned embedding",
    "carried_from": "naive-numeric-torch",
-   "pool": {
-    "id": "pool-bcbea031cb617939",
-    "m": 5,
-    "lineage": "R2 naive-numeric-torch",
-    "versions": []
-   },
+   "primary": "card-tokens",
    "variants": [
     {
      "name": "card-tokens",
@@ -94,21 +321,54 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     }
-   ]
-  },
-  "R4": {
-   "axis": "width against depth, at one budget (D-3)",
-   "primary": "deep",
-   "carried_from": "card-tokens",
+   ],
    "pool": {
     "id": "pool-bcbea031cb617939",
+    "lineage": "naive-numeric-torch",
     "m": 5,
-    "lineage": "R3 card-tokens",
-    "versions": []
+    "frozen": true,
+    "members": []
    },
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "samples": 1000,
+   "param_budget": 10000,
+   "table": "live",
+   "device": "cpu",
+   "snapshot_every": 100
+  },
+  "R4": {
+   "name": "R4",
+   "axis": "width against depth, at one budget",
+   "carried_from": "card-tokens",
+   "primary": "deep",
    "variants": [
     {
      "name": "wide",
@@ -121,8 +381,29 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     },
     {
      "name": "deep",
@@ -135,21 +416,54 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     }
-   ]
-  },
-  "R5": {
-   "axis": "dense against sparse connectivity, at one budget (D-3)",
-   "primary": "dense",
-   "carried_from": "deep",
+   ],
    "pool": {
     "id": "pool-bcbea031cb617939",
+    "lineage": "card-tokens",
     "m": 5,
-    "lineage": "R4 deep",
-    "versions": []
+    "frozen": true,
+    "members": []
    },
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "samples": 1000,
+   "param_budget": 10000,
+   "table": "live",
+   "device": "cpu",
+   "snapshot_every": 100
+  },
+  "R5": {
+   "name": "R5",
+   "axis": "dense against sparse connectivity, at one budget",
+   "carried_from": "deep",
+   "primary": "dense",
    "variants": [
     {
      "name": "dense",
@@ -162,8 +476,29 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     },
     {
      "name": "sparse",
@@ -176,21 +511,54 @@
       "sparsity": 0.5,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     }
-   ]
-  },
-  "R6": {
-   "axis": "a residual path against none, at R5's depth (D-3)",
-   "primary": "residual",
-   "carried_from": "dense",
+   ],
    "pool": {
     "id": "pool-bcbea031cb617939",
+    "lineage": "deep",
     "m": 5,
-    "lineage": "R5 dense",
-    "versions": []
+    "frozen": true,
+    "members": []
    },
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "samples": 1000,
+   "param_budget": 10000,
+   "table": "live",
+   "device": "cpu",
+   "snapshot_every": 100
+  },
+  "R6": {
+   "name": "R6",
+   "axis": "residual \u2014 a residual path against none, at R5's depth",
+   "carried_from": "dense",
+   "primary": "residual",
    "variants": [
     {
      "name": "residual",
@@ -203,8 +571,29 @@
       "sparsity": 0.0,
       "residual": true
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     },
     {
      "name": "plain",
@@ -217,10 +606,48 @@
       "sparsity": 0.0,
       "residual": false
      },
+     "learning_rule": "masked-q-learning",
+     "hyper": {
+      "learning_rate": 0.001,
+      "batch_size": 32,
+      "target_update_interval": 200,
+      "optimiser": "sgd",
+      "exploration": {
+       "start": 1.0,
+       "end": 0.05,
+       "samples": 2000
+      },
+      "discount": 0.99
+     },
+     "param_budget": 10000,
      "samples": 1000,
-     "snapshot_every": 100
+     "seeds": [
+      0,
+      1,
+      2
+     ],
+     "device": "cpu",
+     "snapshot_every": 100,
+     "table": "live"
     }
-   ]
+   ],
+   "pool": {
+    "id": "pool-bcbea031cb617939",
+    "lineage": "dense",
+    "m": 5,
+    "frozen": true,
+    "members": []
+   },
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "samples": 1000,
+   "param_budget": 10000,
+   "table": "live",
+   "device": "cpu",
+   "snapshot_every": 100
   }
  },
  "devices": {
@@ -265,16 +692,16 @@
        1000
       ],
       "td_error": [
-       1.8542510524135272,
-       1.999341332319029,
-       1.9029237664717376,
-       2.321305230305611,
-       2.7341355753646823,
-       2.8741038831006755,
-       3.0177675884484922,
-       2.9590782174775487,
-       2.8692268307678526,
-       2.773373419523473
+       1.8666499608944058,
+       1.9942943468272,
+       1.9335658483651819,
+       2.3118530197507896,
+       2.8567150931055387,
+       2.839925265459599,
+       2.7968478852276597,
+       1.7605508239798835,
+       2.0260670432680796,
+       3.061918596917939
       ]
      },
      "1": {
@@ -291,16 +718,16 @@
        1000
       ],
       "td_error": [
-       1.83843821469337,
-       2.0317828873792587,
-       2.0981715902617184,
-       2.1758935685783953,
-       2.1306692430597587,
-       2.7478266731911942,
-       1.5224859130123327,
-       2.626885858484483,
-       3.079947149371802,
-       3.087846997674313
+       1.8387166811580176,
+       2.0200674007536525,
+       2.1267361531380042,
+       2.4702187798979547,
+       2.517934973639553,
+       2.8669031315025757,
+       2.7627444306092737,
+       2.6405925369843426,
+       2.2935237804148367,
+       1.929534951592939
       ]
      },
      "2": {
@@ -317,30 +744,30 @@
        1000
       ],
       "td_error": [
-       1.810185429470695,
-       1.9419425439509128,
-       2.1636860229688053,
-       1.9537802979971248,
-       2.0495658250441053,
-       2.590904122948376,
-       3.233915151284932,
-       3.214114101474983,
-       3.3124730110378233,
-       3.244066022005064
+       1.7993952588389797,
+       1.9834396963369076,
+       2.1665271041680576,
+       1.879651772496485,
+       1.9714830331835578,
+       2.1075368686715974,
+       2.3217195902701877,
+       3.0332389208330652,
+       3.0851794142943203,
+       3.249865140212239
       ]
      }
     },
     "spread": [
-     0.018227100808480192,
-     0.03714590258273873,
-     0.11076040608302899,
-     0.15112666953509798,
-     0.3053932113218693,
-     0.11584123458306247,
-     0.7609626283296725,
-     0.24042371736985055,
-     0.1810274703954547,
-     0.1957463043354096
+     0.06725470205542616,
+     0.0366277044167449,
+     0.23296125580287574,
+     0.5905670074014697,
+     0.885232059921981,
+     0.7593662628309783,
+     0.475128294957472,
+     1.2726880968531817,
+     1.0591123710262407,
+     1.3203301886193
     ]
    }
   },
@@ -414,7 +841,8 @@
   "params": {
    "naive-numeric": {
     "budget": 10000,
-    "tolerance": 0.02
+    "lower": 9800.0,
+    "upper": 10200.0
    }
   },
   "table": "live",
@@ -422,29 +850,27 @@
    "naive-numeric": {
     "0": {
      "hands": 1000,
-     "wall_clock_seconds": 119.61296420695726,
-     "seconds_per_hand": 0.11961296420695726,
-     "hands_per_second": 8.360297787368397,
-     "device": "cpu"
+     "wall_clock_seconds": 117.03892362298211,
+     "seconds_per_hand": 0.11703892362298211,
+     "hands_per_second": 8.544166069241234
     },
     "1": {
      "hands": 1000,
-     "wall_clock_seconds": 104.9303360239719,
-     "seconds_per_hand": 0.1049303360239719,
-     "hands_per_second": 9.530132446841156,
-     "device": "cpu"
+     "wall_clock_seconds": 104.7669885570067,
+     "seconds_per_hand": 0.1047669885570067,
+     "hands_per_second": 9.544991354369907
     },
     "2": {
      "hands": 1000,
-     "wall_clock_seconds": 115.95985965,
-     "seconds_per_hand": 0.11595985965,
-     "hands_per_second": 8.62367376968449,
-     "device": "cpu"
+     "wall_clock_seconds": 111.36911400099052,
+     "seconds_per_hand": 0.11136911400099052,
+     "hands_per_second": 8.979150179744682
     }
    }
   },
-  "variants": {
-   "naive-numeric": {
+  "variants": [
+   {
+    "name": "naive-numeric",
     "backend": "numpy",
     "encoding": "flat-numeric",
     "architecture": {
@@ -457,7 +883,7 @@
     "samples": 1000,
     "snapshot_every": 100
    }
-  },
+  ],
   "header": {
    "game": {
     "game": "fixed-limit texas hold'em",
@@ -611,7 +1037,7 @@
        "wins": 57,
        "ties": 3,
        "losses": 60,
-       "mean_chip_delta": 0.30833333333333335,
+       "mean_chip_delta": 0.39166666666666666,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -621,7 +1047,7 @@
        "wins": 60,
        "ties": 3,
        "losses": 57,
-       "mean_chip_delta": -0.30833333333333335,
+       "mean_chip_delta": -0.39166666666666666,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -643,20 +1069,20 @@
      "hands": 120,
      "directions": [
       {
-       "wins": 17,
+       "wins": 9,
        "ties": 0,
-       "losses": 103,
-       "mean_chip_delta": -3.65,
+       "losses": 111,
+       "mean_chip_delta": -4.833333333333333,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
        }
       },
       {
-       "wins": 103,
+       "wins": 111,
        "ties": 0,
-       "losses": 17,
-       "mean_chip_delta": 3.65,
+       "losses": 9,
+       "mean_chip_delta": 4.833333333333333,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -716,7 +1142,7 @@
        "wins": 63,
        "ties": 6,
        "losses": 51,
-       "mean_chip_delta": 1.05,
+       "mean_chip_delta": 1.2833333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -726,7 +1152,7 @@
        "wins": 51,
        "ties": 6,
        "losses": 63,
-       "mean_chip_delta": -1.05,
+       "mean_chip_delta": -1.2833333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -749,19 +1175,19 @@
      "directions": [
       {
        "wins": 58,
-       "ties": 6,
-       "losses": 56,
-       "mean_chip_delta": 1.2,
+       "ties": 4,
+       "losses": 58,
+       "mean_chip_delta": 1.7333333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
        }
       },
       {
-       "wins": 56,
-       "ties": 6,
+       "wins": 58,
+       "ties": 4,
        "losses": 58,
-       "mean_chip_delta": -1.2,
+       "mean_chip_delta": -1.7333333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -811,37 +1237,37 @@
   "rating": {
    "values": {
     "random": {
-     "value": -0.2822439967945899,
+     "value": -0.32883650535109454,
      "interval": [
-      -0.4321609518099218,
-      -0.12083738741852698
+      -0.48104125475526555,
+      -0.17045670560387302
      ],
      "hands": 360,
      "bounded": false
     },
     "always-call": {
-     "value": 0.1580492551833344,
+     "value": 0.18572816494167615,
      "interval": [
-      0.013236889781243096,
-      0.3211775575852004
+      0.039323780873805045,
+      0.3477999350799521
      ],
      "hands": 360,
      "bounded": false
     },
     "oracle": {
-     "value": 0.12419474161125552,
+     "value": 0.14310834040941836,
      "interval": [
-      -0.01564104348592353,
-      0.2590611536899065
+      0.0026486280426915336,
+      0.27859514028563104
      ],
      "hands": 360,
      "bounded": false
     },
     "variant-1": {
-     "value": 0.4098718719589115,
+     "value": 0.5182078734126888,
      "interval": [
-      0.23612086632298054,
-      0.605888380274019
+      0.3445550910139468,
+      0.7087477222264041
      ],
      "hands": 360,
      "bounded": false
@@ -854,7 +1280,7 @@
    "converged": true,
    "bound": 10.0,
    "tolerance": 1e-10,
-   "iterations": 27,
+   "iterations": 29,
    "resamples": 200,
    "hands_per_cell": 120,
    "members": [
@@ -867,7 +1293,7 @@
    "table": "live"
   }
  },
- "run_wall_clock_seconds": 340.50315988092916,
+ "run_wall_clock_seconds": 333.17502618097933,
  "run_hands": 3000,
  "pool_versions": [],
  "pool_record": {
@@ -896,8 +1322,24 @@
   ]
  },
  "r2_pool": {
-  "id": "pool-bcbea031cb617939",
-  "versions": []
+  "id": "pool-adc21204b5fef725",
+  "versions": [
+   "R1/naive-numeric/seed-0/step-0600",
+   "R1/naive-numeric/seed-0/step-0700",
+   "R1/naive-numeric/seed-0/step-0800",
+   "R1/naive-numeric/seed-0/step-0900",
+   "R1/naive-numeric/seed-0/step-1000",
+   "R1/naive-numeric/seed-1/step-0600",
+   "R1/naive-numeric/seed-1/step-0700",
+   "R1/naive-numeric/seed-1/step-0800",
+   "R1/naive-numeric/seed-1/step-0900",
+   "R1/naive-numeric/seed-1/step-1000",
+   "R1/naive-numeric/seed-2/step-0600",
+   "R1/naive-numeric/seed-2/step-0700",
+   "R1/naive-numeric/seed-2/step-0800",
+   "R1/naive-numeric/seed-2/step-0900",
+   "R1/naive-numeric/seed-2/step-1000"
+  ]
  },
  "matrix": {
   "members": [
@@ -953,7 +1395,7 @@
       "wins": 57,
       "ties": 3,
       "losses": 60,
-      "mean_chip_delta": 0.30833333333333335,
+      "mean_chip_delta": 0.39166666666666666,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
@@ -963,7 +1405,7 @@
       "wins": 60,
       "ties": 3,
       "losses": 57,
-      "mean_chip_delta": -0.30833333333333335,
+      "mean_chip_delta": -0.39166666666666666,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
@@ -985,20 +1427,20 @@
     "hands": 120,
     "directions": [
      {
-      "wins": 17,
+      "wins": 9,
       "ties": 0,
-      "losses": 103,
-      "mean_chip_delta": -3.65,
+      "losses": 111,
+      "mean_chip_delta": -4.833333333333333,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
       }
      },
      {
-      "wins": 103,
+      "wins": 111,
       "ties": 0,
-      "losses": 17,
-      "mean_chip_delta": 3.65,
+      "losses": 9,
+      "mean_chip_delta": 4.833333333333333,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
@@ -1058,7 +1500,7 @@
       "wins": 63,
       "ties": 6,
       "losses": 51,
-      "mean_chip_delta": 1.05,
+      "mean_chip_delta": 1.2833333333333334,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
@@ -1068,7 +1510,7 @@
       "wins": 51,
       "ties": 6,
       "losses": 63,
-      "mean_chip_delta": -1.05,
+      "mean_chip_delta": -1.2833333333333334,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
@@ -1091,19 +1533,19 @@
     "directions": [
      {
       "wins": 58,
-      "ties": 6,
-      "losses": 56,
-      "mean_chip_delta": 1.2,
+      "ties": 4,
+      "losses": 58,
+      "mean_chip_delta": 1.7333333333333334,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
       }
      },
      {
-      "wins": 56,
-      "ties": 6,
+      "wins": 58,
+      "ties": 4,
       "losses": 58,
-      "mean_chip_delta": -1.2,
+      "mean_chip_delta": -1.7333333333333334,
       "seat_split": {
        "seat 0": 60,
        "seat 1": 60
@@ -1153,37 +1595,37 @@
  "rating": {
   "values": {
    "random": {
-    "value": -0.2822439967945899,
+    "value": -0.32883650535109454,
     "interval": [
-     -0.4321609518099218,
-     -0.12083738741852698
+     -0.48104125475526555,
+     -0.17045670560387302
     ],
     "hands": 360,
     "bounded": false
    },
    "always-call": {
-    "value": 0.1580492551833344,
+    "value": 0.18572816494167615,
     "interval": [
-     0.013236889781243096,
-     0.3211775575852004
+     0.039323780873805045,
+     0.3477999350799521
     ],
     "hands": 360,
     "bounded": false
    },
    "oracle": {
-    "value": 0.12419474161125552,
+    "value": 0.14310834040941836,
     "interval": [
-     -0.01564104348592353,
-     0.2590611536899065
+     0.0026486280426915336,
+     0.27859514028563104
     ],
     "hands": 360,
     "bounded": false
    },
    "variant-1": {
-    "value": 0.4098718719589115,
+    "value": 0.5182078734126888,
     "interval": [
-     0.23612086632298054,
-     0.605888380274019
+     0.3445550910139468,
+     0.7087477222264041
     ],
     "hands": 360,
     "bounded": false
@@ -1196,7 +1638,7 @@
   "converged": true,
   "bound": 10.0,
   "tolerance": 1e-10,
-  "iterations": 27,
+  "iterations": 29,
   "resamples": 200,
   "hands_per_cell": 120,
   "members": [
@@ -1261,16 +1703,16 @@
        1000
       ],
       "td_error": [
-       1.8542510524135272,
-       1.999341332319029,
-       1.9029237664717376,
-       2.321305230305611,
-       2.7341355753646823,
-       2.8741038831006755,
-       3.0177675884484922,
-       2.9590782174775487,
-       2.8692268307678526,
-       2.773373419523473
+       1.8666499608944058,
+       1.9942943468272,
+       1.9335658483651819,
+       2.3118530197507896,
+       2.8567150931055387,
+       2.839925265459599,
+       2.7968478852276597,
+       1.7605508239798835,
+       2.0260670432680796,
+       3.061918596917939
       ]
      },
      "1": {
@@ -1287,16 +1729,16 @@
        1000
       ],
       "td_error": [
-       1.83843821469337,
-       2.0317828873792587,
-       2.0981715902617184,
-       2.1758935685783953,
-       2.1306692430597587,
-       2.7478266731911942,
-       1.5224859130123327,
-       2.626885858484483,
-       3.079947149371802,
-       3.087846997674313
+       1.8387166811580176,
+       2.0200674007536525,
+       2.1267361531380042,
+       2.4702187798979547,
+       2.517934973639553,
+       2.8669031315025757,
+       2.7627444306092737,
+       2.6405925369843426,
+       2.2935237804148367,
+       1.929534951592939
       ]
      },
      "2": {
@@ -1313,30 +1755,30 @@
        1000
       ],
       "td_error": [
-       1.810185429470695,
-       1.9419425439509128,
-       2.1636860229688053,
-       1.9537802979971248,
-       2.0495658250441053,
-       2.590904122948376,
-       3.233915151284932,
-       3.214114101474983,
-       3.3124730110378233,
-       3.244066022005064
+       1.7993952588389797,
+       1.9834396963369076,
+       2.1665271041680576,
+       1.879651772496485,
+       1.9714830331835578,
+       2.1075368686715974,
+       2.3217195902701877,
+       3.0332389208330652,
+       3.0851794142943203,
+       3.249865140212239
       ]
      }
     },
     "spread": [
-     0.018227100808480192,
-     0.03714590258273873,
-     0.11076040608302899,
-     0.15112666953509798,
-     0.3053932113218693,
-     0.11584123458306247,
-     0.7609626283296725,
-     0.24042371736985055,
-     0.1810274703954547,
-     0.1957463043354096
+     0.06725470205542616,
+     0.0366277044167449,
+     0.23296125580287574,
+     0.5905670074014697,
+     0.885232059921981,
+     0.7593662628309783,
+     0.475128294957472,
+     1.2726880968531817,
+     1.0591123710262407,
+     1.3203301886193
     ]
    }
   },
@@ -1420,7 +1862,7 @@
        "wins": 57,
        "ties": 3,
        "losses": 60,
-       "mean_chip_delta": 0.30833333333333335,
+       "mean_chip_delta": 0.39166666666666666,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -1430,7 +1872,7 @@
        "wins": 60,
        "ties": 3,
        "losses": 57,
-       "mean_chip_delta": -0.30833333333333335,
+       "mean_chip_delta": -0.39166666666666666,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -1452,20 +1894,20 @@
      "hands": 120,
      "directions": [
       {
-       "wins": 17,
+       "wins": 9,
        "ties": 0,
-       "losses": 103,
-       "mean_chip_delta": -3.65,
+       "losses": 111,
+       "mean_chip_delta": -4.833333333333333,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
        }
       },
       {
-       "wins": 103,
+       "wins": 111,
        "ties": 0,
-       "losses": 17,
-       "mean_chip_delta": 3.65,
+       "losses": 9,
+       "mean_chip_delta": 4.833333333333333,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -1525,7 +1967,7 @@
        "wins": 63,
        "ties": 6,
        "losses": 51,
-       "mean_chip_delta": 1.05,
+       "mean_chip_delta": 1.2833333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -1535,7 +1977,7 @@
        "wins": 51,
        "ties": 6,
        "losses": 63,
-       "mean_chip_delta": -1.05,
+       "mean_chip_delta": -1.2833333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -1558,19 +2000,19 @@
      "directions": [
       {
        "wins": 58,
-       "ties": 6,
-       "losses": 56,
-       "mean_chip_delta": 1.2,
+       "ties": 4,
+       "losses": 58,
+       "mean_chip_delta": 1.7333333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
        }
       },
       {
-       "wins": 56,
-       "ties": 6,
+       "wins": 58,
+       "ties": 4,
        "losses": 58,
-       "mean_chip_delta": -1.2,
+       "mean_chip_delta": -1.7333333333333334,
        "seat_split": {
         "seat 0": 60,
         "seat 1": 60
@@ -1620,37 +2062,37 @@
   "rating": {
    "values": {
     "random": {
-     "value": -0.2822439967945899,
+     "value": -0.32883650535109454,
      "interval": [
-      -0.4321609518099218,
-      -0.12083738741852698
+      -0.48104125475526555,
+      -0.17045670560387302
      ],
      "hands": 360,
      "bounded": false
     },
     "always-call": {
-     "value": 0.1580492551833344,
+     "value": 0.18572816494167615,
      "interval": [
-      0.013236889781243096,
-      0.3211775575852004
+      0.039323780873805045,
+      0.3477999350799521
      ],
      "hands": 360,
      "bounded": false
     },
     "oracle": {
-     "value": 0.12419474161125552,
+     "value": 0.14310834040941836,
      "interval": [
-      -0.01564104348592353,
-      0.2590611536899065
+      0.0026486280426915336,
+      0.27859514028563104
      ],
      "hands": 360,
      "bounded": false
     },
     "variant-1": {
-     "value": 0.4098718719589115,
+     "value": 0.5182078734126888,
      "interval": [
-      0.23612086632298054,
-      0.605888380274019
+      0.3445550910139468,
+      0.7087477222264041
      ],
      "hands": 360,
      "bounded": false
@@ -1663,7 +2105,7 @@
    "converged": true,
    "bound": 10.0,
    "tolerance": 1e-10,
-   "iterations": 27,
+   "iterations": 29,
    "resamples": 200,
    "hands_per_cell": 120,
    "members": [
@@ -1789,5 +2231,98 @@
   "entries": 18,
   "all_exist": true
  },
- "index_missing": []
+ "index_missing": [],
+ "provenance": {
+  "producer": "scripts/regenerate-evidence.py",
+  "recipe": "docs/L3/training/evidence.md \u00a76",
+  "generated_utc": "2026-11-06T22:54:55Z",
+  "source_digest": {
+   "sha256": "1ca2e715f9687976bc3bc94c1c419682bc2235fa390ec1aaec30022f6b604c19",
+   "covered": "every `src/**/*.py` file plus `pyproject.toml`",
+   "recipe": "sha256 of the byte string formed by concatenating, in ascending order of repository-relative POSIX path, each covered file's path, one NUL byte (0x00) and that file's exact bytes; `__pycache__` is not a covered directory",
+   "file_count": 54,
+   "files": [
+    "pyproject.toml",
+    "src/agents/__init__.py",
+    "src/agents/baselines.py",
+    "src/agents/checkpoint.py",
+    "src/agents/declarations.py",
+    "src/agents/errors.py",
+    "src/agents/learner.py",
+    "src/agents/model.py",
+    "src/agents/numpy_backend.py",
+    "src/agents/policy.py",
+    "src/agents/rule.py",
+    "src/agents/torch_backend.py",
+    "src/engine/__init__.py",
+    "src/engine/actions.py",
+    "src/engine/cards.py",
+    "src/engine/config.py",
+    "src/engine/episode.py",
+    "src/engine/equity.py",
+    "src/engine/errors.py",
+    "src/engine/hand.py",
+    "src/engine/readout.py",
+    "src/evaluation/__init__.py",
+    "src/evaluation/declarations.py",
+    "src/evaluation/errors.py",
+    "src/evaluation/matrix.py",
+    "src/evaluation/policy.py",
+    "src/evaluation/pool.py",
+    "src/evaluation/rating.py",
+    "src/evaluation/report.py",
+    "src/evaluation/scheduler.py",
+    "src/evaluation/seeds.py",
+    "src/evaluation/tables.py",
+    "src/features/__init__.py",
+    "src/features/cards.py",
+    "src/features/declarations.py",
+    "src/features/encode.py",
+    "src/features/encoder.py",
+    "src/features/errors.py",
+    "src/features/history.py",
+    "src/features/vocabulary.py",
+    "src/harness/__init__.py",
+    "src/training/__init__.py",
+    "src/training/curves.py",
+    "src/training/declarations.py",
+    "src/training/devices.py",
+    "src/training/episode.py",
+    "src/training/errors.py",
+    "src/training/fairness.py",
+    "src/training/index.py",
+    "src/training/layout.py",
+    "src/training/loop.py",
+    "src/training/policies.py",
+    "src/training/registry.py",
+    "src/training/seeds.py"
+   ]
+  },
+  "git": {
+   "commit": "b95b6e57fa5ecb163eb229bc306475475c2d54c8",
+   "working_tree_dirty": true
+  },
+  "versions": {
+   "python": "3.12.3",
+   "numpy": "2.5.4",
+   "pokerkit": "0.7.7"
+  },
+  "environment": {
+   "PYTHONHASHSEED": "0"
+  },
+  "device": "cpu",
+  "entry_points": [
+   "training.rungs",
+   "training.rung",
+   "training.run",
+   "training.devices",
+   "training.checkpoints",
+   "evaluation.build_pool",
+   "evaluation.pool_members",
+   "evaluation.policy_from",
+   "evaluation.matrix",
+   "evaluation.rating",
+   "evaluation.report"
+  ]
+ }
 }

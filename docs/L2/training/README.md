@@ -1,6 +1,6 @@
 # training — L2 integration interface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.5 — the rung registry and the one training loop every
   rung is a configuration of (D-3, D-16) — and the two paths this module owns beside them: `notebooks/`, the one thin
   notebook per rung (D-5), and `checkpoints/`, the shipped models and the intra-run snapshots the pool is a view over
@@ -21,12 +21,13 @@ rating and never chooses the pool's membership (`module-map.md` §3, D-16, ASM-1
 is a row of data, a rung-to-rung difference is attributable to the configuration and to nothing else, and a seventh
 configuration runs without new code (D-3, `ladder.md` §1, `battery.md` §3 FAM-15).
 
-## 2. The three documents
+## 2. The four documents
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
-| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further record keys a complete report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force) — four facts a measurement forced, each with its rejected alternative |
+| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further record keys a complete report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force) — four facts a measurement forced, each with its rejected alternative; **Rev 3** states in §4 where a run writes and how it spells a written path |
 | `loop.md` | the ladder and its edges | the registry as data (§1); the configuration schema and the matched pair (§2); the one loop, step by step (§3); what a comparison holds constant and the R1/R2 parity rung (§4); budgets and devices (§5); the notebooks (§6); the checkpoints that ship (§7); the contracts at this edge (§8) and the battery invariants this module carries (§9) (D-3, D-7, D-8, D-16, ASM-8, ASM-18) |
+| `write-root.md` | where a run writes | the declared root and the write root (§1), the reads that never move (§2), the one ambient override `PYPOKER_CHECKPOINT_ROOT` and why it is not an entry point (§3), who points it where — the battery session and the reader's one command (§4), the spelling a record gives a written path (§5), what the redirection does not change (§6) and the battery cases that carry it (§7) (D-12, D-13, `battery.md` §2, `protocol.md` §5) |
 | `evidence.md` | the one shipped evidence file | `checkpoints/evidence/r1-live.json` as an integration fact: it is evidence and not a surface (§1), which of its blocks are this module's record (§2), the repository-relative spelling of its paths (§3), the two curve layouts (§4) and what no caller may do with it (§5) (D-8, D-12, `protocol.md` §5) |
 
 ## 3. Boundaries
@@ -55,7 +56,7 @@ capped at `50 + 10 × 6 = 110` lines, computed by `strata-lint` and never assert
 ## 5. What is left to L3
 
 This document stops at the entry point, the record it returns and the data that is the registry. `role_l3_designer`
-owns the module design: the literal widths, depths and sparsity that make a pair match within ±2% (ASM-10), the
-derivation of a hand's deal and opponent seeds from the run seed and the hand index, how the transition batch is assembled
-from an episode, the snapshot naming and the directory layout under `checkpoints/`, the index's own nesting, the error
-classes the refusals raise, and the layout of `src/training/` (D-1, ASM-18, `module-map.md` §5, D-12, D-13).
+owns the module design: the widths, depths and sparsity that make a pair match within ±2% (ASM-10), the derivation of a
+hand's deal and opponent seeds from the run seed and the hand index, the transition batch, the snapshot naming and the
+layout under the write root (`write-root.md` §1, §5 — the root is L2's), the index's own nesting, the error classes the
+refusals raise, and the layout of `src/training/` (D-1, ASM-18, `module-map.md` §5, D-12, D-13).

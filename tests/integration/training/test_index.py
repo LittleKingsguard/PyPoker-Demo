@@ -40,6 +40,13 @@ class CheckpointJoin(J.JoinCase):
     def test_trnj_6_1_a_runs_final_model_loads_as_a_league_member(self):
         """TRNJ-6.1 the record's final path is a loadable, capped league member.
 
+        The record spells that path repository-relative when the artefact is inside
+        the repository root, and unchanged -- the absolute path `agents.save` was
+        handed -- when it is outside it, because a battery's session writes under a
+        temporary write root (`docs/L3/training/checkpoints.md` §2,
+        `docs/L2/training/write-root.md` §5, FAM-12.1); either spelling names the
+        file the run wrote.
+
         `docs/L2/training/surface.md` §4 makes `checkpoints` the paths
         `agents.save` wrote; `docs/L2/evaluation/surface.md` §12 loads one through
         `evaluation.policy_from`, which is `agents.as_policy` of `agents.load(None,
@@ -54,10 +61,11 @@ class CheckpointJoin(J.JoinCase):
         final = str(J.checkpoints_of(record, variant, J.RUN_SEED)["final"])
         self.assertTrue(
             os.path.exists(J.resolve(final)),
-            "the record carries agents.save's path spelled repository-relative, so the "
-            "repository root resolves it to the file that was written and the record "
-            "travels with the tree (docs/L3/training/checkpoints.md §2, FAM-12.1): %r"
-            % (final,),
+            "the record spells agents.save's path repository-relative when the "
+            "artefact is inside the repository root and unchanged -- the absolute path "
+            "agents.save was handed -- when it is outside it, so the path resolves to "
+            "the file that was written whatever write root the run used "
+            "(docs/L3/training/checkpoints.md §2, FAM-12.1): %r" % (final,),
         )
         readout, legal = J.readout_at(J.REPLAY_SEED)
         member = J.policy_from(final)

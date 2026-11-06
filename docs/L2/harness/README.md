@@ -1,6 +1,6 @@
 # harness — L2 integration interface
 
-- **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05 · §4 corrected by measurement
+- **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06 · §4 corrected by measurement
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.6 — test support whose consumers are test
   batteries (brief §5, `module-map.md` §1) — and the paths this module owns beside them: `tests/conftest.py`, the
   L1 battery under `tests/e2e/` (its consumer, never its implementation) and `pyproject.toml` with the dependency
@@ -100,6 +100,8 @@ Every case in these families is satisfiable from `surface.md` alone (D-11, D-12)
 - **L3 owns** the error classes the refusals raise, the driver's step bookkeeping and the layout of one seam call
   log entry (the `calls` sequence is contract, its keys are not), how the scratch root is created and named, the
   factory's dispatch, `src/harness/`'s layout, `tests/harness/`'s unit tests and `tests/conftest.py` (D-1, D-13).
+- **`tests/conftest.py` also points `training`'s write root at a private temporary directory** for the whole pytest
+  session (`PYPOKER_CHECKPOINT_ROOT`, `training/write-root.md` §3–§4), so no battery writes into the shipped tree (D-8).
 - **Not left to L3:** the six names, the four expectation kinds and their order, the six factory kinds, the two seam
   behaviours, the driver's case and result keys, the timing facts — a battery reads them (`e2e-surface.md` §1, D-12).
 - **Packaging, owned by path and not designed here.** `pyproject.toml` and the lock file are this module's

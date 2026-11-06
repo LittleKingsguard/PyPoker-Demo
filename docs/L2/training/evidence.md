@@ -1,6 +1,6 @@
 # training — the shipped R1 evidence file, as an integration fact
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
 - **Owner of this file:** the one shipped evidence artefact under `checkpoints/` — that it exists and what it is not
   (§1), which of its blocks are this module's own record and which a caller attaches (§2), the spelling rule its paths
   obey (§3), the two curve layouts it and a run record carry (§4), and what no caller may do with it (§5) (D-8, D-12,
@@ -16,16 +16,17 @@ run record, the pool it trained against, its four-member/six-cell `live` table, 
 table, its twelve-family report and the shipped checkpoint index (`protocol.md` §5, `docs/L1/league.md` §8, ASM-18).
 
 It is **evidence and not an interface**. It is not one of the six entry points, it is not a returned record, and no
-entry point reads it or writes it — a committed file an entry point consulted would make a talk's result depend on
-something that was written once and never re-measured (D-8, D-12, `surface.md` §1, `protocol.md` §5). A D-5 notebook
+entry point reads it or writes it — the one writer is `scripts/regenerate-evidence.py`, a script outside every module's
+paths — a committed file an entry point consulted would make a talk's result depend on something that was written once
+and never re-measured (D-8, D-12, `surface.md` §1, `protocol.md` §5, `docs/L3/training/evidence.md` §6). A D-5 notebook
 reads it with `json` and plots from it; nothing else reads it at all (`loop.md` §6, D-5).
 
-Its shape is sixteen top-level keys, and they are all evidence: `stages`, `errors`, `rungs`, `devices`, `run`,
+Its shape is seventeen top-level keys, and they are all evidence: `stages`, `errors`, `rungs`, `devices`, `run`,
 `run_wall_clock_seconds`, `run_hands`, `pool_versions`, `pool_record`, `r2_pool`, `matrix`, `rating`,
-`report_families`, `report`, `index_summary`, `index_missing` (`docs/L3/training/evidence.md` §2). Their content, and
-the module design's status for each of them, are `evidence.md` §2, §6 and §7 there. This document fixes only the three
-facts at the integration edge: which blocks are this module's record (§2), how its paths are spelled (§3), and which
-layouts its curves may take (§4) (`records.md` §13, `surface.md` §4).
+`report_families`, `report`, `index_summary`, `index_missing`, and last `provenance` — the build the file came from
+(`docs/L3/training/evidence.md` §2). Their content, and the module design's status for each of them, are `evidence.md`
+§2, §6 and §7 there. This document fixes only the three facts at the integration edge: which blocks are this module's
+record (§2), how its paths are spelled (§3), and which layouts its curves may take (§4) (`records.md` §13, `surface.md` §4).
 
 ## 2. Which blocks are this module's record, and which a caller attaches
 
@@ -36,8 +37,8 @@ no cell and fits no rating (`module-map.md` §3, `records.md` §13, `surface.md`
 
 The remaining blocks are the job's, not an entry point's: `stages`, `errors`, `run_wall_clock_seconds`, `run_hands`,
 `pool_versions`, `pool_record`, `r2_pool`, `matrix`, `rating`, `report_families`, `report`, plus `rungs`, `devices`,
-`index_summary` and `index_missing`, which are `rungs()`, `devices()` and `checkpoints()` read once and copied
-(`surface.md` §2, §6, §7, `docs/L3/training/evidence.md` §2, §6).
+`index_summary` and `index_missing`, which are `rungs()`, `devices()` and `checkpoints()` read once and copied, and
+`provenance`, which the producer writes and no entry point returns (`surface.md` §2, §6, §7, `evidence.md` §2, §6).
 
 ## 3. The paths it carries are repository-relative
 
@@ -67,9 +68,9 @@ index. Two layouts carry it, and both are in use — a reader holding either fil
 - this **bundle** hoists it — `curves[variant] = {samples, seeds: {str(seed): {samples, td_error}}, spread}` — once
   per variant beside a `seeds` mapping, and no seed entry carries a `spread` of its own (`evidence.md` §4).
 
-Neither layout makes the spread a property of one seed, and in this shipped file the stored array is itself stale —
-`evidence.md` (L3) §3 records the measurement, and a reader recomputes from the three series or regenerates
-(`curves.md` §4, FAM-4.8).
+Neither layout makes the spread a property of one seed, and in this shipped file the stored array **is** the max minus
+the min of the three series beside it at every point — `evidence.md` (L3) §3 records the check to twelve places — so a
+reader may quote it and recompute it (`curves.md` §4, FAM-4.8).
 
 ## 5. What no caller may do with it
 

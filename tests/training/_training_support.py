@@ -3,7 +3,10 @@
 Puts `<repo>/src` on `sys.path`, imports the `training` package **lazily inside a
 helper** (so an absent `src/training/` is one red case per contract and never a
 collection error), and holds the battery's invented instances, its tolerant readers
-and the base `unittest.TestCase` every case derives from.
+and the base `unittest.TestCase` every case derives from. A battery's runs write under
+`write_root()` — the ambient `PYPOKER_CHECKPOINT_ROOT`, set by `tests/conftest.py` for
+the whole session — and never into the shipped `<repo>/checkpoints` tree
+(`docs/L2/training/write-root.md` §1, §3, `docs/L3/training/checkpoints.md` §5).
 
 Everything asserted here is stated in `docs/L3/training/` and
 `docs/L2/training/surface.md` (Rev 2) and `docs/L2/training/loop.md`; the four consumed
@@ -543,12 +546,56 @@ def resolved(path):
     return os.path.join(REPO_ROOT, text)
 
 
+def write_root():
+    """The root a run writes under, read from the environment and never the implementation.
+
+    `docs/L2/training/write-root.md` §1 and §3 fix two roots: the **declared** root,
+    `CHECKPOINT_ROOT` (`<repo>/checkpoints`), which every read and the index resolve
+    against and which the repository ships, and the **write** root, which is what a run
+    actually writes under — the declared root unless the ambient
+    `PYPOKER_CHECKPOINT_ROOT` names another one. This derives that answer from
+    `os.environ` alone and never by calling `layout._write_root()`, so a case can hold the
+    implementation's answer against an independent statement of the contract: a
+    redirected run's artefacts must land here, and the shipped tree must gain nothing
+    (`docs/L3/training/checkpoints.md` §2, §5).
+    """
+    return os.path.abspath(os.environ.get("PYPOKER_CHECKPOINT_ROOT") or CHECKPOINT_ROOT)
+
+
 def checkpoint_tree():
-    """Every file under `<repo>/checkpoints/`, repository-relative, sorted."""
+    """Every file under `<repo>/checkpoints/`, repository-relative, sorted.
+
+    The **declared** tree, which the repository ships and every read resolves against:
+    a battery's own artefacts land in `write_tree()` and never here
+    (`docs/L2/training/write-root.md` §1, §3, `docs/L3/training/checkpoints.md` §5).
+    """
     found = []
     for base, _dirs, files in os.walk(CHECKPOINT_ROOT):
         for name in files:
             found.append(repo_relative(os.path.join(base, name)))
+    return sorted(found)
+
+
+def write_tree(root=None):
+    """Every file under the write root, relative to that root with POSIX separators, sorted.
+
+    The counterpart of `checkpoint_tree()`, because a battery's own artefacts land in the
+    first and never in the second (`docs/L2/training/write-root.md` §1, §3). A case about
+    a call that writes nothing must read this tree: after the redirection "the shipped
+    tree gained no file" is trivially true for a run and could not fail, so a pure call
+    has to be shown to have left *this* root alone as well. `root` is `write_root()` when
+    it is `None`; an absent root is no files at all (`tests/conftest.py`'s private
+    `mkdtemp` is the session's, and a case may pass its own).
+    """
+    base = write_root() if root is None else root
+    if not os.path.isdir(base):
+        return []
+    found = []
+    for directory, _dirs, files in os.walk(base):
+        for name in files:
+            found.append(
+                os.path.relpath(os.path.join(directory, name), base).replace(os.sep, "/")
+            )
     return sorted(found)
 
 
@@ -983,7 +1030,19 @@ class TrainingCase(unittest.TestCase):
         return "run"
 
     def assert_tree_untouched(self, before, label):
-        """The checkpoint tree grew no path since `before` (`checkpoints.md` §1)."""
+        """The **shipped** tree under `<repo>/checkpoints` gained no file since `before`.
+
+        It asserts exactly one thing, and it is not weakened: the declared root the
+        repository ships and every read resolves against gained nothing
+        (`docs/L3/training/checkpoints.md` §5). That is what a pure function must leave
+        untouched (`rung`, `rungs`, `fairness`), and it is also what a **redirected** run
+        leaves untouched, because a run's writes go under `write_root()` — the ambient
+        `PYPOKER_CHECKPOINT_ROOT` — and never into the shipped set
+        (`docs/L2/training/write-root.md` §1, §3). Because the second half is true of
+        every run after the redirection, a case about a call that might write reads
+        `write_tree()` beside this tree: "the shipped tree gained nothing" alone would be
+        trivially true and could not fail (`battery.md` §2).
+        """
         after = checkpoint_tree()
         added = [path for path in after if path not in before]
         self.assertEqual(

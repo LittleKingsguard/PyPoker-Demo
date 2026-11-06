@@ -1,6 +1,6 @@
 # training — L4 guardrails
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the test that
   catches it
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
@@ -10,8 +10,8 @@
 The unit battery's files are contract: `tests/training/test_registry.py` (`TRN-1.k`), `test_loop.py` (`TRN-2.k`),
 `test_seeds.py` (`TRN-3.k`), `test_episode.py` (`TRN-4.k`), `test_curves.py` (`TRN-5.k`), `test_checkpoints.py` (`TRN-6.k`),
 `test_fairness.py` (`TRN-7.k`), `test_devices.py` (`TRN-8.k`), `test_errors.py` (`TRN-9.k`); the join battery is
-`tests/integration/training/test_run_record.py` (`TRN-I1.k`), `test_index.py` (`TRN-I2.k`), `test_fairness_joins.py`
-(`TRN-I3.k`). Each note below names the case that fails if the rule is broken.
+`tests/integration/training/test_run_record.py` (`TRNJ-1`–`4`, `TRNJ-7`–`8`), `test_fairness_joins.py` (`TRNJ-5`),
+`test_index.py` (`TRNJ-6`) and `test_evidence.py` (`TRNJ-9`). Each note below names the case that fails if the rule is broken.
 ## G1 — Fourteen files, and six names in `__init__.py`
 `src/training/__init__.py` exports the six names of `README.md` §3 in that order and no seventh — not `RUNGS`, not
 `TrainingError`, not `_Curve` (`e2e-surface.md` §1, D-12). One concern per file (`README.md` §4).
@@ -105,9 +105,16 @@ Resolving builds a pool and reads it back; it deals no hand, builds no learner, 
 build that writes a scratch pool file, or a `fairness` that imports a learner to compare capacities, breaks D-3 and FAM-3.17's
 repeated resolution.
 Caught by: `test_registry.py::TRN-1.5`, `test_fairness.py::TRN-7.5`.
-## G20 — A run writes into `checkpoints/`, and that is intended
-`run` writes its snapshots and its final model under `checkpoints/<rung>/<variant>/seed-<seed>/`, so a battery run at seed 6174
-adds files there and a run at the declared budget and seed set rewrites the shipped ones with the same content. That is the design
-(every checkpoint is a run's artefact, `module-map.md` §5); what is forbidden is the index listing them without a declaration
-(G11, G13).
-Caught by: `test_index.py::TRN-I1.2`, FAM-16.31.
+## G20 — A run writes under the write root; determinism is one build's, under the pin
+`run` writes its ten snapshots and its final model under `layout._write_root()` — `checkpoints/` unless
+`PYPOKER_CHECKPOINT_ROOT` names another root — so a reader's default run still writes the shipped layout while a battery,
+whose `tests/conftest.py` points that variable at a private `mkdtemp`, writes a temporary tree and never the shipped set
+(`write-root.md` §1, §3, §4, `checkpoints.md` §5). A battery-started run adds no path under `<repo>/checkpoints` and changes
+no byte there: its snapshots and its final model exist under the write root and are named in the record. What a re-run
+guarantees is **one build's and one pinned interpreter's**: with `PYTHONHASHSEED=0` a re-run at the declared budget and
+seed set reproduces the curves and the table, as measured; unpinned, it does not, because `engine.equity`'s sampled estimate
+follows the per-process hash seed (`protocol.md` §4, `evidence.md` §6). **Nothing crosses a build**: a later build rewrites
+different curves for the same seeds, and `provenance` now names the build the bundle came from — source digest, commit,
+versions and the pin — so drift is attributable rather than silent; the eighteen shipped artefacts stay evidence of the run
+that wrote them, and what is forbidden is the index listing an artefact the design does not declare (G11, G13).
+Caught by: `test_loop.py::TRN-2.7`, `test_checkpoints.py::TRN-6.5`, `test_checkpoints.py::TRN-6.9`, `test_run_record.py::TRNJ-8.1`, FAM-16.31.

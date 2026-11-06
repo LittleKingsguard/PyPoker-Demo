@@ -17,6 +17,7 @@ import os
 import unittest
 
 from _training_support import (
+    CHECKPOINT_ROOT,
     CUSTOM_SEED,
     FALLBACK_SEED,
     INVENTED_POOL,
@@ -24,6 +25,7 @@ from _training_support import (
     PARAM_BUDGET,
     PARAM_TOLERANCE,
     PAIR_SEED,
+    REPO_ROOT,
     RETAINED,
     RUN_SEED,
     OTHER_SEED,
@@ -49,12 +51,14 @@ from _training_support import (
     other_seed_run,
     pair_run,
     repeated_run,
+    repo_relative,
     resolved,
     seed_key,
     seed_set,
     sixty_hand_run,
     training,
     two_seed_run,
+    write_root,
 )
 
 #: `records.md` §12's ten required keys (`surface.md` §4).
@@ -331,7 +335,7 @@ class RunTest(TrainingCase):
         )
 
     def test_trn_2_7_checkpoint_blocks_are_nested_by_variant_and_seed(self):
-        """TRN-2.7 `checkpoints[variant][str(seed)]` is `{snapshots, final}` for every variant × seed pair the run trained, every path a repository-relative spelling that resolves to the file `agents.save` wrote (loop.md §3, §4, checkpoints.md §2, §3, FAM-12.1)."""
+        """TRN-2.7 `checkpoints[variant][str(seed)]` is `{snapshots, final}` for every variant × seed pair the run trained, every path a file that exists and a file under the write root and never under the shipped tree, spelled repository-relative with POSIX separators when the artefact is inside the repository root and carried unchanged — absolute, exactly what `agents.save` was handed — when it is outside it (loop.md §3, §4, checkpoints.md §2, §3, docs/L2/training/write-root.md §5, FAM-12.1)."""
         record = one_seed_run()
         block = as_mapping(record["checkpoints"], "'checkpoints'")
         self.assertEqual(
@@ -339,6 +343,9 @@ class RunTest(TrainingCase):
             set(VARIANTS["R1"]),
             "one entry per variant (loop.md §4): %r" % (sorted(block),),
         )
+        root = write_root()
+        repository = os.path.abspath(REPO_ROOT)
+        declared = os.path.abspath(CHECKPOINT_ROOT)
         for variant in VARIANTS["R1"]:
             entry = checkpoint_block(record, variant, RUN_SEED)
             with self.subTest(variant=variant):
@@ -356,17 +363,80 @@ class RunTest(TrainingCase):
                     "wrote (checkpoints.md §3, ASM-18): %r" % (snapshots,),
                 )
                 for path in snapshots + [entry["final"]]:
-                    self.assertFalse(
-                        os.path.isabs(as_text(path, "a checkpoint path")),
-                        "the record spells every path repository-relative, so the "
-                        "record travels with the tree (checkpoints.md §2, protocol.md "
-                        "§5): %r" % (path,),
+                    recorded = as_text(path, "a checkpoint path")
+                    absolute = os.path.abspath(resolved(recorded))
+                    self.assertTrue(
+                        os.path.exists(resolved(recorded)),
+                        "a recorded path resolves to the file agents.save wrote "
+                        "(checkpoints.md §2, FAM-12.1): %r" % (recorded,),
                     )
                     self.assertTrue(
-                        os.path.exists(resolved(path)),
-                        "the repository root resolves the record's path to the file "
-                        "agents.save wrote (checkpoints.md §2, FAM-12.1): %r" % (path,),
+                        absolute == root or absolute.startswith(root + os.sep),
+                        "the pair's artefacts are written under the write root, which "
+                        "is where agents.save was handed the path (write-root.md §1, "
+                        "§3, §5): %r is not under %r" % (absolute, root),
                     )
+                    if absolute == repository or absolute.startswith(
+                        repository + os.sep
+                    ):
+                        self.assertFalse(
+                            os.path.isabs(recorded),
+                            "the artefact is inside the repository root, so this is the "
+                            "inside-the-repository branch: the record spells it "
+                            "repository-relative and not absolute (write-root.md §5, "
+                            "checkpoints.md §2): %r (the file is %r)"
+                            % (recorded, absolute),
+                        )
+                        self.assertNotIn(
+                            "\\",
+                            recorded,
+                            "a repository-relative spelling uses POSIX separators, so "
+                            "the record travels with the tree (checkpoints.md §2, "
+                            "write-root.md §5): %r" % (recorded,),
+                        )
+                        self.assertEqual(
+                            recorded,
+                            repo_relative(absolute),
+                            "the artefact is inside the repository root, so the recorded "
+                            "string is exactly the repository-relative POSIX spelling "
+                            "(write-root.md §5): %r against %r"
+                            % (recorded, repo_relative(absolute)),
+                        )
+                        self.assertEqual(
+                            os.path.abspath(resolved(recorded)),
+                            absolute,
+                            "a repository-relative spelling resolves from the repository "
+                            "root to the very file agents.save wrote (checkpoints.md §2): "
+                            "%r against %r"
+                            % (os.path.abspath(resolved(recorded)), absolute),
+                        )
+                    else:
+                        self.assertTrue(
+                            os.path.isabs(recorded),
+                            "the artefact is outside the repository root, so this is the "
+                            "outside-the-repository branch: the record carries it "
+                            "unchanged, i.e. absolute (write-root.md §5, "
+                            "checkpoints.md §2): %r (the file is %r)"
+                            % (recorded, absolute),
+                        )
+                        self.assertEqual(
+                            os.path.abspath(recorded),
+                            absolute,
+                            "an artefact outside the repository root is carried "
+                            "unchanged — exactly the path agents.save was handed "
+                            "(write-root.md §5, checkpoints.md §2): %r against %r"
+                            % (os.path.abspath(recorded), absolute),
+                        )
+                    if root != declared:
+                        self.assertFalse(
+                            absolute == declared
+                            or absolute.startswith(declared + os.sep),
+                            "the write root differs from the declared <repo>/checkpoints "
+                            "root (%r against %r), so no artefact of this run may lie "
+                            "under the shipped tree — the walkthrough's finding 5 as an "
+                            "assertion (write-root.md §1, §3, checkpoints.md §5): %r"
+                            % (root, declared, absolute),
+                        )
 
     def test_trn_2_8_the_pool_is_frozen_with_one_id_and_the_three_baselines(self):
         """TRN-2.8 `pool` carries the declared id, the read-back `m` and `frozen`, and the ordered members with the three pinned baselines (loop.md §3, records.md §8, ASM-16, FAM-3.17)."""

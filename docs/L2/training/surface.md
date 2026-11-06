@@ -1,11 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
-- **Rev 2:** §4 states the record's three further keys a complete report needs (§4.1) and the vocabulary a run
-  refuses against (§4.2); §5 states the axis rule the matched capacities force (§5.1); §3.1 reads a pool's id once;
-  §6's GPU rule is the measured one
+- **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path; the write root and its
+  one ambient override are the sibling `write-root.md`, split out because this file reached its ceiling. Rev 2's items
+  (a pool's id §3.1, the three further keys §4.1, the vocabulary §4.2, the axis rule §5.1, §6's GPU rule) stand
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -108,7 +108,7 @@ The run record's keys (`records.md` §12's **required** set is exactly these ten
 | `rung` | the rung name, or an unregistered configuration's own `name` (`records.md` §12, `ladder.md` §3) |
 | `curves` | per variant and per seed: the sample axis (the snapshot steps), at least one learning signal from `agents.learn` — its `td_error` — and the spread across seeds, zero when the set holds one seed (`protocol.md` §1, D-6, `loop.md` §3); the spread is one array per variant and point, repeated in each of that variant's seed entries and never a per-seed measurement (`curves.md` §4, `evidence.md` §4) |
 | `pool` | the frozen pool trained against: `id` (the configuration's declared id, so both arms of a pair carry one), `m`, `frozen`, the ordered members with lineage and the three pinned baselines — the `records.md` §8 record `pool_members` returned, under a nested key, beside the declared id (D-16, ASM-16, `records.md` §8) |
-| `checkpoints` | per variant and per seed: the retained snapshots — the last M of the ten — and that pair's final model, as the paths `agents.save` wrote, each spelled **repository-relative** with POSIX separators so the record travels with the tree (`checkpoints.md` §2, `protocol.md` §5); the five earlier snapshots are intra-run and are not named (ASM-18) |
+| `checkpoints` | per variant and per seed: the retained snapshots — the last M of the ten — and that pair's final model, as the paths `agents.save` wrote, each spelled **repository-relative** with POSIX separators when the artefact is inside the repository root and **unchanged** when it is outside, because a run may be pointed at another write root (`docs/L3/training/checkpoints.md` §2, `protocol.md` §5, `write-root.md` §1, §5); the five earlier snapshots are intra-run and are not named (ASM-18) |
 | `seeds`, `budget`, `device` | what the run actually used, after the defaults above (D-6, `protocol.md` §2, §6) |
 | `params` | per variant, the declared parameter budget and its ±2% bound (ASM-10): a run measures no capacity, because `agents.param_count` is not among the four `agents` calls this module is granted (`module-map.md` §2, `records.md` §12) |
 | `table` | the configuration's declared table budget the variant's row is measured at, `live` or `full`; a configuration that declares none is recorded at `live`, the budget a talk produces (`ladder.md` §3, `league.md` §6) |
@@ -124,10 +124,10 @@ them, and states them beside the ten keys above without claiming what it did not
 - `header` — `protocol.md` §1's nine items, all from granted calls or this record: the game (`game_config`), the
   vocabulary (`decode_action`), the **declared** parameter budget per variant and the baselines' declared `0`, the
   sample budget, the cell size `evaluation.league` declares for this `table`, the seed set, the table seed, the device
-  and the checkpoint paths, repository-relative as the record's own `checkpoints` key spells them (`checkpoints.md`
-  §2). D-5 forbids a notebook importing `engine` or `features` (`ladder.md` §7), so this is the only route by which the
-  game and the vocabulary reach a report. A declared budget is not the capacity a cell records — 10,000 in the header
-  against 10,119 measured, both inside ASM-10's ±2% band (`records.md` §9, `evidence.md` §5).
+  and the checkpoint paths, spelled as the record's own `checkpoints` key spells them (`docs/L3/training/checkpoints.md`
+  §2, `write-root.md` §5). D-5 forbids a notebook importing `engine` or `features` (`ladder.md` §7), so this is the only
+  route by which the game and the vocabulary reach a report. A declared budget is not the capacity a cell records —
+  10,000 in the header against 10,119 measured, both inside ASM-10's ±2% band (`records.md` §9, `evidence.md` §5).
 - `baselines` — the three pinned baselines as declared rows at the league's cell size, `measured: false`: the rows
   are the matrix's to fill and a run plays no cell (D-16, `protocol.md` §3).
 - `axis row` — `n/a, single variant` for a one-variant rung, explicit and never a blank; a two-variant rung omits it,

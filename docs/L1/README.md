@@ -1,20 +1,12 @@
 # PyPoker-Demo — L1 Phase 1 design
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Scope:** the technique ladder on one fixed game (brief §2) and its league evaluation (brief §3, D-16)
 - **Ceiling:** 40 lines. At the ceiling, split by owner — never append
 
-## What changed at Rev 2 and Rev 3
+## What changed at Rev 2, Rev 3 and Rev 4
 
-Rev 1 designed a head-to-head protocol under D-6; D-16 replaced the opponent with a bounded round-robin league — the
-model's last M versions plus the three fixed baselines — as both training and evaluation opposition, so `league.md` is
-new and owns the pool, scheduler, matrix, rating and tables, `protocol.md` reports a matrix and a rating, and
-`e2e-surface.md` replaces `evaluation.head_to_head` with the league's entry points: 11 `evaluation` endpoints, 49 across
-the map. Rev 3 repairs the first blind walkthrough's findings (D-14, `strata/records/phase1-walkthrough.md`): `league.md`
-§8 separates the matrix from the rating and says a rank never asserts a head-to-head win, §7 states the measured
-0.105–0.132 s/hand that ASM-21 ratifies in place of ASM-15's 40 ms bound, `battery.md` §2 gives the supported way to run
-the batteries, `ladder.md` §7 says which notebook ships, and `getting-started.md` is new — the route from an empty
-checkout to a training run and a league table.
+D-16 replaced D-6's head-to-head opponent with a bounded round-robin league — the model's last M versions plus the three fixed baselines — as both training and evaluation opposition (Rev 2): `league.md` owns the pool, scheduler, matrix, rating and tables, and `e2e-surface.md` replaces `evaluation.head_to_head` with the league's entry points, 11 `evaluation` endpoints and 49 across the map. Rev 3 and Rev 4 repair the two blind walkthroughs (`strata/records/phase1-walkthrough.md`): the matrix is separated from the rating and a rank asserts no head-to-head win (`league.md` §3.1, §8), the measured per-hand cost and the live table's higher own figure replace ASM-15's 40 ms bound (`league.md` §7, ASM-21), `battery.md` §2 gives the supported way to run the batteries and says where they write, `ladder.md` §7 says which notebook ships and that it finds the repository root itself, `getting-started.md` is the newcomer route and warns where a run writes, `records.md` §9 states what a recorded cell seed reproduces, `protocol.md` §4 records that reproducibility is one build's and one pinned interpreter's, and the evidence bundle names its own build (`protocol.md` §5).
 
 ## Reading order
 

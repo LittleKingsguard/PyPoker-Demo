@@ -160,9 +160,11 @@ a CPU run are never confused (D-6, `protocol.md` §6).
 ## 7. The checkpoints that ship, and the window they are (D-16, ASM-18)
 
 - `checkpoints/` holds both the shipped models and the intra-run snapshots the pool is a view over; **a run writes ten
-  snapshots and its final model per variant per seed** and retains the last M of the ten per variant and per seed, so
-  the record names the retained ones plus that pair's final model, and the five earlier ones are intra-run scratch
-  (`module-map.md` §5, D-16, ASM-18, `protocol.md` §5, `records.md` §12).
+  snapshots and its final model per variant per seed**, retains the last M of the ten, names those plus that pair's final
+  model, and leaves the five earlier ones intra-run (`module-map.md` §5, D-16, ASM-18, `protocol.md` §5, `records.md` §12).
+- **A run writes under the write root and reads under the declared root.** With `PYPOKER_CHECKPOINT_ROOT` unset the two
+  are `<repo>/checkpoints` and nothing changes; set, a run writes the same layout elsewhere while the index, the declared
+  windows and `layout._resolve` still read from the repository root (`write-root.md` §1–§3, §6, `protocol.md` §5).
 - **What ships is the retained set plus each rung variant's final model per seed** (ASM-5 as D-16 amends it,
   `protocol.md` §5): the nine variants of §1 across three seeds' finals, and for each of R2–R6 the five-version
   window its successor inherits. Nothing else ships and each artefact ships once (`battery.md` §3 FAM-12).

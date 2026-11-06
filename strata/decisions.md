@@ -258,3 +258,29 @@ made beyond the table's named members.
 
 **Consequences:** M, hands per pairing and match counts are L1's parameters (`ASM-13`); checkpoint
 retention follows the pool policy and supersedes the lean shipping rule of ASM-5.
+
+---
+
+## D-17 — GPU live-speed runs: an agent checks feasibility first, and the user gets instructions
+
+**Status:** ACTIVE · **Date:** 2026-11-06
+
+**Source (user, verbatim):** "When the PyTorch implementation is ready for the live-speed tests,
+check if it can be run on the GPU by agent and if not, provide instructions for user"
+
+**Decision:** When the PyTorch rung (R2, D-7) is ready for its live-speed measurement, the
+workflow must establish first whether a delegated agent can run that measurement on the GPU. The
+check is empirical — a delegated agent attempts it and reports what actually happens — not an
+assumption either way.
+
+- If an agent can run it on the GPU: the agent runs it, and the evidence records the device.
+- If an agent cannot: the agent does not pretend otherwise. The project ships user-facing
+  instructions for running the same measurement on the GPU outside the development sandbox, in
+  `docs/L1/getting-started.md` and the root `README.md`, with the exact commands and the expected
+  wall clock.
+- Either way the measurement produces the same evidence shape, and every run record carries its
+  device, so a CPU number and a GPU number are never confused with each other (D-6, D-8).
+
+Rejected: assuming CPU-only and never offering the GPU path, which would waste hardware the user
+has confirmed is present; and assuming the agent can reach the GPU, which measurement has already
+contradicted.

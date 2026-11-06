@@ -21,8 +21,10 @@ rule. The card engine is [PokerKit](https://github.com/uoftcprg/pokerkit).
   non-learning baselines — random, always-call, and an oracle that only calls when the pot odds
   justify it — at the same hand count as every league cell.
 - **The evidence**: a pairwise matrix *and* a Bradley-Terry rating with confidence intervals. Both,
-  because poker payoffs need not be transitive: the first real run ranks R1 top of its table while
-  R1 loses to two of the three baselines. The matrix shows that; a rating alone would hide it.
+  because poker payoffs need not be transitive: in the shipped live table R1 ranks top at
+  +0.518 [+0.345, +0.709] while losing 51-63 to `always-call` and only drawing `oracle` 58-58
+  (on which the oracle still takes +1.73 chips a hand). The matrix shows that; a rating alone
+  would hide it.
 
 ## Quickstart
 

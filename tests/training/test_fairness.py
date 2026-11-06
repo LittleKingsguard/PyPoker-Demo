@@ -44,6 +44,7 @@ from _training_support import (
     variant_entries,
     with_pool,
     with_setting,
+    write_tree,
 )
 
 #: `fairness.md` §4's `readout facts`, the ten fact names every encoding carries.
@@ -396,6 +397,7 @@ class FairnessTest(TrainingCase):
 
         package = training()
         before_tree = checkpoint_tree()
+        before_write = write_tree()
         before_stream = random.getstate()
         with mock.patch.object(agents(), "build_learner") as build_learner, mock.patch.object(
             agents(), "save"
@@ -415,6 +417,15 @@ class FairnessTest(TrainingCase):
         self.assertIn("pool", entries, "the entries' comparison returns their pool")
         self.assert_no_hand_dealt(before_stream, "fairness")
         self.assert_tree_untouched(before_tree, "fairness")
+        self.assertEqual(
+            [path for path in write_tree() if path not in before_write],
+            [],
+            "`fairness` writes no file under the write root either, and that is the "
+            "tree a battery's run writes: the shipped tree is empty of a run's files by "
+            "construction, so this is the assertion that could still fail (fairness.md "
+            "§7, guardrails G19, docs/L2/training/write-root.md §1, §3): %r"
+            % ([path for path in write_tree() if path not in before_write],),
+        )
 
 
 if __name__ == "__main__":

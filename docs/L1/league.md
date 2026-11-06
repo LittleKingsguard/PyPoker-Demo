@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13) and what they cost
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -29,6 +29,18 @@ the scheduler, the matrix and the rating are `evaluation`'s, in that order of as
 - The two directions a cell is reported in are the same hands seen from each seat; a cell costs its hand count, not twice its hand count (ASM-14).
 - Every cell of one table is played at one hand count, the three baseline cells included, so no member's row is measured more precisely than another's (D-16).
 - `evaluation.match` is the scheduler's surface: it plays one cell and returns it; `evaluation.opponent` is how the training loop draws a single opponent from the same pool (D-16, `e2e-surface.md` §3.4).
+
+### 3.1 What a cell's recorded seed reproduces, and the replay recipe
+
+A cell's `seed` (`records.md` §9) is the seed its hands were dealt from, derived from the table seed and
+the pair's membership positions — not a key that replays the cell. `evaluation.match(a, b, hands, seed)`
+builds a **baseline** at the seed it is handed, while a table builds each baseline from the table seed and
+that baseline's position, so a cell with a baseline in it replayed from its recorded seed is a different
+cell and a different count (run 2 of the walkthrough read `51/3/66` where the cell recorded `57/3/60`).
+Two checkpoint members do replay from it, because a version is built at the seed its own checkpoint records
+either way. What always reproduces a cell is the table it came from: replay `evaluation.matrix(pool,
+[variant], "live")` over the same frozen pool, whose id and whose `table_seed` — one declared constant —
+are what a third party needs, and neither is a per-cell number (D-16, ASM-14, `records.md` §10).
 
 ## 4. The matrix
 
@@ -64,8 +76,9 @@ demonstration, and the full table with the fitted intervals is what a claim rest
 
 ## 7. What it costs
 
-- The per-hand cost is a **measurement now, not a bound**: **0.105–0.132 s of CPU per hand** for a real hand with the baselines inside the table, i.e. 7.6–9.5 hands/s. The R1 live run's three seeds measured 0.105, 0.116 and 0.120 s/hand, and the shipped full table 0.1324 s/hand in its current `cost` block (0.1299 in the first committed run). ASM-21 ratifies the figure and supersedes the 40 ms arithmetic this section was first written with, which was 3.2× optimistic because the oracle queries equity at every decision (ASM-21, D-16, `tables/league-full.json`).
-- What that implies, at ≈0.13 s/hand: the live table is **≈95 s at K = 4** (720 hands) and **≈10–12 minutes at K = 9–10** (4,320–5,400 hands), and the full table **≈2 hours at K = 9 and ≈2½ hours at K = 10** (54,000–67,500 hands); the shipped K = 4 full table is 9,000 hands and recorded 1,191 s (≈20 min) wall-clock in its own `cost` block. A ten-minute live table is what a talk has to plan for at a full window, not the under-four-minute figure the old bound reported (ASM-21, ASM-14, D-8, `tables/league-full.json`).
+- The per-hand cost is a **measurement, not a bound**, and it is reported per artefact: the R1 live **run** measured **0.105, 0.111 and 0.117 s/hand** at seeds 0, 1 and 2 (3,000 hands in 333 s — `checkpoints/evidence/r1-live.json`'s `run.timings`), the shipped **full** table recorded **0.1324 s/hand** over 9,000 hands (`tables/league-full.json`'s `cost` block), and the R1 **live table** measured **0.141–0.153 s/hand** (102–110 s for 720 hands: 0.1415 and 0.1425 in a cost pass, 0.1532 in the shipped bundle's own `stages.matrix_live`). The band covering every measured artefact is therefore **0.105–0.153 s/hand** (6.5–9.5 hands/s), which ASM-15 and ASM-21 carry; the live table is not inside the run's own 0.105–0.132 band, and the next bullet is why (ASM-21, ASM-15, D-16).
+- **Why the table costs more per hand than the run that fed it**, measured rather than asserted: an oracle-bearing cell measured **0.255–0.315 s/hand** and an oracle-free cell **0.002–0.004 s/hand**, so the oracle's per-decision equity sample is virtually all of a table's cost (ASM-4); and the oracle's share of the hands differs — a K = 4 table has it in 3 of its 6 cells, half of the 720 hands, while R1's run draws each hand's opponent from a three-baseline pool and so faces it in one hand in three. Policy construction is not a factor (`evaluation.policy_from` 0.9 ms, `evaluation.build_pool` 0.02 ms, both one-off per table) and neither is seat alternation (both paths alternate and every cell reports its 60/60 split): half the oracle rate plus half the oracle-free rate, 0.5·0.278 + 0.5·0.003 = 0.141 s/hand, predicts the measured table, and a third of it plus two thirds of the cheap rate, plus the learner step, predicts the measured run (ASM-15, ASM-4).
+- What that implies, at the slowest measured 0.153 s/hand: the live table is **≈110 s at K = 4** (720 hands) and **≈11–14 minutes at K = 9–10** (4,320–5,400 hands), and the full table **≈2¼ hours at K = 9 and ≈2¾ hours at K = 10** (54,000–67,500 hands); the shipped K = 4 full table is 9,000 hands and recorded 1,191 s (≈20 min) wall-clock in its own `cost` block. A ten-minute live table is what a talk has to plan for at a full window, not the under-four-minute figure the old bound reported (ASM-21, ASM-14, D-8, `tables/league-full.json`).
 - Cost is bought with cell size and never with concurrency, because one global `random` stream deals every hand (§3, D-16, ASM-2); and no case asserts that a wall clock was beaten. `harness.timings` reports seconds per hand from a real run, and the battery asserts that the record exists and that the live table's hands played match §6 — never a stopwatch (ASM-21, `battery.md` §3 FAM-10).
 - The parameters are L1's under ASM-13. Their alternatives — a larger M, cells of a few dozen hands, wall-clock-derived cell sizes — are recorded with ASM-14 and ASM-15 (assumptions.md).
 
@@ -75,10 +88,10 @@ The **matrix is the evidence; the rating is a summary of it.** A Bradley-Terry r
 every cell at once, so a rank says where a member stands in that fit and **never** asserts a head-to-head win
 over any other member: the cell is the head-to-head, and both directions of it are reported beside the rating
 (D-16, `protocol.md` §1, §2). The shipped live table for R1 shows why the distinction is not pedantry — `variant-1`
-carries the table's highest rating (+0.410, 95% interval [0.236, 0.606]) while losing 51–63 to `always-call`
-(+0.158) and 56–58 to `oracle` (+0.124), because the fit is carried by its 103–17 against `random`; a reader
-given the ranking alone would be told the opposite of two of its six cells (the live table recorded in
-`checkpoints/evidence/r1-live.json`, D-16).
+carries the table's highest rating (+0.518, 95% interval [0.345, 0.709]) while losing 51–63 to `always-call`
+(+0.186) and drawing 58–58 with `oracle` (+0.143), because the fit is carried by its 111–9 against `random`; a reader
+given the ranking alone would be told the opposite of one of its six cells and half of another (the live table
+recorded in `checkpoints/evidence/r1-live.json`, D-16).
 
 So a version that **outranks** a baseline has shown only that the fitted order over the whole matrix places it
 there; a version that **beats** a baseline has shown that it wins more hands than it loses against that fixed

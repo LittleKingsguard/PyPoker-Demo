@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 record shapes
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16 included
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
@@ -69,7 +69,7 @@ membership does, so a run record and a table can be compared by the id alone (D-
 | `hands` | **required** — the hands played, one seat alternation across them |
 | `directions` | **required** — one entry per seat, each with `wins`, `ties`, `losses`, `mean_chip_delta` and `seat_split`; the two directions are the same hands seen from each seat (D-16, ASM-14) |
 | `params` | **required** — each member's parameter count: `agents.param_count` for a version, the zero `agents.baselines()` declares for a baseline (ASM-10) |
-| `seed` | **required** — the seed the cell was played at |
+| `seed` | **required** — the cell's own seed: the seed its hands were dealt from, derived from the matrix's table seed and the pair's membership positions. It is **not** a key that replays the cell on its own (`league.md` §3.1) |
 
 `seat_split` names the hands each seat held the button, and each row's numbers are for its own member's
 side of those hands (`protocol.md` §2).

@@ -34,10 +34,13 @@ document (`loop.md` §3, FAM-15.1). Steps 3–8 repeat per variant and per seed;
    the hand's learning signal (`curves.md` §3). **A hand in which the learner's seat never acted produces no batch and no
    update** — `learn` refuses an empty sequence — and contributes no signal (`agents/rule.md` §3).
 7. **Snapshot every interval.** After hand *i* with `(i + 1) % interval == 0`, and at most ten times, the run makes the
-   pair's directory and calls `agents.save(learner, _snapshot_path(...))`, keeping the path it returns (`checkpoints.md` §2).
-   The interval is `budget // 10`; §2 says why it is not the declared `snapshot_every`.
-8. **Write the final model.** After the last hand, `agents.save(learner, _final_path(...))` writes `final.ckpt` for that pair
-   (`checkpoints.md` §2, ASM-18), and the pair's curve closes with the spread across seeds (`curves.md` §4).
+   pair's directory and calls `agents.save(learner, layout._write_path(layout._snapshot_path(...)))`, keeping the path it
+   returns (`checkpoints.md` §2, `write-root.md` §1, §5). The interval is `budget // 10`; §2 says why it is not the declared
+   `snapshot_every`.
+8. **Write the final model.** After the last hand, `agents.save(learner, layout._write_path(layout._final_path(...)))` writes
+   `final.ckpt` for that pair (`checkpoints.md` §2, ASM-18), and the pair's curve closes with the spread across seeds
+   (`curves.md` §4). The naming helper names the *declared* layout; `_write_path` re-roots it at the write root, and the
+   record spells both through `layout._relative`, unchanged (`write-root.md` §2, §5, §6).
 9. **Assemble the record.** `_record(...)` returns §3's mapping and nothing beyond it: a run claims no table position and
    fits no rating (`module-map.md` §3, `records.md` §13, `surface.md` §4).
 
@@ -60,7 +63,10 @@ returns three plain records; it is the only place a learner exists (`loop.py`, `
   returns §4's four facts; a run never claims a wall clock was beaten (`records.md` §12, ASM-15, FAM-13.5).
 
 Every write in the pass goes through `os.makedirs(parent, exist_ok=True)` before `agents.save`, because `save` invents no
-directory and refuses a path whose parent is missing (`agents/surface.md` §8, `checkpoints.md` §2).
+directory and refuses a path whose parent is missing (`agents/surface.md` §8, `checkpoints.md` §2). The parent is made
+**under the write root**, `layout._write_root()` — `CHECKPOINT_ROOT` unless the ambient `PYPOKER_CHECKPOINT_ROOT` names
+another root — and both artefacts are handed to `save` through `layout._write_path`, so a battery's run writes a temporary
+tree and the shipped one is untouched (`write-root.md` §1, §3, §4, §6).
 
 ## 3. The run record, key by key (D3)
 
@@ -71,7 +77,7 @@ directory and refuses a path whose parent is missing (`agents/surface.md` §8, `
 | `rung` | the rung name, or the unregistered configuration's own `name` (`records.md` §12) |
 | `curves` | variant → seed → `{samples, td_error, spread}` — the ten snapshot steps, the mean absolute `td_error` of each interval, the spread across seeds (`curves.md` §5) |
 | `pool` | `{id, m, frozen, members}`: the **declared** id, the read-back `m` and `frozen`, and the read-back members in order — the three pinned baselines first, then the version window (`records.md` §8, `registry.md` §3) |
-| `checkpoints` | variant → seed → `{snapshots: [<the retained five paths>], final: <that pair's final model>}`, each path the repository-relative spelling `layout._relative` gives it (`checkpoints.md` §2–§3) |
+| `checkpoints` | variant → seed → `{snapshots: [<the retained five paths>], final: <that pair's final model>}`, each path `layout._relative` of what `agents.save` was handed: repository-relative with POSIX separators when the artefact is inside the repository root, and **unchanged — absolute — when it is outside it**, because a run may be pointed at another write root (`checkpoints.md` §2, `write-root.md` §5) |
 | `seeds` | the seed set the run used, after §5's default |
 | `budget` | the hands per variant per seed the run used, after §5's default |
 | `device` | the device the run used, after §5's default (`protocol.md` §6, D-8) |
@@ -92,9 +98,10 @@ two-variant record showing two ids fails FAM-3.18 (`loop.md` §2, ASM-16).
   (`curves.md` §5). The keys are the variant name and the seed as a decimal string.
 - `checkpoints[V][str(seed)] = {"snapshots": [five paths], "final": <one path>}` — the retained last M = 5 of the ten the pair
   wrote and that pair's final model, six artefacts and never the five earlier snapshots (`checkpoints.md` §3). Each path is
-  `layout._relative` of what `agents.save` wrote, so the record is repository-relative and `layout._resolve` reads it back from
-  the repository root (`checkpoints.md` §2). `tests/e2e/_records.py`'s `checkpoint_paths_of` reads this key on its own, so a
-  pool member's `path` is never counted here.
+  `layout._relative` of what `agents.save` was handed: repository-relative when the artefact is inside the repository root and
+  unchanged when it is outside, which is why `layout._resolve` reads an inside path back from the repository root and an
+  outside one as it stands (`checkpoints.md` §2, `write-root.md` §5). `tests/e2e/_records.py`'s `checkpoint_paths_of` reads
+  this key on its own, so a pool member's `path` is never counted here.
 - `params[V] = {"budget": 10000, "lower": 9800.0, "upper": 10200.0}` — declared, never measured (`agents.param_count` is not
   among the four `agents` calls this module may make, `module-map.md` §2).
 - `timings[V][str(seed)] = {"hands": budget, "wall_clock_seconds": ..., "seconds_per_hand": ..., "hands_per_second": ...}` —

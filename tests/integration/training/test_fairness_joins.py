@@ -14,8 +14,9 @@ declares is literally the artefacts `training.checkpoints()` lists as R1's retai
 snapshots, in lineage order and each a file the repository carries
 (`docs/L3/training/checkpoints.md` §4-§5), and that the index is *declared* data
 over `checkpoints/` and never a scan -- the battery's own run at an invented seed
-writes checkpoints there and must not appear in the index
-(`docs/L2/training/surface.md` §7, FAM-16.31).
+writes checkpoints under the session's temporary write root (`tests/conftest.py`),
+never there, and must not appear in the index (`docs/L2/training/surface.md` §7,
+`docs/L2/training/write-root.md` §4, FAM-16.31).
 """
 
 import importlib.util
@@ -281,7 +282,9 @@ class LineageJoin(J.JoinCase):
         a scratch file the battery wrote is not a shipped artefact and is never
         listed".  Every rung's declared window is therefore a subset of the index's
         entries, chained by lineage, each path a file -- and the battery's own run at
-        an invented seed, which writes under `checkpoints/`, adds nothing to it
+        an invented seed, which writes under the session's write root (a temporary
+        directory `tests/conftest.py` names through `PYPOKER_CHECKPOINT_ROOT`) and
+        never under `<repo>/checkpoints/`, adds nothing to it
         (D-16, ASM-18, FAM-16.31).
         """
         index_ids = {str(entry["id"]) for entry in J.entries()}
@@ -333,8 +336,9 @@ class LineageJoin(J.JoinCase):
             self.assertNotIn(
                 J.resolve(path),
                 index_paths,
-                "the battery's own run at seed %r writes under `checkpoints/`, and "
-                "the index lists no scratch path the design did not declare -- it is "
+                "the battery's own run at seed %r writes under the session's write "
+                "root, a temporary directory and not `<repo>/checkpoints/`, and the "
+                "index lists no scratch path the design did not declare -- it is "
                 "declared data and never a scan (docs/L2/training/surface.md §7, "
                 "docs/L3/training/checkpoints.md §4, FAM-16.31)" % (J.RUN_SEED,),
             )

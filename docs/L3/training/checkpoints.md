@@ -1,27 +1,31 @@
 # training — the artefacts and the index
 
 - **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
-- **Owner:** the file layout under `checkpoints/` (§1), the naming rules and the `.ckpt` suffix (§2), the ten snapshots and the
-  retained five (§3), `checkpoints()` — declared data, never a scan (§4), and what ships (§5)
+- **Owner:** the file layout under `checkpoints/` (§1), the write root a run writes under (§1–§2), the naming rules and the `.ckpt`
+  suffix (§2), the ten snapshots and the retained five (§3), `checkpoints()` — declared data, never a scan (§4), and what ships (§5)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Read with:** `loop.md` §1 steps 7–8, §3–§4, `registry.md` §3, `curves.md` §2, `agents/checkpoint.md` §2, `errors.md` §4
 
-## 1. The layout, and the four private names
+## 1. The layout, and the private names
 
     checkpoints/<rung>/<variant>/seed-<seed>/step-<step:04d>.ckpt      the ten snapshots
     checkpoints/<rung>/<variant>/seed-<seed>/final.ckpt                that pair's final model
 
 | Name | Signature | One-line contract |
 |---|---|---|
-| `layout.ROOT` | a `str` | the repository root, derived from `layout.py`'s own location and never from the caller's working directory; `CHECKPOINT_ROOT` is `checkpoints/` under it |
-| `layout._snapshot_path` | `_snapshot_path(rung, variant, seed, step)` | §1's snapshot path for that pair and that step, `step` formatted `04d` |
-| `layout._final_path` | `_final_path(rung, variant, seed)` | §1's `final.ckpt` path for that pair |
-| `layout._relative` | `_relative(path)` | that path spelled relative to the repository root, POSIX separators — the spelling §2's record and §4's index both use |
+| `layout.ROOT` | a `str` | the repository root, derived from `layout.py`'s own location and never from the caller's working directory; `CHECKPOINT_ROOT` is `checkpoints/` under it and is the **declared** root, which every read and the index resolve against (`write-root.md` §1–§2) |
+| `layout.OVERRIDE` | a `str` | `"PYPOKER_CHECKPOINT_ROOT"`: the one ambient override's name, read from `os.environ` and never a seventh entry point (`write-root.md` §3) |
+| `layout._snapshot_path` | `_snapshot_path(rung, variant, seed, step)` | §1's snapshot path for that pair and that step, `step` formatted `04d` — of the **declared** layout and never of the write root |
+| `layout._final_path` | `_final_path(rung, variant, seed)` | §1's `final.ckpt` path for that pair, of the **declared** layout |
+| `layout._write_root` | `_write_root()` | the root a run writes under: `os.path.abspath(os.environ[OVERRIDE])` when that variable is set to a non-empty value, else `CHECKPOINT_ROOT`; read on **every** call and never cached, so an override set after `import training` still applies |
+| `layout._write_path` | `_write_path(declared)` | one declared path re-rooted at the write root: `os.path.join(_write_root(), os.path.relpath(declared, CHECKPOINT_ROOT))`, and the declared path itself when the two roots are equal |
+| `layout._prepare` | `_prepare(rung, variant, seed)` | makes that pair's directory **under the write root** — `_write_path(_directory(rung, variant, seed))` — with `os.makedirs(..., exist_ok=True)`, and returns it, because `save` invents none |
+| `layout._relative` | `_relative(path)` | that path as §2's record spells it: relative to the repository root with POSIX separators when the artefact is inside it, **unchanged** when it is outside (`write-root.md` §5) |
 | `layout._resolve` | `_resolve(path)` | a recorded path as a filesystem path: an absolute one as it stands, a relative one read from the repository root and never from the caller's working directory |
 | `layout._resolved` | `_resolved(records)` | the same member records with each `path` resolved — what a `build_pool` call is handed, because a pool tests a path with `os.path.isfile` and a record spells it from the root |
 
-The six are contract for `tests/training/` (`README.md` §4). `ROOT` is not a module-level directory scan: nothing here lists it
-(`§4`), and `layout` never creates a directory on import.
+The ten are contract for `tests/training/` (`README.md` §4). `ROOT` is not a directory scan: nothing here lists the tree (`§4`),
+no name creates a directory on import, and `_prepare` is the one that creates one at all — under the write root (§2).
 
 ## 2. The names, the suffix, and who makes the directory
 
@@ -35,14 +39,21 @@ The six are contract for `tests/training/` (`README.md` §4). `ROOT` is not a mo
   `agents.save` writes the container it always writes, through an open handle, so the caller's suffix is honoured byte for byte
   (`agents/checkpoint.md` §2). Rejected: `*.pt` plus a `.gitignore` exception, which makes every later artefact an argument about
   the ignore file.
-- **The run makes the pair's directory** with `os.makedirs(parent, exist_ok=True)` before the first `agents.save`, because `save`
-  invents no directory and refuses a path whose parent is missing (`agents/surface.md` §8, `loop.md` §2). One directory per
-  variant × seed keeps a pair's six named artefacts together and makes a run's ten snapshots and its final model one folder.
-- **The run record carries the path `agents.save` returned, spelled `_relative`** — repository-relative, POSIX separators — so
-  the record travels with the tree instead of naming one machine's home directory, and the same artefact has one spelling in
-  a run record and in the index (D-8, `protocol.md` §5, FAM-12.1, FAM-15.1). `agents.save` is handed the absolute path and
-  writes it; the spelling is the record's, not the writer's. **The index carries that same spelling** (`_relative` of the
-  same artefact), because it too is a shipped declaration (`battery.md` §2, FAM-12.5, FAM-16.31).
+- **The run makes the pair's directory under the write root** with `os.makedirs(parent, exist_ok=True)` before the first `agents.save`,
+  because `save` invents no directory and refuses a path whose parent is missing (`agents/surface.md` §8, `loop.md` §2). One
+  directory per variant × seed keeps a pair's six named artefacts together and makes a run's ten snapshots and its final model one
+  folder.
+- **The write root is `_write_root()`**: the declared root unless `PYPOKER_CHECKPOINT_ROOT` names another one, so a run with the
+  override unset writes the shipped layout exactly as before and a redirected run writes the same layout elsewhere
+  (`write-root.md` §1, §3, §6). Every path a run hands `agents.save` is `_write_path` of a declared path, and
+  `_snapshot_path`/`_final_path` keep naming the declared layout, which is what keeps the index's `root` and every declared
+  window resolving from `<repo>` (`write-root.md` §2).
+- **The run record carries the path `agents.save` returned, spelled `_relative`**, and the rule is exact: an artefact **inside** the
+  repository root is spelled repository-relative with POSIX separators, so it travels with the tree; one **outside** it is carried
+  **unchanged** — the absolute path `agents.save` was handed — so a redirected run's record names a file that exists
+  (`write-root.md` §5, `protocol.md` §5, FAM-12.1, FAM-15.1). A default run carries `checkpoints/R1/…/final.ckpt` and one at
+  `PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run` carries `/tmp/pypoker-run/R1/…/final.ckpt`; **the index carries the
+  repository-relative spelling only**, because it is a shipped declaration (`battery.md` §2, FAM-12.5, FAM-16.31).
 - **Every path this module reads back goes through `_resolve`**, which reads a relative spelling from the repository root:
   a declared version whose `path` is `checkpoints/R1/…/step-0600.ckpt` is a member whatever directory the process was
   started in, and a pool whose window emptied because a talk ran elsewhere would pretend a version the repository carries is
@@ -126,9 +137,12 @@ budget's end and are two files, so naming both is not a repeat), so no artefact 
   path outside the repository (`module-map.md` §5, `battery.md` §3 FAM-12). A talk loads an entry through
   `evaluation.policy_from`, which reads the seed and the encoding from the container, so the first entry must be a checkpoint
   `agents.save` wrote and never a manifest (`evaluation/surface.md` §12, FAM-16.31).
+- **A battery writes into a temporary root, so this shipped set is never added to and never overwritten.** `tests/conftest.py`
+  points `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp` per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so
+  the eighteen artefacts above are as the shipped run left them (`battery.md` §2, walkthrough finding 5).
 
 ## 6. What is left to L4
 
 Whether a path is a `str` or a `Path`, how the two declarations are written out, and whether `_entries` sorts or concatenates.
-Not L4's: §1's two name forms and four signatures, the `.ckpt` suffix and its reason, the six named artefacts per pair, the
-entry's nine keys, §4's order, the one-listing rule, and `shipped` being rung names (`guardrails.md` G11–G13).
+Not L4's: §1's two name forms and the ten names' contracts, the `.ckpt` suffix and its reason, the six named artefacts per pair,
+the entry's nine keys, §4's order, the one-listing rule, and `shipped` being rung names (`guardrails.md` G11–G13).

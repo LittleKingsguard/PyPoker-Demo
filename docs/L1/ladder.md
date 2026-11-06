@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 rung ladder as configuration
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
@@ -92,4 +92,5 @@ only the clock pays (ASM-15, ASM-21).
 - **What ships now: one of the six.** `notebooks/r1-naive-numpy.ipynb` exists and runs the R1 rung end to end. The other five are not written yet — do not go looking for them in the tree — and each follows the R1 notebook's pattern exactly: the same imports, the same ordered steps (the rung, a run, the pool it trained against, the device, the checkpoints, the live table, the rating, the shipped `full` table, the report, the curves), read off that rung's own name. A notebook is written when its rung has something to narrate, and none of the five is a different design (D-5, brief §1).
 - A notebook is the talk's narrative: markdown for the story, and cells that call the declared entry points of `training` and `evaluation` only — the rung, a run, the pool it trained against, the device in use, the shipped checkpoints, the league table read at the `live` budget, the rating, the shipped `full` table, the report, and a plot of the curves the report already contains (D-5, D-16).
 - A notebook may import `training`, `evaluation`, `matplotlib` and the standard library. It may not import `engine`, `features`, `agents` or `harness`, may not import from `src/`, and may not carry a loop over hands, a model, an encoder, a metric, a match, or a copy of any module's code (D-5).
+- **Where a notebook runs from.** `jupyter lab notebooks/r1-naive-numpy.ipynb` starts the kernel in `notebooks/`, so a notebook may not assume the repository root is the working directory: it finds the root itself (walking up for `pyproject.toml` and `src/`) and resolves every repository-relative path a record spells against that root before handing it back to `evaluation`, whose `policy_from` and `build_pool` read a path as the working directory spells it. The R1 notebook runs unchanged headless from `notebooks/` — `cd notebooks && PYTHONHASHSEED=0 ../.venv/bin/python -m jupyter nbconvert --to notebook --execute r1-naive-numpy.ipynb --output-dir /tmp/r1-notebook --ExecutePreprocessor.timeout=2400` — and at the repository root alike; the pin is only what makes its numbers comparable with the shipped evidence (D-5, `protocol.md` §4, `getting-started.md` §5).
 - A notebook that needs something the surface does not expose has found an L2 or L1 defect and returns as an `ADJUDICATION` (modules.md §3, D-12); inlining the missing piece is the one thing D-5 forbids.

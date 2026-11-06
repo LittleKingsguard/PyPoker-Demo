@@ -220,9 +220,12 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     derivations, so both arms of a pair play the same hands against the same opponents
     (protocol.md §4, ASM-2, ASM-8).
 
-    `agents.save` is handed an absolute path and writes it; what the record carries is
-    `layout._relative` of that path, so the six artefacts of a pair are named as they read
-    from the repository root and the record travels with the tree (protocol.md §5,
+    `agents.save` is handed `layout._write_path` of a declared path — the write root,
+    which is the declared `<repo>/checkpoints` unless the ambient override names another
+    one — and writes it; what the record carries is `layout._relative` of that path, so a
+    default run's six artefacts of a pair are named as they read from the repository root
+    and travel with the tree, while a redirected run's are carried absolute and name a file
+    that exists (protocol.md §5, write-root.md §1, §5,
     docs/L3/training/checkpoints.md §2).
     """
     del device  # the run records it; a pair's pass measures the same work on any device
@@ -262,10 +265,15 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
         if trained % interval == 0:
             snapshots.append(
                 agents.save(
-                    learner, layout._snapshot_path(name, variant, seed, trained)
+                    learner,
+                    layout._write_path(
+                        layout._snapshot_path(name, variant, seed, trained)
+                    ),
                 )
             )
-    final = agents.save(learner, layout._final_path(name, variant, seed))
+    final = agents.save(
+        learner, layout._write_path(layout._final_path(name, variant, seed))
+    )
     timing = _timings(start, budget)
     return (
         curve.close([]),

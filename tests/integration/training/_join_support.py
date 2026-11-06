@@ -308,11 +308,14 @@ def seed_key(seed):
 def resolve(path):
     """One declared path as a filesystem path.
 
-    Both a run record and the shipped index carry the repository-relative spelling
-    (`docs/L3/training/checkpoints.md` §2), so a reader resolves it against the
-    repository root, which is where the battery runs (`docs/L1/battery.md` §2).  An
-    absolute path -- a caller's own checkpoint, or one a case wrote into its scratch
-    root -- is taken as it stands.
+    The shipped index, and a run record whose artefact is inside the repository,
+    carry the repository-relative spelling (`docs/L3/training/checkpoints.md` §2), so
+    a reader resolves it against the repository root, which is where the battery runs
+    (`docs/L1/battery.md` §2).  A record whose artefact is outside it -- a battery's
+    run writes under the session's temporary write root -- carries the absolute path
+    `agents.save` was handed unchanged (`docs/L2/training/write-root.md` §5).  Any
+    absolute path, a caller's own checkpoint or one a case wrote into its scratch
+    root, is taken as it stands.
     """
     text = str(path)
     if os.path.isabs(text):

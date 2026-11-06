@@ -7,14 +7,17 @@ a repository-relative spelling that resolves inside the repository.
 
 Nothing here drives the producer: the file is evidence, no entry point reads or writes it, and
 a case that regenerated it would pay the 3,000-hand run to compare a measurement with itself
-(`docs/L3/training/evidence.md` §6, `docs/L1/protocol.md` §5).  What a case can check is the file
+(`docs/L3/training/evidence.md` §6, `docs/L1/protocol.md` §5).  The bundle is produced by
+`scripts/regenerate-evidence.py`, a script and not an entry point (§6), so this battery asserts
+the file the repository ships and never drives that producer.  What a case can check is the file
 the repository ships -- its keys, the shape its curves take, the spelling of its paths, the
 arithmetic that keeps its header and its matrix from contradicting each other, and the index
 summary it records -- plus, at the battery's own budget, that a run record's curve block carries
 the one spread array the bundle's layout hoists (`docs/L3/training/curves.md` §4).  The bundle's
 *hoisting* is the job's prose recipe (step 7 of that §6) and not shipped code, so no case can
-drive it; and the shipped array itself is stale, so no case compares against it
-(`docs/L3/training/evidence.md` §3).
+drive it; the shipped array itself reproduces as the max minus the min of that variant's three
+`td_error` series at every point, and no case asserts its values, because a case that checked
+them would be comparing a measurement with itself (`docs/L3/training/evidence.md` §3).
 """
 
 import importlib.util
@@ -37,12 +40,13 @@ else:
     sys.modules["training_join_support"] = J
     _spec.loader.exec_module(J)
 
-#: The sixteen top-level keys `docs/L3/training/evidence.md` §2 declares.
+#: The seventeen top-level keys `docs/L3/training/evidence.md` §2 declares, in the
+#: bundle's own order, which writes `provenance` last.
 TOP_LEVEL = (
     "stages", "errors", "rungs", "devices", "run",
     "run_wall_clock_seconds", "run_hands", "pool_versions", "pool_record",
     "r2_pool", "matrix", "rating", "report_families", "report",
-    "index_summary", "index_missing",
+    "index_summary", "index_missing", "provenance",
 )
 
 #: `records.md` §12's ten required keys plus this module's own four (`loop.md` §3-§4).
@@ -84,14 +88,14 @@ class EvidenceFileJoin(J.JoinCase):
                 self.paths_in(inner, found)
         return found
 
-    def test_trnj_9_1_the_file_holds_the_sixteen_documented_keys(self):
-        """TRNJ-9.1 the bundle is one object of the sixteen top-level keys §2 lists, and none beside them (evidence.md §2 of L3)."""
+    def test_trnj_9_1_the_file_holds_the_seventeen_documented_keys(self):
+        """TRNJ-9.1 the bundle is one object of the seventeen top-level keys §2 lists, and none beside them (evidence.md §2 of L3)."""
         document = self.document()
         self.assertEqual(
             set(document),
             set(TOP_LEVEL),
-            "the bundle's sixteen keys are the ones docs/L3/training/evidence.md §2 "
-            "declares, and a seventeenth is a different format: %r"
+            "the bundle's seventeen keys are the ones docs/L3/training/evidence.md §2 "
+            "declares, and an eighteenth is a different format: %r"
             % (sorted(document),),
         )
 
@@ -99,8 +103,11 @@ class EvidenceFileJoin(J.JoinCase):
         """TRNJ-9.2 `run` is `records.md` §12's record plus this module's own keys, its curves take the bundle's variant-level layout, and the one spread array a run record repeats per seed is that same array (evidence.md §2, §4 of L3, curves.md §4, loop.md §3-§4).
 
         The bundle's *structure* is asserted here and its *values* are not: the shipped
-        array is stale (`docs/L3/training/evidence.md` §3), so the numbers are checked on a
-        run this battery makes, where both layouts are views of one array.
+        array reproduces as the max minus the min of that variant's three `td_error` series at
+        all ten points (`docs/L3/training/evidence.md` §3), but no case asserts those values,
+        because a case that checked them would be comparing a measurement with itself — the
+        numbers are checked on a run this battery makes, where both layouts are views of one
+        array.
         """
         run = self.document()["run"]
         for key in RUN_KEYS:

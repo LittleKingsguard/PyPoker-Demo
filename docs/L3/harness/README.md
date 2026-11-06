@@ -15,7 +15,7 @@
 - **Ceiling:** 130 lines. At the ceiling, split by owner — never append
 - **Read with:** `layout.md`, `driver.md`, `support.md`, `expectations.md`, `errors.md`, `guardrails.md`
 - **Implements:** `src/harness/`, written by L4 and never by L3. `tests/harness/` is this module's unit battery
-  (`HRN-1`–`HRN-7`); `tests/e2e/` is its consumer and is never edited from here
+  (`HRN-1`–`HRN-9`); `tests/e2e/` is its consumer and is never edited from here
 
 ## 1. What this module is
 
@@ -32,7 +32,7 @@ that a wall clock was beaten (`battery.md` §2, §5, ASM-15, D-6).
 
 | Document | Owns | What it fixes |
 |---|---|---|
-| `layout.md` | the package and its budget | the one file and its order (§1), the budget per unit and the measured cap finding (§2), the import boundary (§3), the compression ladder (§4) |
+| `layout.md` | the package and its budget | the one file and its order (§1), the budget per unit and the measured cap finding (§2), the import boundary (§3), the compression ladder (§4), the session write root (§5) |
 | `driver.md` | `drive()`, `timings()` | the case's shape and its refused-as-failure shapes (§1), the step pass (§2), judging (§3), the case-result record key by key (§4), hands (§5), the cost accumulation and its four facts (§6), determinism (§7) |
 | `support.md` | `fixtures()`, `factory()`, `seam()` | the scratch root's creation and name (§1), the six-kind dispatch and `baseline`'s two options in order (§2), the seam closure, the two behaviours, the call-log entry, the empty-set refusal (§3) |
 | `expectations.md` | `expect()` | the verdict record (§1), the four kinds in order with each reader's order and its failed fact (§2), totality scoped to §1's plain data and determinism (§3), the two refusal edges (§4) |

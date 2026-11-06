@@ -7,10 +7,10 @@
 - **Read with:** all of `README.md`, `layout.md`, `driver.md`, `support.md`, `expectations.md`, `errors.md`
 
 The unit battery's files are contract: `tests/harness/test_harness_surface.py` (`HRN-1.k`), `test_harness_drive.py`
-(`HRN-2.k`), `test_harness_expectations.py` (`HRN-3.k`), `test_harness_fixtures.py` (`HRN-4.k`),
-`test_harness_factory.py` (`HRN-5.k`), `test_harness_seam.py` (`HRN-6.k`), `test_harness_timings.py` (`HRN-7.k`),
-`test_harness_errors.py` (`HRN-8.k`). It drives the **real** five modules — this module's whole job is calling them, so
-a stub here would test the stub — and a missing entry point must fail loudly rather than pass through a substitute.
+(`HRN-2.k`), `test_harness_expectations.py` (`HRN-3.k`), `test_harness_fixtures.py` (`HRN-4.k`), `test_harness_factory.py`
+(`HRN-5.k`), `test_harness_seam.py` (`HRN-6.k`), `test_harness_timings.py` (`HRN-7.k`), `test_harness_errors.py`
+(`HRN-8.k`) and `test_harness_session_root.py` (`HRN-9.k`, `layout.md` §5). It drives the **real** five modules — a
+missing entry point must fail loudly rather than pass through a substitute, and a stub here would test the stub.
 
 ## G1 — One file, six names in `__all__`, and no seventh name at module level
 `src/harness/__init__.py` exports the six names of `README.md` §5 in that order; `KINDS`, `OBJECTS`, `COUNTS`, `ROOT`,

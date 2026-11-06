@@ -49,6 +49,7 @@ from _training_support import (
     training,
     variant_entries,
     variant_name,
+    write_tree,
 )
 
 #: `registry.md` §2's twelve keys of a resolved configuration, and no other.
@@ -484,6 +485,7 @@ class RegistryTest(TrainingCase):
 
         package = training()
         before_tree = checkpoint_tree()
+        before_write = write_tree()
         before_stream = random.getstate()
         with mock.patch.object(agents(), "build_learner") as build_learner, mock.patch.object(
             agents(), "save"
@@ -506,6 +508,15 @@ class RegistryTest(TrainingCase):
         self.assertEqual(one["name"], "R1", "resolution returns the name it resolved")
         self.assert_no_hand_dealt(before_stream, "rung() and rungs()")
         self.assert_tree_untouched(before_tree, "rung() and rungs()")
+        self.assertEqual(
+            [path for path in write_tree() if path not in before_write],
+            [],
+            "resolution writes no file under the write root either, and that is the "
+            "tree a battery's run writes: the shipped tree is empty of a run's files by "
+            "construction, so this is the assertion that could still fail (D-3, "
+            "guardrails G19, docs/L2/training/write-root.md §1, §3): %r"
+            % ([path for path in write_tree() if path not in before_write],),
+        )
 
 
 if __name__ == "__main__":

@@ -1,27 +1,33 @@
 """TRN-6 — the artefacts, the layout and the index: `checkpoints()`.
 
-Drives `docs/L3/training/checkpoints.md` §1-§5 and `docs/L2/training/surface.md` §7: the
-file layout under `checkpoints/`, the `.ckpt` suffix, the ten written and the five
-retained plus that pair's final model, the six private names `README.md` §4 makes
-contract (`ROOT`, `_snapshot_path`, `_final_path`, `_relative`, `_resolve`, `_resolved`)
-and the directory the run makes, and the index — declared data, one entry per artefact,
-listed once, in §4's order, with the window as one lineage chain.
+Drives `docs/L3/training/checkpoints.md` §1-§5, `docs/L2/training/write-root.md` §1-§3
+and `docs/L2/training/surface.md` §7: the file layout under `checkpoints/`, the `.ckpt`
+suffix, the ten written and the five retained plus that pair's final model, the layout's
+private names `README.md` §4 makes contract (`ROOT`, `CHECKPOINT_ROOT`, `OVERRIDE`,
+`_write_root`, `_write_path`, `_final_path`, `_snapshot_path`, `_prepare`, `_relative`,
+`_resolve`, `_resolved`) — the declared layout and its naming helpers, the write root
+`PYPOKER_CHECKPOINT_ROOT` and the directory the run makes before the first save — and
+the index — declared data, one entry per artefact, listed once, in §4's order, with the
+window as one lineage chain.
 
 The listing is counted, never de-duplicated: FAM-12.6 fails on a single repeat and
 `battery.md` §2 makes a case that cannot fail a defect, so `listed_paths` keeps every
 repeat it finds.
 """
 
+import hashlib
 import os
 import shutil
 import tempfile
 import unittest
 
 from _training_support import (
+    CHECKPOINT_ROOT,
     RETAINED,
     REPO_ROOT,
     RUNG_NAMES,
     SIXTY_BUDGET,
+    SNAPSHOTS,
     TINY_BUDGET,
     TrainingCase,
     as_int,
@@ -30,14 +36,18 @@ from _training_support import (
     as_text,
     baseline_names,
     checkpoint_block,
+    checkpoint_tree,
     internal,
     internal_module,
     listed_paths,
     one_seed_run,
     repo_relative,
     resolved,
+    seed_set,
     sixty_hand_run,
     training,
+    write_root,
+    write_tree,
 )
 
 #: `checkpoints.md` §4's nine keys of one entry, `records.md` §7's eight plus `kind`.
@@ -56,10 +66,54 @@ ENTRY_KEYS = {
 #: `checkpoints.md` §2's suffix.
 SUFFIX = ".ckpt"
 
+#: `write-root.md` §3's one ambient override, by the name it declares.
+OVERRIDE = "PYPOKER_CHECKPOINT_ROOT"
+
 #: Invented labels for the layout cases: a pair no run of this repository writes.
 LAYOUT_RUNG = "R9-layout-5520"
 LAYOUT_VARIANT = "variant-layout-5520"
 LAYOUT_SEED = 5520
+
+#: Invented seed for the write-root case: no other case in this battery runs it, so the
+#: eleven artefacts a run at it leaves under the write root are this case's own and its
+#: record cannot be another case's (`write-root.md` §1, §3, loop.md §4).
+DECLARED_SEED = 5521
+
+
+def tree_digest(paths):
+    """A sha256 of every file `paths` names, as `{path: hexdigest}`.
+
+    `paths` are `checkpoint_tree()`'s repository-relative names, so each is opened through
+    `resolved()` — a recorded spelling is read from the repository root and never from the
+    caller's working directory (`checkpoints.md` §2) — and read in binary, because "the
+    shipped set is never added to and never overwritten" is a claim about bytes and not
+    only about names (`checkpoints.md` §5, `write-root.md` §2, guardrails G20).
+    """
+    digests = {}
+    for path in paths:
+        with open(resolved(path), "rb") as handle:
+            digests[path] = hashlib.sha256(handle.read()).hexdigest()
+    return digests
+
+
+def tree_directories():
+    """Every directory under `<repo>/checkpoints`, repository-relative, sorted.
+
+    The counterpart of `checkpoint_tree()`, which lists files only: `checkpoints.md` §2
+    fixes a directory layout — `checkpoints/<rung>/<variant>/seed-<seed>/` — that a file
+    listing cannot see, so a run that spells the declared root where `_prepare` means the
+    write root adds a directory and no file at all. Guardrails G20's "a battery-started
+    run adds no path under `<repo>/checkpoints`" is a claim about paths and not only about
+    files, and a directory is a path (`write-root.md` §1, §3, `checkpoints.md` §2, §5).
+    The root itself is not a level below itself and is never listed; each entry is spelled
+    the way `checkpoint_tree()` spells its files, through `repo_relative()` — POSIX
+    separators, from the repository root (`checkpoints.md` §1-§2).
+    """
+    found = []
+    for base, directories, _files in os.walk(CHECKPOINT_ROOT):
+        for name in directories:
+            found.append(repo_relative(os.path.join(base, name)))
+    return sorted(found)
 
 
 class CheckpointTest(TrainingCase):
@@ -341,7 +395,7 @@ class CheckpointTest(TrainingCase):
         )
 
     def test_trn_6_5_the_pair_directory_is_made_before_the_first_save(self):
-        """TRN-6.5 the layout makes the pair's directory and nothing else — the one write the run needs before `agents.save`, which invents no directory (checkpoints.md §2, loop.md §2, agents/surface.md §8)."""
+        """TRN-6.5 the layout makes the pair's directory under the write root and nothing else — the one write the run needs before `agents.save`, which invents no directory — so the declared `<repo>/checkpoints` tree gains nothing, and the write root follows `PYPOKER_CHECKPOINT_ROOT` alone, read on every call and never cached (docs/L3/training/checkpoints.md §1-§2, docs/L3/training/loop.md §2, docs/L2/training/write-root.md §1, §3)."""
         layout = internal_module("layout")
         maker_names = (
             "_prepare",
@@ -365,39 +419,146 @@ class CheckpointTest(TrainingCase):
                 "before agents.save, which invents none (README.md §4, loop.md §2)"
                 % (maker_names,)
             )
-        rung_directory = os.path.join(REPO_ROOT, "checkpoints", LAYOUT_RUNG)
+        root = write_root()
+        pair_root = os.path.join(root, LAYOUT_RUNG)
         pair_directory = os.path.join(
-            rung_directory, LAYOUT_VARIANT, "seed-%d" % (LAYOUT_SEED,)
+            pair_root, LAYOUT_VARIANT, "seed-%d" % (LAYOUT_SEED,)
         )
-        self.addCleanup(shutil.rmtree, rung_directory, True)
+        declared_pair_root = os.path.join(CHECKPOINT_ROOT, LAYOUT_RUNG)
+        redirected = os.path.abspath(root) != os.path.abspath(CHECKPOINT_ROOT)
+        self.addCleanup(shutil.rmtree, pair_root, True)
+        before_shipped = checkpoint_tree()
         self.assertFalse(
             os.path.exists(pair_directory),
-            "the pair's directory does not exist before the run makes it",
+            "the pair's directory does not exist under the write root before the run "
+            "makes it (write-root.md §1, checkpoints.md §2): %r" % (pair_directory,),
         )
         prepare(LAYOUT_RUNG, LAYOUT_VARIANT, LAYOUT_SEED)
         self.assertTrue(
             os.path.isdir(pair_directory),
-            "the layout makes the pair's directory, which is what lets agents.save write "
-            "into it (checkpoints.md §2, loop.md §1 step 7): %r" % (pair_directory,),
+            "the layout makes the pair's directory under the write root, which is what "
+            "lets agents.save write into it (checkpoints.md §2, loop.md §1 step 7): %r"
+            % (pair_directory,),
         )
         made = []
-        for base, directories, files in os.walk(rung_directory):
+        written = []
+        for base, directories, files in os.walk(pair_root):
             for name in directories:
-                made.append(repo_relative(os.path.join(base, name)))
+                made.append(
+                    os.path.relpath(os.path.join(base, name), root).replace(os.sep, "/")
+                )
             for name in files:
-                made.append(repo_relative(os.path.join(base, name)))
+                written.append(
+                    os.path.relpath(os.path.join(base, name), root).replace(os.sep, "/")
+                )
         self.assertEqual(
-            made,
-            ["checkpoints/%s/%s" % (LAYOUT_RUNG, LAYOUT_VARIANT),
-             "checkpoints/%s/%s/seed-%d" % (LAYOUT_RUNG, LAYOUT_VARIANT, LAYOUT_SEED)],
-            "the maker creates the pair's directory and writes no artefact of its own "
-            "(checkpoints.md §2): %r" % (made,),
+            sorted(made),
+            ["%s/%s" % (LAYOUT_RUNG, LAYOUT_VARIANT),
+             "%s/%s/seed-%d" % (LAYOUT_RUNG, LAYOUT_VARIANT, LAYOUT_SEED)],
+            "the maker creates the pair's directory under the write root — spelled from "
+            "that root — and nothing else (checkpoints.md §2, write-root.md §1): %r"
+            % (sorted(made),),
         )
+        self.assertEqual(
+            written,
+            [],
+            "the maker creates the directory and writes no artefact of its own: making "
+            "the directory is the preparation and agents.save is the write "
+            "(checkpoints.md §2, guardrails G19): %r" % (written,),
+        )
+        self.assert_tree_untouched(before_shipped, "the layout's directory-maker")
+        if redirected:
+            self.assertFalse(
+                os.path.exists(declared_pair_root),
+                "the maker makes the pair's directory under the write root %r and never "
+                "the declared one, so nothing may be added to the shipped tree "
+                "(write-root.md §1, §3, checkpoints.md §5): %r must not exist"
+                % (root, declared_pair_root),
+            )
         prepare(LAYOUT_RUNG, LAYOUT_VARIANT, LAYOUT_SEED)
         self.assertTrue(
             os.path.isdir(pair_directory),
             "making the directory twice is not an error, because the run calls it with "
-            "exist_ok=True (checkpoints.md §2)",
+            "exist_ok=True (checkpoints.md §2): %r" % (pair_directory,),
+        )
+        declared_root = layout.CHECKPOINT_ROOT
+        declared = layout._final_path(LAYOUT_RUNG, LAYOUT_VARIANT, LAYOUT_SEED)
+        self.assertEqual(
+            internal("layout", "OVERRIDE"),
+            OVERRIDE,
+            "the one ambient override's name is %r exactly, spelled `layout.OVERRIDE` "
+            "and never a seventh entry point (write-root.md §3, checkpoints.md §1): %r"
+            % (OVERRIDE, getattr(layout, "OVERRIDE", None)),
+        )
+        had_previous = OVERRIDE in os.environ
+        previous = os.environ.get(OVERRIDE)
+
+        def restore_override():
+            if had_previous:
+                os.environ[OVERRIDE] = previous
+            else:
+                os.environ.pop(OVERRIDE, None)
+
+        self.addCleanup(restore_override)
+        for label, value in (("unset", None), ("empty", "")):
+            with self.subTest(override=label):
+                if value is None:
+                    os.environ.pop(OVERRIDE, None)
+                else:
+                    os.environ[OVERRIDE] = value
+                self.assertEqual(
+                    layout._write_root(),
+                    declared_root,
+                    "with %s %s the write root is the declared <repo>/checkpoints root "
+                    "and no other (write-root.md §1, §3): %r against %r"
+                    % (OVERRIDE, label, layout._write_root(), declared_root),
+                )
+                self.assertEqual(
+                    layout._write_path(declared),
+                    declared,
+                    "with %s %s `_write_path` returns the declared path unchanged, "
+                    "because the two roots are one root (write-root.md §1, §3): %r "
+                    "against %r"
+                    % (OVERRIDE, label, layout._write_path(declared), declared),
+                )
+        elsewhere = tempfile.mkdtemp(prefix="training-write-root-case-")
+        self.addCleanup(shutil.rmtree, elsewhere, True)
+        os.environ[OVERRIDE] = elsewhere
+        expected_root = os.path.abspath(elsewhere)
+        self.assertEqual(
+            layout._write_root(),
+            expected_root,
+            "%s is read on every call and never cached at import, so a value set after "
+            "this package was imported moves the write root on the very next call "
+            "(write-root.md §3, checkpoints.md §2): %r against %r"
+            % (OVERRIDE, layout._write_root(), expected_root),
+        )
+        expected_path = os.path.join(
+            expected_root, os.path.relpath(declared, declared_root)
+        )
+        self.assertEqual(
+            layout._write_path(declared),
+            expected_path,
+            "with %s set, one declared path is re-rooted at the write root: "
+            "os.path.join(_write_root(), os.path.relpath(declared, CHECKPOINT_ROOT)) "
+            "(write-root.md §1, §3, checkpoints.md §1): %r against %r"
+            % (OVERRIDE, layout._write_path(declared), expected_path),
+        )
+        self.assertEqual(
+            os.path.abspath(layout._write_root()),
+            os.path.abspath(elsewhere),
+            "the write root is the override's path made absolute and nothing else, so "
+            "one command line points a run anywhere (write-root.md §3, §4): %r"
+            % (layout._write_root(),),
+        )
+        restore_override()
+        self.assertEqual(
+            layout._write_root(),
+            os.path.abspath(write_root()),
+            "restoring the environment puts the write root back exactly where the "
+            "session left it, so this case leaves no trace behind "
+            "(write-root.md §3, §4): %r against %r"
+            % (layout._write_root(), os.path.abspath(write_root())),
         )
 
     def test_trn_6_6_the_window_is_one_lineage_chain_in_the_seed_sets_order(self):
@@ -519,6 +680,176 @@ class CheckpointTest(TrainingCase):
                 "the declared window names files the repository carries "
                 "(protocol.md §5, FAM-12.5): %r" % (member["path"],),
             )
+
+    def test_trn_6_9_a_run_adds_nothing_and_changes_nothing_under_the_declared_tree(self):
+        """TRN-6.9 a successful `training.run` adds no path under `<repo>/checkpoints` and no byte — files and directories both: no file added, no directory added, neither lost, no byte changed — while its own eleven artefacts land under the write root, which this case reads from `PYPOKER_CHECKPOINT_ROOT` alone and never from `layout._write_root()`, `layout.OVERRIDE` or any internal of `src/training/`, and are the paths its record names (docs/L3/training/checkpoints.md §2, §5, docs/L2/training/write-root.md §1, §3, §5, docs/L3/training/loop.md §2, §4, guardrails G20, FAM-16.31); it requires the session's write-root redirection and fails, before it runs and before it snapshots, when that redirection is absent."""
+        root = os.path.abspath(write_root())
+        self.assertNotEqual(
+            root,
+            os.path.abspath(CHECKPOINT_ROOT),
+            "this case holds a run against the shipped set, so it needs the session's "
+            "write-root redirection: tests/conftest.py points PYPOKER_CHECKPOINT_ROOT "
+            "at a private mkdtemp for the whole session, and with it absent the write "
+            "root IS <repo>/checkpoints — the run below would write the shipped tree "
+            "this guardrail forbids, and the failure would name the implementation for "
+            "a redirection the runner never set. Run the battery as "
+            "`.venv/bin/python -m pytest tests/training -q` from the repository root "
+            "(docs/L2/training/write-root.md §1, §3, docs/L3/training/checkpoints.md "
+            "§5, battery.md §2): the write root is %r and the declared root is %r"
+            % (root, os.path.abspath(CHECKPOINT_ROOT)),
+        )
+        package = training()
+        before_tree = checkpoint_tree()
+        before_directories = tree_directories()
+        before_bytes = tree_digest(before_tree)
+        self.assertTrue(
+            before_tree,
+            "the declared tree carries the shipped artefacts this case holds a run "
+            "against, so an empty snapshot would make the guardrail vacuous "
+            "(checkpoints.md §5, protocol.md §5): %r" % (before_tree,),
+        )
+        record = as_mapping(
+            package.run("R1", [DECLARED_SEED], TINY_BUDGET), "training.run's record"
+        )
+        after_tree = checkpoint_tree()
+        after_directories = tree_directories()
+        after_bytes = tree_digest(after_tree)
+        added = [path for path in after_tree if path not in before_tree]
+        self.assertEqual(
+            added,
+            [],
+            "a run writes under the write root and never into the shipped set, so "
+            "<repo>/checkpoints gains no path — no snapshot, no final model, no "
+            "directory holding them — after a run has succeeded "
+            "(write-root.md §1, §3, checkpoints.md §5, guardrails G20): %r was added — "
+            "and if another process is writing the declared tree while this case runs "
+            "(a reader's default run, `scripts/regenerate-evidence.py`, a notebook "
+            "kernel), that concurrent writer is the cause and not this module's write "
+            "path, since a run of this battery is redirected away from the shipped set "
+            "and this case's whole window is one ten-hand run" % (added,),
+        )
+        added_directories = [
+            path for path in after_directories if path not in before_directories
+        ]
+        self.assertEqual(
+            added_directories,
+            [],
+            "and gains no directory either, because a directory is a path and "
+            "`checkpoints.md` §2's `<rung>/<variant>/seed-<seed>/` is one the write root "
+            "carries a copy of: a run that makes the pair's directory under "
+            "<repo>/checkpoints while saving under the write root adds `checkpoints/"
+            "R1/naive-numeric/seed-<seed>/` and leaves the file listing above blind to "
+            "it, which is exactly the defect this half names "
+            "(write-root.md §1, §3, checkpoints.md §2, §5, guardrails G20): %r was "
+            "added — and if another process is writing the declared tree while this "
+            "case runs (a reader's default run, `scripts/regenerate-evidence.py`, a "
+            "notebook kernel), that concurrent writer is the cause and not this "
+            "module's write path, since a run of this battery is redirected away from "
+            "the shipped set and this case's whole window is one ten-hand run"
+            % (added_directories,),
+        )
+        lost = [path for path in before_tree if path not in after_tree]
+        self.assertEqual(
+            lost,
+            [],
+            "and the run loses none either: a write is never a move or a removal, so the "
+            "shipped artefacts the index and every declared window name are all still "
+            "under <repo>/checkpoints (write-root.md §1, checkpoints.md §5, guardrails "
+            "G20): %r went missing" % (lost,),
+        )
+        lost_directories = [
+            path for path in before_directories if path not in after_directories
+        ]
+        self.assertEqual(
+            lost_directories,
+            [],
+            "and the run loses no directory either: a write is never a move or a "
+            "removal, so the rung, variant and seed-<seed> levels the declared layout "
+            "fixes are all still under <repo>/checkpoints "
+            "(write-root.md §1, checkpoints.md §2, §5, guardrails G20): %r went missing"
+            % (lost_directories,),
+        )
+        changed = [
+            path
+            for path in sorted(set(before_bytes) | set(after_bytes))
+            if before_bytes.get(path) != after_bytes.get(path)
+        ]
+        self.assertEqual(
+            changed,
+            [],
+            "the run changes no byte under <repo>/checkpoints — not a retained snapshot "
+            "and not the pair's final model, not even in place — because every path "
+            "agents.save is handed is re-rooted at the write root before the save "
+            "(write-root.md §1, §3, §5, checkpoints.md §5, guardrails G20): these "
+            "paths changed: %r — and if another process is writing the declared tree "
+            "while this case runs (a reader's default run, "
+            "`scripts/regenerate-evidence.py`, a notebook kernel), that concurrent "
+            "writer is the cause and not this module's write path, since a run of this "
+            "battery is redirected away from the shipped set and this case's whole "
+            "window is one ten-hand run" % (changed,),
+        )
+        self.assertIn(
+            DECLARED_SEED,
+            seed_set(record),
+            "the record states the seed set this case asked for, so a record from another "
+            "run — a cached one, or an earlier case's — cannot stand in for this run and "
+            "leave the two snapshots above measuring nothing (loop.md §4, §5, "
+            "records.md §12): %r" % (record.get("seeds"),),
+        )
+        block = checkpoint_block(record, "naive-numeric", DECLARED_SEED)
+        paths = listed_paths(block)
+        self.assertEqual(
+            len(paths),
+            RETAINED + 1,
+            "a pair's record names M + 1 artefacts — the retained five and the final "
+            "model — and never the ten plus the final (checkpoints.md §3, guardrails G5, "
+            "FAM-12.4): %r" % (paths,),
+        )
+        snapshots = as_sequence(block["snapshots"], "'snapshots'")
+        self.assertEqual(
+            len(snapshots),
+            RETAINED,
+            "the run wrote a snapshot every budget // 10 hands and the record retains the "
+            "last five of the ten (checkpoints.md §3, loop.md §2, FAM-12.4): %r"
+            % (snapshots,),
+        )
+        own = write_tree()
+        for path in paths:
+            with self.subTest(artefact=path):
+                absolute = os.path.abspath(resolved(path))
+                self.assertTrue(
+                    os.path.isfile(absolute),
+                    "the record carries the paths agents.save wrote, so each one is a "
+                    "file a talk can load (checkpoints.md §2, write-root.md §5, "
+                    "FAM-12.1): %r" % (absolute,),
+                )
+                self.assertTrue(
+                    absolute == root or absolute.startswith(root + os.sep),
+                    "the artefact lies under the write root and not merely somewhere, so "
+                    "the run wrote where write-root.md §1 says it writes and nowhere "
+                    "else (write-root.md §1, §3, guardrails G20): %r is not under %r"
+                    % (absolute, root),
+                )
+                relative = os.path.relpath(absolute, root).replace(os.sep, "/")
+                self.assertIn(
+                    relative,
+                    own,
+                    "the file the record names is one the run actually left under the "
+                    "write root, which is the positive half of this guardrail: a run that "
+                    "wrote nowhere would leave the shipped tree untouched and prove "
+                    "nothing (write-root.md §1, checkpoints.md §5, battery.md §2): %r is "
+                    "not in %r" % (relative, own),
+                )
+        pair = [name for name in own if "seed-%d" % (DECLARED_SEED,) in name]
+        self.assertEqual(
+            len(pair),
+            SNAPSHOTS + 1,
+            "the write root holds this pair's eleven artefacts — budget // 10 is one "
+            "hand at the battery's ten, so ten snapshots and the final model — because "
+            "the run wrote every snapshot it took and not only the retained five "
+            "(checkpoints.md §3, loop.md §2, write-root.md §1, guardrails G20): %r"
+            % (pair,),
+        )
 
 
 if __name__ == "__main__":

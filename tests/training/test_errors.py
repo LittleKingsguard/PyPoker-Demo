@@ -37,6 +37,7 @@ from _training_support import (
     with_architecture,
     with_pool,
     with_setting,
+    write_tree,
 )
 
 
@@ -271,6 +272,7 @@ class RefusalTest(TrainingCase):
     def test_trn_9_14_a_refused_run_deals_no_hand_and_writes_no_file(self):
         """TRN-9.14 a refused run is refused before the first hand is dealt and before anything is written: the global stream is where it was and no artefact appears (errors.md §1, loop.md §6, e2e-surface.md §2, ASM-2)."""
         before_tree = checkpoint_tree()
+        before_write = write_tree()
         before_stream = random.getstate()
         before_refused = paths_mentioning("seed-%d" % (REFUSED_SEED,), before_tree)
         self.assertEqual(
@@ -278,6 +280,15 @@ class RefusalTest(TrainingCase):
             [],
             "the invented seed names no artefact before the refused run, so the check "
             "below is about the refusal and not about an earlier run",
+        )
+        self.assertEqual(
+            paths_mentioning("seed-%d" % (REFUSED_SEED,), before_write),
+            [],
+            "the invented seed names no artefact under the write root before the "
+            "refused run either, and that is where a battery's runs write (docs/L2/"
+            "training/write-root.md §1, §3), so the check below is about the refusal "
+            "and not about an earlier run: %r"
+            % (paths_mentioning("seed-%d" % (REFUSED_SEED,), before_write),),
         )
         self.refuse(
             lambda: training().run("R1", seeds=(REFUSED_SEED,), budget=9),
@@ -292,6 +303,23 @@ class RefusalTest(TrainingCase):
             [],
             "a refused run writes no snapshot and no final model at the seed it was "
             "given (errors.md §1, loop.md §6, e2e-surface.md §2)",
+        )
+        self.assertEqual(
+            [path for path in write_tree() if path not in before_write],
+            [],
+            "a refused run writes no file under the write root either, and that is the "
+            "tree a battery's run writes: the shipped tree is empty of a run's files by "
+            "construction, so this is the assertion that could still fail (errors.md "
+            "§1, loop.md §6, docs/L2/training/write-root.md §1, §3): %r"
+            % ([path for path in write_tree() if path not in before_write],),
+        )
+        self.assertEqual(
+            paths_mentioning("seed-%d" % (REFUSED_SEED,), write_tree()),
+            [],
+            "a refused run writes nothing at the refused seed under the write root "
+            "either, where a run's artefacts would land (errors.md §1, loop.md §6, "
+            "docs/L2/training/write-root.md §1, §3): %r"
+            % (paths_mentioning("seed-%d" % (REFUSED_SEED,), write_tree()),),
         )
 
 

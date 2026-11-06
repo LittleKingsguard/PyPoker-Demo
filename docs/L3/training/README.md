@@ -1,6 +1,6 @@
 # training — module design (L3)
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
 - **Owner:** the module — what it is, the document map, the six names, the layout of `src/training/`, the import boundary, the facts it inherits, and the decisions a later module must not re-derive
 - **Realises:** `docs/L2/training/surface.md` (the six entry points) and `docs/L2/training/loop.md` (the registry as data, the one loop, what a comparison holds constant, budgets, the checkpoints, the contracts at this edge)
 - **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.5, §5, `records.md` §1–§5, §7–§8, §12, `ladder.md` §1–§6, `protocol.md` §1–§6, `league.md` §1–§7, `module-map.md` §1–§5, `assumptions.md` (ASM-2, ASM-5, ASM-7–ASM-10, ASM-12, ASM-14, ASM-16, ASM-18),
@@ -8,8 +8,7 @@
   consumed edge `docs/L2/evaluation/surface.md` §3–§8, §12, `evaluation/league.md` §1–§6, `docs/L2/agents/surface.md` §3–§8,
   §3–§9 of `features/surface.md`, §3–§10 of `engine/surface.md`
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
-- **Read with:** `registry.md` (§1), `loop.md` (§2, §4), `seeds.md` (§3), `episode.md` (§5), `curves.md` (§6), `checkpoints.md`
-  (§7), `fairness.md` (§8), `devices.md` (§9), `errors.md` (§10), `guardrails.md`
+- **Read with:** `registry.md` (§1), `loop.md` (§2, §4), `seeds.md` (§3), `episode.md` (§5), `curves.md` (§6), `checkpoints.md` (§7), `fairness.md` (§8), `devices.md` (§9), `errors.md` (§10), `guardrails.md`
 - **Implements:** `src/training/`, `notebooks/` and `checkpoints/`, written by L4 and never by L3; `tests/training/` is the unit
   battery and `tests/integration/training/` the join battery; the L1 battery's share is `test_fam03_ladder.py`, `test_fam04_seeds.py`,
   `test_fam12_checkpoints.py`, `test_fam13_parity.py`, `test_fam15_custom.py`, `test_fam16_blind.py` (FAM-16.28–16.31) and
@@ -19,12 +18,12 @@
 
 `training` **is** the rung registry plus the one training loop every rung is a configuration of (D-3): it declares the
 lineage it inherits, freezes the pool that lineage yields before a variant trains, draws each hand's opponent from that
-pool, plays the hands through `engine` on an observation from `features` and a decision and update from `agents`, and
-returns the run record (`module-map.md` §1, §3, D-16). It claims no result, measures no cell, fits no rating and never
-chooses the membership (D-16, ASM-16), so a rung-to-rung difference belongs to the configuration and to nothing else and a
-seventh configuration runs without new code (D-3, FAM-15). Its other two owned paths are data: `notebooks/`, one thin notebook
-per rung calling declared entry points only (D-5, `ladder.md` §7), and `checkpoints/`, the shipped models and the
-intra-run snapshots the pool is a view over (`module-map.md` §5, ASM-18).
+pool, plays through `engine` on an observation from `features` and a decision and update from `agents`, and returns the
+run record (`module-map.md` §1, §3, D-16). It claims no result, measures no cell, fits no rating and never chooses the
+membership (D-16, ASM-16), so a rung-to-rung difference belongs to the configuration, and a seventh configuration runs
+without new code (D-3, FAM-15). Its other two owned paths are data: `notebooks/`, one thin notebook per rung calling
+declared entry points only (D-5, `ladder.md` §7), and `checkpoints/`, the shipped models and the intra-run snapshots the
+pool is a view over (`module-map.md` §5, ASM-18).
 
 ## 2. The documents, one per owner
 
@@ -35,8 +34,8 @@ intra-run snapshots the pool is a view over (`module-map.md` §5, ASM-18).
 | `seeds.md` | the derivations | the `sha256` payload for the deal and opponent seed (§2), both arms on one deal (§3), the learner seed (§4) |
 | `episode.md` | one episode → transitions | `_seat` (§1), decision ordering and the terminal flag (§3), `reward`, `next_legal` (§4), the batch (§5) |
 | `curves.md` | the ten points | the axis (§2), the signal (§3), the spread (§4), the curve record (§5) |
-| `checkpoints.md` | the artefacts and the index | the layout and names (§1–§2), the ten snapshots and the retained five (§3), `checkpoints()` (§4), what ships (§5) |
-| `evidence.md` | the shipped evidence file | `checkpoints/evidence/r1-live.json`: its status (§1), its sixteen keys (§2), the measurement it holds and the two blocks it spells differently from a run today (§3), the two curve layouts (§4), declared budget against measured count (§5), the producer recipe (§6), what it is not (§7) |
+| `checkpoints.md` | the artefacts and the index | the layout, the write root and the names (§1–§2), the ten snapshots and the retained five (§3), `checkpoints()` (§4), what ships (§5) |
+| `evidence.md` | the shipped evidence file | `checkpoints/evidence/r1-live.json`: its status (§1), its seventeen keys including the provenance of the build (§2), the measurement it holds (§3), the two curve layouts (§4), declared budget against measured count (§5), the shipped producer and its exact command (§6), what it is not (§7) |
 | `fairness.md` | `fairness()` | the two argument shapes (§1), the five axes and their matching rule (§2), the eight reportable pairs (§3), `constants` (§4), the pool report (§5) |
 | `devices.md` | `devices()` | the record (§1), the probe (§2), what a run records (§3) |
 | `errors.md` | refusals | the classes (§2), the message grammar (§3), one canonical message per refusal (§4) |
@@ -70,7 +69,8 @@ surface (`surface.md` §1); no returned record exposes a learner, an encoder, a 
     loop.py         run(), _train_variant_seed(), _timings(), _record() (loop.md)
     fairness.py     fairness(), _sides(), _axis(), _constants() (fairness.md)
     devices.py      devices(), _gpu() (devices.md)
-    layout.py       ROOT, _final_path(), _snapshot_path(), _relative(), _resolve(), _resolved() (checkpoints.md §1)
+    layout.py       ROOT, CHECKPOINT_ROOT, OVERRIDE, _write_root(), _write_path(), _final_path(),
+                    _snapshot_path(), _prepare(), _relative(), _resolve(), _resolved() (checkpoints.md §1–§2)
     index.py        checkpoints(), SHIPPED_FINALS, SHIPPED_WINDOWS, _entries() (checkpoints.md §4)
 
 `RETAINED` is M = 5 and `SNAPSHOTS` is 10 — ASM-18's two numbers, in one place. Fourteen files, one concern each, and the
@@ -109,7 +109,8 @@ Never `harness`, never `pokerkit`, and no numerical library at module scope: the
 | 5 | the run record's `pool.id` is the **declared** id; the read-back digest is never carried (loop.md §3) | one id per record proves both arms held one pool (FAM-3.18, ASM-16) | carrying both, which makes a record declare two pools |
 | 6 | the index is declared data in `index.py`, one listing per artefact (checkpoints.md §4) | never a directory scan, so a scratch file is not a shipped artefact (FAM-16.31) | `os.walk`, which lists the battery's own scratch files |
 | 7 | `fairness` compares `architecture` only when family and `sparsity` agree (fairness.md §2) | a capacity match is the *compensation* for another axis (ASM-10) | comparing width always, which refuses R5's pair on two axes (FAM-3.12) |
-| 8 | a path is **written** absolute and **recorded** repository-relative, and read back through `layout._resolve` from the repository root (checkpoints.md §2) | a record that names one machine's home directory cannot travel with the tree or be read elsewhere, and `protocol.md` §5 makes the record portable (D-8, D-6) | absolute paths in the record, which is what the shipped evidence bundle first carried, so nothing but the machine that made it could read it |
+| 8 | a path is **written** absolute — `_write_path` of a declared path, under the write root — and **recorded** repository-relative with POSIX separators when the artefact is inside the repository root, **unchanged (absolute)** when it is outside, then read back through `layout._resolve` from the repository root (checkpoints.md §2, write-root.md §5) | a record stays portable without pretending an outside artefact ships, and a redirected run's record still names a file that exists (protocol.md §5, D-8) | absolute paths for inside artefacts, which is what the shipped evidence bundle first carried, so nothing but the machine that made it could read it |
+| 9 | the write root is one **ambient** override, `PYPOKER_CHECKPOINT_ROOT`, which `layout._write_root()` reads on every call and never caches (checkpoints.md §1–§2) | one fact reaches every caller that must be pointed elsewhere — a pytest session, a shell, a notebook kernel — and the module learns no second argument (write-root.md §3, D-13) | a `root` keyword on `run`, or a seventh exported setter: the first is a signature change and the second a new entry point, so either is an `ADJUDICATION` to L1 and never L2's to invent (write-root.md §3, D-12) |
 
 ## 8. Decisions a later module must not re-derive
 
