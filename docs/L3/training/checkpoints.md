@@ -13,12 +13,14 @@
 
 | Name | Signature | One-line contract |
 |---|---|---|
-| `layout.ROOT` | a `str` or `Path` | the repository's `checkpoints/` directory, absolute, derived from `layout.py`'s own location and never from the caller's working directory |
+| `layout.ROOT` | a `str` | the repository root, derived from `layout.py`'s own location and never from the caller's working directory; `CHECKPOINT_ROOT` is `checkpoints/` under it |
 | `layout._snapshot_path` | `_snapshot_path(rung, variant, seed, step)` | §1's snapshot path for that pair and that step, `step` formatted `04d` |
 | `layout._final_path` | `_final_path(rung, variant, seed)` | §1's `final.ckpt` path for that pair |
-| `layout._relative` | `_relative(path)` | that path spelled relative to the repository root, POSIX separators — the spelling §4's index uses |
+| `layout._relative` | `_relative(path)` | that path spelled relative to the repository root, POSIX separators — the spelling §2's record and §4's index both use |
+| `layout._resolve` | `_resolve(path)` | a recorded path as a filesystem path: an absolute one as it stands, a relative one read from the repository root and never from the caller's working directory |
+| `layout._resolved` | `_resolved(records)` | the same member records with each `path` resolved — what a `build_pool` call is handed, because a pool tests a path with `os.path.isfile` and a record spells it from the root |
 
-The four are contract for `tests/training/` (`README.md` §4). `ROOT` is not a module-level directory scan: nothing here lists it
+The six are contract for `tests/training/` (`README.md` §4). `ROOT` is not a module-level directory scan: nothing here lists it
 (`§4`), and `layout` never creates a directory on import.
 
 ## 2. The names, the suffix, and who makes the directory
@@ -36,10 +38,20 @@ The four are contract for `tests/training/` (`README.md` §4). `ROOT` is not a m
 - **The run makes the pair's directory** with `os.makedirs(parent, exist_ok=True)` before the first `agents.save`, because `save`
   invents no directory and refuses a path whose parent is missing (`agents/surface.md` §8, `loop.md` §2). One directory per
   variant × seed keeps a pair's six named artefacts together and makes a run's ten snapshots and its final model one folder.
-- **The run record carries the path `agents.save` returned** — absolute, as written — so `os.path.exists(path)` holds from any
-  working directory (FAM-12.1, FAM-15.1). **The index carries `_relative(path)`'s spelling**, because it is a shipped declaration
-  and a shipped path is repository-relative; the battery runs from the repository root and resolves relative paths there
-  (`battery.md` §2, FAM-12.5, FAM-16.31).
+- **The run record carries the path `agents.save` returned, spelled `_relative`** — repository-relative, POSIX separators — so
+  the record travels with the tree instead of naming one machine's home directory, and the same artefact has one spelling in
+  a run record and in the index (D-8, `protocol.md` §5, FAM-12.1, FAM-15.1). `agents.save` is handed the absolute path and
+  writes it; the spelling is the record's, not the writer's. **The index carries that same spelling** (`_relative` of the
+  same artefact), because it too is a shipped declaration (`battery.md` §2, FAM-12.5, FAM-16.31).
+- **Every path this module reads back goes through `_resolve`**, which reads a relative spelling from the repository root:
+  a declared version whose `path` is `checkpoints/R1/…/step-0600.ckpt` is a member whatever directory the process was
+  started in, and a pool whose window emptied because a talk ran elsewhere would pretend a version the repository carries is
+  absent (`registry.md` §3, `protocol.md` §5, `run`'s own pool filter in `loop.md` §1 step 2).
+- **So a path is resolved for a call and spelled in a record.** What is handed to `evaluation.build_pool` is
+  `_resolved(members)` — the same records with each `path` a filesystem path — because a pool tests a member's path with
+  `os.path.isfile` against the process's working directory; what every returned record carries is `_relative` of it, so a
+  run's pool members, its `checkpoints` block and the index name one artefact one way (`evaluation/surface.md` §5,
+  `records.md` §7, `protocol.md` §5).
 
 ## 3. Ten written, five retained, six named
 

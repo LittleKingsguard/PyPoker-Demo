@@ -119,9 +119,21 @@ and the table the agent is measured in — one object, one owner, no second eval
   `rating` at the `full` budget (`module-map.md` §5, `records.md` §10–§11, D-8, D-16). No entry point reads
   `tables/` and none is invented for it (D-12): the file is evidence, and a D-5 notebook reads it with the
   standard library (`ladder.md` §7).
-- **The bound sizes the table, not the observed cost**: at most 40 ms of CPU per hand gives the live table
-  under four minutes and the full table under an hour, `harness.timings` measures the real figure, and no case
-  asserts that a wall clock was beaten (ASM-15, `docs/L1/league.md` §7, `battery.md` §3 FAM-10).
+- **The budget is arithmetic on K, and the cost of playing it is a measurement**: ASM-21 ratifies 0.105–0.130 s of
+  CPU per hand and supersedes ASM-15's 40 ms bound, which was 3.2× optimistic because the oracle queries equity at
+  every decision. At that rate the live table is ≈94 s at K = 4 and ≈10–12 minutes at K = 9–10, the full table ≈2
+  hours at K = 9–10, and the shipped K = 4 `full` table recorded 1,191.37 s (≈20 min) in its own `cost` block;
+  `harness.timings` reports the measured figure and no case asserts that a wall clock was beaten (ASM-21,
+  `docs/L1/league.md` §7, `battery.md` §3 FAM-10). No per-hand figure travels in `league()`: a measured cost is a run
+  record's `timings` and an artefact's `cost` block and never a declaration (`records.md` §12, `tables.md` §5).
+- **`variant-1` is a slot, not a player.** `matrix` names a variant by the argument position it was handed
+  (`surface.md` §10), so the shipped `full` table's `variant-1` and a live table's `variant-1` are two different
+  learners: the shipped one is the offline producer's **untrained** learner at its recipe seed 31415, while the R1
+  live run's is the rung's **trained** seed-0 final model at 10,119 parameters with `unlabelled: false`
+  (`checkpoints/evidence/r1-live.json`, ASM-18). The two rows are **never compared**, not even as one member at two
+  cell sizes; the artefact's `provenance.member_status` names which player every row is, and the untrained row's
+  capacity is the producer's own measurement while the matrix block's `params: 0` with that id in `unlabelled` says
+  only that `matrix` was handed a policy already built (`tables.md` §2, §5, `matrix.md` §5).
 
 ## 6. The evidence contract, and what a report refuses
 
@@ -160,15 +172,25 @@ module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
   policy encodes its readout with it (D-16, `module-map.md` §2, `features/surface.md` §4, §6).
 - **`engine`** — `new_hand` and `play_hand` are the only seeding point and the only deal, so a cell is a run
   of hands and nothing here re-deals or seeds twice; `readout`, `legal_actions` and `payoffs` are the facts a
-  policy acts on and the chips a cell counts (D-2, ASM-2, `engine/surface.md` §1, §4, §9).
+  policy acts on and the chips a cell counts (D-2, ASM-2, `engine/surface.md` §1, §4, §9). **One measured
+  exception.** A cell that pairs the `oracle` is *not* reproduced from its recorded seeds across processes: two
+  runs of this module's own producer at one table seed, membership and budget gave different counts in the two
+  oracle cells — as `random` reports its direction, 680/34/786 became 676/36/788, and `oracle` against
+  `variant-1` 817/43/640 became 817/42/641 — while the four cells pairing no `oracle` were identical, and all
+  four rating values moved with the fit. The cause is `engine.equity`'s sampled run-out deck, whose card order is
+  a per-interpreter hash order, so a seed cannot carry `protocol.md` §4's exactness claim for that cell; a table
+  that pairs the oracle must therefore be read as measured once and never as a replay
+  (`protocol.md` §4, ASM-2, `tables.md` §4, FAM-10.2).
 - **`training`** (the caller) — it freezes one pool through `build_pool`, draws each hand's opponent through
   `opponent`, and hands `report` a run record with the seven families attached; `protocol` and `league` are
   what it reads to declare its own budget, cell size and table seed (D-16, ASM-16, `records.md` §12, §13).
 - **`tables/`'s producer** — the offline job that ships the `full` table (§5) stands where `training` stands,
-  because a rung's variant policies are `training`'s to hand `matrix` and no entry point here builds one: until
-  `training` ships snapshot lineages the producer builds its one variant with `agents.build_learner` at the
-  recipe the artefact records, and that call is that offline job's alone (D-8, D-16, ASM-20, `module-map.md` §2).
-  No entry point reads `tables/`, and the file is evidence for a notebook (§5).
+  because a rung's variant policies are `training`'s to hand `matrix` and no entry point here builds one. `training`
+  has shipped snapshot lineages, so a rung's own variants are its to hand over; the producer ships R1's table, and
+  because a variant handed to `matrix` is a policy already built (`surface.md` §10), the one it has no rung to take
+  from it builds itself with `agents.build_learner` at the recipe the artefact records, and that call is that offline
+  job's alone (D-8, D-16, ASM-20, `module-map.md` §2). No entry point reads `tables/`, and the file is evidence for a
+  notebook (§5).
 
 ## 8. The battery invariants this module carries
 
@@ -178,7 +200,7 @@ module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
 | FAM-7 | `match`, `opponent` | a cell accounts for every hand, seats alternate and the split covers both, both directions are the same hands and their deltas sum to zero, a cell plays the hand count it was given and carries two parameter counts and its seed, two cells are never interleaved, and `opponent` draws a pool member (D-16, ASM-2) |
 | FAM-8 | `matrix` | membership is the pool plus the variants, the cells are exactly K(K−1)/2 pairs, every cell carries the table's one hand count with the baseline cells included, and an unequal cell, a missing baseline or a foreign member is refused (D-16, ASM-14) |
 | FAM-9 | `rating` | one value and a 95% interval per member, Bradley-Terry, the anchor set so the baselines' mean is 0, the hands behind each value, a member that won everything bounded rather than infinite, and convergence and bootstrap seed recorded (D-16, ASM-17) |
-| FAM-10 | `league`, `matrix` | both budgets declared with their cell sizes, the live table's hands played equal to cells × hands per cell, the cell count following from K, and a cost record carrying hands and seconds per hand (D-8, ASM-14, ASM-15) |
+| FAM-10 | `league`, `matrix` | both budgets declared with their cell sizes, the live table's hands played equal to cells × hands per cell, the cell count following from K, and a cost record carrying hands and seconds per hand (D-8, ASM-14, ASM-21) |
 | FAM-11 | `report`, `protocol` | a complete record yields a report carrying all seven families, a record missing one is refused with that family named, R1's pool row is the baselines it had, a single-variant rung's axis row is an explicit value, and the report carries the seeds, the table seed and the device (D-6, D-16) |
 | FAM-16 | the nine `general` rows | one invented instance apiece — a seed, a membership, a cell size, a checkpoint — from this surface alone (D-15, `battery.md` §4) |
 

@@ -10,11 +10,12 @@ No entry point reads or writes this file (D-12, G19): the producer is this modul
 
     PYTHONPATH=src .venv/bin/python -m evaluation.tables
 
-The membership is the one this repository can build and measure today: the three pinned
-baselines -- a frozen pool declared as ``{"members": [], "m": 5, "frozen": True}``, which
-is R1's pool -- and one variant member, ``variant-1``, built deterministically from its
-own recipe at the module's own `VARIANT_SEED`.  It never names a version it could not
-load, and its provenance says which membership it is (`tables.md` §2, §5-§6).
+The membership is R1's, and R1 is the first rung: its pool is the three pinned baselines
+alone -- a frozen pool declared as ``{"members": [], "m": 5, "frozen": True}`` -- plus one
+variant member, ``variant-1``, which is the *offline producer's own untrained learner*
+built deterministically at the module's own `VARIANT_SEED`.  It never names a version it
+could not load, and its provenance says which membership it is and which player each
+member is (`tables.md` §1-§2, §5-§6).
 """
 
 import json
@@ -43,17 +44,20 @@ VARIANT_BACKEND = "numpy"
 VARIANT_ENCODING = "flat-numeric"
 VARIANT_ARCHITECTURE = {"kind": "naive-stack", "width": 96, "depth": 2}
 
-#: ASM-15's per-hand **bound**, carried beside the measurement so the two are never
-#: confused (`tables.md` §5, `declarations.md` §4.1).
-PER_HAND_CEILING_SECONDS = 0.04
+#: What kind of player the variant is.  It is an **untrained** learner: `training` has
+#: shipped lineages and a live table's ``variant-1`` is the rung's trained final model,
+#: so the status is stated at membership level and never left to inference
+#: (`tables.md` §2, §5).
+VARIANT_STATUS = "untrained"
 
 
 def _cost_block(hands, wall_clock_seconds):
     """The measured cost of one run: hands, per-hand seconds, throughput and wall clock.
 
-    Every number here was observed around the `matrix` call on the device that ran it;
-    `measured: true` says so, and `per_hand_ceiling_seconds` is the bound carried beside
-    them (`tables.md` §5, D-8).
+    Every number here was observed around the `matrix` call on the device that ran it and
+    `measured: true` says so (`tables.md` §5, D-8).  No bound travels beside them any
+    more: ASM-21 ratifies the measurement and supersedes ASM-15's 40 ms figure, so a
+    "ceiling" here would be a number with no ratified source (`tables.md` §5).
     """
     hands = int(hands)
     wall = float(wall_clock_seconds)
@@ -65,7 +69,6 @@ def _cost_block(hands, wall_clock_seconds):
         "hands_per_second": hands_per_second,
         "wall_clock_seconds": wall,
         "device": "cpu",
-        "per_hand_ceiling_seconds": PER_HAND_CEILING_SECONDS,
         "measured": True,
     }
 
@@ -78,6 +81,34 @@ def _membership_kind(pool_record):
         if not member.get("baseline")
     ]
     return "pool+variant" if versions else "baselines+variant"
+
+
+def _member_status(matrix_record, pool_record, variants):
+    """One status per member, in the matrix's membership order (`tables.md` §2, §5).
+
+    A member id is not a player: a live table's ``variant-1`` is the rung's trained final
+    model while this file's is the producer's untrained learner, so the membership says
+    which of the two each row is instead of leaving a reader to infer it.  A variant's
+    status is its recipe's own `status` word and carries the seed it was built at; a pool
+    member this provenance holds no recipe for is a `checkpoint`; a pinned baseline is a
+    `baseline` (`tables.md` §2, §6).
+    """
+    recipes = {str(recipe["id"]): recipe for recipe in variants}
+    pinned = {str(member["id"]) for member in pool_record["members"]}
+    rows = []
+    for name in matrix_record["members"]:
+        name = str(name)
+        recipe = recipes.get(name)
+        if recipe is not None:
+            row = {"id": name, "status": str(recipe["status"])}
+            if "seed" in recipe:
+                row["seed"] = int(recipe["seed"])
+            rows.append(row)
+        elif name in pinned:
+            rows.append({"id": name, "status": "baseline"})
+        else:
+            rows.append({"id": name, "status": "checkpoint"})
+    return rows
 
 
 def _build_document(pool_record, matrix_record, rating_record, variants, cost):
@@ -94,6 +125,7 @@ def _build_document(pool_record, matrix_record, rating_record, variants, cost):
         "hands_played": hands,
         "membership_kind": _membership_kind(pool_record),
         "members": list(matrix_record["members"]),
+        "member_status": _member_status(matrix_record, pool_record, variants),
         "variants": list(variants),
         "pool": {
             "id": pool_record["id"],
@@ -137,7 +169,9 @@ def _variant_member():
 
     The one carve-out of the import boundary (`README.md` §5): this offline recipe calls
     `agents.build_learner` for the artefact's variant.  No entry point may, and no talk
-    does -- a variant handed to `matrix` is a policy already built (`matrix.md` §4).
+    does -- a variant handed to `matrix` is a policy already built (`matrix.md` §4).  The
+    recipe's ``status`` says the learner is **untrained**, because the same member id in a
+    live table is the rung's trained final model (`tables.md` §2).
     """
     import agents
     import features
@@ -154,6 +188,7 @@ def _variant_member():
     policy = agents.as_policy(learner, encoder, VARIANT_SEED)
     recipe = {
         "id": "variant-1",
+        "status": VARIANT_STATUS,
         "backend": VARIANT_BACKEND,
         "encoding": VARIANT_ENCODING,
         "architecture": dict(VARIANT_ARCHITECTURE),

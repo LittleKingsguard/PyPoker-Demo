@@ -53,10 +53,11 @@ class CheckpointJoin(J.JoinCase):
         variant = str(record["variants"][0]["name"])
         final = str(J.checkpoints_of(record, variant, J.RUN_SEED)["final"])
         self.assertTrue(
-            os.path.exists(final),
-            "the record carries the path `agents.save` returned, absolute as "
-            "written, so it exists from any working directory "
-            "(docs/L3/training/checkpoints.md §2, FAM-12.1): %r" % (final,),
+            os.path.exists(J.resolve(final)),
+            "the record carries agents.save's path spelled repository-relative, so the "
+            "repository root resolves it to the file that was written and the record "
+            "travels with the tree (docs/L3/training/checkpoints.md §2, FAM-12.1): %r"
+            % (final,),
         )
         readout, legal = J.readout_at(J.REPLAY_SEED)
         member = J.policy_from(final)

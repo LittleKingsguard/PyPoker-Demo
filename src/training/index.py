@@ -48,10 +48,15 @@ SHIPPED_WINDOWS = {
 
 
 def _snapshot_entry(rung, variant, seed, step, lineage):
-    """One retained snapshot as a `records.md` §7 version record."""
+    """One retained snapshot as a `records.md` §7 version record.
+
+    The path is `layout._relative`'s spelling even here, where the entry is a window member
+    handed to a pool rather than a line of the index: a version record is the same record
+    wherever it is read, and one artefact has one spelling (checkpoints.md §2, records.md §7).
+    """
     return {
         "id": layout._version_id(rung, variant, seed, step),
-        "path": layout._snapshot_path(rung, variant, seed, step),
+        "path": layout._relative(layout._snapshot_path(rung, variant, seed, step)),
         "rung": rung,
         "variant": variant,
         "seed": int(seed),
@@ -66,7 +71,7 @@ def _final_entry(rung, variant, seed):
     """One variant × seed final model, descending from that pair's last snapshot."""
     return {
         "id": layout._final_id(rung, variant, seed),
-        "path": layout._final_path(rung, variant, seed),
+        "path": layout._relative(layout._final_path(rung, variant, seed)),
         "rung": rung,
         "variant": variant,
         "seed": int(seed),
@@ -95,7 +100,8 @@ def _entries():
     order, variant in the registry's order, seed ascending, step ascending, and that pair's
     `final` last (`checkpoints.md` §4). A shipped path is spelled relative to the repository
     root, because the index is a declaration about what travels with the repository; a run
-    record spells the same artefact absolutely, as `agents.save` wrote it.
+    record spells the same artefact the same way, so one artefact has one spelling and the
+    record travels with the tree (`checkpoints.md` §2, `protocol.md` §5).
     """
     entries = []
     for rung, variant, seed in SHIPPED_FINALS:
@@ -103,8 +109,6 @@ def _entries():
             if member["seed"] == seed:
                 entries.append(member)
         entries.append(_final_entry(rung, variant, seed))
-    for entry in entries:
-        entry["path"] = layout._relative(entry["path"])
     return entries
 
 

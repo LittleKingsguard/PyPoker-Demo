@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 (new) · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13) and what they cost
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -64,15 +64,32 @@ demonstration, and the full table with the fitted intervals is what a claim rest
 
 ## 7. What it costs
 
-- L1 has no measurement channel, so the per-hand cost is a stated bound and not a measurement: **at most 40 ms of CPU per hand**, a hand being at most 24 decisions — the raise cap of ASM-6 permits about eight applied actions on each of four streets — at about 1.5 ms per decision for a pure-Python `pokerkit` step plus one policy evaluation (ASM-15).
-- At that bound the live table is at most 5,400 hands, i.e. under four minutes wall-clock, and the full table at most 67,500 hands, i.e. under an hour — the difference between a talk and an offline job, which is what D-8 asks for (ASM-15, D-8). Most hands are far shorter than the cap; the bound is the worst case and the battery measures the real figure (ASM-6, ASM-15).
-- The bound, not the observed cost, is what sizes the table, so a faster engine only buys margin; `harness.timings` reports seconds per hand from a real run and the battery asserts that the record exists and that the live table's hands played match §6, never that a wall clock was beaten (ASM-15, `battery.md` §3 FAM-10).
+- The per-hand cost is a **measurement now, not a bound**: **0.105–0.132 s of CPU per hand** for a real hand with the baselines inside the table, i.e. 7.6–9.5 hands/s. The R1 live run's three seeds measured 0.105, 0.116 and 0.120 s/hand, and the shipped full table 0.1324 s/hand in its current `cost` block (0.1299 in the first committed run). ASM-21 ratifies the figure and supersedes the 40 ms arithmetic this section was first written with, which was 3.2× optimistic because the oracle queries equity at every decision (ASM-21, D-16, `tables/league-full.json`).
+- What that implies, at ≈0.13 s/hand: the live table is **≈95 s at K = 4** (720 hands) and **≈10–12 minutes at K = 9–10** (4,320–5,400 hands), and the full table **≈2 hours at K = 9 and ≈2½ hours at K = 10** (54,000–67,500 hands); the shipped K = 4 full table is 9,000 hands and recorded 1,191 s (≈20 min) wall-clock in its own `cost` block. A ten-minute live table is what a talk has to plan for at a full window, not the under-four-minute figure the old bound reported (ASM-21, ASM-14, D-8, `tables/league-full.json`).
+- Cost is bought with cell size and never with concurrency, because one global `random` stream deals every hand (§3, D-16, ASM-2); and no case asserts that a wall clock was beaten. `harness.timings` reports seconds per hand from a real run, and the battery asserts that the record exists and that the live table's hands played match §6 — never a stopwatch (ASM-21, `battery.md` §3 FAM-10).
 - The parameters are L1's under ASM-13. Their alternatives — a larger M, cells of a few dozen hands, wall-clock-derived cell sizes — are recorded with ASM-14 and ASM-15 (assumptions.md).
 
 ## 8. Where a table can and cannot be read
 
-A version that outranks a baseline in this table has shown that it beats that fixed rule at this cell
-size on this game; it has not shown poker skill, and the table says nothing about a member it does not
-name (D-16, brief §8). A rung's learning claim is a curve plus a table position relative to the
-baselines, never a rank among versions alone, because self-play in a bounded pool can reward beating
-one's own earlier selves (D-16, D-6).
+The **matrix is the evidence; the rating is a summary of it.** A Bradley-Terry rating is one global fit over
+every cell at once, so a rank says where a member stands in that fit and **never** asserts a head-to-head win
+over any other member: the cell is the head-to-head, and both directions of it are reported beside the rating
+(D-16, `protocol.md` §1, §2). The shipped live table for R1 shows why the distinction is not pedantry — `variant-1`
+carries the table's highest rating (+0.410, 95% interval [0.236, 0.606]) while losing 51–63 to `always-call`
+(+0.158) and 56–58 to `oracle` (+0.124), because the fit is carried by its 103–17 against `random`; a reader
+given the ranking alone would be told the opposite of two of its six cells (the live table recorded in
+`checkpoints/evidence/r1-live.json`, D-16).
+
+So a version that **outranks** a baseline has shown only that the fitted order over the whole matrix places it
+there; a version that **beats** a baseline has shown that it wins more hands than it loses against that fixed
+rule at this cell size on this game, and that is said of a cell and never of a rank (D-16). Neither is a claim
+of poker skill, and the table says nothing about a member it does not name (D-16, brief §8). A rung's learning
+claim is a curve plus its cells against the baselines — never a rank among versions alone, because self-play in
+a bounded pool can reward beating one's own earlier selves (D-16, D-6). §9 names the two artifacts that ship and
+the one member id that is two players, which is the other way a row can be read as measuring something it did not.
+
+## 9. The two artifacts that ship, and the one member id that is two players
+
+- Two artifacts ship and neither is an interface: `tables/league-full.json`, the `full` table `evaluation` precomputes offline — for R1 it is K = 4 (the three pinned baselines plus one variant), six cells, 9,000 hands — and `checkpoints/evidence/r1-live.json`, `training`'s record of the R1 live run: its run record, its four-member/six-cell live table, its rating, its report and the shipped checkpoint index (`protocol.md` §5, D-8, D-16).
+- **A member id is not a player.** The shipped `full` table's `variant-1` is the offline producer's *untrained* learner at its recipe seed 31415, while a live table's `variant-1` is the rung's *trained* final model — the shipped R1 evidence records the trained seed-0 final at 10,119 parameters. The two rows measure two different players and are never compared, not even as "the same member at two cell sizes". Each artifact **must say which of the two it holds** — the evidence bundle by the final model it names, the shipped table by a provenance block that states its variant's recipe and that the member is untrained — so no reader is left to guess (D-16, ASM-18).
+- Neither file is a cache and no entry point reads either: the table is evidence and the evidence bundle is a record, so nothing a talk does can be silently influenced by a file that was committed once (D-8, D-12, `tables/league-full.json`'s own `provenance`).

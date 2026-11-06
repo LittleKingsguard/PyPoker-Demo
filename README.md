@@ -1,0 +1,96 @@
+# PyPoker-Demo
+
+A technique ladder for poker-playing reinforcement learning, built as the demonstration tool for a
+community tech talk about AI/ML methods.
+
+One fixed game throughout. Each rung changes exactly one thing about how the agent represents the
+game or how the network is built — from a flat numeric encoding of the cards up through learned
+card embeddings, width/depth and dense/sparse comparisons, and a residual stream — so that a
+rung-to-rung difference is attributable to that one change and not to the game or the learning
+rule. The card engine is [PokerKit](https://github.com/uoftcprg/pokerkit).
+
+## What it does
+
+- **The game**: heads-up fixed-limit Texas Hold'em — two seats, blinds 1/2, one blind level,
+  20-chip stacks, bets of 2 (preflop/flop) and 4 (turn/river), 4 raises per street.
+- **The ladder**: R1 naive flat-numeric encoding (hand-rolled NumPy) · R2 the same model in PyTorch,
+  to measure the speed difference · R3 cards as learned embeddings · R4 wide vs deep · R5 dense vs
+  sparse · R6 residual stream vs plain stack. Every pair is matched to the same parameter budget.
+- **The league**: agents train against a bounded round-robin pool of their own recent versions,
+  and the same pool is the measuring instrument. Every table also contains three fixed,
+  non-learning baselines — random, always-call, and an oracle that only calls when the pot odds
+  justify it — at the same hand count as every league cell.
+- **The evidence**: a pairwise matrix *and* a Bradley-Terry rating with confidence intervals. Both,
+  because poker payoffs need not be transitive: the first real run ranks R1 top of its table while
+  R1 loses to two of the three baselines. The matrix shows that; a rating alone would hide it.
+
+## Quickstart
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[torch,notebooks,dev]"   # pokerkit, numpy, torch, matplotlib, pytest, jupyterlab
+```
+
+The core runtime is `pokerkit` and `numpy`; `torch` is the second learner backend used from R2 on,
+and the notebook and test extras are separate so a reader who only wants the engine need not
+install PyTorch.
+
+Run the batteries (a bare `pytest tests` cannot collect this tree — see `scripts/run-all-tests.sh`):
+
+```sh
+scripts/run-all-tests.sh
+```
+
+Train the first rung at the live budget and get a run record back:
+
+```sh
+PYTHONPATH=src .venv/bin/python -c "import training; rec = training.run('R1')"
+```
+
+Play a rung against the fixed baselines and rate the result — the pattern the R1 notebook walks
+through end to end:
+
+```sh
+jupyter lab notebooks/r1-naive-numpy.ipynb
+```
+
+## What the numbers mean — and what they do not
+
+A rung is never reported as progress on a training curve alone. Each one carries curves, its place
+in the league table, and its results against the three baselines.
+
+The project explicitly does **not** claim poker skill, exploitative play, or superhuman strength.
+It compares architectures on one small game. In particular:
+
+- a league rank is a global fit across all cells and does **not** imply a head-to-head win;
+- an untrained model's row in the shipped full table is not the trained rung's row, even when both
+  carry the same member id;
+- training time matters: the shipped R1 run is a live-budget run (1,000 hands per seed) whose
+  learning signal had not converged. The long-budget runs exist to show exactly that difference.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| `src/engine` | the fixed game as a reinforcement-learning environment (PokerKit; one seeding point; readouts, legality, reward, equity) |
+| `src/features` | observation and action encoding for the whole ladder, from one declaration table |
+| `src/agents` | one masked-Q learning family, NumPy at R1 and PyTorch from R2, plus the three fixed baselines |
+| `src/evaluation` | the league: pool, sequential match scheduler, matrix, Bradley-Terry rating, live and shipped tables, the report |
+| `src/training` | the rung registry and the one loop that trains against the pool |
+| `src/harness` | test support whose consumers are the batteries |
+| `notebooks/` | one notebook per rung (D-5) — thin, importing the modules, never a copy of the code |
+| `tables/` | the shipped full league table |
+| `checkpoints/` | the shipped R1 checkpoint set and its evidence record |
+| `docs/` | the layered design record: L1 module map and protocol, L2 integration surfaces, L3 module designs |
+| `strata/` | the development workflow's own record: brief, decisions, platform facts, walkthrough |
+
+## Reading order
+
+`docs/L1/README.md` is the design entry point. `strata/brief.md` states what is being built and
+`strata/decisions.md` records every decision and who made it. `strata/platform.md` holds the
+measured facts about the machine the thing runs on — including that a workflow-started run is
+CPU-bound and that the GPU is only reachable outside the development sandbox.
+
+## Licence
+
+MIT. See `LICENSE`.

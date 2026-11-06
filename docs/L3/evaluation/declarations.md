@@ -10,7 +10,7 @@
 Both are `fixed` rows: neither takes an argument, so neither has an instance that varies (`surface.md` §1,
 `e2e-surface.md` §5). Each is rebuilt on every call and equal on two calls, and each is plain data — except
 `league()`'s `cell_count`, which is a callable (`surface.md` §1, §4). Neither plays a hand, reads a file or
-draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-15).
+draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-21).
 
 The two records are the module's own declaration of itself, so every other document quotes them instead of
 restating a number: `M` is `league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the
@@ -99,19 +99,18 @@ One mapping, read under exactly these six keys, in this order (`surface.md` §4)
 
 ### 4.1 The two budget rows
 
-`league()["tables"]` is keyed `live` then `full`; each row carries four keys, in this order:
+`league()["tables"]` is keyed `live` then `full`; each row carries three keys, in this order:
 
     hands_per_cell   live 120, full 1500 — the one hand count of every cell (ASM-14, league.md §5)
     hands_played     {4: 720, 9: 4320, 10: 5400} live, {4: 9000, 9: 54000, 10: 67500} full
     produced_by      live: "the talk, on the fly"; full: "an offline job shipped under tables/" (D-8, D-16)
-    per_hand_ceiling_seconds   0.04 — ASM-15's stated bound, never a measurement (ASM-15, tables.md §5)
 
 `hands_played` is keyed by K, the membership's size, and each value is `cell_count(K) × hands_per_cell`'s
 product — the arithmetic `tables.md` §1 tabulates. The K = 4 row is the baselines-plus-one-variant table a first
-rung plays (`league.md` §2); K = 9 and K = 10 are a full window with one and with two variants (ASM-14). The
-`per_hand_ceiling_seconds` row is a **bound**: it says what the table may cost and never what a run measured —
-a measured cost is recorded only in a run record's `timings` and in the shipped artefact's cost block
-(`records.md` §12, `tables.md` §5).
+rung plays (`league.md` §2); K = 9 and K = 10 are a full window with one and with two variants (ASM-14). No row
+carries a per-hand cost figure: ASM-21 ratifies the measured 0.105–0.130 s/hand and supersedes ASM-15's 40 ms
+bound, so a "ceiling" here would have no ratified source, and a measured cost is recorded only in a run record's
+`timings` and in the shipped artefact's cost block (`records.md` §12, `tables.md` §5, ASM-21).
 
 ## 5. `cell_count` — the one callable
 

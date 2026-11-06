@@ -7,7 +7,7 @@
   families, the edge's contracts)
 - **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.4, §5, `records.md` §1, §7–§13, `league.md` §1–§8,
   `protocol.md` §1–§6, `ladder.md` §2, §3, §6, `module-map.md` §2, §3, §5, `assumptions.md` (ASM-2, ASM-4,
-  ASM-10, ASM-14–ASM-19), `battery.md` §2–§5, `strata/decisions.md` (D-1, D-8, D-12, D-13, D-16),
+  ASM-10, ASM-14–ASM-19, ASM-21), `battery.md` §2–§5, `strata/decisions.md` (D-1, D-8, D-12, D-13, D-16),
   `strata/platform.md`; at the consumed edge `docs/L2/agents/surface.md` §1, §5, §9–§12, `learner.md` §4–§5,
   §8, `docs/L2/features/surface.md` §3–§9, `docs/L2/engine/surface.md` §1, §4, §9, §10
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
@@ -71,7 +71,7 @@ a policy this module builds carries its member's id and parameter count, and no 
     matrix.py        matrix, _membership, _pairs (matrix.md)
     rating.py        BOUND, TOLERANCE, MAX_ITERATIONS, RESAMPLES, _fit, _resample, rating (rating.md)
     report.py        report, _families_present, _membership_ok, _header_ok (report.md)
-    tables.py        SHIPPED_PATH, VARIANT_SEED, _build_document, _cost_block, _write_document, and `__main__` (tables.md)
+    tables.py        SHIPPED_PATH, VARIANT_SEED, _build_document, _member_status, _cost_block, _write_document, `__main__`
 
 Eleven files, one concern each; a twelfth needs a document here saying what it owns. The private names above are contract for `tests/evaluation/`, which imports them; their bodies stay L4's.
 
@@ -115,6 +115,6 @@ generator (rating.md §4); the global `random` stream is never seeded or drawn f
 4. **One cell at a time, seats alternating, both directions from one set of hands** (scheduler.md §2).
 5. **A table's membership is the pool's members, then `variant-1`, `variant-2`** (matrix.md §1).
 6. **The anchor is re-applied every iteration**, so the three baselines' mean is exactly 0 — except on `rating.md` §3's one pinned-baseline table, where the pin is taken last and so displaces the mean it was applied after (rating.md §3).
-7. **The bound sizes a table; a measured cost is recorded only where it was measured** (tables.md §5).
+7. **The budget is arithmetic on K; a measured cost is recorded only where it was measured** (tables.md §1, §5, ASM-21).
 8. **Nothing here reduces a matrix to a ranking, and no rating is a claim of poker skill** (`league.md` §4, D-16).
 9. **A membership names its members once**: a version may not take one of the three baselines' names, and a table refuses a membership that is not distinct (pool.md §2, matrix.md §7).

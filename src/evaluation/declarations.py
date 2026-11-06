@@ -5,7 +5,7 @@
 league's parameters; both are `fixed` rows -- neither takes an argument, both are
 rebuilt on every call and equal on two calls, and neither plays a hand, reads a file or
 moves Python's global `random` stream.  The numbers are `docs/L1/league.md` §5-§6's and
-no others (ASM-14, ASM-15).
+no others (ASM-14, ASM-21).
 
 `M`, `BASELINES`, `TABLE_SEED`, `TABLES`, `FAMILIES`, `HEADER_ITEMS`, `RATING` and
 `cell_count` live here (`README.md` §4) and are *not* package-level surface names
@@ -32,21 +32,21 @@ BASELINES = tuple(agents.baselines())
 TABLE_SEED = 20261105
 
 #: `league()["tables"]`, keyed `live` then `full` (`declarations.md` §4.1).  Each row
-#: carries the one hand count of every cell, the hands a table of K members plays, what
-#: produces it and ASM-15's per-hand **bound** -- never a measurement (ASM-15,
-#: `tables.md` §5).
+#: carries the one hand count of every cell, the hands a table of K members plays and what
+#: produces it -- and no per-hand cost figure at all.  ASM-21 ratifies the measured cost
+#: (0.105-0.130 s/hand) and supersedes ASM-15's 40 ms bound, so a bound carried here would
+#: be a number with no ratified source; a measured cost lives in a run record's `timings`
+#: and in the shipped artefact's cost block (`declarations.md` §4.1, `tables.md` §5).
 TABLES = {
     "live": {
         "hands_per_cell": 120,
         "hands_played": {4: 720, 9: 4320, 10: 5400},
         "produced_by": "the talk, on the fly",
-        "per_hand_ceiling_seconds": 0.04,
     },
     "full": {
         "hands_per_cell": 1500,
         "hands_played": {4: 9000, 9: 54000, 10: 67500},
         "produced_by": "an offline job shipped under tables/",
-        "per_hand_ceiling_seconds": 0.04,
     },
 }
 
@@ -167,10 +167,11 @@ def protocol():
 def league():
     """The league's parameters: M, the baselines, the two budgets, `cell_count`, the seed.
 
-    One mapping read under exactly six keys, in `declarations.md` §4's order.  The
-    per-hand figure it carries is ASM-15's 0.04-second **bound** and never a
-    measurement; a measured cost lives in a run record's `timings` and in the shipped
-    artefact's cost block (`tables.md` §5, G19).
+    One mapping read under exactly six keys, in `declarations.md` §4's order.  It carries
+    **no per-hand cost figure**: ASM-21 ratifies the measured cost and supersedes
+    ASM-15's 40 ms bound, so what this declares is the budget's arithmetic on K and
+    nothing a stopwatch produced -- a measured cost lives in a run record's `timings`
+    and in the shipped artefact's cost block (`tables.md` §5, G19).
     """
     tables = {}
     for budget in TABLE_BUDGETS:
@@ -179,7 +180,6 @@ def league():
             "hands_per_cell": int(row["hands_per_cell"]),
             "hands_played": dict(row["hands_played"]),
             "produced_by": row["produced_by"],
-            "per_hand_ceiling_seconds": float(row["per_hand_ceiling_seconds"]),
         }
     return {
         "m": M,

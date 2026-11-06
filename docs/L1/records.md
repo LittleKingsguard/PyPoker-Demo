@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 record shapes
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16 included
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
@@ -93,14 +93,14 @@ hand count, a member outside the pool, or a missing baseline is refused and is n
 
 ## 12. Run record — `training.run`
 
-`rung` (**required** — the rung name, or an unregistered configuration's label), `curves` (**required** —
-per variant per seed: the sample axis, a learning signal, the spread across seeds), `pool` (**required** —
-the id and membership trained against, one id for both arms of a pair), `checkpoints` (**required** — the
-retained snapshots and the final model per variant per seed), `seeds`, `budget`, `device` (**required** —
-what the run used), `params` (**required** — the declared parameter budget; a cell records the measured
-count), `table` (**required** — the declared table budget, `live` or `full`), and `timings` (**required** —
-hands and seconds per hand, in `harness.timings`'s facts (D-7, ASM-15)). The seed set is the one the run
-used, and the record is the record of what happened (D-6, D-16).
+`rung` (**required** — the rung name, or an unregistered configuration's label), `curves` (**required** — per variant per
+seed: the sample axis, a learning signal, and the variant's spread across seeds — one array per point, repeated in each
+of its seeds' entries), `pool` (**required** — the id and membership trained against, one id for both arms of a pair),
+`checkpoints` (**required** — the retained snapshots and the final model per variant per seed), `seeds`, `budget`,
+`device` (**required** — what the run used), `params` (**required** — the declared parameter budget; a cell records the
+measured count), `table` (**required** — the declared table budget, `live` or `full`), and `timings` (**required** — hands
+and seconds per hand, in `harness.timings`'s facts (D-7, ASM-15)). The seed set is the one the run used, and the record
+is the record of what happened (D-6, D-16).
 
 ## 13. The assembled record handed to `evaluation.report`
 

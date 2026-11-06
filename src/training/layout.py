@@ -9,6 +9,11 @@ directory and a run calls it before it writes. The naming functions are pure: na
 path writes nothing, which is what lets `checkpoints()` and `rung()` name artefacts
 without touching the tree.
 
+A path is *written* as an absolute filesystem path and *recorded* as `_relative` spells
+it — relative to the repository root, POSIX separators — so a run record travels with the
+tree; `_resolve` reads a recorded path back from the same root and never from the caller's
+working directory (docs/L3/training/checkpoints.md §2, protocol.md §5).
+
 The suffix is `.ckpt` on purpose: `.gitignore` ignores `*.pt` and `*.npz`, and the shipped
 set has to be committable (protocol.md §5, docs/L3/training/checkpoints.md).
 """
@@ -62,6 +67,37 @@ def _relative(path):
     if absolute == ROOT or absolute.startswith(ROOT + os.sep):
         return os.path.relpath(absolute, ROOT).replace(os.sep, "/")
     return str(path)
+
+
+def _resolve(path):
+    """A declared path as a filesystem path, a relative one read from the repository root.
+
+    Every path this module records is spelled by `_relative`, so every path it reads back
+    is resolved here and never against the caller's working directory: a pool whose
+    membership emptied because a talk was started in another directory would pretend a
+    version the repository carries is absent (`checkpoints.md` §2, `protocol.md` §5).
+    """
+    text = os.fspath(path) if not isinstance(path, str) else str(path)
+    if os.path.isabs(text):
+        return text
+    return os.path.join(ROOT, text)
+
+
+def _resolved(records):
+    """The same member records with each declared `path` resolved for a call.
+
+    `evaluation.build_pool` tests a member's path with `os.path.isfile`, and a recorded
+    spelling is relative to the repository root; so the pool is handed filesystem paths
+    while every record this module returns keeps `_relative`'s spelling
+    (`checkpoints.md` §2, `evaluation/surface.md` §5).
+    """
+    resolved = []
+    for record in records:
+        member = dict(record)
+        if member.get("path") is not None:
+            member["path"] = _resolve(member["path"])
+        resolved.append(member)
+    return resolved
 
 
 def _version_id(rung, variant, seed, step):

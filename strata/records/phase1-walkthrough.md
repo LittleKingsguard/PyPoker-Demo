@@ -10,7 +10,7 @@ and the six packages importable. Scenarios: 12, L0-authored from the docs and br
 | Finding | Owning layer | Route |
 |---|---|---|
 | `docs/L1/league.md` §8: "a version that outranks a baseline has shown it beats that rule" — falsified by the shipped table (R1 ranks +0.410 while losing 51–63 to `always-call` and 56–58 to `oracle`) | L1 | L1 doc fix |
-| `docs/L1/league.md` §7 and ASM-15 still state a 40 ms/hand bound; measured 0.105–0.130 s/hand (ASM-21 in the brief supersedes it) | L1 | L1 doc fix |
+| `docs/L1/league.md` §7 and the L1 cost assumption still state a 40 ms/hand bound; measured 0.105–0.130 s/hand (the brief's ASM-21 supersedes it) | L1 | L1 doc fix — repaired |
 | `docs/L1/battery.md` §2: "the venv carries no `pytest`" — it carries 9.2.0 | L1 | L1 doc fix |
 | `docs/L1/module-map.md` §5 and `README.md` claim a root `README.md` that does not exist | L1 | L1 doc fix + L0 authors the README |
 | `docs/L3/evaluation/tables.md` §2: "no module that produces checkpoints exists yet" — `training` exists and indexes 18 artefacts | L3 | L1 routes down |

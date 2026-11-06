@@ -30,7 +30,7 @@ is contract (`e2e-surface.md` §1, brief §5). Six rules are shared and are stat
 - A record returned here carries the keys `records.md` marks **required** and, beyond them, only this
   module's own keys, which no caller may depend on (`records.md` §1, D-13). Exactness is promised on CPU:
   one `(configuration, seed set, budget, pool membership)` reproduces a table value for value
-  (D-8, `protocol.md` §4).
+  (`protocol.md` §4), with the measured exception `league.md` §7 records for a cell pairing the `oracle`.
 
 This module never trains and never edits a curve; it owns the pool, plays the cells and assembles the
 evidence (`module-map.md` §3, D-16). It calls `agents`, `features` and `engine` and no fourth module: the
@@ -87,7 +87,7 @@ run record, the rung label and the record's families arrive as data (`module-map
   integer every matrix is played from; and `rating`, the method, the 95% interval and the anchor.
 - **Refusals:** none (`e2e-surface.md` §3.4).
 - **Determinism:** two calls return equal records, and the numbers are `docs/L1/league.md` §6's table and no
-  other (ASM-14, ASM-15).
+  other — and no per-hand cost figure at all, since ASM-21 supersedes ASM-15's bound (ASM-14, ASM-21).
 
 ## 5. `build_pool` — one pool from one declaration (`general` row)
 

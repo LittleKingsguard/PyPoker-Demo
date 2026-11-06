@@ -118,11 +118,11 @@ seeded from `_bootstrap_seed(matrix["table_seed"])` — no global stream, no cel
 Caught by: `test_rating.py::EVL-5.7`, `::EVL-5.6`, FAM-9.2, FAM-9.7.
 ## G19 — The shipped artefact is evidence, and nothing reads it
 `tables/league-full.json` with `schema`, `table`, `pool`, `matrix`, `rating`, `provenance`, `cost` (`tables.md` §3),
-written by `evaluation.tables`' `__main__` and **never** by an entry point; the cost block carries `measured: true`
-with `hands`, `seconds_per_hand` and `device: "cpu"`, while `league()` keeps carrying ASM-15's bound (`tables.md` §5).
-An entry point that opens the file, or a `league()` reporting a measured number, is red. **Unverified**: no L1 case
-reads the artefact (FAM-10.1 and FAM-10.3 assert the league's budgets and cell count only), so `EVL-6.*` is it.
-Caught by: `test_tables.py::EVL-6.1`–`EVL-6.5`, `test_guardrails.py::EVL-11.g19`.
+written by `evaluation.tables`' `__main__`, **never** by an entry point; its cost block carries `measured: true` with
+`hands`, `seconds_per_hand`, `device: "cpu"` and **no ceiling** (ASM-21 supersedes ASM-15), and `provenance`'s
+`member_status` says which player each member is — `variant-1` is the untrained learner (`tables.md` §2, §5). An
+entry point that opens the file, or a `league()` carrying a per-hand number, is red; no L1 case reads it.
+Caught by: `test_tables.py::EVL-6.1`–`EVL-6.6`, `test_guardrails.py::EVL-11.g19`.
 ## G20 — `policy_from` reads exactly two recorded facts, and substitutes no seed
 The seed and the encoding name come from the checkpoint's own container — `metadata.json`'s top-level `"seed"` and
 `"representation"` → `"encoding"` — located by `_checkpoint_facts`' tolerant walk (`scheduler.md` §5.1), and nothing

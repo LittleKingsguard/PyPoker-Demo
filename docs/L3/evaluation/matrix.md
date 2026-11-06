@@ -46,7 +46,11 @@ and derives both seeds from it, through `seeds.py`'s one digest (`scheduler.md` 
 So a table is reproduced from its table seed, its membership and its budget: the cells depend on the seed and the
 pair positions only, the three baselines' policies on the seed and their positions only, and a version's policy on the
 two facts its own checkpoint records (§4). Nothing here reads the global `random` stream (`scheduler.md` §3, ASM-2). The
-record carries the seed as `table_seed`, which is also what `rating` seeds its bootstrap from (`rating.md` §4).
+record carries the seed as `table_seed`, which is also what `rating` seeds its bootstrap from (`rating.md` §4). **One
+measured exception**, recorded at `docs/L2/evaluation/league.md` §7: a cell that pairs the `oracle` is not reproduced
+across processes, because the equity estimate it queries samples a run-out deck whose order is a per-interpreter hash
+order — so two runs of one producer at one seed gave different counts in the two oracle cells while the four cells
+pairing no `oracle` were identical.
 
 ## 4. How each member's policy is built
 
@@ -91,7 +95,10 @@ the member is the same player in two tables, which is what makes one checkpoint 
 
 The five required keys are what `rating` and `report` read (`rating.md` §1, `report.md` §3); `pool`, `member_records`,
 `unlabelled` and `cell_count` are this module's own, and they are there so a table names *what* it measured and a
-reader can tell a measured `0` from an unmeasured one (`surface.md` §2, `records.md` §10).
+reader can tell a measured `0` from an unmeasured one (`surface.md` §2, `records.md` §10). `unlabelled` says that
+`matrix` was handed a policy already built and measured no capacity itself: it is a statement about the table's
+provenance and never about whether that policy's learner was trained, which a table cannot know — a member's status
+belongs in the producer's own provenance block, not in this record (`tables.md` §2, §5).
 
 ## 6. The two budgets
 

@@ -308,11 +308,11 @@ def seed_key(seed):
 def resolve(path):
     """One declared path as a filesystem path.
 
-    The run record carries the path `agents.save` returned -- absolute, as written
-    (`docs/L3/training/checkpoints.md` §2) -- while the shipped index carries the
-    repository-relative spelling, because "a shipped path is repository-relative"
-    (§2).  A reader resolves the second against the repository root, which is where
-    the battery runs (`docs/L1/battery.md` §2).
+    Both a run record and the shipped index carry the repository-relative spelling
+    (`docs/L3/training/checkpoints.md` §2), so a reader resolves it against the
+    repository root, which is where the battery runs (`docs/L1/battery.md` §2).  An
+    absolute path -- a caller's own checkpoint, or one a case wrote into its scratch
+    root -- is taken as it stands.
     """
     text = str(path)
     if os.path.isabs(text):

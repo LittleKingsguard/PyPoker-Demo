@@ -187,10 +187,12 @@ def _pool(configuration):
                 "version record" % (member,)
             )
         path = member.get("path")
-        if path and os.path.isfile(str(path)):
+        if path and os.path.isfile(layout._resolve(path)):
             members.append(dict(member))
     bound = declaration.get("m", declarations.LEAGUE_M)
-    built = evaluation.build_pool({"members": members, "m": bound, "frozen": True})
+    built = evaluation.build_pool(
+        {"members": layout._resolved(members), "m": bound, "frozen": True}
+    )
     record = evaluation.pool_members(built)
     identifier = declaration.get("id")
     if identifier is None:
@@ -217,6 +219,11 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     built at the run seed itself; the hand's deal seed and opponent seed are `seeds.py`'s
     derivations, so both arms of a pair play the same hands against the same opponents
     (protocol.md §4, ASM-2, ASM-8).
+
+    `agents.save` is handed an absolute path and writes it; what the record carries is
+    `layout._relative` of that path, so the six artefacts of a pair are named as they read
+    from the repository root and the record travels with the tree (protocol.md §5,
+    docs/L3/training/checkpoints.md §2).
     """
     del device  # the run records it; a pair's pass measures the same work on any device
     if pool is None:
@@ -263,8 +270,8 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     return (
         curve.close([]),
         {
-            "snapshots": list(snapshots[-declarations.RETAINED:]),
-            "final": final,
+            "snapshots": [layout._relative(path) for path in snapshots[-declarations.RETAINED:]],
+            "final": layout._relative(final),
         },
         timing,
     )
@@ -312,6 +319,23 @@ def _header(configuration, table, hands, seed_set, device, checkpoints, interval
     }
 
 
+def _recorded_members(members):
+    """The read-back members as the record carries them: every `path` repository-relative.
+
+    `evaluation.build_pool` was handed resolved filesystem paths (`layout._resolved`), so
+    the read-back echoes those; the record spells them back through `layout._relative`, so
+    one artefact has one spelling in a pool member, a run record and the index
+    (`checkpoints.md` §2, `records.md` §7, `protocol.md` §5).
+    """
+    recorded = []
+    for member in members:
+        entry = dict(member)
+        if entry.get("path") is not None:
+            entry["path"] = layout._relative(entry["path"])
+        recorded.append(entry)
+    return recorded
+
+
 def _record(
     configuration,
     pool_id,
@@ -335,7 +359,7 @@ def _record(
             "lineage": configuration["pool"].get("lineage"),
             "m": int(pool_record["m"]),
             "frozen": bool(pool_record["frozen"]),
-            "members": list(pool_record["members"]),
+            "members": _recorded_members(pool_record["members"]),
         },
         "checkpoints": checkpoints_block,
         "seeds": list(seed_set),

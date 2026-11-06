@@ -36,6 +36,7 @@ intra-run snapshots the pool is a view over (`module-map.md` §5, ASM-18).
 | `episode.md` | one episode → transitions | `_seat` (§1), decision ordering and the terminal flag (§3), `reward`, `next_legal` (§4), the batch (§5) |
 | `curves.md` | the ten points | the axis (§2), the signal (§3), the spread (§4), the curve record (§5) |
 | `checkpoints.md` | the artefacts and the index | the layout and names (§1–§2), the ten snapshots and the retained five (§3), `checkpoints()` (§4), what ships (§5) |
+| `evidence.md` | the shipped evidence file | `checkpoints/evidence/r1-live.json`: its status (§1), its sixteen keys (§2), the measurement it holds and the two blocks it spells differently from a run today (§3), the two curve layouts (§4), declared budget against measured count (§5), the producer recipe (§6), what it is not (§7) |
 | `fairness.md` | `fairness()` | the two argument shapes (§1), the five axes and their matching rule (§2), the eight reportable pairs (§3), `constants` (§4), the pool report (§5) |
 | `devices.md` | `devices()` | the record (§1), the probe (§2), what a run records (§3) |
 | `errors.md` | refusals | the classes (§2), the message grammar (§3), one canonical message per refusal (§4) |
@@ -69,7 +70,7 @@ surface (`surface.md` §1); no returned record exposes a learner, an encoder, a 
     loop.py         run(), _train_variant_seed(), _timings(), _record() (loop.md)
     fairness.py     fairness(), _sides(), _axis(), _constants() (fairness.md)
     devices.py      devices(), _gpu() (devices.md)
-    layout.py       ROOT, _final_path(), _snapshot_path(), _relative() (checkpoints.md §1)
+    layout.py       ROOT, _final_path(), _snapshot_path(), _relative(), _resolve(), _resolved() (checkpoints.md §1)
     index.py        checkpoints(), SHIPPED_FINALS, SHIPPED_WINDOWS, _entries() (checkpoints.md §4)
 
 `RETAINED` is M = 5 and `SNAPSHOTS` is 10 — ASM-18's two numbers, in one place. Fourteen files, one concern each, and the
@@ -108,6 +109,7 @@ Never `harness`, never `pokerkit`, and no numerical library at module scope: the
 | 5 | the run record's `pool.id` is the **declared** id; the read-back digest is never carried (loop.md §3) | one id per record proves both arms held one pool (FAM-3.18, ASM-16) | carrying both, which makes a record declare two pools |
 | 6 | the index is declared data in `index.py`, one listing per artefact (checkpoints.md §4) | never a directory scan, so a scratch file is not a shipped artefact (FAM-16.31) | `os.walk`, which lists the battery's own scratch files |
 | 7 | `fairness` compares `architecture` only when family and `sparsity` agree (fairness.md §2) | a capacity match is the *compensation* for another axis (ASM-10) | comparing width always, which refuses R5's pair on two axes (FAM-3.12) |
+| 8 | a path is **written** absolute and **recorded** repository-relative, and read back through `layout._resolve` from the repository root (checkpoints.md §2) | a record that names one machine's home directory cannot travel with the tree or be read elsewhere, and `protocol.md` §5 makes the record portable (D-8, D-6) | absolute paths in the record, which is what the shipped evidence bundle first carried, so nothing but the machine that made it could read it |
 
 ## 8. Decisions a later module must not re-derive
 

@@ -11,7 +11,7 @@ import os
 
 import evaluation
 
-from . import declarations, errors, index
+from . import declarations, errors, index, layout
 
 #: The six rung names, in brief §2's order: one read, one order (`rungs()`, D-2).
 RUNG_NAMES = declarations.RUNG_NAMES
@@ -23,11 +23,15 @@ def _window(carried_from):
     A declared version the repository does not carry is not a member: the pool holds what
     is present and the record states the membership it used, because a pool never pretends
     a version it could not load (protocol.md §5, docs/L3/training/registry.md §3).
+
+    The test is `layout._resolve`'s file and not the declared spelling's, so a window read
+    from a working directory other than the repository root holds the versions the
+    repository carries rather than none (docs/L3/training/checkpoints.md §2).
     """
     members = []
     for member in index._window_members(carried_from):
         path = member.get("path")
-        if path and os.path.isfile(str(path)):
+        if path and os.path.isfile(layout._resolve(path)):
             members.append(dict(member))
     return members
 
@@ -37,7 +41,11 @@ def _pool_entry(name, carried_from):
     del name  # the rung name is the entry's context, not one of its fields
     members = _window(carried_from) if carried_from else []
     built = evaluation.build_pool(
-        {"members": members, "m": declarations.LEAGUE_M, "frozen": True}
+        {
+            "members": layout._resolved(members),
+            "m": declarations.LEAGUE_M,
+            "frozen": True,
+        }
     )
     record = evaluation.pool_members(built)
     return {

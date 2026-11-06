@@ -71,7 +71,7 @@ directory and refuses a path whose parent is missing (`agents/surface.md` §8, `
 | `rung` | the rung name, or the unregistered configuration's own `name` (`records.md` §12) |
 | `curves` | variant → seed → `{samples, td_error, spread}` — the ten snapshot steps, the mean absolute `td_error` of each interval, the spread across seeds (`curves.md` §5) |
 | `pool` | `{id, m, frozen, members}`: the **declared** id, the read-back `m` and `frozen`, and the read-back members in order — the three pinned baselines first, then the version window (`records.md` §8, `registry.md` §3) |
-| `checkpoints` | variant → seed → `{snapshots: [<the retained five paths>], final: <that pair's final model>}` (`checkpoints.md` §3) |
+| `checkpoints` | variant → seed → `{snapshots: [<the retained five paths>], final: <that pair's final model>}`, each path the repository-relative spelling `layout._relative` gives it (`checkpoints.md` §2–§3) |
 | `seeds` | the seed set the run used, after §5's default |
 | `budget` | the hands per variant per seed the run used, after §5's default |
 | `device` | the device the run used, after §5's default (`protocol.md` §6, D-8) |
@@ -90,9 +90,11 @@ two-variant record showing two ids fails FAM-3.18 (`loop.md` §2, ASM-16).
 - `curves[V][str(seed)] = {"samples": [...], "td_error": [...], "spread": [...]}` — three ten-element lists, the axis and the
   signal per seed and the across-seed spread repeated at each of that variant's seeds because it is one fact about the variant
   (`curves.md` §5). The keys are the variant name and the seed as a decimal string.
-- `checkpoints[V][str(seed)] = {"snapshots": [five absolute paths], "final": <one absolute path>}` — the retained last M = 5 of
-  the ten the pair wrote and that pair's final model, six artefacts and never the five earlier snapshots (`checkpoints.md` §3).
-  `tests/e2e/_records.py`'s `checkpoint_paths_of` reads this key on its own, so a pool member's `path` is never counted here.
+- `checkpoints[V][str(seed)] = {"snapshots": [five paths], "final": <one path>}` — the retained last M = 5 of the ten the pair
+  wrote and that pair's final model, six artefacts and never the five earlier snapshots (`checkpoints.md` §3). Each path is
+  `layout._relative` of what `agents.save` wrote, so the record is repository-relative and `layout._resolve` reads it back from
+  the repository root (`checkpoints.md` §2). `tests/e2e/_records.py`'s `checkpoint_paths_of` reads this key on its own, so a
+  pool member's `path` is never counted here.
 - `params[V] = {"budget": 10000, "lower": 9800.0, "upper": 10200.0}` — declared, never measured (`agents.param_count` is not
   among the four `agents` calls this module may make, `module-map.md` §2).
 - `timings[V][str(seed)] = {"hands": budget, "wall_clock_seconds": ..., "seconds_per_hand": ..., "hands_per_second": ...}` —

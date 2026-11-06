@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 evaluation protocol
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Covers:** brief §3 — curves, the league table, the fitted rating, the fixed baselines, fixed seeds (D-6, D-16)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
@@ -28,7 +28,7 @@ are reported by the id the pool gave them, never by rank order alone (D-16).
 ## 2. The recorded comparison
 
 - The seed set is fixed at `0, 1, 2` and is recorded in every run record and every report; a comparison a third party cannot re-run from the record is not evidence (D-6).
-- A run trains for 1,000 hands per variant per seed live and 200,000 for the shipped checkpoints, at the seed set above (`ladder.md` §6, ASM-8).
+- A run trains for 1,000 hands per variant per seed live and 200,000 for a long shipped run, at the seed set above (`ladder.md` §6, ASM-8). What ships today is R1's set from a live-budget run — 1,000 hands per variant per seed — so the record of that set says a live budget and no long run exists yet to stand beside it (D-8, ASM-18).
 - A table cell is 120 hands live and 1,500 hands full, seats alternating, for every pair in the membership — the three baselines included (`league.md` §6, ASM-14).
 - Every cell reports wins, ties and losses, the mean chip delta per hand, the seat split and the hands played. Chip delta, not only win rate: fixed-limit heads-up with short stacks makes ties and splits common (ASM-6), and a win rate alone hides them.
 - The matrix is reported in raw form alongside the rating, because a fitted rating assumes a transitive order and poker payoffs need not be (D-16).
@@ -66,6 +66,8 @@ cells whose result no model can influence (D-16).
 - `training.checkpoints()` is the index over exactly that set, and `evaluation.policy_from` loads one member in evaluation mode (D-16).
 - A loaded checkpoint chooses the same action as the learner that produced it on the same readout: the pair `agents.save`/`agents.load` is required to be loss-free at the decision boundary, and that is what lets a shipped version be a league member (ASM-5, D-16).
 - The pool is built from the checkpoints the repository ships. When a lineage checkpoint is absent, the pool holds the baselines and whatever versions are present, and the run record states the membership it actually used — it never pretends a version it could not load (D-16, D-8).
+- `checkpoints/evidence/r1-live.json` is the shipped record of the R1 live run, and it is the only one of its kind: that run's run record (`records.md` §12), the frozen pool it trained against, its four-member/six-cell `live` table, the Bradley-Terry rating over it, its twelve-family report, the device it ran on and the shipped checkpoint index — three seeds at 1,000 hands, 3,000 hands in 340 s, 0.105–0.120 s/hand. It is **evidence and not an interface**: no entry point reads or writes it, and every path inside it is repository-relative, so the record travels with the tree instead of naming one machine's home directory (D-8, D-16, ASM-18). Its shape and status are `training`'s to document under `docs/L3/training/`, exactly as `tables/league-full.json`'s are `evaluation`'s (`docs/L3/evaluation/tables.md` §3–§5).
+- The two tables of `league.md` §6 ship as those two files and no others: a `live` table is played by the talk and is not written to `tables/`, whose one occupant is the offline `full` table, and one member id does not identify one player across the two — `league.md` §9 states the rule each file obeys (D-8, D-16).
 
 ## 6. Where the device rule bites (`strata/platform.md`, D-8)
 

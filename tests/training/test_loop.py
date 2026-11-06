@@ -49,6 +49,7 @@ from _training_support import (
     other_seed_run,
     pair_run,
     repeated_run,
+    resolved,
     seed_key,
     seed_set,
     sixty_hand_run,
@@ -330,7 +331,7 @@ class RunTest(TrainingCase):
         )
 
     def test_trn_2_7_checkpoint_blocks_are_nested_by_variant_and_seed(self):
-        """TRN-2.7 `checkpoints[variant][str(seed)]` is `{snapshots, final}` for every variant × seed pair the run trained, and every path names an artefact on disk (loop.md §3, §4, checkpoints.md §3, FAM-12.1)."""
+        """TRN-2.7 `checkpoints[variant][str(seed)]` is `{snapshots, final}` for every variant × seed pair the run trained, every path a repository-relative spelling that resolves to the file `agents.save` wrote (loop.md §3, §4, checkpoints.md §2, §3, FAM-12.1)."""
         record = one_seed_run()
         block = as_mapping(record["checkpoints"], "'checkpoints'")
         self.assertEqual(
@@ -355,11 +356,16 @@ class RunTest(TrainingCase):
                     "wrote (checkpoints.md §3, ASM-18): %r" % (snapshots,),
                 )
                 for path in snapshots + [entry["final"]]:
+                    self.assertFalse(
+                        os.path.isabs(as_text(path, "a checkpoint path")),
+                        "the record spells every path repository-relative, so the "
+                        "record travels with the tree (checkpoints.md §2, protocol.md "
+                        "§5): %r" % (path,),
+                    )
                     self.assertTrue(
-                        os.path.exists(os.fspath(path)),
-                        "the record carries the path agents.save returned, so it is on "
-                        "disk from any working directory (checkpoints.md §2, FAM-12.1): "
-                        "%r" % (path,),
+                        os.path.exists(resolved(path)),
+                        "the repository root resolves the record's path to the file "
+                        "agents.save wrote (checkpoints.md §2, FAM-12.1): %r" % (path,),
                     )
 
     def test_trn_2_8_the_pool_is_frozen_with_one_id_and_the_three_baselines(self):

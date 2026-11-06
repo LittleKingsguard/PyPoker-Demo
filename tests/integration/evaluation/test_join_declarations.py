@@ -163,11 +163,13 @@ class DeclarationsAtTheJoin(J.JoinCase):
                     "hands_per_cell (docs/L3/evaluation/declarations.md §4.1)"
                     % (label, size),
                 )
-            self.assertEqual(
-                float(row["per_hand_ceiling_seconds"]),
-                0.04,
-                "the declared per_hand_ceiling_seconds is ASM-15's bound, not a "
-                "measurement (docs/L3/evaluation/declarations.md §4.1)",
+            self.assertNotIn(
+                "per_hand_ceiling_seconds",
+                row,
+                "no budget row carries a per-hand figure: ASM-21 ratifies the measured "
+                "0.105-0.130 s/hand and supersedes ASM-15's 0.04 bound, so a ceiling here "
+                "would have no ratified source (docs/L3/evaluation/declarations.md §4.1, "
+                "ASM-21)",
             )
         table = J.hand_built_matrix()
         members = J.matrix_members(table)

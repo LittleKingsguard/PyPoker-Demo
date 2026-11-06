@@ -1,8 +1,9 @@
 # training — the curves
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
-- **Owner:** the ten snapshot points (§2), the learning signal (§3), the spread across seeds (§4), and the curve record this
-  module returns (§5)
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Owner:** the ten snapshot points (§2), the learning signal (§3), the spread across seeds (§4) and the curve record (§5).
+  **Rev 2** states both layouts of the one spread — a run record's per seed, the evidence bundle's per variant
+  (`evidence.md` §4, FAM-4.8)
 - **Ceiling:** 90 lines. At the ceiling, split by owner — never append
 - **Read with:** `loop.md` §1 steps 7–9, §4, `episode.md` §5, `checkpoints.md` §3, `errors.md` §4
 
@@ -55,9 +56,15 @@ every point — the recorded fact that a one-seed run has no spread, not a missi
 deviation, which is `0.0` for one seed as well but is undefined-ish for two and invites a "sample or population" argument the
 record cannot settle; the max-minus-min spread is one line, total, and needs no divisor.
 
-The spread is a property of the **variant and the point**, so it is repeated at each of that variant's seeds in §5's record rather
-than stored once: a reader that asks one seed's entry for its spread gets the answer without knowing which seed was first
-(`loop.md` §4).
+The spread is a property of the **variant and the point**, never of one seed, so it is one array measured once. Two layouts
+carry that same array, and neither makes it a per-seed quantity (`records.md` §12, `protocol.md` §1):
+
+- **a run record repeats it at each of the variant's seed entries** — `curves[variant][str(seed)] = {samples, td_error,
+  spread}`, a convenience for a reader holding one seed's entry and not a per-seed measurement, because the arrays a
+  variant's seeds carry are one array written into each of them (`loop.md` §1 step 8, §4, FAM-4.8);
+- **the shipped evidence bundle hoists it once**, beside the seeds it was computed from: `curves[variant] = {samples,
+  seeds: {str(seed): {samples, td_error}}, spread}` — the axis and the one spread at variant level, the per-seed
+  signals under `seeds` (`evidence.md` §4, `checkpoints/evidence/r1-live.json`).
 
 ## 5. The curve record, and `_Curve`
 

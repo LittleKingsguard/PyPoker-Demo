@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 module map
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Covers:** brief §2 (the rung ladder) and brief §3 (the league evaluation, D-16), Phase 1 only
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -69,7 +69,8 @@ The authoritative list of entry points per module is `e2e-surface.md` §3, and i
 - `training` additionally owns `notebooks/` (the one notebook per rung of D-5) and `checkpoints/`, which holds both the shipped models and the intra-run snapshots the pool is a view over (D-16, ASM-18).
 - `evaluation` additionally owns `tables/`, where the precomputed offline league table is shipped: the table is evidence, and the pool it was measured over lives in `checkpoints/` (D-16, D-8).
 - `harness` additionally owns `tests/conftest.py`, `tests/e2e/`, `pyproject.toml` and the dependency lock file. The e2e battery in `tests/e2e/` is authored by the L1 test writer and is the harness's consumer, not its implementation: a harness agent may support it and may not rewrite it (brief §5, D-13).
-- Layer-owned artifacts are outside module claims by construction: `docs/L1/`, `modules.json`, `LICENSE`, `README.md`, `.gitignore`. The diff-scope check of modules.md §4 therefore runs over changed paths inside module subtrees; a scaffolding change is not a module escape.
+- Layer-owned artifacts are outside module claims by construction: `docs/L1/` (including `getting-started.md`), `modules.json`, `LICENSE`, `README.md`, `.gitignore`, and `scripts/run-all-tests.sh`, the runner `battery.md` §2 names — `modules.json` claims no path under `scripts/`, so it is nobody's module. The diff-scope check of modules.md §4 therefore runs over changed paths inside module subtrees; a scaffolding change is not a module escape (modules.md §4, D-13).
+- `README.md` at the repository root is L0's, written outside this map and owning no module: it is the front page a listener arrives on — what the demo is, how to install and run it, and what its numbers may and may not be read as — while `docs/L1/README.md` stays the design entry point and `docs/L1/getting-started.md` is this layer's newcomer route (Python version, dependencies, `PYTHONPATH=src`, one training run, one league table). Linking that route from the front page is L0's, as the page itself is (brief §5, D-1, D-14).
 - The union of claims covers every path where module code, tests, notebooks, checkpoints and shipped tables will live.
 
 ## 6. Why the league stays inside `evaluation` (ASM-19)
@@ -81,7 +82,7 @@ owner and its meaning under another, and would add an `evaluation` → `league` 
 of the match loop that is `evaluation`'s own work (D-16, D-13). The rejected alternative is recorded
 with ASM-19.
 
-## 7. Deliberately absent at rev 2
+## 7. Deliberately absent from the map
 
 No game-expansion module, no attention or opponent-modelling module, no multi-player seat handling and
 no web UI: they are Phase 2 or later (D-4, D-9). No module is declared for work the brief does not

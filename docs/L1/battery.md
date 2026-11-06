@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 end-to-end battery
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Covers:** what `tests/e2e/` must drive, and what "green" means before code exists (D-11)
 - **Ceiling:** 100 lines. At the ceiling, split by owner — never append
 
@@ -13,7 +13,8 @@ The examiner validates the battery before the code (D-11, `strata/examiner.md` �
 - It calls only the entry points of `e2e-surface.md` §3, through the `harness` module where support is needed, and reaches past no entry point (brief §5). The shapes it reads are `records.md`'s **required** keys and nothing beyond them (D-13).
 - It asserts outcomes, never an internal call, an internal shape, or a restatement of an implementation (`strata/examiner.md` §2).
 - It is network-free, CPU-only, self-sufficient and run from the repository root with the project venv. A case that needs a checkpoint or a pool builds one with a minimal budget; reading `training.checkpoints()` as an index is not a dependency on a shipped artefact, but asserting retention is done against a run the case builds itself (D-8, ASM-18).
-- It runs on the standard library's `unittest` runner, because the project venv carries no `pytest` (measured 2026-11-05) and a battery may not add a dependency to the audience's environment (C-C5, D-8). It stays collectable by `pytest` if one is ever declared, so it adds no import beyond `unittest` and the declared entry points.
+- It imports nothing beyond the standard library and the declared entry points — `unittest` included, and no third-party package — so it adds no dependency to the audience's environment and runs under either runner (C-C5, D-8). The project venv does carry `pytest` 9.2.0 (the `dev` extra of `pyproject.toml`, not a battery dependency), and that is how the batteries are executed.
+- **How the batteries are run.** One battery per invocation, from the repository root: `.venv/bin/python -m pytest tests/e2e -q` for this one, `.venv/bin/python -m pytest tests/<module> -q` for a module's, and `scripts/run-all-tests.sh` for all thirteen, which is what "run the tests" means. A bare `pytest tests` cannot collect this tree: sibling batteries reuse file basenames — `test_errors.py` in two, `test_seeds.py` in two, `test_episode.py` in two, `test_guardrails.py` in two — and each battery imports its own same-directory support module (`_evaluation_support.py`, `_join_support.py` and their kin), so the prepend import mode aborts with an import file mismatch while the importlib mode breaks those helper imports. Measured 2026-11-05: `.venv/bin/python -m pytest tests --collect-only -q` reports five such errors, one per duplicated basename (`scripts/run-all-tests.sh`, D-11).
 - No case is skipped or conditionally disabled. A case that cannot run is a finding against the test writer (D-11).
 - League cases assert cell counts from K arithmetically, and where a table is actually played the case uses the smallest legal membership — the three baselines and one variant, K = 4, six cells — because `evaluation.matrix` takes a table budget rather than a hand count and the live cell is fixed at 120 hands (ASM-14). The battery proves the scheduler's arithmetic; the shipped table proves the cost.
 - A timing case asserts that a cost record exists and carries hands and seconds per hand; it never asserts that a wall clock was beaten, which would be a flaky test and not a contract (ASM-15).

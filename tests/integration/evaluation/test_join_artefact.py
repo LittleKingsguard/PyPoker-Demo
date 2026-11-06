@@ -341,6 +341,91 @@ class ShippedArtefact(J.JoinCase):
                 "behind its value (records.md §11, FAM-9.5)" % (member_id,),
             )
 
+    def test_join_evl_11_6_the_membership_says_which_player_each_row_is(self):
+        """JOIN-EVL-11.6 the artefact's membership, its status and its records name one table.
+
+        `docs/L2/evaluation/league.md` §5 and `docs/L3/evaluation/tables.md` §2, §5:
+        `provenance.member_status` is aligned one-for-one with the matrix's `members`;
+        a pinned baseline's status is `baseline` and its capacity the `0` the pool
+        declares; and a member's status comes from its own recipe, with the seed it was
+        built at.  The matrix's `unlabelled` list is the complementary fact and not a
+        training claim: it says only that `matrix` was handed a policy already built
+        (`docs/L3/evaluation/matrix.md` §5, ASM-18) — so an **untrained** variant's
+        capacity is the producer's measurement and the matrix reports the `0` of an
+        unmeasured one, and the same member id in a live table is a trained final model.
+        """
+        document = self.document()
+        matrix_record = document["matrix"]
+        provenance = document["provenance"]
+        members = J.matrix_members(matrix_record)
+        status = list(provenance["member_status"])
+        self.assertEqual(
+            [str(row["id"]) for row in status],
+            members,
+            "the membership's status is one row per matrix member, in the matrix's "
+            "order, so no member of the table is left unnamed "
+            "(docs/L3/evaluation/tables.md §2, §5)",
+        )
+        by_id = {str(row["id"]): row for row in status}
+        recipes = {str(recipe["id"]): recipe for recipe in provenance["variants"]}
+        names = [str(name) for name in J.protocol()["baselines"]]
+        for name in names:
+            self.assertEqual(
+                str(by_id[name]["status"]),
+                "baseline",
+                "a pinned baseline's status is `baseline` "
+                "(docs/L3/evaluation/tables.md §5)",
+            )
+            self.assertEqual(
+                int(J.member_record(document["pool"], name)["params"]),
+                0,
+                "a baseline's capacity is the zero the catalogue declares "
+                "(ASM-10, docs/L2/evaluation/pool.md §2)",
+            )
+        unlabelled = [str(name) for name in matrix_record.get("unlabelled", ())]
+        matrix_records = {
+            str(record["id"]): record
+            for record in matrix_record.get("member_records", ())
+        }
+        for name in [member for member in members if member not in names]:
+            with self.subTest(member=name):
+                row = by_id[name]
+                recipe = recipes.get(name)
+                self.assertIsNotNone(
+                    recipe,
+                    "a member outside the pool is one of the rung's variants and carries "
+                    "its recipe, so its status has a source "
+                    "(docs/L3/evaluation/tables.md §2, §5)",
+                )
+                self.assertEqual(
+                    str(row["status"]),
+                    str(recipe["status"]),
+                    "a member's status is its own recipe's status and not a value the "
+                    "provenance block invented (docs/L3/evaluation/tables.md §5)",
+                )
+                self.assertEqual(
+                    int(row["seed"]),
+                    int(recipe["seed"]),
+                    "the row names the seed the variant was built at "
+                    "(docs/L3/evaluation/tables.md §2, §5)",
+                )
+                if str(row["status"]) == "untrained":
+                    self.assertIn(
+                        name,
+                        unlabelled,
+                        "an untrained variant is a policy handed to `matrix` already "
+                        "built, so the matrix records the `0` of an unmeasured capacity "
+                        "and its id in `unlabelled` while the producer's measurement sits "
+                        "in the recipe (docs/L3/evaluation/matrix.md §5, ASM-10)",
+                    )
+                    self.assertEqual(
+                        int(matrix_records[name]["params"]),
+                        0,
+                        "the matrix's capacity for an unlabelled variant is the "
+                        "unmeasured `0`, never the recipe's measurement "
+                        "(docs/L3/evaluation/matrix.md §5)",
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

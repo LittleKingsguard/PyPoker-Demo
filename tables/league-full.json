@@ -77,20 +77,20 @@
         "hands": 1500,
         "directions": [
           {
-            "wins": 680,
-            "ties": 34,
-            "losses": 786,
-            "mean_chip_delta": -0.17666666666666667,
+            "wins": 676,
+            "ties": 36,
+            "losses": 788,
+            "mean_chip_delta": -0.19666666666666666,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
             }
           },
           {
-            "wins": 786,
-            "ties": 34,
-            "losses": 680,
-            "mean_chip_delta": 0.17666666666666667,
+            "wins": 788,
+            "ties": 36,
+            "losses": 676,
+            "mean_chip_delta": 0.19666666666666666,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
@@ -222,19 +222,19 @@
         "directions": [
           {
             "wins": 817,
-            "ties": 43,
-            "losses": 640,
-            "mean_chip_delta": 0.6773333333333333,
+            "ties": 42,
+            "losses": 641,
+            "mean_chip_delta": 0.6493333333333333,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
             }
           },
           {
-            "wins": 640,
-            "ties": 43,
+            "wins": 641,
+            "ties": 42,
             "losses": 817,
-            "mean_chip_delta": -0.6773333333333333,
+            "mean_chip_delta": -0.6493333333333333,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
@@ -288,37 +288,37 @@
   "rating": {
     "values": {
       "random": {
-        "value": -0.16746773385390118,
+        "value": -0.1693798126051863,
         "interval": [
-          -0.20643410517430572,
-          -0.12393119502228953
+          -0.2042400442065048,
+          -0.128011017629923
         ],
         "hands": 4500,
         "bounded": false
       },
       "always-call": {
-        "value": 0.09835339932111373,
+        "value": 0.09847062916409549,
         "interval": [
-          0.059347033600626854,
-          0.13471146334945186
+          0.055395543823965304,
+          0.13493049351274106
         ],
         "hands": 4500,
         "bounded": false
       },
       "oracle": {
-        "value": 0.06911433453278745,
+        "value": 0.07090918344109082,
         "interval": [
-          0.03115989050783491,
-          0.11157549432509356
+          0.03642516540338712,
+          0.11373327401332052
         ],
         "hands": 4500,
         "bounded": false
       },
       "variant-1": {
-        "value": -0.17788607740814272,
+        "value": -0.17744645188086883,
         "interval": [
-          -0.2362675249123104,
-          -0.1297938160121543
+          -0.23646101809592227,
+          -0.13074320320318913
         ],
         "hands": 4500,
         "bounded": false
@@ -363,9 +363,29 @@
       "oracle",
       "variant-1"
     ],
+    "member_status": [
+      {
+        "id": "random",
+        "status": "baseline"
+      },
+      {
+        "id": "always-call",
+        "status": "baseline"
+      },
+      {
+        "id": "oracle",
+        "status": "baseline"
+      },
+      {
+        "id": "variant-1",
+        "status": "untrained",
+        "seed": 31415
+      }
+    ],
     "variants": [
       {
         "id": "variant-1",
+        "status": "untrained",
         "backend": "numpy",
         "encoding": "flat-numeric",
         "architecture": {
@@ -385,11 +405,10 @@
   },
   "cost": {
     "hands": 9000,
-    "seconds_per_hand": 0.12990897531755682,
-    "hands_per_second": 7.6976975421101095,
-    "wall_clock_seconds": 1169.1807778580114,
+    "seconds_per_hand": 0.13237430744532805,
+    "hands_per_second": 7.554336028636148,
+    "wall_clock_seconds": 1191.3687670079526,
     "device": "cpu",
-    "per_hand_ceiling_seconds": 0.04,
     "measured": true
   }
 }

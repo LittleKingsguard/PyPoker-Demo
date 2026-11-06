@@ -295,7 +295,7 @@ class DeclarationsTest(EvaluationCase):
         )
 
     def test_evl_1_10_league_declares_both_budgets_with_their_arithmetic(self):
-        """EVL-1.10 each budget row carries `hands_per_cell` (120, 1500), its `hands_played` per K, `produced_by` and ASM-15's bound, and each `hands_played` is `cell_count(K) x hands_per_cell` (`declarations.md` §4.1, `tables.md` §1)."""
+        """EVL-1.10 each budget row carries `hands_per_cell` (120, 1500), its `hands_played` per K and `produced_by` — and no per-hand cost figure, ASM-15's bound being superseded — and each `hands_played` is `cell_count(K) x hands_per_cell` (`declarations.md` §4.1, `tables.md` §1, ASM-21)."""
         package = self.evaluation()
         league = package.league()
         tables = league["tables"]
@@ -318,9 +318,10 @@ class DeclarationsTest(EvaluationCase):
                 row = tables[budget]
                 self.assertEqual(
                     set(row),
-                    {"hands_per_cell", "hands_played", "produced_by", "per_hand_ceiling_seconds"},
-                    "a budget row carries four keys, in declarations.md §4.1's order: %r"
-                    % (row,),
+                    {"hands_per_cell", "hands_played", "produced_by"},
+                    "a budget row carries these three keys, in declarations.md §4.1's order, and "
+                    "no per-hand cost figure: ASM-21 supersedes ASM-15's bound, so a 'ceiling' "
+                    "here would have no ratified source (ASM-21, tables.md §5): %r" % (row,),
                 )
                 self.assertEqual(
                     int(row["hands_per_cell"]),
@@ -335,12 +336,13 @@ class DeclarationsTest(EvaluationCase):
                     "the %s table is produced by what declarations.md §4.1 declares: %r"
                     % (budget, row["produced_by"]),
                 )
-                self.assertAlmostEqual(
-                    float(row["per_hand_ceiling_seconds"]),
-                    0.04,
-                    msg="ASM-15's per-hand bound is 0.04 seconds and it is a bound, never "
-                    "a measurement (declarations.md §4.1, tables.md §5): %r"
-                    % (row["per_hand_ceiling_seconds"],),
+                self.assertNotIn(
+                    "per_hand_ceiling_seconds",
+                    row,
+                    "ASM-21 ratifies the measured 0.105-0.130 s per hand and supersedes ASM-15's "
+                    "0.04 bound, so no budget row carries a per-hand figure at all "
+                    "(declarations.md §4.1, tables.md §5, ASM-21): %r"
+                    % (row.get("per_hand_ceiling_seconds"),),
                 )
                 played = row["hands_played"]
                 for size, hands in expected[budget]["played"].items():

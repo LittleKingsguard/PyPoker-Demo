@@ -29,8 +29,7 @@ contract (`e2e-surface.md` §1, brief §5). Six rules are shared and are stated 
   exposes a learner, an encoder, a policy or a pool (`e2e-surface.md` §1, D-1). A record carries the keys
   `records.md` marks **required** and, beyond them, only this module's own keys (`records.md` §1, D-13).
 
-The module's one job is the rung registry plus the one loop every rung configures (`module-map.md` §1, D-3); the
-loop, the registry's content, the budgets, the notebooks and the checkpoints are `loop.md`'s.
+Its one job is the registry plus the one loop every rung configures (`module-map.md` §1, D-3); the rest is `loop.md`'s.
 
 ## 2. `rungs` — the registry (`fixed` row)
 
@@ -107,9 +106,9 @@ The run record's keys (`records.md` §12's **required** set is exactly these ten
 | Key | Content |
 |---|---|
 | `rung` | the rung name, or an unregistered configuration's own `name` (`records.md` §12, `ladder.md` §3) |
-| `curves` | per variant and per seed: the sample axis (the snapshot steps), at least one learning signal from `agents.learn` — its `td_error` — and the spread across seeds, zero when the set holds one seed (`protocol.md` §1, D-6, `loop.md` §3) |
+| `curves` | per variant and per seed: the sample axis (the snapshot steps), at least one learning signal from `agents.learn` — its `td_error` — and the spread across seeds, zero when the set holds one seed (`protocol.md` §1, D-6, `loop.md` §3); the spread is one array per variant and point, repeated in each of that variant's seed entries and never a per-seed measurement (`curves.md` §4, `evidence.md` §4) |
 | `pool` | the frozen pool trained against: `id` (the configuration's declared id, so both arms of a pair carry one), `m`, `frozen`, the ordered members with lineage and the three pinned baselines — the `records.md` §8 record `pool_members` returned, under a nested key, beside the declared id (D-16, ASM-16, `records.md` §8) |
-| `checkpoints` | per variant and per seed: the retained snapshots — the last M of the ten — and that pair's final model, as the paths `agents.save` wrote; the five earlier snapshots are intra-run and are not named (ASM-18, `protocol.md` §5) |
+| `checkpoints` | per variant and per seed: the retained snapshots — the last M of the ten — and that pair's final model, as the paths `agents.save` wrote, each spelled **repository-relative** with POSIX separators so the record travels with the tree (`checkpoints.md` §2, `protocol.md` §5); the five earlier snapshots are intra-run and are not named (ASM-18) |
 | `seeds`, `budget`, `device` | what the run actually used, after the defaults above (D-6, `protocol.md` §2, §6) |
 | `params` | per variant, the declared parameter budget and its ±2% bound (ASM-10): a run measures no capacity, because `agents.param_count` is not among the four `agents` calls this module is granted (`module-map.md` §2, `records.md` §12) |
 | `table` | the configuration's declared table budget the variant's row is measured at, `live` or `full`; a configuration that declares none is recorded at `live`, the budget a talk produces (`ladder.md` §3, `league.md` §6) |
@@ -124,9 +123,11 @@ them, and states them beside the ten keys above without claiming what it did not
 
 - `header` — `protocol.md` §1's nine items, all from granted calls or this record: the game (`game_config`), the
   vocabulary (`decode_action`), the **declared** parameter budget per variant and the baselines' declared `0`, the
-  sample budget, the cell size `evaluation.league` declares for this `table`, the seed set, the table seed, the
-  device and the checkpoint paths. D-5 forbids a notebook importing `engine` or `features` (`ladder.md` §7), so this
-  is the only route by which the game and the vocabulary reach a report.
+  sample budget, the cell size `evaluation.league` declares for this `table`, the seed set, the table seed, the device
+  and the checkpoint paths, repository-relative as the record's own `checkpoints` key spells them (`checkpoints.md`
+  §2). D-5 forbids a notebook importing `engine` or `features` (`ladder.md` §7), so this is the only route by which the
+  game and the vocabulary reach a report. A declared budget is not the capacity a cell records — 10,000 in the header
+  against 10,119 measured, both inside ASM-10's ±2% band (`records.md` §9, `evidence.md` §5).
 - `baselines` — the three pinned baselines as declared rows at the league's cell size, `measured: false`: the rows
   are the matrix's to fill and a run plays no cell (D-16, `protocol.md` §3).
 - `axis row` — `n/a, single variant` for a one-variant rung, explicit and never a blank; a two-variant rung omits it,
@@ -178,15 +179,14 @@ and `features.encodings()` are not among the calls `module-map.md` §2 grants, s
 
 ### 5.1 The axis rule the matched capacities force (Rev 2, measured)
 
-`architecture` — width and depth — is compared **only between two sides that agree on the representation family and
-on `sparsity`**. Where they differ on either, the width is the capacity match's compensation and belongs to the axis
-that caused it: ASM-10 requires a `sparse` arm to be declared wider than its dense mate, its trunk term `D·(k + W)`
-shrinking with `s`, and a token encoding to sit at a different width than a 203-wide dense one. Counting that width
-again would refuse R2–R3 (`encoding` and `architecture`) and R5's own pair (`architecture` and `connectivity`) — both
-rungs the ladder exists to report (`docs/L3/agents/architecture.md` §5). With this rule the eight reportable pairs
-differ on one axis exactly: R1–R2 `backend`; R2–R3 `encoding`; R3–R4 and R4–R5 on nothing, where the later rung's
-declared axis is still the axis it is for; R5–R6 `residual`; R4's, R5's and R6's own pairs `architecture`,
-`connectivity`, `residual`.
+`architecture` — width and depth — is compared **only between two sides that agree on the representation family and on
+`sparsity`**. Where they differ on either, the width is the capacity match's compensation and belongs to the axis that
+caused it: ASM-10 requires a `sparse` arm wider than its dense mate, its trunk term `D·(k + W)` shrinking with `s`, and a
+token encoding to sit at a different width than a 203-wide dense one. Counting that width again would refuse R2–R3
+(`encoding` and `architecture`) and R5's own pair (`architecture` and `connectivity`) — both rungs the ladder exists to
+report (`docs/L3/agents/architecture.md` §5). With this rule the eight reportable pairs differ on one axis exactly:
+R1–R2 `backend`; R2–R3 `encoding`; R3–R4 and R4–R5 on nothing, the later rung's declared axis still being the axis it is
+for; R5–R6 `residual`; R4's, R5's and R6's own pairs `architecture`, `connectivity`, `residual`.
 
 - **Refusals:** a side that is neither a configuration nor a variant entry, naming it; two sides of different kinds; a
   configuration missing a key the comparison reads, naming it; more than one differing axis, naming them; two variants

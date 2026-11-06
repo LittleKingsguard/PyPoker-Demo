@@ -724,7 +724,7 @@ class GuardrailsTest(EvaluationCase):
                 self.assertGreaterEqual(high, value, "the value lies inside its interval (rating.md §4, G18)")
 
     def test_evl_11_g19_the_shipped_artefact_is_evidence_and_nothing_reads_it(self):
-        """EVL-11.G19 `tables/league-full.json` carries `schema`, `table`, `pool`, `matrix`, `rating`, `provenance` and `cost`, its cost block is a measurement with `device: "cpu"`, `league()` keeps carrying ASM-15's bound, and no entry point reads the file (`tables.md` §3-§5, G19)."""
+        """EVL-11.G19 `tables/league-full.json` carries `schema`, `table`, `pool`, `matrix`, `rating`, `provenance` and `cost`, its cost block is a measurement with `device: "cpu"` and no ceiling -- ASM-21 supersedes ASM-15's bound -- its `provenance.member_status` says which player each member is, and no entry point reads the file (`tables.md` §2-§5, ASM-21, G19)."""
         package = self.evaluation()
         shipped = declared_internal("tables", "SHIPPED_PATH")
         path = os.path.join(REPO_ROOT, str(shipped))
@@ -760,19 +760,20 @@ class GuardrailsTest(EvaluationCase):
             "the artefact records the device that ran it (tables.md §5, G19): %r"
             % (cost.get("device"),),
         )
-        self.assertAlmostEqual(
-            float(cost.get("per_hand_ceiling_seconds", 0.0)),
-            0.04,
-            msg="the cost block carries ASM-15's bound beside the measurement "
-            "(tables.md §5, G19): %r" % (cost.get("per_hand_ceiling_seconds"),),
+        self.assertNotIn(
+            "per_hand_ceiling_seconds",
+            cost,
+            "the cost block carries the measurement and no ceiling: ASM-21 ratifies the "
+            "measured seconds per hand and supersedes ASM-15's bound "
+            "(tables.md §5, ASM-21, G19): %r" % (cost.get("per_hand_ceiling_seconds"),),
         )
         for budget in ("live", "full"):
             with self.subTest(budget=budget):
-                self.assertAlmostEqual(
-                    float(package.league()["tables"][budget]["per_hand_ceiling_seconds"]),
-                    0.04,
-                    msg="league() keeps carrying the bound and never the measured "
-                    "seconds (declarations.md §4.1, tables.md §5, G19)",
+                self.assertNotIn(
+                    "per_hand_ceiling_seconds",
+                    package.league()["tables"][budget],
+                    msg="league() carries no per-hand figure at all, the bound having been "
+                    "superseded (declarations.md §4.1, tables.md §5, ASM-21, G19)",
                 )
         before = self.stream_state()
         with no_file_reads("league() and protocol()"):

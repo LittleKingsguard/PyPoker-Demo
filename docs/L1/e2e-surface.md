@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 end-to-end I/O surface
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Purpose:** the entry points the L1 e2e battery drives, named precisely enough to call (brief §5)
 - **Ceiling:** 160 lines. At the ceiling, split by owner — never append
 
@@ -126,7 +126,7 @@ The harness's consumers are test batteries (brief §5). Each entry point returns
 | `factory` | an object kind the map declares, plus options | that object, built through the owning module's entry point | general |
 | `seam` | a seam kind — any label; `recording` and `synthetic` are the documented behaviours and any other label behaves as `recording` | a policy in the sense of §2 that records the readouts it was called with | general |
 | `expect` | one of the expectation kinds `fixtures` lists, plus the observed value | a pass or a named failure for the driver's record; an unknown kind is a named failure, never a silent pass | general |
-| `timings` | — | the wall-clock, the seconds per hand and the throughput records the driver collected — the R1/R2 speed evidence of D-7 and the measurement of ASM-15's per-hand bound | general |
+| `timings` | — | the wall-clock, the seconds per hand and the throughput records the driver collected — the R1/R2 speed evidence of D-7 and the per-hand cost ASM-15 and ASM-21 are stated from | general |
 
 A seam's contract is the policy protocol and not its label, so a battery may invent a seam kind; an expectation's kind set is the harness's own and is discovered from `fixtures()`, so a battery invents an observed value and never a kind (records.md §14, D-13).
 

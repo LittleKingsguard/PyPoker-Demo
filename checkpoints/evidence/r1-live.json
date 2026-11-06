@@ -374,33 +374,33 @@
    "naive-numeric": {
     "0": {
      "snapshots": [
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt"
+      "checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+      "checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+      "checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+      "checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+      "checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt"
      ],
-     "final": "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/final.ckpt"
+     "final": "checkpoints/R1/naive-numeric/seed-0/final.ckpt"
     },
     "1": {
      "snapshots": [
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt"
+      "checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+      "checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+      "checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+      "checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+      "checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt"
      ],
-     "final": "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/final.ckpt"
+     "final": "checkpoints/R1/naive-numeric/seed-1/final.ckpt"
     },
     "2": {
      "snapshots": [
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
-      "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt"
+      "checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+      "checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+      "checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+      "checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+      "checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt"
      ],
-     "final": "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/final.ckpt"
+     "final": "checkpoints/R1/naive-numeric/seed-2/final.ckpt"
     }
    }
   },
@@ -512,24 +512,24 @@
    "table seed": 20261105,
    "device": "cpu",
    "checkpoints": [
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/final.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/final.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/final.ckpt"
+    "checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/final.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/final.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/final.ckpt"
    ],
    "snapshot interval": 100
   },
@@ -1753,24 +1753,24 @@
    "table seed": 20261105,
    "device": "cpu",
    "checkpoints": [
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-0/final.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-1/final.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
-    "/media/ryanr/Shared Files/Projects/PyPoker-Demo/checkpoints/R1/naive-numeric/seed-2/final.ckpt"
+    "checkpoints/R1/naive-numeric/seed-0/step-0600.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-0700.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-0800.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-0900.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/step-1000.ckpt",
+    "checkpoints/R1/naive-numeric/seed-0/final.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0600.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0700.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0800.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-0900.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/step-1000.ckpt",
+    "checkpoints/R1/naive-numeric/seed-1/final.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0600.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0700.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0800.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-0900.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/step-1000.ckpt",
+    "checkpoints/R1/naive-numeric/seed-2/final.ckpt"
    ],
    "snapshot interval": 100
   }

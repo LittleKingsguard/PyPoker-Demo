@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 rung ladder as configuration
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
 - **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
@@ -72,17 +72,24 @@ D-7 recreates the naive rung in PyTorch to measure the speed difference on ident
 
 | Quantity | Live run | Shipped checkpoint run |
 |---|---|---|
-| Hands per variant per seed | 1,000 | 200,000 |
+| Hands per variant per seed | 1,000 | 200,000 (**no such run ships yet** — what ships is R1 at the live 1,000) |
 | Seeds | the three of `protocol.md` §2 | the same three |
 | Snapshots per run | 10, at equal intervals (`snapshot_every` = budget ÷ 10), of which the pool retains the last M (ASM-18) | the same rule |
 | Table budget, hands per cell | `live`: 120 (ASM-14) | `full`: 1,500 (ASM-14) |
 | Parameter budget per comparison pair | 10,000 ±2% | 10,000 ±2% (ASM-10) |
 
-The live budget is what keeps a rung at a few minutes in a talk (D-8); the shipped checkpoints are what show that training time matters (D-8, ASM-5). Both use the same protocol and the same table membership, so the difference between them is the sample count and the cell size and nothing else (D-6, D-16). The measured risk that pure-Python `pokerkit` dominates the wall clock is C-C2's, and it is answered by the sample-matched budget: the comparison stays fair if the engine is slow, and only the clock pays (ASM-15).
+The live budget is what keeps a rung at a few minutes in a talk (D-8); the long runs are what show that training time
+matters (D-8, ASM-5). The shipped set today is R1's, from a live-budget run — 1,000 hands per variant per seed — so its
+curves are the learning signal of a run that had not converged, and no long-run checkpoint exists yet to compare it
+against. Both budgets use the same protocol and the same table membership, so the difference between them is the sample
+count and the cell size and nothing else (D-6, D-16). The measured risk that pure-Python `pokerkit` dominates the wall
+clock is C-C2's, and it is answered by the sample-matched budget: the comparison stays fair if the engine is slow, and
+only the clock pays (ASM-15, ASM-21).
 
 ## 7. Notebooks (D-5)
 
 - One notebook per rung, in `notebooks/`, named for its rung: `r1-naive-numpy.ipynb`, `r2-naive-torch.ipynb`, `r3-card-embeddings.ipynb`, `r4-wide-and-deep.ipynb`, `r5-dense-and-sparse.ipynb`, `r6-residual.ipynb`. `training` owns the path.
+- **What ships now: one of the six.** `notebooks/r1-naive-numpy.ipynb` exists and runs the R1 rung end to end. The other five are not written yet — do not go looking for them in the tree — and each follows the R1 notebook's pattern exactly: the same imports, the same ordered steps (the rung, a run, the pool it trained against, the device, the checkpoints, the live table, the rating, the shipped `full` table, the report, the curves), read off that rung's own name. A notebook is written when its rung has something to narrate, and none of the five is a different design (D-5, brief §1).
 - A notebook is the talk's narrative: markdown for the story, and cells that call the declared entry points of `training` and `evaluation` only — the rung, a run, the pool it trained against, the device in use, the shipped checkpoints, the league table read at the `live` budget, the rating, the shipped `full` table, the report, and a plot of the curves the report already contains (D-5, D-16).
 - A notebook may import `training`, `evaluation`, `matplotlib` and the standard library. It may not import `engine`, `features`, `agents` or `harness`, may not import from `src/`, and may not carry a loop over hands, a model, an encoder, a metric, a match, or a copy of any module's code (D-5).
 - A notebook that needs something the surface does not expose has found an L2 or L1 defect and returns as an `ADJUDICATION` (modules.md §3, D-12); inlining the missing piece is the one thing D-5 forbids.

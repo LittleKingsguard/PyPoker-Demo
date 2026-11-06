@@ -2,10 +2,10 @@
 
 Drives `docs/L3/training/checkpoints.md` §1-§5 and `docs/L2/training/surface.md` §7: the
 file layout under `checkpoints/`, the `.ckpt` suffix, the ten written and the five
-retained plus that pair's final model, the four private names `README.md` §4 makes
-contract (`ROOT`, `_snapshot_path`, `_final_path`, `_relative`) and the directory the run
-makes, and the index — declared data, one entry per artefact, listed once, in §4's order,
-with the window as one lineage chain.
+retained plus that pair's final model, the six private names `README.md` §4 makes
+contract (`ROOT`, `_snapshot_path`, `_final_path`, `_relative`, `_resolve`, `_resolved`)
+and the directory the run makes, and the index — declared data, one entry per artefact,
+listed once, in §4's order, with the window as one lineage chain.
 
 The listing is counted, never de-duplicated: FAM-12.6 fails on a single repeat and
 `battery.md` §2 makes a case that cannot fail a defect, so `listed_paths` keeps every
@@ -14,6 +14,7 @@ repeat it finds.
 
 import os
 import shutil
+import tempfile
 import unittest
 
 from _training_support import (
@@ -292,6 +293,27 @@ class CheckpointTest(TrainingCase):
             "a shipped path is repository-relative with POSIX separators "
             "(checkpoints.md §2): %r" % (relative,),
         )
+        resolver = internal("layout", "_resolve")
+        self.assertEqual(
+            resolver(final),
+            final,
+            "`_resolve` takes an absolute path as it stands, because `agents.save` is "
+            "handed one and writes it (checkpoints.md §1-§2): %r" % (final,),
+        )
+        self.assertEqual(
+            resolver(relative),
+            final,
+            "`_resolve` reads a recorded path from the repository root and never from "
+            "the caller's working directory, so a talk started elsewhere reads the "
+            "version the record names (checkpoints.md §1-§2, registry.md §3): %r"
+            % (resolver(relative),),
+        )
+        self.assertEqual(
+            repo_relative(resolver("checkpoints/nowhere/seed-0/final%s" % (SUFFIX,))),
+            "checkpoints/nowhere/seed-0/final%s" % (SUFFIX,),
+            "`_resolve` joins and does not check: whether a declared path is a file is "
+            "its reader's test, never a resolver's side effect (checkpoints.md §2)",
+        )
         self.assertEqual(
             internal("layout", "_final_path")(LAYOUT_RUNG, LAYOUT_VARIANT, LAYOUT_SEED),
             final,
@@ -451,6 +473,52 @@ class CheckpointTest(TrainingCase):
             "ordering by the declaration and never by a directory listing "
             "(checkpoints.md §4, §6): %r" % (order,),
         )
+
+    def test_trn_6_8_the_window_is_read_from_the_repository_root(self):
+        """TRN-6.8 a declared window is resolved from the repository root, so `rung` reports one membership from any working directory and a pool never empties because a talk was started elsewhere (checkpoints.md §1-§2, registry.md §3, protocol.md §5)."""
+        package = training()
+        from_root = as_mapping(package.rung("R2")["pool"], "a pool entry")
+        declared = internal_module("layout").ROOT
+        self.assertTrue(
+            os.path.isdir(os.path.join(declared, "checkpoints")),
+            "`layout.ROOT` is the repository root and `checkpoints/` sits under it "
+            "(checkpoints.md §1): %r" % (declared,),
+        )
+        elsewhere = tempfile.mkdtemp(prefix="training-window-case-")
+        self.addCleanup(shutil.rmtree, elsewhere, True)
+        previous = os.getcwd()
+        self.addCleanup(os.chdir, previous)
+        os.chdir(elsewhere)
+        from_elsewhere = as_mapping(package.rung("R2")["pool"], "a pool entry")
+        os.chdir(previous)
+        self.assertEqual(
+            from_elsewhere,
+            from_root,
+            "one membership reads back one entry and one id whatever directory the "
+            "process was started in, because a declared path is resolved from the "
+            "repository root (checkpoints.md §2, registry.md §3, records.md §8): %r "
+            "against %r" % (from_elsewhere, from_root),
+        )
+        members = as_sequence(from_elsewhere["members"], "a pool entry's members")
+        self.assertGreater(
+            len(members),
+            RETAINED,
+            "R2 inherits R1's retained window, so its declaration is not empty while "
+            "the repository carries those artefacts (registry.md §3, FAM-12.4): %r"
+            % (len(members),),
+        )
+        for member in members:
+            member = as_mapping(member, "a pool member")
+            self.assertFalse(
+                os.path.isabs(as_text(member["path"], "a member's path")),
+                "a member record spells its path repository-relative, the way a run "
+                "record and the index do (checkpoints.md §2): %r" % (member["path"],),
+            )
+            self.assertTrue(
+                os.path.isfile(resolved(member["path"])),
+                "the declared window names files the repository carries "
+                "(protocol.md §5, FAM-12.5): %r" % (member["path"],),
+            )
 
 
 if __name__ == "__main__":

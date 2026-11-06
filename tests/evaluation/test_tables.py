@@ -3,16 +3,18 @@
 Drives `docs/L3/evaluation/tables.md` §1-§7, `docs/L3/evaluation/declarations.md`
 §4.1 and `docs/L2/evaluation/league.md` §5-§6: the two budgets differ in
 `hands_per_cell` and nothing else, a table plays `cell_count(K) x hands_per_cell`
-hands, `league()` keeps carrying ASM-15's `0.04` bound and never a measurement, and
-no entry point reads (or writes) the shipped artefact (`tables.md` §4, `guardrails.md`
-G19).
+hands, no entry point carries a per-hand cost figure — ASM-21 supersedes ASM-15's
+bound — and no entry point reads (or writes) the shipped artefact (`tables.md` §4,
+`guardrails.md` G19).
 
 EVL-6.3 is the battery's **one** case about `tables/league-full.json`: it exists, it
 parses, it carries `tables.md` §3's seven keys in its order and §5's provenance and
 cost blocks, and its `hands_played` is `cell_count x hands_per_cell` for the
-membership it names (the K = 4 baselines-plus-variant table is the only membership
-this repository can build today, `tables.md` §2 -- an artefact regenerated over a
-frozen pool's window is read by the same arithmetic, `tables.md` §6).
+membership it names (K = 4 is R1's membership, because R1's pool is the three
+baselines alone, `tables.md` §1-§2 -- an artefact regenerated over a rung with a
+frozen window is read by the same arithmetic, `tables.md` §6). EVL-6.6 is the battery's
+case for §2's one-member-id-two-players distinction: the membership says which player
+every row is.
 """
 
 import json
@@ -280,15 +282,14 @@ class TablesTest(EvaluationCase):
             "hands_per_second",
             "wall_clock_seconds",
             "device",
-            "per_hand_ceiling_seconds",
             "measured",
         ):
             with self.subTest(cost_key=key):
                 self.assertIn(
                     key,
                     cost,
-                    "the cost block records the measured cost of the run alongside "
-                    "ASM-15's bound (tables.md §5): %r" % (cost,),
+                    "the cost block records the measured cost of the run and no ceiling "
+                    "beside it (tables.md §5, ASM-21): %r" % (cost,),
                 )
         self.assertEqual(
             cost.get("device"),
@@ -313,16 +314,17 @@ class TablesTest(EvaluationCase):
             "the cost block reports a measured seconds per hand (tables.md §5, "
             "FAM-10.4): %r" % (cost.get("seconds_per_hand"),),
         )
-        self.assertAlmostEqual(
-            float(cost.get("per_hand_ceiling_seconds", 0.0)),
-            0.04,
-            msg="the cost block carries ASM-15's bound beside the measurement, so the two "
-            "are never confused (tables.md §5, declarations.md §4.1): %r"
+        self.assertNotIn(
+            "per_hand_ceiling_seconds",
+            cost,
+            "the cost block carries no ceiling: ASM-21 ratifies the measurement and "
+            "supersedes ASM-15's 40 ms bound, so a figure beside these numbers would have "
+            "no ratified source (tables.md §5, ASM-21): %r"
             % (cost.get("per_hand_ceiling_seconds"),),
         )
 
-    def test_evl_6_4_league_carries_the_bound_and_never_a_measurement(self):
-        """EVL-6.4 `league()` keeps carrying ASM-15's `0.04` per-hand bound with no measured seconds, hands, wall clock or device in it -- a measured figure lives in a run record's `timings` and in the artefact's cost block (`declarations.md` §4.1, `tables.md` §5, G19)."""
+    def test_evl_6_4_league_carries_no_per_hand_cost_figure_at_all(self):
+        """EVL-6.4 `league()`'s budget rows carry no per-hand figure — ASM-21 supersedes ASM-15's bound, so a measured cost lives only in a run record's `timings` and in the artefact's cost block (`declarations.md` §4.1, `tables.md` §5, ASM-21, G19)."""
         package = self.evaluation()
         league = package.league()
         for budget in BUDGETS:
@@ -330,25 +332,27 @@ class TablesTest(EvaluationCase):
             with self.subTest(budget=budget):
                 self.assertEqual(
                     set(row),
-                    {"hands_per_cell", "hands_played", "produced_by", "per_hand_ceiling_seconds"},
-                    "a budget row carries four keys and no measured figure "
+                    {"hands_per_cell", "hands_played", "produced_by"},
+                    "a budget row carries three keys and no per-hand figure at all "
                     "(declarations.md §4.1, tables.md §5): %r" % (row,),
                 )
-                self.assertAlmostEqual(
-                    float(row["per_hand_ceiling_seconds"]),
-                    0.04,
-                    msg="the per-hand figure the league carries is ASM-15's bound of "
-                    "0.04 seconds, never a measurement (declarations.md §4.1, "
-                    "tables.md §5, G19): %r" % (row["per_hand_ceiling_seconds"],),
+                self.assertNotIn(
+                    "per_hand_ceiling_seconds",
+                    row,
+                    "ASM-21 ratifies the measured 0.105-0.130 s per hand and supersedes "
+                    "ASM-15's 0.04 bound, so league() carries no ceiling and no "
+                    "measurement (declarations.md §4.1, tables.md §5, G19): %r"
+                    % (row.get("per_hand_ceiling_seconds"),),
                 )
         flat = json.dumps(league, default=str).lower()
-        for forbidden in ("seconds_per_hand", "wall_clock", "measured"):
+        for forbidden in ("seconds_per_hand", "wall_clock", "measured", "ceiling"):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(
                     forbidden,
                     flat,
-                    "no entry point returns a measured cost, and league() carries the "
-                    "bound and never a measurement (tables.md §5, declarations.md §4.1, "
+                    "no entry point returns a measured cost and none carries a per-hand "
+                    "figure: a measured figure lives in a run record's timings and in the "
+                    "artefact's cost block (tables.md §5, declarations.md §4.1, ASM-21, "
                     "G19): %r appears in the declaration" % (forbidden,),
                 )
 
@@ -379,6 +383,77 @@ class TablesTest(EvaluationCase):
                     "shipped table is evidence and never an interface (tables.md §4, §7, "
                     "G19): %r" % (label, value),
                 )
+
+    def test_evl_6_6_the_membership_says_which_player_each_member_is(self):
+        """EVL-6.6 `provenance.member_status` names one status per member, in `members` order -- `baseline` for the three pinned ones and `untrained` plus `VARIANT_SEED` for the variant -- and `_member_status` derives it from the recipe, so a `trained` variant or a pool `checkpoint` reads as what it is (`tables.md` §2, §5, ASM-18)."""
+        package = self.evaluation()
+        shipped = declared_internal("tables", "SHIPPED_PATH")
+        path = os.path.join(REPO_ROOT, str(shipped))
+        with open(path, "r", encoding="utf-8") as handle:
+            document = json.load(handle)
+        provenance = document["provenance"]
+        members = [str(name) for name in provenance["members"]]
+        status = list(provenance.get("member_status", ()))
+        self.assertEqual(
+            [str(row.get("id")) for row in status],
+            members,
+            "the membership's status is aligned one-for-one with `members`, in its order, "
+            "so no row of the file is left unnamed (tables.md §2, §5): %r vs %r"
+            % ([row.get("id") for row in status], members),
+        )
+        by_id = {str(row["id"]): row for row in status}
+        for name in BASELINES:
+            self.assertEqual(
+                str(by_id[name]["status"]),
+                "baseline",
+                "a pinned baseline's status is `baseline` (tables.md §5): %r"
+                % (by_id[name],),
+            )
+        variant_seed = int(declared_internal("tables", "VARIANT_SEED"))
+        for name in members:
+            if name in BASELINES:
+                continue
+            self.assertEqual(
+                str(by_id[name]["status"]),
+                "untrained",
+                "the shipped variant is the producer's untrained learner -- a live "
+                "table's variant-1 is a *trained* final model, so one member id names two "
+                "players and the file says which is which (tables.md §2, §5, ASM-18): %r"
+                % (by_id[name],),
+            )
+            self.assertEqual(
+                int(by_id[name]["seed"]),
+                variant_seed,
+                "the untrained row names the seed it was built at, the module's own "
+                "VARIANT_SEED and never a table-derived one (tables.md §2, §5): %r"
+                % (by_id[name],),
+            )
+        derive = declared_internal("tables", "_member_status")
+        derived = list(
+            derive(
+                {"members": ("random", "always-call", "oracle", "variant-1", "ckpt-1",
+                             "variant-2")},
+                {"members": [{"id": name} for name in BASELINES]},
+                [
+                    {"id": "variant-1", "status": "trained", "seed": 7},
+                    {"id": "variant-2", "status": "untrained", "seed": 11},
+                ],
+            )
+        )
+        self.assertEqual(
+            [str(row["status"]) for row in derived],
+            ["baseline", "baseline", "baseline", "trained", "checkpoint", "untrained"],
+            "the derivation reads a variant's status from its recipe, a pool member it "
+            "holds no recipe for as `checkpoint`, and a pinned baseline as `baseline` -- so "
+            "the field is not a constant and a regenerated artefact reads correctly "
+            "(tables.md §2, §5-§6): %r" % (derived,),
+        )
+        self.assertEqual(
+            [row.get("seed") for row in derived if str(row["id"]).startswith("variant-")],
+            [7, 11],
+            "a variant's row carries the build seed its recipe records (tables.md §5): %r"
+            % (derived,),
+        )
 
 
 if __name__ == "__main__":
