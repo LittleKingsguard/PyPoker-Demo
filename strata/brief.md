@@ -115,6 +115,16 @@ D-10 intake gate · D-11 examiner · D-12 adjudication · D-13 module isolation 
   recorded in its docs together with the cost they imply for a minutes-long live table and an
   offline full table (D-16, D-8). Rejected: fixing M here at a round number, which would settle
   the table's cost and its resolution before the engine's per-hand cost is measured.
+- `ASM-14` — L1's league parameters and reading rules, recorded in `docs/L1/assumptions.md` and
+  ratified here by reference: M = 5 versions with the baselines pinned, 120 hands per cell live
+  and 1,500 full, Bradley-Terry with bootstrap intervals anchored on the baselines, ten snapshots
+  per run, and `evaluation` reading a checkpoint's seed and encoding from its container (D-16).
+- `ASM-21` — measured, and it supersedes the earlier 40 ms bound: the per-hand cost is **0.13 s on
+  CPU** (7.7 hands/s) with the baselines inside the table, 3.2× the earlier 40 ms bound, because
+  the oracle queries equity at every decision. The live table is therefore ≈94 s at K=4 but
+  ≈10–12 minutes at K=9–10, and the full table ≈2 hours; the figure lives in
+  `tables/league-full.json` as a measurement, not a claim (D-16, D-8). Rejected: keeping the
+  40 ms figure operative, which would report a ten-minute table as under four minutes.
 
 ## 8. Non-goals at rev 1
 

@@ -1,8 +1,10 @@
 # evaluation — the callable surface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
 - **Owner of this file:** the surface — the eleven module-level names of `src/evaluation/`, each with its
   argument contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.4)
+- **Rev 2:** §12 reads a checkpoint's recorded seed and encoding from its container and checks the name by
+  `build_encoder`'s refusal (ASM-20); §8's draw, §10's policy seed and §5/§10's distinct membership restated
 - **Ceiling:** 260 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -98,7 +100,10 @@ run record, the rung label and the record's families arrive as data (`module-map
 - **Refusals:** a declaration missing one of §8's three keys, with that key named; an `m` that is not a
   positive integer or that exceeds the league's M, with the bound named (D-16, `docs/L1/league.md` §2); a
   declared member missing its `id` or its `lineage`, naming the member and the key, because those two are
-  how §8 declares a version and how the window is ordered (`records.md` §7, §8); a declared `path` that
+  how §8 declares a version and how the window is ordered (`records.md` §7, §8); two declared members
+  sharing one `id`, or a version declared under one of the three pinned baselines' names, naming the
+  member, because a membership names its members once and a cell pairs two distinct ones (§9, `records.md`
+  §7, §8); a declared `path` that
   names no readable file, naming the member, because a pool never pretends a version it could not load
   (`protocol.md` §5); a member list whose lineage does not order — two members descending from one, or a
   chain that reaches no start — naming the member (`records.md` §7, `docs/L1/league.md` §2). A member
@@ -146,10 +151,10 @@ run record, the rung label and the record's families arrive as data (`module-map
 - **Refusals:** a value that is not a pool; a seed that is not an integer (ASM-2); a pool whose drawn member
   carries no `path`, naming the member, because a version that cannot be loaded cannot be an opponent
   (`records.md` §7, `protocol.md` §5).
-- **Determinism:** one pool and one seed draw one opponent, and distinct seeds draw distinct members
-  wherever the membership holds more than one, so the training loop really samples the pool; the drawn
-  policy answers one decision one way, because only the deal uses the global stream (`battery.md` §3
-  FAM-7, `agents/surface.md` §1, ASM-2).
+- **Determinism:** one pool and one seed draw one opponent, and the draw is the seed reduced modulo the
+  membership's size, so a spread of seeds samples the whole pool and not one fixed policy — no map from the
+  integers into a membership of more than one makes every distinct seed a distinct member (ASM-2, FAM-7);
+  the drawn policy answers one decision one way, because only the deal uses the global stream (ASM-2).
 
 ## 9. `match` — the scheduler's one cell (`general` row)
 
@@ -183,12 +188,14 @@ run record, the rung label and the record's families arrive as data (`module-map
 - **Refusals:** a pool that is not frozen, naming it, because a pool does not change while it is tabled
   (`docs/L1/league.md` §2, §4, `records.md` §8); a pool member the declaration gave no `path`, naming the
   member (`records.md` §7, `protocol.md` §5); a variant count other than one or two, or a variant that is
-  not a policy, naming it (`ladder.md` §2, `docs/L1/league.md` §4); a `table` label that is not `live` or
+  not a policy, naming it (`ladder.md` §2, `docs/L1/league.md` §4); a membership that is not distinct — two
+  members carrying one id, which no cell can pair (§9, `records.md` §9); a `table` label that is not `live` or
   `full` (`records.md` §10, `docs/L1/league.md` §6).
-- **Determinism:** one pool, one variant list and one budget give one matrix, because every cell's seed is
-  derived from the table seed and the pair, and each member's policy is built at a seed derived from the
-  table seed and the member's position, and from nothing else (`docs/L1/league.md` §3, ASM-2,
-  `battery.md` §3 FAM-8).
+- **Determinism:** one pool, one variant list and one budget give one matrix: every cell's seed is derived
+  from the table seed and the pair, and every policy the table builds is built at a seed the table fixes — a
+  baseline at a seed derived from the table seed and its position, a version member at the seed its
+  checkpoint records (§12), because one checkpoint is one player; the variants are the caller's own policies
+  (`docs/L1/league.md` §3, ASM-2, `protocol.md` §5, `battery.md` §3 FAM-8).
 
 ## 11. `rating` — the fitted rating (`general` row)
 
@@ -211,20 +218,22 @@ run record, the rung label and the record's families arrive as data (`module-map
 ## 12. `policy_from` — a checkpoint as a policy (`general` row)
 
 - **Signature:** `policy_from(path)`.
-- **Arguments:** one checkpoint path `agents.save` wrote; a member is loadable from its path alone, which
-  is why a checkpoint records the seed and the encoding it was built at (`e2e-surface.md` §3.4,
-  `records.md` §7, `agents/learner.md` §4).
+- **Arguments:** one checkpoint path `agents.save` wrote; a member is loadable from its path alone, which is
+  why a checkpoint records the seed and the encoding it was built at (`e2e-surface.md` §3.4, `records.md` §7).
 - **Returns:** a policy in the sense of §2 — a member policy carrying the member record it was loaded for,
   so a cell names it and reports its capacity (§2, `records.md` §7). It is `agents.as_policy` of
-  `agents.load(None, path)`, over the encoder `features.build_encoder` makes for the encoding name the
-  restore records, at the seed the restore records (`agents/surface.md` §9, §10, `protocol.md` §5).
+  `agents.load(None, path)` over the encoder `features.build_encoder` makes for the encoding name the
+  checkpoint records, at the seed the checkpoint records (`agents/surface.md` §9, §10, `protocol.md` §5,
+  ASM-5). Both facts are read from the checkpoint's own container — what `agents` requires a restore to
+  recover *from the file alone* and its surface declines to hand back (`agents/learner.md` §4, ASM-20);
+  reading them is not a restore, since the learner and its rule are `agents.load`'s alone.
 - **Evaluation mode** qualifies it: the learner is never trained, never updated and never frozen from its
   exploration, and holds the state the checkpoint holds, so it decides as its learner decided
   (`agents/surface.md` §1, §10, `protocol.md` §5, ASM-5).
-- **Refusals:** a path that names no readable file, naming it; a checkpoint whose restore records no seed
-  or no encoding name, naming which, because a member the league cannot place at a decision is not a member
-  (`records.md` §7, `protocol.md` §5); an encoding name that is not one of the two `features.encodings()`
-  declares (`features/surface.md` §3, §5).
+- **Refusals:** a path that names no readable file, naming it; a checkpoint whose container records no seed
+  or no encoding name — or records them in a form this module does not read — naming which, because no seed
+  is ever substituted (`records.md` §7, `protocol.md` §5, ASM-20); an encoding name `features.build_encoder`
+  refuses (`features/surface.md` §5), the check that stays inside the granted arrows.
 - **Determinism:** one checkpoint gives one policy, it chooses the action its learner chooses on the same
   readout, and it plays no hand and moves no stream (`battery.md` §3 FAM-12, `protocol.md` §5, ASM-2).
 
@@ -238,17 +247,14 @@ run record, the rung label and the record's families arrive as data (`module-map
 - **Returns:** the complete per-rung report — one record keyed by the seven family names `protocol()`
   declares, each carrying what that family must carry, with the rung, the seeds, the table budget, the
   table seed and the device beside them, and no family reduced to a blank (`protocol.md` §1, §2,
-  `records.md` §13). The pool family is read as `records.md` §8's pool record, which is the shape
-  `pool_members` returns (`protocol.md` §1, `records.md` §8).
+  `records.md` §13). The pool family is `pool_members`'s record shape (`protocol.md` §1, `records.md` §8).
 - **Refusals:** an absent family, naming it exactly as `protocol()` spells it, `axis row` included; a
   matrix that is not a table (§11's checks, `docs/L1/league.md` §4); a matrix whose membership is not the
   pool family's members plus the rung's variants — every pool member present, the three baselines present,
   and no more than two members outside the pool — naming the foreign member, the missing pool member or the
   missing baseline (`docs/L1/league.md` §4, `ladder.md` §2, `protocol.md` §1); a rating that does not name
   exactly the matrix's members, naming the difference (`records.md` §11); a header missing one of
-  `protocol.md` §1's nine items, naming it. No family is invented and none is filled in (D-6,
-  `records.md` §13).
-- **Determinism:** one record, one matrix and one rating give one report, and it carries the seeds, the
-  table seed and the device, so a third party can re-run what it describes (`protocol.md` §2, §6, D-6). It
-  plays no hand, moves no stream and reads no file, so a report is assembled from records alone
-  (`module-map.md` §3, D-13).
+  `protocol.md` §1's nine items, naming it. No family is invented and none is filled in (D-6, `records.md` §13).
+- **Determinism:** one record, one matrix and one rating give one report, which carries the seeds, the table
+  seed and the device, so a third party can re-run what it describes (`protocol.md` §2, §6, D-6); it plays no
+  hand, moves no stream and reads no file, so a report is assembled from records alone (`module-map.md` §3, D-13).

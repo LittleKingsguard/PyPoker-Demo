@@ -164,6 +164,11 @@ module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
 - **`training`** (the caller) — it freezes one pool through `build_pool`, draws each hand's opponent through
   `opponent`, and hands `report` a run record with the seven families attached; `protocol` and `league` are
   what it reads to declare its own budget, cell size and table seed (D-16, ASM-16, `records.md` §12, §13).
+- **`tables/`'s producer** — the offline job that ships the `full` table (§5) stands where `training` stands,
+  because a rung's variant policies are `training`'s to hand `matrix` and no entry point here builds one: until
+  `training` ships snapshot lineages the producer builds its one variant with `agents.build_learner` at the
+  recipe the artefact records, and that call is that offline job's alone (D-8, D-16, ASM-20, `module-map.md` §2).
+  No entry point reads `tables/`, and the file is evidence for a notebook (§5).
 
 ## 8. The battery invariants this module carries
 

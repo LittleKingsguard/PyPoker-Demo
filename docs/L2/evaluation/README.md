@@ -1,6 +1,6 @@
 # evaluation — L2 integration interface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
 - **Covers:** the eleven entry points of `docs/L1/e2e-surface.md` §3.4 — the bounded pool, the match
   scheduler, the pairwise matrix, the fitted rating, the two tables and the per-rung report (D-16) — and
   `tables/`, where the precomputed offline table ships (`module-map.md` §5, D-8)
@@ -39,8 +39,8 @@ Each of the following is a boundary and not a preference (`module-map.md` §3, D
 - never reports a table whose members it cannot name or whose cells differ in hand count: such a matrix is
   a contract violation and not a table (`league.md` §3, `records.md` §10);
 - never reduces the matrix to a ranking, and never calls a rating a claim of poker skill (`league.md` §3–§4, D-16);
-- never imports `training`, whose run record arrives as data, and never reads a checkpoint's bytes
-  (`module-map.md` §2, D-13, `e2e-surface.md` §1);
+- never imports `training`, whose run record arrives as data, and never rebuilds a member from a checkpoint:
+  it restores through `agents.load` and reads only the recorded seed and encoding name (`surface.md` §12, D-13);
 - never seeds the global `random` stream except through `engine`'s single seeding point (ASM-2, `protocol.md` §4).
 
 ## 4. Counts, cap and blind instances
