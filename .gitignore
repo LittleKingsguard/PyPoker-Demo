@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Training artifacts — regenerable, and large (ASM-5 keeps only final checkpoints)
+runs/
+*.pt
+*.npz
+
+# Local scratch
+.DS_Store
+.pytest_cache/

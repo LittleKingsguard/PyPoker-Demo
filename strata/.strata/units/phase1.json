@@ -1,0 +1,14 @@
+{
+  "unit": "phase1",
+  "layer": "L3",
+  "stage": "design",
+  "artifacts": [
+    "A-engine",
+    "A-features",
+    "A-agents"
+  ],
+  "assumptions": [],
+  "streaks": {},
+  "rebuildEligible": false,
+  "updated": "2026-11-06T07:27:14.123Z"
+}

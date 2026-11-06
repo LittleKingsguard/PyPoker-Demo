@@ -1,0 +1,77 @@
+{
+  "modules": [
+    {
+      "name": "engine",
+      "paths": [
+        "src/engine",
+        "tests/engine",
+        "tests/integration/engine",
+        "docs/L2/engine",
+        "docs/L3/engine"
+      ],
+      "endpoints": 9
+    },
+    {
+      "name": "features",
+      "paths": [
+        "src/features",
+        "tests/features",
+        "tests/integration/features",
+        "docs/L2/features",
+        "docs/L3/features"
+      ],
+      "endpoints": 7
+    },
+    {
+      "name": "agents",
+      "paths": [
+        "src/agents",
+        "tests/agents",
+        "tests/integration/agents",
+        "docs/L2/agents",
+        "docs/L3/agents"
+      ],
+      "endpoints": 10
+    },
+    {
+      "name": "evaluation",
+      "paths": [
+        "src/evaluation",
+        "tests/evaluation",
+        "tests/integration/evaluation",
+        "docs/L2/evaluation",
+        "docs/L3/evaluation",
+        "tables"
+      ],
+      "endpoints": 11
+    },
+    {
+      "name": "training",
+      "paths": [
+        "src/training",
+        "tests/training",
+        "tests/integration/training",
+        "docs/L2/training",
+        "docs/L3/training",
+        "notebooks",
+        "checkpoints"
+      ],
+      "endpoints": 6
+    },
+    {
+      "name": "harness",
+      "paths": [
+        "src/harness",
+        "tests/harness",
+        "tests/integration/harness",
+        "tests/e2e",
+        "tests/conftest.py",
+        "docs/L2/harness",
+        "docs/L3/harness",
+        "pyproject.toml",
+        "uv.lock"
+      ],
+      "endpoints": 6
+    }
+  ]
+}

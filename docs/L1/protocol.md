@@ -1,0 +1,77 @@
+# PyPoker-Demo — L1 evaluation protocol
+
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Covers:** brief §3 — curves, the league table, the fitted rating, the fixed baselines, fixed seeds (D-6, D-16)
+- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+
+## 1. What a rung must report
+
+A rung is not progress on the strength of a curve alone (D-6), and since D-16 its opponent is the
+league, so the evidence is a matrix and a rating over that matrix (`league.md` §4, §5). `evaluation.report`
+refuses to return a report unless all of the following families are present, and names the missing
+family when it refuses:
+
+| Evidence family | Content |
+|---|---|
+| curves | per variant, per seed: the sample axis and at least one learning signal from `agents.learn`, with the spread across seeds recorded (D-6) |
+| pool | the frozen pool the run trained against and was evaluated over: its id, M, its ordered members with lineage, and — for a two-variant rung — the one id both arms recorded (D-16) |
+| matrix | the pairwise matrix of `league.md` §4 at one table budget: one cell per unordered pair, both directions, the hand count, the seat split, and the mean chip delta per hand (D-16) |
+| rating | the fitted rating of `league.md` §5: one value and a 95% interval per member with the method, the anchor and the hands behind each value (D-16) |
+| baselines | the three baseline rows inside that matrix, each at the same hand count as every league cell (D-16) |
+| axis row | R4, R5 and R6 carry their own pair's cell of the matrix plus the matched budgets of `ladder.md` §4. R1–R3 carry the explicit value `n/a, single variant` |
+| header | the game configuration, the action vocabulary, the parameter counts of every member, the sample budget, the cell size, the seed set, the table seed, the device and the checkpoint paths — everything a third party needs to re-run the table (D-6, D-16) |
+
+Every cell alternates seats across hands and reports the seat split, because a heads-up result that
+only ever gives one member the button is a positional artefact and not a measurement (D-16). Members
+are reported by the id the pool gave them, never by rank order alone (D-16).
+
+## 2. The recorded comparison
+
+- The seed set is fixed at `0, 1, 2` and is recorded in every run record and every report; a comparison a third party cannot re-run from the record is not evidence (D-6).
+- A run trains for 1,000 hands per variant per seed live and 200,000 for the shipped checkpoints, at the seed set above (`ladder.md` §6, ASM-8).
+- A table cell is 120 hands live and 1,500 hands full, seats alternating, for every pair in the membership — the three baselines included (`league.md` §6, ASM-14).
+- Every cell reports wins, ties and losses, the mean chip delta per hand, the seat split and the hands played. Chip delta, not only win rate: fixed-limit heads-up with short stacks makes ties and splits common (ASM-6), and a win rate alone hides them.
+- The matrix is reported in raw form alongside the rating, because a fitted rating assumes a transitive order and poker payoffs need not be (D-16).
+- No claim beyond the table is made: Phase 1 compares architectures on one small game, and a league rank is not a claim of poker skill, exploitative play or superhuman play (D-16, brief §8).
+
+## 3. The three fixed baselines (D-6, ASM-4)
+
+`agents.baselines()` names exactly three, none of them learns from a match, and all three are pool
+members and matrix columns at the same hand count as every league cell — they are the only fixed
+standard in a self-play league, so they anchor every claim the table makes (D-16):
+
+| Baseline | Rule | Property a battery can assert |
+|---|---|---|
+| `random` | a uniform draw over the legal indices, from an explicitly seeded generator | never returns an illegal index; two runs at one seed agree and two seeds differ (D-6) |
+| `always-call` | check/call whenever legal, never fold, and the minimum legal completion when raising is the only option | never folds in any decision of any hand (D-6) |
+| `oracle` | call/continue when the hand's equity from `engine.equity` is at least the pot odds `to_call / (pot + to_call)`, otherwise fold when folding is legal | its choice is consistent with that inequality at every decision, computed from the same two entry points a battery can call (ASM-4) |
+
+The oracle is fixed by construction: it is a rule over pot odds against `pokerkit`'s equity calculation,
+not a policy distilled from a trained rung (ASM-4). It is deliberately strong on the pot-odds axis and
+blind on everything else — that is what makes it a baseline rather than a competitor (D-6). The three
+baselines play each other in the table as well as playing every version, so the matrix carries three
+cells whose result no model can influence (D-16).
+
+## 4. Seeds (ASM-2)
+
+- `pokerkit` shuffles its deck with Python's global `random` at state creation and accepts no seed parameter (`strata/platform.md`). `engine.new_hand(seed)` is therefore the single point that seeds the global `random`, and no module seeds it anywhere else (ASM-2).
+- Because one global stream deals every hand, matches run sequentially: a cell is played hand after hand, and two cells are never interleaved or threaded (D-16, ASM-2). Sequential play is the contract, not an implementation choice.
+- A learner's exploration and any sampling of transitions draw from an explicitly constructed generator seeded from the run's seed, so a rung never depends on accidental shared global state (D-6).
+- A run is reproducible from `(configuration, seed set, budget, pool membership)`. Exactness is promised on CPU, which is the sandbox and the audience's laptop (D-8); a user-started GPU run records its device, and a third party reading the record can tell the two apart (D-6).
+- The battery asserts the contract at its observable edge: one seed, one configuration and one pool produce identical outcomes on two runs, a different seed or a different pool produces a different one, and the table seed a cell used appears in the cell (ASM-2, D-16).
+
+## 5. Checkpoints and pool retention (ASM-5 as D-16 amends it)
+
+- A run writes ten intra-run snapshots at equal intervals plus its final model; the rolling window of the pool retains the last M=5 of those snapshots, and what ships is the retained pool plus each rung's final model per variant per seed (D-16, ASM-18). The lean rule of ASM-5 is superseded: without snapshots the league has no opponents and the table is a claim the audience cannot reproduce (D-16).
+- `training.checkpoints()` is the index over exactly that set, and `evaluation.policy_from` loads one member in evaluation mode (D-16).
+- A loaded checkpoint chooses the same action as the learner that produced it on the same readout: the pair `agents.save`/`agents.load` is required to be loss-free at the decision boundary, and that is what lets a shipped version be a league member (ASM-5, D-16).
+- The pool is built from the checkpoints the repository ships. When a lineage checkpoint is absent, the pool holds the baselines and whatever versions are present, and the run record states the membership it actually used — it never pretends a version it could not load (D-16, D-8).
+
+## 6. Where the device rule bites (`strata/platform.md`, D-8)
+
+A run started by this workflow is CPU-bound, because the file sandbox denies the GPU device nodes.
+`training.devices()` reports what is available and records the default, so a run never silently claims a
+GPU it did not get (D-8). A GPU run is the user's, started outside the sandbox, and its record says so —
+the checkpoint and the report carry the device, so the two are never confused (D-6, D-8). No part of the
+protocol requires a GPU: every rung and both table budgets run on CPU (D-8, ASM-15), which is also why
+the live table's cost is bounded by hands played and not by a device (D-16).
