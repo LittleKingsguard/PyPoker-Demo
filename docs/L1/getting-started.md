@@ -1,6 +1,6 @@
 # PyPoker-Demo — getting started
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-07
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-08
 - **Purpose:** the shortest route from an empty checkout to a trained rung and a league table, for a reader who has the repository and nothing else
 - **Ceiling:** 70 lines. At the ceiling, split by owner — never append
 
@@ -34,7 +34,7 @@ PYTHONPATH=src .venv/bin/python -c "import training; print(training.run('R1')['t
 The call writes ten snapshots and a final model per variant per seed under `checkpoints/` and returns the record of
 `records.md` §12 — curves, pool, checkpoints, seeds, budget, device and the measured cost per hand (D-3, ASM-18).
 
-**It overwrites the set the repository ships.** At the declared seeds and budget it writes exactly the paths the shipped R1 models occupy — `checkpoints/R1/naive-numeric/seed-{0,1,2}/` — so running it before you load them replaces them; to leave the shipped set alone, point the run's write root elsewhere in the same command (`docs/L2/training/write-root.md` §3–§4):
+**It overwrites the set the repository ships.** At the declared seeds and budget a run **writes** 33 artefacts — ten snapshots and a final model per variant per seed — and the **18 the repository ships** are exactly the paths the shipped R1 models occupy in `checkpoints/R1/naive-numeric/seed-{0,1,2}/` (the retained window's last five per seed plus each seed's final; the other fifteen are intra-run snapshots the repository does not carry, so a run rewrites them freely and only the 18 are the set a reader protects), so running it before you load them replaces them; to leave the shipped set alone, point the run's write root elsewhere in the same command (`protocol.md` §5, `docs/L2/training/write-root.md` §3–§4):
 
 ```sh
 PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run PYTHONPATH=src .venv/bin/python -c "import training; print(training.run('R1')['checkpoints'])"

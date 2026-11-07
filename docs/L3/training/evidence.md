@@ -1,6 +1,6 @@
 # training — the shipped evidence bundle
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
 - **Owner:** the one shipped evidence artefact under `checkpoints/evidence/` — what it is and is not (§1), its seventeen
   top-level keys (§2), the measurement it holds (§3), the two curve layouts inside it (§4), the block that is a
   declared budget and not a count (§5), how it is produced (§6), and what it is not (§7)
@@ -30,7 +30,7 @@ on another machine, and evidence that reproduces only where it was made is not e
 | `stages` | the wall clock of each stage of the job — `run_R1_live`, `build_pool`, `matrix_live`, `rating`, `report` — each `{"seconds": <float>}` (`records.md` §12, ASM-15) |
 | `errors` | the stages that raised, named with their exception; `[]` means every stage completed (`errors.md` §2) |
 | `rungs` | `rungs()`'s six resolved configurations, copied once: each rung's `axis`, `primary`, `carried_from`, `variants` and `pool`, plus the resolved `seeds`, `samples`, `param_budget`, `table`, `device` and `snapshot_every` (`registry.md` §1–§2) |
-| `devices` | `training.devices()`'s record of the platform the job ran on, **as that build's probe answered it** — the shipped file's `gpu.reason` is the superseded read-only probe's sentence and is evidence of that run, not of today's probe (`devices.md` §1–§2, D-8) |
+| `devices` | `training.devices()`'s record of the platform the job ran on, **as that build's probe answered it** — on this platform `available` `["cpu"]`, `default` `"cpu"`, and `gpu.reason` the **sandbox-denial sentence** of `devices.md` §2, each node named with the read-write open `os.O_RDWR` it was denied, its `EACCES` (13) and the control `O_RDONLY` open of the same node that succeeded (`/dev/kfd` first, then `/dev/dri/renderD128`), so the file's sentence and `training.devices()["gpu"]["reason"]` are the same bytes (`devices.md` §1–§2, D-8) |
 | `run` | the run record of `records.md` §12 plus this module's own `variants`, `header`, `baselines` and `axis row`, with `matrix` and `rating` attached beside them (`loop.md` §3–§4, `surface.md` §4.1) |
 | `run_wall_clock_seconds` | the run's own cost: the sum of its per-seed `timings` wall clocks, and never `stages.run_R1_live`, which times the call (`loop.md` §4, ASM-15) |
 | `run_hands` | the hands trained: the seed set's size × hands per variant per seed (`protocol.md` §2, ASM-8) |

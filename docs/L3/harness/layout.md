@@ -1,6 +1,6 @@
 # harness — the package, and its line budget
 
-- **Layer:** L3 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06 · §5 added (walkthrough finding 5)
+- **Layer:** L3 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08 · §5 added (the write-root finding)
 - **Owner:** the layout of `src/harness/` — the one file and the order inside it (§1), the line budget unit by unit and
   what the ceiling may not be paid with (§2), the import boundary (§3), the compression ladder (§4), and the session
   write root `tests/conftest.py` and `tests/e2e/__init__.py` set (§5)
@@ -105,8 +105,8 @@ under `pytest`, and `tests/e2e/__init__.py` under `unittest discover -s tests/e2
 the package and so loading this hook before any case module — `unittest` loading no conftest (`battery.md` §2):
 
 - **unconditionally**, whatever the shell carries, because an inherited value must not send a battery's writes into
-  `<repo>/checkpoints` — the walkthrough's defect, where running the batteries left `seed-4103`, `R2/` and `R4/` in a
-  tree `.gitignore` hides (`write-root.md` §3–§4, `strata/records/phase1-walkthrough.md` finding 5);
+  `<repo>/checkpoints` — the write-root defect, where running the batteries left `seed-4103`, `R2/` and `R4/` in a
+  tree `.gitignore` hides (`write-root.md` §3–§4, the write-root finding in `strata/records/phase1-walkthrough.md`);
 - **idempotently across the two hooks**, so a process that loads both — `pytest` does, importing the e2e package too —
   ends with one root: the hook that makes it records it in `PYPOKER_BATTERY_ROOT`, a marker no file under `src/` reads,
   and a hook that finds that marker equal to the current override declines (`battery.md` §2);

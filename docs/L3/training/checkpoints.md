@@ -1,6 +1,6 @@
 # training — the artefacts and the index
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
 - **Owner:** the file layout under `checkpoints/` (§1), the write root a run writes under (§1–§2), the naming rules and the `.ckpt`
   suffix (§2), the ten snapshots and the retained five (§3), `checkpoints()` — declared data, never a scan (§4), and what ships (§5)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
@@ -127,20 +127,21 @@ budget's end and are two files, so naming both is not a repeat), so no artefact 
 ## 5. What ships, and what a missing run means
 
 - **R1's live run ships**: three seeds × (five retained snapshots + one final model) = **18 artefacts**, and `shipped` is
-  `["R1"]`. They are the artefacts a live 1,000-hand run at seeds `0, 1, 2` wrote, so their names are
-  `checkpoints/R1/naive-numeric/seed-{0,1,2}/step-{0600,0700,0800,0900,1000}.ckpt` and `…/final.ckpt`.
+  `["R1"]`: `checkpoints/R1/naive-numeric/seed-{0,1,2}/step-{0600,0700,0800,0900,1000}.ckpt` and `…/final.ckpt`. A run **writes** 33 paths for
+  three seeds — ten snapshots plus that pair's final, 11 per variant × seed, regenerable, a run rewrites them — while the repository
+  **ships** 18: the window's last five per seed plus each seed's final, six per pair, the set a reader protects, what `training.checkpoints()` indexes and `checkpoints/` holds (ASM-18, `protocol.md` §5, `checkpoints/evidence/r1-live.json`).
 - **R2–R6's entries appear when their runs exist**: a rung whose run has not been written contributes **nothing** to `entries`,
   rather than a fabricated path. This is the one place where "declared data" and "the artefact exists" are reconciled: the
   declaration lists the runs that exist, so every path it names is a file (`protocol.md` §5); an entry for a run that was never
   executed would fail FAM-12.5's and FAM-16.31's existence checks, and a scan would list the battery's own scratch files.
-- **What does not ship**: the five earlier snapshots of each pair, any scratch path, `tables/` (that is `evaluation`'s) and any
+- **What does not ship**: the five earlier snapshots of each pair (fifteen of the 33 a run writes), any scratch path, `tables/` (that is `evaluation`'s) and any
   path outside the repository (`module-map.md` §5, `battery.md` §3 FAM-12). A talk loads an entry through
   `evaluation.policy_from`, which reads the seed and the encoding from the container, so the first entry must be a checkpoint
   `agents.save` wrote and never a manifest (`evaluation/surface.md` §12, FAM-16.31).
 - **A battery writes into a temporary root, so this shipped set is never added to and never overwritten.** The battery's
   two hooks — `tests/conftest.py` under `pytest`, `tests/e2e/__init__.py` under the `unittest` census — point
   `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp` per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so
-  the eighteen artefacts above are as the shipped run left them (`battery.md` §2, walkthrough finding 5).
+  the eighteen artefacts above are as the shipped run left them (`battery.md` §2, the write-root finding in `strata/records/phase1-walkthrough.md`).
 
 ## 6. What is left to L4
 

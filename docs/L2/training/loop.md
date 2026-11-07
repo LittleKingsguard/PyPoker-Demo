@@ -1,6 +1,6 @@
 # training — the rung registry as data, the one loop, and the edges
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
 - **Owner of this file:** the registry as data (§1, §2), the one loop (§3), what a comparison holds constant and
   the R1/R2 parity rung (§4), budgets and devices (§5), the notebooks this module owns (§6), the checkpoints that
   ship (§7), the contracts at this edge (§8) and the battery invariants it carries (§9)
@@ -159,9 +159,9 @@ records the device it used, so a GPU run and a CPU run are never confused (D-6, 
 
 ## 7. The checkpoints that ship, and the window they are (D-16, ASM-18)
 
-- `checkpoints/` holds both the shipped models and the intra-run snapshots the pool is a view over; **a run writes ten
-  snapshots and its final model per variant per seed**, retains the last M of the ten, names those plus that pair's final
-  model, and leaves the five earlier ones intra-run (`module-map.md` §5, D-16, ASM-18, `protocol.md` §5, `records.md` §12).
+- `checkpoints/` is the tree a run writes its ten snapshots and its final model per variant × seed under, and the one whose
+  **shipped** set the repository carries: the retained window's last five per seed plus each seed's final, six per pair, 18
+  for R1's three seeds against the 33 such a run writes, and the pool is a view over that shipped window (`module-map.md` §5, D-16, ASM-18, `protocol.md` §5, `records.md` §12).
 - **A run writes under the write root and reads under the declared root.** With `PYPOKER_CHECKPOINT_ROOT` unset the two
   are `<repo>/checkpoints` and nothing changes; set, a run writes the same layout elsewhere while the index, the declared
   windows and `layout._resolve` still read from the repository root (`write-root.md` §1–§3, §6, `protocol.md` §5).

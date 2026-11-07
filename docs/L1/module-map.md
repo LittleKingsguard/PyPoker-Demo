@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 module map
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
 - **Covers:** brief §2 (the rung ladder) and brief §3 (the league evaluation, D-16), Phase 1 only
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -66,7 +66,7 @@ The authoritative list of entry points per module is `e2e-surface.md` §3, and i
 
 - Each module owns `src/<module>/`, `tests/<module>/`, `docs/L2/<module>/` and `docs/L3/<module>/`, plus the shared artifact paths named below. No two modules claim one path, and `strata-lint` fails a duplicate claim (modules.md §4).
 - Ownership is a path declaration for the diff-scope check, not authorship: L2 writes `docs/L2/<module>/`, L3 writes `docs/L3/<module>/`, L4 writes `src/<module>/` (D-13, modules.md §1).
-- `training` additionally owns `notebooks/` (the one notebook per rung of D-5) and `checkpoints/`, which holds both the shipped models and the intra-run snapshots the pool is a view over (D-16, ASM-18).
+- `training` additionally owns `notebooks/` (the one notebook per rung of D-5) and `checkpoints/` — the tree a run writes its ten snapshots and its final model per variant × seed under, and the one whose **shipped** set the repository carries: the retained window's last five per seed plus each seed's final, six per pair, 18 for R1's three seeds against the 33 such a run writes, and the pool is a view over that shipped window (`protocol.md` §5, D-16, ASM-18).
 - `evaluation` additionally owns `tables/`, where the precomputed offline league table is shipped: the table is evidence, and the pool it was measured over lives in `checkpoints/` (D-16, D-8).
 - `harness` additionally owns `tests/conftest.py`, `tests/e2e/`, `pyproject.toml` and the dependency lock file. The e2e battery in `tests/e2e/` is authored by the L1 test writer and is the harness's consumer, not its implementation: a harness agent may support it and may not rewrite it (brief §5, D-13).
 - Layer-owned artifacts are outside module claims by construction: `docs/L1/` (including `getting-started.md`), `modules.json`, `LICENSE`, `README.md`, `.gitignore`, and `scripts/run-all-tests.sh`, the runner `battery.md` §2 names — `modules.json` claims no path under `scripts/`, so it is nobody's module. The diff-scope check of modules.md §4 therefore runs over changed paths inside module subtrees; a scaffolding change is not a module escape (modules.md §4, D-13).

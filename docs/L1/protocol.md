@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 evaluation protocol
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-07
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-08
 - **Covers:** brief §3 — curves, the league table, the fitted rating, the fixed baselines, fixed seeds (D-6, D-16)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
@@ -63,7 +63,7 @@ cells whose result no model can influence (D-16).
 
 ## 5. Checkpoints and pool retention (ASM-5 as D-16 amends it)
 
-- A run writes ten intra-run snapshots at equal intervals plus its final model; the rolling window of the pool retains the last M=5 of those snapshots, and what ships is the retained pool plus each rung's final model per variant per seed (D-16, ASM-18). The lean rule of ASM-5 is superseded: without snapshots the league has no opponents and the table is a claim the audience cannot reproduce (D-16).
+- **Two artefact sets, and only one of them ships.** A run **writes** eleven artefacts per variant × seed — ten equally spaced snapshots plus that pair's final model, **33** for R1's three seeds at the live budget — and the repository **ships** only the retained window plus each pair's final model: six per variant × seed, **18** for R1's three seeds, the fifteen earlier snapshots staying intra-run. The 33 are a run's own and **regenerable** — the same run rewrites them at the declared budget — while the 18 are the set a reader **protects**: they are what `training.checkpoints()` indexes and what `checkpoints/` holds, a battery never touches them because both its hooks point the write root at a private temporary directory (`battery.md` §2), and a deliberate run is redirected rather than aimed at them (`getting-started.md` §4). The rolling window retains the last M=5 of the ten snapshots; the lean rule of ASM-5 is superseded, because without snapshots the league has no opponents and the table is a claim the audience cannot reproduce (D-16, ASM-18).
 - `training.checkpoints()` is the index over exactly that set, and `evaluation.policy_from` loads one member in evaluation mode (D-16).
 - A loaded checkpoint chooses the same action as the learner that produced it on the same readout: the pair `agents.save`/`agents.load` is required to be loss-free at the decision boundary, and that is what lets a shipped version be a league member (ASM-5, D-16).
 - The pool is built from the checkpoints the repository ships. When a lineage checkpoint is absent, the pool holds the baselines and whatever versions are present, and the run record states the membership it actually used — it never pretends a version it could not load (D-16, D-8).

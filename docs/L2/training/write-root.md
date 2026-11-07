@@ -1,6 +1,6 @@
 # training — where a run writes: the write root
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
 - **Owner of this file:** the root a run writes into (§1), the declared root every read resolves against (§2), the one
   ambient override and its name (§3), who points it where and the one command a reader uses (§4), the spelling a record
   gives a written path (§5), what the redirection does not change (§6) and the battery this contract carries (§7)
@@ -59,8 +59,8 @@ The override sits outside Python's call signature on purpose: one ambient fact p
 - **Every battery session, whichever runner.** `tests/conftest.py` under `pytest` and `tests/e2e/__init__.py` under the
   `unittest` census — both `harness`-owned (`module-map.md` §5) — set `PYPOKER_CHECKPOINT_ROOT` to a private
   `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")`, **unconditionally**, recording the one root in the
-  battery-only `PYPOKER_BATTERY_ROOT` so the second hook declines; it goes at exit (`docs/L3/harness/layout.md` §5, finding 5, D-13).
-- **A reader, on one command line** — the one-liner L1's `getting-started.md` §4 must carry (owed by L1, named here):
+  battery-only `PYPOKER_BATTERY_ROOT` so the second hook declines; it goes at exit (`docs/L3/harness/layout.md` §5, the write-root finding in `strata/records/phase1-walkthrough.md`, D-13).
+- **A reader, on one command line** — the one-liner `docs/L1/getting-started.md` §4 carries, citing this file's §3–§4 (D-13):
 
       PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run PYTHONPATH=src .venv/bin/python -c "import training; print(training.run('R1')['checkpoints'])"
 
