@@ -303,14 +303,17 @@ class EvidenceFileJoin(J.JoinCase):
         self.assertEqual(
             list(document["report_families"]),
             sorted(report),
-            "the families the report carries are the names the job recorded, sorted "
-            "and with none added (records.md §13, protocol.md §1): %r"
+            "the names the job recorded are the report's twelve key names — its seven "
+            "families and the five facts beside them — sorted and with none added, so "
+            "this compares a key list and not a family count (records.md §13, "
+            "protocol.md §1): %r"
             % (document["report_families"],),
         )
         self.assertEqual(
             len(document["report_families"]),
             12,
-            "a report is twelve families, the count protocol.md §1 fixes: %r"
+            "the report's twelve keys — seven families plus the five facts beside them, "
+            "not a family count of twelve (protocol.md §1): %r"
             % (document["report_families"],),
         )
         entries = J.entries()

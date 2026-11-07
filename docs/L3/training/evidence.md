@@ -39,8 +39,8 @@ on another machine, and evidence that reproduces only where it was made is not e
 | `r2_pool` | the pool `R2`'s declaration carries: its `id` and its fifteen retained version members, read from `rung("R2")` (§3, `registry.md` §3) |
 | `matrix` | `records.md` §10's matrix over that pool plus the run's primary variant, at the `live` budget (`records.md` §10, `league.md` §6) |
 | `rating` | `records.md` §11's Bradley-Terry rating over that matrix (`records.md` §11, `league.md` §5) |
-| `report_families` | the twelve family names `evaluation.report` assembled, sorted, and none added (`protocol.md` §1, `records.md` §13) |
-| `report` | `report`'s record key for key: the twelve families of `protocol.md` §1, `matrix` and `rating` included (`records.md` §13) |
+| `report_families` | the twelve key names of the report `evaluation.report` assembled, sorted, and none added: the seven families of `protocol.md` §1 plus the five facts beside them (`protocol.md` §1, `records.md` §13) |
+| `report` | `report`'s record key for key: the five facts first, then the seven families of `protocol.md` §1 in order — twelve keys, `matrix` and `rating` included (`records.md` §13) |
 | `index_summary` | `checkpoints()` read once: `shipped`, `pending`, the entry count and whether every entry's file exists (`checkpoints.md` §4–§5) |
 | `index_missing` | the entries `checkpoints()` names that the repository does not carry; `[]` is the shipped set being complete (`checkpoints.md` §5, FAM-12.5) |
 | `provenance` | the build the file came from, readable from the file alone: `producer`, `recipe`, `generated_utc`, `source_digest` (sha256, covered set, recipe, `file_count`, `files`), `git` (`commit`, `working_tree_dirty`), `versions` (python, numpy, pokerkit), `environment` (`PYTHONHASHSEED`), `device` and the `entry_points` called; `"unavailable"` where git cannot answer (§3, §6) |
@@ -67,7 +67,7 @@ The measurement is the file's, and a reader takes it from there rather than from
   −0.32883650535109454 [−0.48104125475526555, −0.17045670560387302], `always-call` 0.18572816494167615
   [0.039323780873805045, 0.3477999350799521], `oracle` 0.14310834040941836 [0.0026486280426915336, 0.27859514028563104],
   `variant-1` 0.5182078734126888 [0.3445550910139468, 0.7087477222264041].
-- **The report and the index**: twelve families, the count `protocol.md` §1 fixes; eighteen entries (`shipped`
+- **The report and the index**: `protocol.md` §1 fixes seven families; twelve keys are those seven plus five facts; eighteen entries (`shipped`
   `["R1"]`, `pending` `R2 … R6`), all on disk — `all_exist` true, `index_missing` `[]` (`checkpoints.md` §4–§5, FAM-12.5).
 - **`r2_pool` holds R2's fifteen versions, and the regeneration closed that defect**: `pool-adc21204b5fef725` over
   `R1/naive-numeric/seed-{0,1,2}/step-{0600,0700,0800,0900,1000}`, because `registry._window` resolves a declared path

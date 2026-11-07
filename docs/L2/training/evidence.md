@@ -11,9 +11,9 @@
 
 ## 1. The file, and its status
 
-**`checkpoints/evidence/r1-live.json`** ships in the repository as `training`'s record of the R1 live run: that run's
-run record, the pool it trained against, its four-member/six-cell `live` table, the Bradley-Terry rating over that
-table, its twelve-family report and the shipped checkpoint index (`protocol.md` §5, `docs/L1/league.md` §8, ASM-18).
+**`checkpoints/evidence/r1-live.json`** is `training`'s shipped record of the R1 live run: its run record, the pool it trained
+against, its four-member/six-cell `live` table, the Bradley-Terry rating over that table, its report of seven families plus
+five facts beside them, twelve keys in all, and the checkpoint index (`protocol.md` §5, `docs/L1/league.md` §8, ASM-18).
 
 It is **evidence and not an interface**. It is not one of the six entry points, it is not a returned record, and no
 entry point reads it or writes it — the one writer is `scripts/regenerate-evidence.py`, a script outside every module's
@@ -22,11 +22,11 @@ and never re-measured (D-8, D-12, `surface.md` §1, `protocol.md` §5, `docs/L3/
 reads it with `json` and plots from it; nothing else reads it at all (`loop.md` §6, D-5).
 
 Its shape is seventeen top-level keys, and they are all evidence: `stages`, `errors`, `rungs`, `devices`, `run`,
-`run_wall_clock_seconds`, `run_hands`, `pool_versions`, `pool_record`, `r2_pool`, `matrix`, `rating`,
-`report_families`, `report`, `index_summary`, `index_missing`, and last `provenance` — the build the file came from
-(`docs/L3/training/evidence.md` §2). Their content, and the module design's status for each of them, are `evidence.md`
-§2, §6 and §7 there. This document fixes only the three facts at the integration edge: which blocks are this module's
-record (§2), how its paths are spelled (§3), and which layouts its curves may take (§4) (`records.md` §13, `surface.md` §4).
+`run_wall_clock_seconds`, `run_hands`, `pool_versions`, `pool_record`, `r2_pool`, `matrix`, `rating`, `report_families` (a
+key list, not a family count), `report`, `index_summary`, `index_missing`, and last `provenance` — the build the file came
+from (`docs/L3/training/evidence.md` §2). Their content, and the module design's status for each of them, are `evidence.md`
+§2, §6 and §7 there. This document fixes only the three facts at the integration edge: which blocks are this module's record
+(§2), how its paths are spelled (§3), and which layouts its curves may take (§4) (`records.md` §13, `surface.md` §4).
 
 ## 2. Which blocks are this module's record, and which a caller attaches
 
