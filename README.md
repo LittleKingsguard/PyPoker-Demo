@@ -46,8 +46,15 @@ scripts/run-all-tests.sh
 Train the first rung at the live budget and get a run record back:
 
 ```sh
+PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run PYTHONHASHSEED=0 \
 PYTHONPATH=src .venv/bin/python -c "import training; rec = training.run('R1')"
 ```
+
+The `PYPOKER_CHECKPOINT_ROOT` redirect matters: without it this command **overwrites the 18
+shipped checkpoints in `checkpoints/`** with a fresh run's models, which is fine if that is what you
+meant and surprising if it is not. `PYTHONHASHSEED=0` pins the interpreter, because the oracle's
+sampled equity estimate is ordered by a set whose iteration follows the hash seed, so an unpinned
+process shifts the oracle cells. Both are explained in `docs/L1/getting-started.md` §4.
 
 Play a rung against the fixed baselines and rate the result — the pattern the R1 notebook walks
 through end to end:
