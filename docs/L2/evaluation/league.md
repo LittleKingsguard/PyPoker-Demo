@@ -1,6 +1,6 @@
 # evaluation — the league: pool, scheduler, matrix, rating, tables, report
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09 · §5, §7: the band and the direction, not the figure (ASM-23)
 - **Owner of this file:** the league itself — the bounded pool and its rolling window, the scheduler, the
   matrix, the rating, the two tables and the shipped `full` one, the seven evidence families the report is
   judged against, the contracts this module holds at its edge, and the battery invariants it carries
@@ -121,11 +121,11 @@ and the table the agent is measured in — one object, one owner, no second eval
   standard library (`ladder.md` §7).
 - **The budget is arithmetic on K, and the cost of playing it is a measurement**: ASM-21 ratifies the measured band **0.105–0.153 s of CPU per hand**, wide
   because the oracle decides it: 0.255–0.315 s/hand in an oracle-bearing cell against 0.002–0.004 without, and it sits in half a table's hands. The live table
-  is ≈95–110 s at K = 4 (720 hands) and ≈10–12 minutes at K = 9–10; the full table ≈2 hours; holding the slowest measured 0.1532 s/hand instead is the
-  conservative bound of ≈2.3–2.9 hours, which over-states, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half. No
-  per-hand figure travels in `league()`: a cost is a run record's `timings` and an artefact's `cost` block, and no document quotes one — the live table's
-  `stages.matrix_live` over those 720 hands in `checkpoints/evidence/r1-live.json`, the `full` table's `cost` block in `tables/league-full.json` (1,191.37 s, ≈20 min)
-  (`records.md` §12, `tables.md` §5). `harness.timings` reports the measured figure and no case asserts a wall clock was beaten (`battery.md` §3 FAM-10, ASM-21, ASM-15, ASM-14, D-16, D-8, `docs/L1/league.md` §7).
+  is ≈95–110 s at K = 4 (720 hands) and ≈10–12 minutes at K = 9–10; the full one ≈20 min at K = 4 and ≈2 hours at K = 9–10; holding the band's slow end
+  — ASM-21's own live-table sub-band, 0.1415–0.1532 s/hand — instead is the conservative bound of ≈2.3–2.9 hours, an over-statement because a wider table
+  pairs the oracle in a smaller share of its hands than K = 4's half. **`league()` carries no per-hand figure, and this page quotes no build's measured seconds**
+  (ASM-23): it states the band and the arithmetic the band implies and names the file each artefact keeps its own seconds in — the live table's `stages.matrix_live` over those 720 hands in `checkpoints/evidence/r1-live.json`, the `full` table's
+  `cost` block in `tables/league-full.json` (`records.md` §12, `tables.md` §5). `harness.timings` reports the measured figure and no case asserts a wall clock was beaten (`battery.md` §3 FAM-10, ASM-21, ASM-15, ASM-14, D-16, D-8, `docs/L1/league.md` §7).
 - **`variant-1` is a slot, not a player.** `matrix` names a variant by the argument position it was handed
   (`surface.md` §10), so the shipped `full` table's `variant-1` and a live table's `variant-1` are two different
   learners: the shipped one is the offline producer's **untrained** learner at its recipe seed 31415, while the R1
@@ -174,13 +174,13 @@ module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
   of hands and nothing here re-deals or seeds twice; `readout`, `legal_actions` and `payoffs` are the facts a
   policy acts on and the chips a cell counts (D-2, ASM-2, `engine/surface.md` §1, §4, §9). **One measured
   exception.** A cell that pairs the `oracle` is *not* reproduced from its recorded seeds across processes: two
-  runs of this module's own producer at one table seed, membership and budget gave different counts in the two
-  oracle cells — as `random` reports its direction, 680/34/786 became 676/36/788, and `oracle` against
-  `variant-1` 817/43/640 became 817/42/641 — while the four cells pairing no `oracle` were identical, and all
-  four rating values moved with the fit. The cause is `engine.equity`'s sampled run-out deck, whose card order is
-  a per-interpreter hash order, so a seed cannot carry `protocol.md` §4's exactness claim for that cell; a table
-  that pairs the oracle must therefore be read as measured once and never as a replay
-  (`protocol.md` §4, ASM-2, `tables.md` §4, FAM-10.2).
+  runs of this module's own producer at one table seed, membership and budget gave different counts in the
+  `oracle`-pairing cells — a handful of hands apart between the two runs — while every cell pairing no `oracle`
+  was identical, and all four rating values moved with the fit. The cause is `engine.equity`'s sampled run-out
+  deck, whose card order is a per-interpreter hash order, so a seed cannot carry `protocol.md` §4's exactness
+  claim for that cell; that measurement is recorded in `docs/L3/training/evidence.md` §6 — one cell's two readings and two
+  60-hand curve runs — and no count of it is quotable from this page, because a cell's own counts move with every
+  regeneration (ASM-23); so a table that pairs the oracle must be read as measured once and never as a replay (`protocol.md` §4, ASM-2, `tables.md` §4, FAM-10.2).
 - **`training`** (the caller) — it freezes one pool through `build_pool`, draws each hand's opponent through
   `opponent`, and hands `report` a run record with the seven families attached; `protocol` and `league` are
   what it reads to declare its own budget, cell size and table seed (D-16, ASM-16, `records.md` §12, §13).

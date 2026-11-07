@@ -20,9 +20,9 @@ A table plays `cell_count(K) × hands_per_cell` hands, so the whole budget is ar
 The K = 9 and K = 10 columns are `league()`'s declared `hands_played`; the K = 4 column is R1's, whose pool is the three pinned baselines
 alone (`declarations.md` §4.1, `docs/L1/league.md` §2, §4). The per-hand cost is **measured, not bounded**: ASM-21 ratifies 0.105–0.153 s/hand on CPU, wide because
 the oracle decides it (0.255–0.315 s/hand in an oracle-bearing cell vs 0.002–0.004 without, in half a table's hands), so K = 4 `live` is ≈95–110 s (720 hands) and
-`full` ≈20 min (this file's `cost.wall_clock_seconds` in `tables/league-full.json`, 1,191.37 s); the live table's own seconds are that bundle's `stages.matrix_live` over those
-720 hands in `checkpoints/evidence/r1-live.json`, never this page's — a full window ≈10–12 minutes live and ≈2 hours full, and holding the slowest measured 0.1532 s/hand
-instead is the conservative bound of ≈2.3–2.9 hours — an over-statement, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half, no case asserts a wall clock (ASM-21, `docs/L1/league.md` §7).
+`full` ≈20 min, a rounded reading of that band whose number lives in `tables/league-full.json`'s `cost.wall_clock_seconds`; the live table's own seconds are
+`checkpoints/evidence/r1-live.json`'s `stages.matrix_live` over its 720 hands, never this page's — a full window ≈10–12 minutes live and ≈2 hours full, and holding the band's slow end —
+the live table's own 0.1415–0.1532 s/hand, ASM-21's sub-band — instead is the conservative bound of ≈2.3–2.9 hours — an over-statement, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half; no case asserts a wall clock, and this page states the band and the file, never a build's seconds, because a regeneration moves every one of them (ASM-15, ASM-21, ASM-23, `protocol.md` §2, `docs/L1/league.md` §7).
 
 ## 2. What ships, and which player each member is
 
@@ -139,8 +139,8 @@ construction — the **same file** changes exactly these fields:
 - `cell_count` becomes 36 or 45 and `hands_played` 54,000 or 67,500 at the `full` budget (§1), `hands_per_cell`
   staying 1,500 — the budget never changes, only the membership does (`league.md` §5);
 - the `matrix` and `rating` records grow with them — a rating entry per member — and `cost` reports the new hand count and measured seconds per hand, the same keys and new numbers:
-  ASM-21's 0.105–0.153 s/hand is a band because the oracle decides it, so the full window is ≈10–12 minutes live, ≈2 hours full, and holding the slowest measured 0.1532 s/hand instead is
-  the conservative bound of ≈2.3–2.9 hours — an over-statement, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half (`rating.md` §2, `docs/L1/league.md` §7);
+  ASM-21's 0.105–0.153 s/hand is a band because the oracle decides it, so the full window is ≈10–12 minutes live, ≈2 hours full, and holding the band's slow end — the live table's own
+  0.1415–0.1532 s/hand — instead is the conservative bound of ≈2.3–2.9 hours, an over-statement because a wider table pairs the oracle in a smaller share of its hands than K = 4's half: no regenerated figure is quoted above, because the number is `cost`'s in the file and the prose keeps only the band (`rating.md` §2, ASM-21, ASM-23, `protocol.md` §2, `docs/L1/league.md` §7);
 - `schema` **does not change**: the shape of the document is the same, so a reader written against version 1 keeps
   working when the membership grows. Nothing else moves and no entry point learns about it (D-8, D-12).
 

@@ -147,8 +147,8 @@ Three rules:
   `timing_facts`): `seconds_per_hand` must stay a per-hand *duration* and `hands_per_second` a throughput, and neither
   may be renamed to `rate`, `perf` or `t`, or the D-7 and ASM-15 evidence readers lose the number (FAM-10.4, FAM-13.6);
 - **nothing here asserts a bound.** The record says what the work cost; it never claims a wall clock was beaten and
-  never compares two records. ASM-15's 40 ms per hand sizes the table and is not a test (`surface.md` §7,
-  `battery.md` §2).
+  never compares two records. ASM-15's per-hand cost is a measurement in ASM-21's band, never a bound;
+  it sizes the table and is not a test (`surface.md` §7, `battery.md` §2, FAM-10).
 
 Zero is a real answer: before any case has been driven the record is
 `{"hands": 0, "wall_clock_seconds": 0.0, "cases": 0, "steps": 0, "seconds_per_hand": 0.0, "hands_per_second": 0.0}`, so

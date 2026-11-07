@@ -21,10 +21,12 @@ rule. The card engine is [PokerKit](https://github.com/uoftcprg/pokerkit).
   non-learning baselines — random, always-call, and an oracle that only calls when the pot odds
   justify it — at the same hand count as every league cell.
 - **The evidence**: a pairwise matrix *and* a Bradley-Terry rating with confidence intervals. Both,
-  because poker payoffs need not be transitive: in the shipped live table R1 ranks top at
-  +0.518 [+0.345, +0.709] while losing 51-63 to `always-call` and only drawing `oracle` 58-58
-  (on which the oracle still takes +1.73 chips a hand). The matrix shows that; a rating alone
-  would hide it.
+  because poker payoffs need not be transitive: in the shipped live table R1 ranks **top of the
+  rating** while **losing** to `always-call` and only **drawing** `oracle` — which still takes chips
+  off it per hand — its place earned by beating `random` almost every time. The matrix shows that;
+  a rating alone would hide it. The exact figures live in `checkpoints/evidence/r1-live.json` and
+  move whenever the table is regenerated, so this page states the shape of the result, not a number
+  that would go stale.
 
 ## Quickstart
 
@@ -66,9 +68,10 @@ jupyter lab notebooks/r1-naive-numpy.ipynb
 ### Using a GPU
 
 This project trains on **CPU**, which is the supported path and the one the shipped evidence came
-from. Moving R1's arithmetic from hand-rolled NumPy into PyTorch (rung R2) already bought **2.46×**
-on identical work — 0.1111 → 0.0451 s/hand, 333 s → 135 s for 3,000 hands — so the interpreter,
-not the accelerator, was the bottleneck at that point.
+from. Moving R1's arithmetic from hand-rolled NumPy into PyTorch (rung R2) already bought roughly
+**two and a half times** on identical work, so the interpreter, not the accelerator, was the
+bottleneck at that point. The measured pair and the machine it was taken on are recorded in
+`strata/records/r2-speed.md`; re-measure on yours rather than trusting a number from mine.
 
 A GPU is not currently usable, for two separate reasons: a delegated agent cannot reach the card,
 because the development sandbox denies read-write opens under `/dev` (not a driver or group

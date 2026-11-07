@@ -47,7 +47,7 @@ on another machine, and evidence that reproduces only where it was made is not e
 
 ## 3. What the shipped file holds
 
-The measurement is the file's, and a reader takes it from there rather than from any prose (`protocol.md` §2): every figure below is **one generation's** — commit `98c9bb38dfdc352132e2987c23fc07238ee5fd4d`, `generated_utc` `2026-11-07T06:22:40Z` — and a regeneration moves every one, so a reader of a later build reads the file and not this page. That generation was written from a working tree at that commit, with `working_tree_dirty` true — the encoding correction this round made was uncommitted when the bundle was produced — and its `source_digest` (`a5ceb419…`, 54 files) is taken over that working tree's `src/` and `pyproject.toml`, so the figures are attributable to the source they were built from and not to that commit's contents (`protocol.md` §2, §5).
+The measurement is the file's, and a reader takes it from there rather than from any prose (`protocol.md` §2): every figure below is **one generation's** — commit `98c9bb38dfdc352132e2987c23fc07238ee5fd4d`, `generated_utc` `2026-11-07T06:22:40Z` — and a regeneration moves every one, so a reader of a later build reads the file and not this page. The label reaches what the file records: §3's bullets, §4's two layouts, §5's parameter counts and **§6's first reading**, which is that file's own `random`–`oracle` cell. It reaches nothing else. §6's second reading and the two curve points beside it are in no key of the file — they are this build's measurement, under an unpinned interpreter, of what the estimator does to one of the file's cells, and §6 states its own condition rather than borrowing this one (`protocol.md` §2, ASM-23). That generation was written from a working tree at that commit, with `working_tree_dirty` true — the encoding correction this round made was uncommitted when the bundle was produced — and its `source_digest` (`a5ceb419…`, 54 files) is taken over that working tree's `src/` and `pyproject.toml`, so the figures are attributable to the source they were built from and not to that commit's contents (`protocol.md` §2, §5).
 
 - **The run**: seeds `0, 1, 2` at 1,000 hands per variant per seed — 3,000 hands in `run_wall_clock_seconds`
   338.5215066120727 s, the seeds' sum and never the call's, at 0.11952304522803751, 0.10944006085599539 and
@@ -96,19 +96,17 @@ reader holding one file knows what the other looks like (`records.md` §12, `pro
   **no `spread` key inside a seed's entry**. `report.curves` repeats that same variant-level layout, because the
   report's family is this document's `curves` block verbatim (`records.md` §13, `league.md` §5).
 
-The layouts are one set of numbers and here either is a *view* of the same array: §3 records that the stored array is
-the max minus the min of its own three series at every point, so a reader may quote it as a run record repeats it
-(`curves.md` §4, FAM-4.8).
+Either layout is a *view* of one array: §3 records that the stored array is the max minus the min of its own three
+series at every point, so a reader may quote it as a run record repeats it (`curves.md` §4, FAM-4.8).
 
 ## 5. `10000` in the header and `10119` in a cell: one is declared, the other measured
 
 The file carries both figures and they do not contradict each other, because they are two different quantities:
 
 - **`run.header["parameter counts"]` is the declared parameter budget**, per variant, plus the `variant-<position>`
-  alias `_header` writes for the table the record will be reported against, and a declared `0` for each of the three
-  baselines. It is `10000` for `naive-numeric` and `10000` for `variant-1`, because a run reads a declaration and
-  measures no capacity — `agents.param_count` is not among the four `agents` calls this module is granted
-  (`surface.md` §4.1, ASM-10, `module-map.md` §2).
+  alias `_header` writes for the reported table, and a declared `0` for the three baselines. It is `10000` for both
+  variants, because a run reads a declaration and measures no capacity — `agents.param_count` is not among the four
+  `agents` calls this module is granted (`surface.md` §4.1, ASM-10, `module-map.md` §2).
 - **A matrix cell's `params` is a measured count**, `agents.param_count` of the member the cell played
   (`records.md` §9). The trained `naive-numeric` final of seed 0 measures **10,119** — 1.19% above the declared budget
   and inside the declared ±2% band of 9,800–10,200 that `agents.param_count` matches a comparison pair on (ASM-10).
@@ -149,13 +147,15 @@ report, `rungs` and `r2_pool`. `report`, `pool_record` and `index_summary` also 
 the matrix, rating and index re-derive without a run, and the curves and `timings` are what one costs (`ASM-21`, `protocol.md` §2).
 
 **The pin is a condition, not a convenience.** `engine.equity`'s sampled estimator is not a function of `(readout, seed,
-samples)` across processes, because its sampling universe is ordered by a set whose iteration order follows Python's
-per-process string-hash seed. Measured here: one live cell read 57/3/60 in one process and 58/3/59 in another, and two
-60-hand runs of one `(configuration, seed set, budget)` differed in their last two curve points; with the pin, four
-processes agreed exactly. `oracle` compares that estimate against the pot odds, so an unpinned interpreter moves the
-`oracle` cells and a run's curves with them — hence the refusal and `provenance.environment` (§3). The defect is
-`engine`'s and `agents`', unfixed here; a regeneration replaces the whole file, and nothing in it is corrected by
-editing the JSON (`protocol.md` §5, D-8).
+samples)` across processes: its sampling universe is ordered by a set whose iteration order follows Python's
+per-process string-hash seed. The two readings are **one cell, not two experiments and not two cells** — the file's own
+`random`–`oracle` cell, those two members in that order at 120 hands and seats 60/60, records 57/3/60 in its first
+direction and 60/3/57 in the mirror; that same cell replayed in a second, unpinned process on this build read 58/3/59,
+one hand apart, and no artefact holds it. Two 60-hand runs of one `(configuration, seed set, budget)` differed in their
+last two curve points; pinned, four processes agreed exactly. `oracle` compares that estimate against the pot odds, so
+an unpinned interpreter moves the `oracle` cells and the run's curves — hence the refusal and
+`provenance.environment` (§3). The defect is `engine`'s and `agents`', unfixed here; a regeneration replaces the whole
+file, and editing the JSON corrects nothing (`protocol.md` §2, §5, ASM-23, D-8).
 
 ## 7. What it is not
 

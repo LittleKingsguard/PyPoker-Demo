@@ -229,13 +229,13 @@ The six names are module-level names of the `harness` package, and nothing below
 | `hands_per_second` | `hands / wall_clock_seconds`, and `0.0` when no time was measured |
 | `cases`, `steps` | this module's own counts of what the driver ran, so a caller can tell "measured nothing yet" from "measured something cheap" |
 
-- **Why this record.** This is the R1/R2 speed evidence of D-7 (FAM-13) and the measurement of ASM-15's per-hand
-  bound (ASM-15, FAM-10). These four names are also what a run record carries, because `training` measures them
-  itself: no module calls the harness (`records.md` §12, `training/surface.md` §4, `module-map.md` §2, D-13).
+- **Why this record.** This is the R1/R2 speed evidence of D-7 (FAM-13) and the measurement ASM-15 states in ASM-21's
+  band (ASM-15, FAM-10, ASM-21). These four names are also what a run record carries, because `training` measures
+  them itself: no module calls the harness (`records.md` §12, `training/surface.md` §4, `module-map.md` §2, D-13).
 - **What a case may assert.** That the record exists, that it carries the hands it counted, and that it carries a
-  positive per-hand cost or throughput. A case never asserts that a wall clock was beaten: ASM-15's bound sizes the
-  table and is not a test, and a beaten clock would be a flaky assertion rather than a contract (`battery.md` §2,
-  ASM-15, FAM-10.4, FAM-13.6, FAM-14.11, FAM-16.37).
+  positive per-hand cost or throughput. A case reads `seconds_per_hand` and asserts neither a bound nor a beaten
+  wall clock: the cost is a measurement in ASM-21's band, 0.105–0.153 s/hand, wide because the oracle's equity
+  sample decides it (`battery.md` §2, ASM-15, ASM-21, FAM-10.4, FAM-13.6, FAM-14.11, FAM-16.37).
 - **Refusals:** none; it has no argument.
 - **Determinism:** the shape is fixed and the record accumulates over everything the driver *collected* — the plural
   of `e2e-surface.md` §3.6, so `hands`, `cases`, `steps` and the measured clock never decrease between two calls —

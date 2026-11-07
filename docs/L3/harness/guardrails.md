@@ -75,8 +75,8 @@ than the rule — they hold the guard without widening it. Caught by: `test_harn
 ## G10 — `zero-sum` reads its four shapes in order, and tolerates a float sum
 An episode record's `payoffs`, a cell record's two `mean_chip_delta`s, a mapping of two per-seat numbers and a sequence
 of two numbers each pass when they balance; a bare number and a record with three or more numbers fail. The tolerance is
-`abs(sum) <= 1e-9` — an exact `== 0` fails a real cell whose means are `0.5217391304347826` and its negative
-(`expectations.md` §2.1, FAM-7).
+`abs(sum) <= 1e-9` — chosen for the guard's generality, not to repair an equality that fails: `zero-sum` is written for any cell-shaped record handed to it, and one whose two means were accumulated independently, summed in a different order or passed through a serializer can land near `1e-17` rather than `0`, which an exact `== 0` would fail.
+A real `match` cell needs no such repair — its two means are exact IEEE negatives, because `src/evaluation/scheduler.py`'s `_play_cell` sums integral payoffs and divides both totals by the same `hands`, so their floating-point sum is exactly `0.0` (`expectations.md` §2.1, FAM-7, ASM-23).
 A non-finite pair is a **fail**: `(NaN, NaN)` and `(+inf, -inf)` do not balance, and no comparison with their sum is true,
 so the pass predicate `abs(sum(deltas)) <= 1e-9` is evaluated and never negated — testing `abs(sum) > 1e-9` passes both
 (`expectations.md` §2.1).

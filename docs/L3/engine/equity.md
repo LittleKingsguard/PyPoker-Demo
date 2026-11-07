@@ -84,8 +84,8 @@ What binds the implementation here:
 - the opponent range is built in `Deck.STANDARD` order over the unseen cards, never from a `set`
   iteration, so the sample universe is the same on every call and on every machine.
 
-The cost of this call is `stream.md` §3 — it is the one place in this module that can exceed ASM-15’s
-per-hand envelope.
+The cost of this call is `stream.md` §3 — the equity sample is nearly all of a table’s cost and the
+one knob that decides where in ASM-21’s 0.105–0.153 s band a table’s per-hand cost lands.
 
 ## 4. What the battery may assert
 

@@ -62,7 +62,7 @@ Per decision the engine pays one `deepcopy` and one predicate-and-method pair; p
 of those (measured under always-check-or-call and always-raise-if-legal, `platform.md` §1). The one
 call whose cost is not negligible is `equity`: it is asked once per decision by the oracle, it is
 linear in `samples`, and its opponent range is 1225 combinations pre-flop, 1081 on the flop, 1035 on
-the turn and 990 on the river. ASM-15 states rather than measures the per-hand cost and gives
-`harness.timings` the measuring job; what this design must not do is hide the question — so it fixes
-no sample count, caches no estimate, and rounds no number. The sample count is `agents`’ parameter
-(`guardrails.md` G6).
+the turn and 990 on the river. ASM-15 states the per-hand cost as a measurement in ASM-21’s band,
+never a bound, and gives `harness.timings` the measuring job; what this design must not do is hide the
+question — so it fixes no sample count, caches no estimate, and rounds no number. The sample count is
+`agents`’ parameter (`guardrails.md` G6).

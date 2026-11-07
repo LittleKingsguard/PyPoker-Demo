@@ -1,6 +1,6 @@
 # harness — L2 integration interface
 
-- **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06 · §4 corrected by measurement
+- **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09 · §4 states readings, no bound
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.6 — test support whose consumers are test
   batteries (brief §5, `module-map.md` §1) — and the paths this module owns beside them: `tests/conftest.py`, the
   L1 battery under `tests/e2e/` (its consumer, never its implementation) and `pyproject.toml` with the dependency
@@ -62,14 +62,14 @@ and the instances are the test writer's: `surface.md` fixes this module's own vo
 facts — and no instance of a battery's case (`e2e-surface.md` §5, D-15).
 
 The harness cap is `50 + 10 × 6 = 110` lines, printed by `strata-lint` as an INFO row and never measured by it (brief
-§5, `module-map.md` §4); the five sibling READMEs read it as bounding the harness files that drive a module, and
-measured 2026-11-05 every shipped module exceeds it under either reading (`engine`'s `src/` 703 against 140, its own
-support 358 against 140; `training`'s support 1005 against 110). So this module reports its figure rather than
-asserting a bound nothing meets: `src/harness/` is **one file of 147 lines, 37 over** (144 before §6's totality was moved into the
-entry point, which is where it is now enforced once for every kind), the delta is structural
-(`docs/L3/harness/layout.md` §2 breaks the contract of `surface.md` §6 into what the six entry points cost before a
-kind exists) and it returns to L1 as a finding, not as a clause dropped from §6 — the alternative, one expectation
-kind, still measures ≈127 and is the one-assertion runner H-1 rejects. The cap governs no part of the L1 battery under
+§5, `module-map.md` §4); the five sibling READMEs read it as bounding the harness files that drive a module, and every
+shipped module exceeds it under either reading — `engine`'s `src/` and its own support file are several hundred lines
+each against 140, `training`'s support about a thousand against 110. So this module reports its own reading, one
+dated measurement of the tree, rather than asserting a bound nothing meets (ASM-23): `src/harness/` is **one file of
+≈150 lines, roughly 40 over** (it rose with §6's totality, now enforced once at the entry point for every kind),
+the delta is structural (`docs/L3/harness/layout.md` §2 breaks `surface.md` §6's contract into what the six entry
+points cost before a kind exists) and returns to L1 as a finding, not a clause dropped from §6 — one expectation
+kind still measures ≈127 and is the one-assertion runner H-1 rejects. The cap governs no part of the L1 battery under
 `tests/e2e/`, whose size is the test writer's (brief §5, `module-map.md` §5, ASM-11).
 
 ## 5. The invariants the battery asserts against this module

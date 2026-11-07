@@ -39,8 +39,8 @@ re-applying the action list. Rejected on three independent grounds:
    would silently change a hand in flight. `deepcopy` cannot: the deck order was fixed at creation
    (`hand.md` §2).
 
-Cost: measured, one `deepcopy` is about 0.1 ms per decision — well inside ASM-15’s envelope
-(`guardrails.md` G6).
+Cost: measured, one `deepcopy` is about 0.1 ms per decision — well inside ASM-21’s 0.105–0.153 s
+per-hand band (`guardrails.md` G6).
 
 Also rejected: mutating and returning the same handle. Every e2e case that keeps an earlier handle
 (`finished_hand`, `decision_walk`, the oracle’s mid-hand `equity`) depends on the old handle still

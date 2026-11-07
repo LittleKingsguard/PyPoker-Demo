@@ -62,12 +62,13 @@ reaches this module through the six names and the refusal classes only — so a 
 Asserted as layout: one file `__init__.py` (`HRN-1.5`); `HRN-4.7` pins `fixtures()`'s empty signature, the rest by call arity.
 
 `strata-lint` prints `harness:110` as an INFO row and measures nothing (brief §5, `module-map.md` §4). The brief's
-`50 + 10 × N` is a budget for *the harness files that drive a module*, and every shipped module's own `src/` tree
-exceeds its cap several times over (engine 703/140, features 804/120, agents 2564/150, evaluation 2267/160, training
-1742/110 — measured 2026-11-05). This module reads the cap the way those five read it: it governs the support code a
-battery carries, not a module's declared entry points, whose count is what the brief capped at six. The full contract
-of `surface.md` §2–§7 measures **147 lines delivered** and cannot be written in 110 without dropping a clause;
-`layout.md` §2 carries the budget and the breakdown, and the delta is reported to L2 rather than paid for by a clause.
+`50 + 10 × N` budgets *the harness files that drive a module*, and every shipped module's tree exceeds its cap
+(140/120/150/160/110 for engine, features, agents, evaluation and training) — declaration arithmetic, never measurement
+— against trees one reading (2026-11-05) puts from a few hundred to a couple of thousand lines, several to roughly
+twenty times their caps — so the tree, not this page, holds the number (ASM-23). This module reads the cap as those
+five do: it governs the support code a battery carries, not a module's declared entry points, which the brief capped
+at six. The contract of `surface.md` §2–§7 is about 150 delivered, roughly 40 over its 110 — a hedged reading (ASM-23)
+from `src/harness/__init__.py` and `layout.md` §2's dated table; the delta is reported to L2, not paid for by a clause.
 
 ## 5. The import boundary (D-13)
 

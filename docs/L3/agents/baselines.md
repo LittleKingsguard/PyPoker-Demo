@@ -103,7 +103,7 @@ so the oracle's rule is checkable only if the caller can re-issue **the same que
 re-issues `engine.equity(hand, seed, S.EQUITY_SAMPLES)` with `S.EQUITY_SAMPLES = 257` (`tests/e2e/test_fam05_baselines.py`,
 `tests/e2e/_surface.py`) before it checks the inequality. One number on both sides makes a disagreement a defect and not
 an estimate's noise, a re-issue at any other count being a different query (ASM-4, `surface.md` §11). 257 is odd and
-prime, so a split pot's half-sample cannot hide in the rounding, and it is small enough for ASM-15's budget.
+prime, so a split pot's half-sample cannot hide in the rounding, and its cost sits in ASM-15's measured per-hand band.
 
 ## 6. The `baselines()` record
 

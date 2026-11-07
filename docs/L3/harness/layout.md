@@ -72,8 +72,8 @@ statements per line. That is not a smaller harness, it is an unreadable one, and
 in full. **The measured overrun is reported to L2 rather than paid for with a clause of `surface.md`** — L2 owns the
 ceiling's arithmetic (`50 + 10 × N` with N L1's) and the kind set is the only vocabulary this layer could trim.
 `README.md` §4 records the reading of the cap this design adopts: it governs the support code a battery carries, as it
-does for the other five modules, whose `src/` trees measure 703 (cap 140), 804 (120), 2564 (150), 2267 (160) and 1742
-(110) lines — measured 2026-11-05.
+does for the other five modules, whose `src/` trees one reading (2026-11-05) puts from a few hundred lines to a couple
+of thousand — several to roughly twenty times their caps 140, 120, 150, 160 and 110 (ASM-23).
 
 ## 3. The import boundary
 

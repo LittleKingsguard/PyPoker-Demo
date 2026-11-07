@@ -39,7 +39,7 @@ one used (`surface.md` §6):
 
 1. a mapping carrying `payoffs` — an episode record — gives the numbers under it (`records.md` §5);
 2. a mapping carrying `directions` — a cell record — gives each direction's `mean_chip_delta` as a quantity, and nothing a
-   direction states that is not one (`records.md` §9, §2.5);
+   direction states that is not one (`records.md` §9, §2.5 here);
 3. a mapping of two per-seat numbers gives its numeric values — `{"seat 0": 12, "seat 1": -12}`, and equally
    `engine.payoffs`' own `{0: x, 1: y}` mapping;
 4. a sequence of two numbers gives its numbers — `[7, -7]`.

@@ -123,8 +123,9 @@ D-10 intake gate · D-11 examiner · D-12 adjudication · D-13 module isolation 
   number** but 0.105–0.153 s on CPU, decided by what an artefact plays — an oracle-bearing cell
   costs 0.255–0.315 s/hand against 0.002–0.004 for an oracle-free one, and the oracle sits in half
   a table's hands. Measured: training 0.105–0.120, the shipped full table 0.1299–0.1324, the live
-  table 0.1415–0.1532. So the live table is ≈95–110 s at K=4 (108–110 measured) but ≈10–12
-  minutes at K=9–10, and the full table ≈2 hours. Every figure is a measurement recorded beside the
+  table 0.1415–0.1532. Read at the live table's own rate: 720 hands at K=4 is ≈100–110 s, 4,320 at
+  K=9 is ≈10–11 min, 5,400 at K=10 is ≈13–14 min; the full table at the shipped rate is ≈2 hours at
+  K=9 and ≈2.5 at K=10. Every figure is a measurement recorded beside the
   artefact, never a claim (D-16, D-8). Rejected: a single scalar (40 ms, or 0.13 s), which reports
   a ten-minute table as under four minutes and hides that the oracle is the cost.
 
