@@ -1,6 +1,6 @@
 # PyPoker-Demo — getting started
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Purpose:** the shortest route from an empty checkout to a trained rung and a league table, for a reader who has the repository and nothing else
 - **Ceiling:** 70 lines. At the ceiling, split by owner — never append
 
@@ -63,4 +63,4 @@ One battery per invocation is the supported form: a bare `pytest tests` cannot c
 
 ## 7. If you have a GPU
 
-A GPU is optional and nothing above uses one: every rung trains and evaluates on CPU, which is the supported path and where the shipped evidence was produced (D-8, `protocol.md` §6). An agent cannot run the GPU path — the file sandbox denies read-write opens under `/dev`, not a driver and not a permissions fault — and the code is CPU-only regardless, so `run` refuses any device but `cpu` (D-17). `gpu.md` states all three plainly, gives the commands that verify the card with this venv from your own shell, and says how to measure the PyTorch-versus-NumPy speed difference on your machine once a GPU path exists (D-17, D-7, D-8).
+A GPU is optional and nothing above uses one: every rung trains and evaluates on CPU, which is the supported path and where the shipped evidence was produced (D-8, `protocol.md` §6). An agent cannot run the GPU path — the file sandbox denies read-write opens under `/dev`, not a driver and not a permissions fault — and the code is CPU-only regardless, so `run` refuses any device but `cpu` (D-17). `gpu.md` states all three plainly, gives the commands that verify the card with this venv from your own shell, and reports the measured PyTorch-versus-NumPy difference — 0.1111 → 0.0451 s/hand, 2.46× on identical work, recorded in `strata/records/r2-speed.md` — with the two commands that re-measure it on your machine (D-17, D-7, D-8, ASM-21).

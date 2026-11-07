@@ -108,9 +108,10 @@ One mapping, read under exactly these six keys, in this order (`surface.md` §4)
 `hands_played` is keyed by K, the membership's size, and each value is `cell_count(K) × hands_per_cell`'s
 product — the arithmetic `tables.md` §1 tabulates. The K = 4 row is the baselines-plus-one-variant table a first
 rung plays (`league.md` §2); K = 9 and K = 10 are a full window with one and with two variants (ASM-14). No row
-carries a per-hand cost figure: ASM-21 ratifies the measured 0.105–0.130 s/hand and supersedes ASM-15's 40 ms
-bound, so a "ceiling" here would have no ratified source, and a measured cost is recorded only in a run record's
-`timings` and in the shipped artefact's cost block (`records.md` §12, `tables.md` §5, ASM-21).
+carries a per-hand cost figure: ASM-21 ratifies the measured 0.105–0.153 s/hand — wide because the oracle decides it,
+0.255–0.315 s/hand in an oracle-bearing cell against 0.002–0.004 without, in half a table's hands — and supersedes
+ASM-15's 40 ms bound, so a "ceiling" here would have no ratified source, and a measured cost is recorded only in a run
+record's `timings` and in the shipped artefact's cost block (`records.md` §12, `tables.md` §5, ASM-21, `docs/L1/league.md` §7).
 
 ## 5. `cell_count` — the one callable
 

@@ -119,12 +119,14 @@ D-10 intake gate · D-11 examiner · D-12 adjudication · D-13 module isolation 
   ratified here by reference: M = 5 versions with the baselines pinned, 120 hands per cell live
   and 1,500 full, Bradley-Terry with bootstrap intervals anchored on the baselines, ten snapshots
   per run, and `evaluation` reading a checkpoint's seed and encoding from its container (D-16).
-- `ASM-21` — measured, and it supersedes the earlier 40 ms bound: the per-hand cost is **0.13 s on
-  CPU** (7.7 hands/s) with the baselines inside the table, 3.2× the earlier 40 ms bound, because
-  the oracle queries equity at every decision. The live table is therefore ≈94 s at K=4 but
-  ≈10–12 minutes at K=9–10, and the full table ≈2 hours; the figure lives in
-  `tables/league-full.json` as a measurement, not a claim (D-16, D-8). Rejected: keeping the
-  40 ms figure operative, which would report a ten-minute table as under four minutes.
+- `ASM-21` — measured, and it supersedes the earlier 40 ms bound: the per-hand cost is **not one
+  number** but 0.105–0.153 s on CPU, decided by what an artefact plays — an oracle-bearing cell
+  costs 0.255–0.315 s/hand against 0.002–0.004 for an oracle-free one, and the oracle sits in half
+  a table's hands. Measured: training 0.105–0.120, the shipped full table 0.1299–0.1324, the live
+  table 0.1415–0.1532. So the live table is ≈95–110 s at K=4 (108–110 measured) but ≈10–12
+  minutes at K=9–10, and the full table ≈2 hours. Every figure is a measurement recorded beside the
+  artefact, never a claim (D-16, D-8). Rejected: a single scalar (40 ms, or 0.13 s), which reports
+  a ten-minute table as under four minutes and hides that the oracle is the cost.
 
 ## 8. Non-goals at rev 1
 

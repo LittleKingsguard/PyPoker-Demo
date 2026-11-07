@@ -17,12 +17,12 @@ A table plays `cell_count(K) × hands_per_cell` hands, so the whole budget is ar
 | 9 | a full window (3 baselines + M = 5 versions) + one variant | 36 | 4,320 | 54,000 |
 | 10 | a full window + two variants (R4, R5, R6) | 45 | 5,400 | 67,500 |
 
-The K = 9 and K = 10 columns are `league()`'s declared `hands_played`; the K = 4 column is R1's, because R1 inherits
-no lineage and its pool is the three pinned baselines alone (`declarations.md` §4.1, `docs/L1/league.md` §2, §4). The
-per-hand cost is **measured, not bounded**: ASM-21 ratifies 0.105–0.130 s of CPU per hand, superseding ASM-15's
-3.2×-optimistic 40 ms figure, so K = 4 `live` is ≈94 s and `full` ≈20 min (this file's own `cost.wall_clock_seconds`
-is 1,191.37 s) and a full window ≈10–12 minutes live and ≈2 hours full — and no case asserts a wall clock (ASM-21,
-`docs/L1/league.md` §7).
+The K = 9 and K = 10 columns are `league()`'s declared `hands_played`; the K = 4 column is R1's, whose pool is the three pinned
+baselines alone (`declarations.md` §4.1, `docs/L1/league.md` §2, §4). The per-hand cost is **measured, not bounded**: ASM-21
+ratifies 0.105–0.153 s/hand on CPU, wide because the oracle decides it (0.255–0.315 s/hand in an oracle-bearing cell vs 0.002–0.004
+without, in half a table's hands), so K = 4 `live` is ≈95–110 s (720 hands: 110.29 s = 0.1532 s/hand in the evidence bundle, 107.4 s
+= 0.1491 in run 3) and `full` ≈20 min (this file's own `cost.wall_clock_seconds` still 1,191.37 s), a full window ≈10–12 minutes
+live and ≈2 hours full (≈2¼–2¾ hours at the slowest measured rate), no case asserts a wall clock (ASM-21, `docs/L1/league.md` §7).
 
 ## 2. What ships, and which player each member is
 
@@ -138,9 +138,9 @@ construction — the **same file** changes exactly these fields:
   its checkpoint records, because a matrix over `policy_from` policies was handed trained members (§5);
 - `cell_count` becomes 36 or 45 and `hands_played` 54,000 or 67,500 at the `full` budget (§1), `hands_per_cell`
   staying 1,500 — the budget never changes, only the membership does (`league.md` §5);
-- the `matrix` and `rating` records grow with them — 36 or 45 cells, one rating entry per member, the baselines' mean
-  still 0 — and `cost` reports the new hand count and the new measured seconds per hand, the same keys and new
-  numbers: at ASM-21's 0.105–0.130 s/hand a full-window table is ≈2 hours (`rating.md` §2, `docs/L1/league.md` §7);
+- the `matrix` and `rating` records grow with them — a rating entry per member — and `cost` reports the new hand count and measured
+  seconds per hand, the same keys and new numbers: ASM-21's 0.105–0.153 s/hand is a band because the oracle decides it, so the full
+  window is ≈10–12 minutes live, ≈2 hours full (≈2¼–2¾ hours at the slowest measured rate) (`rating.md` §2, `docs/L1/league.md` §7);
 - `schema` **does not change**: the shape of the document is the same, so a reader written against version 1 keeps
   working when the membership grows. Nothing else moves and no entry point learns about it (D-8, D-12).
 
