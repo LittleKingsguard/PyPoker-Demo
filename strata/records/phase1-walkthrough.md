@@ -1,38 +1,40 @@
-# phase1 walkthrough — blind documentation pass (D-14) · run 7, 2026-11-06
+# phase1 walkthrough — blind documentation pass (D-14) · run 9, 2026-11-06 · **PASS**
 
-Runner: a fresh agent, staged at `/tmp/wt7` as a listener's clone. Scenarios: 13, unchanged across
-all seven runs. Verdict: **STALE** — and this run found substance rather than wording: the built
-surface contradicts the documented range of one observation slot, and a design assumption misstates
-the raise cap on the pre-flop street.
+Runner: a fresh agent that never saw the build, staged at `/tmp/wt9` as a listener's clone.
+Scenarios: 13, unchanged across all nine runs. Verdict: **PASS** — every documented command ran as
+written, every checkable figure matched the surface, and nothing a reader would meet is misleading.
+This is the green that D-14 requires before a unit may be recommended as ready.
 
-## Confirmed clean (run 7)
+## What the runner exercised, and what it checked
 
-Orientation and reading order; the fixed game's parameters; versions and imports; all batteries
-green with `checkpoints/` byte-identical before and after **both** runners (19 files, digest
-`efac1fc6…`); a redirected 33-artefact run that ships 18; the curves and their reading rules; a
-109 s live table reproducing the shipped cells and rating; the rating's rank-versus-head-to-head
-rule; the shipped full table's untrained membership; the notebook headless at exit 0 reproducing the
-evidence; the claims and refusals; a decision from a shipped checkpoint; and the whole GPU page.
+Orientation and the reading order; the fixed game and the raise cap (0–4 bet-or-raise actions per
+street, including the assumption's warning against the raise-only reading); dependencies and the
+six-package import; the fastest battery, the 219-case `unittest` census and the thirteen-battery
+script, with `checkpoints/` **byte-identical (19 files, sha256 unchanged) after every run**; a
+redirected live R1 run writing **33** artefacts while the repository **ships 18**, nothing shipped
+disturbed; the curves and their reading rules; a 108 s live table reproducing the shipped cells and
+rating; the rating ranking top while losing to `always-call` and drawing `oracle`, with the docs
+explaining exactly that shape; the shipped full table's untrained membership and its 9,000-hand
+cost; the notebook headless at exit 0 writing only to its own root; the claims and refusals; a
+decision from a shipped checkpoint; and the whole GPU page, whose every command behaved as
+documented, `devices()`'s reason being byte-identical to the evidence bundle's.
 
-## Findings
+`docs-insufficient` / `docs-stale` / `undocumented`: none. `guessed`: one false start (it indexed an
+opaque pool before finding the documented read-back), corrected from the docs.
 
-| # | Finding | Owner |
-|---|---|---|
-| R-1 | **The readout's raise count can be 4, not 0–3.** `docs/L3/features/README.md` §5, `docs/L2/features/encodings.md` §3 and `docs/L3/features/flat-numeric.md` §4 state the count spans 0–3 with divisor 3, so the slot never leaves [0,1]. Measured on the surface over 400 random-policy hands: the count reaches **4** on all four streets, and `features.encode` therefore writes **1.3333** into a slot documented as [0,1]. Either the divisor/range or the encoding is wrong; the documents and the artefact disagree | `features` (L2 → L3 → L4) + the three documents |
-| R-2 | **The cap gloss is wrong pre-flop.** The game-parameter assumption in `docs/L1/assumptions.md` says "the cap is four bets on a street — the opening bet plus three raises". That holds post-flop; pre-flop the posted blind is followed by the same four raises (five bet levels), and `README.md`'s "4 raises per street" matches the surface while the assumption's gloss does not | L1 |
-| R-3 | **Dead record pointers.** Five distinct subjects are cited into *this* file — the write-root finding, the notebook-rewrite finding, the cell-replay finding, the one-build-seconds finding, the R1/R2 re-measurement — and none is in it, because the record is replaced every run (`strata/walkthrough.md` §7). The subject-form citation rule does not survive replacement: a subject in an ephemeral file is still an unresolvable citation | L0 (rule) + every citing layer |
-| R-4 | `docs/L3/training/evidence.md` §2–§3 attributes `checkpoints()`'s `pending` key to `checkpoints.md` §4–§5, which declare only `entries` and `shipped` | L3 |
+## What nine runs cost, and what they found
 
-R-1 and R-2 are the substantive pair: a documented normalisation range the artefact exceeds, and a
-game parameter stated one way in the brief's assumption and another way on the surface.
+Findings per run: **12 → 4 → 4 → 2 → 3 → 1 → 4 → 0 → 0**. The run that mattered most was the
+seventh, which found the *encoding* wrong rather than the prose: the readout's raise count reaches 4
+while the docs and the encoder assumed 0–3, so `encode` wrote 1.3333 into a slot documented as
+[0,1]. Fixing it invalidated both shipped artefacts, and both were regenerated.
 
-## L0's own share
+Three defect classes recurred until the mechanism, not the sentence, was fixed: test isolation became
+runner-agnostic, prose stopped quoting artefact figures, and `docs/` ceilings are now enforced by lint.
 
-R-3 is mine twice over (D-14): I created the ephemeral-record citation problem and then fixed it with a
-rule (cite the subject) that fails for the same reason. The durable form is to cite the **decision
-or assumption that carries the rule** — `D-n`, `ASM-n`, or a document section — and never the
-walkthrough record. R-1's cost is not mine alone: if the divisor changes, every shipped model and
-the evidence bundle are invalidated and must be regenerated, so the fix has a price that the user
-should see.
+## Standing, for a reader
 
-A unit is recommended as ready only on a `PASS` (D-14); this is a loop recommendation.
+Phase 1 is ready: six modules, 1,113 unit and integration cases plus a 219-case acceptance battery,
+all green; one real measured R1 run; two shipped artefacts regenerated against the current build and
+reproducible under a pinned interpreter. Not done: R2–R6 are untrained, no long-budget run ships, and
+the multi-round attention objective remains Phase 2.
