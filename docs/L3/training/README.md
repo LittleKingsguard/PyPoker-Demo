@@ -1,6 +1,6 @@
 # training — module design (L3)
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
 - **Owner:** the module — what it is, the document map, the six names, the layout of `src/training/`, the import boundary, the facts it inherits, and the decisions a later module must not re-derive
 - **Realises:** `docs/L2/training/surface.md` (the six entry points) and `docs/L2/training/loop.md` (the registry as data, the one loop, what a comparison holds constant, budgets, the checkpoints, the contracts at this edge)
 - **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.5, §5, `records.md` §1–§5, §7–§8, §12, `ladder.md` §1–§6, `protocol.md` §1–§6, `league.md` §1–§7, `module-map.md` §1–§5, `assumptions.md` (ASM-2, ASM-5, ASM-7–ASM-10, ASM-12, ASM-14, ASM-16, ASM-18),
@@ -68,7 +68,7 @@ surface (`surface.md` §1); no returned record exposes a learner, an encoder, a 
     curves.py       _Curve, _axis(), _spread() (curves.md)
     loop.py         run(), _train_variant_seed(), _timings(), _record() (loop.md)
     fairness.py     fairness(), _sides(), _axis(), _constants() (fairness.md)
-    devices.py      devices(), _gpu() (devices.md)
+    devices.py      devices(), _gpu(), _probe(), _opened(), _unopened(), _denied(), _close(), _errno(), _backend(), _PROBED, _BACKEND (devices.md §1–§2)
     layout.py       ROOT, CHECKPOINT_ROOT, OVERRIDE, _write_root(), _write_path(), _final_path(),
                     _snapshot_path(), _prepare(), _relative(), _resolve(), _resolved() (checkpoints.md §1–§2)
     index.py        checkpoints(), SHIPPED_FINALS, SHIPPED_WINDOWS, _entries() (checkpoints.md §4)
@@ -79,7 +79,7 @@ private names in `declarations.py`, `registry.py`, `seeds.py`, `episode.py`, `cu
 
 ## 5. The import boundary (D10)
 
-`training` imports the standard library (`hashlib`, `json`, `math`, `os`, `statistics`, `time`, `collections.abc`,
+`training` imports the standard library (`errno`, `hashlib`, `json`, `math`, `os`, `statistics`, `time`, `collections.abc`,
 `typing`) and exactly the granted calls (`module-map.md` §2, D-13):
 
     evaluation  protocol, league, build_pool, pool_members, opponent  — never match, matrix, rating, report, offer, policy_from
@@ -87,7 +87,7 @@ private names in `declarations.py`, `registry.py`, `seeds.py`, `episode.py`, `cu
     features    build_encoder, encode, observation_spec, legal_indices, decode_action  — never encodings(), action_space()
     engine      game_config, new_hand, play_hand, payoffs             — never readout, legal_actions, apply_action, is_terminal
 
-Never `harness`, never `pokerkit`, and no numerical library at module scope: the one conditional import in the module is `devices.py`'s backend probe, which imports `torch` **only after** a GPU device node has opened, once per process, and reports the backend's own refusal as the reason the GPU is unavailable (`devices.md` §2, Rev 2, measured). The learner's side of a hand is a policy **assembled here** from `features.encode` + `features.legal_indices` + `agents.act` + `features.decode_action`, because `agents.as_policy` is not this module's to call (`episode.md` §2). `math`/`statistics` serve the curve (`curves.md` §3), and no call here seeds or advances the global `random` stream; only dealing moves it (ASM-2).
+Never `harness`, never `pokerkit`, and no numerical library at module scope: the one conditional import in the module is `devices.py`'s backend probe, which imports `torch` **only after** a **read-write** open of a GPU device node has succeeded, once per process, and reports the operation, the errno and the platform situation the backend's own refusal leaves it in (`devices.md` §2, Rev 3, measured). The learner's side of a hand is a policy **assembled here** from `features.encode` + `features.legal_indices` + `agents.act` + `features.decode_action`, because `agents.as_policy` is not this module's to call (`episode.md` §2). `math`/`statistics` serve the curve (`curves.md` §3), and no call here seeds or advances the global `random` stream; only dealing moves it (ASM-2).
 
 ## 6. Facts inherited from the four modules this one calls
 

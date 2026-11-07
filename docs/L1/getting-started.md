@@ -1,6 +1,6 @@
 # PyPoker-Demo — getting started
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
 - **Purpose:** the shortest route from an empty checkout to a trained rung and a league table, for a reader who has the repository and nothing else
 - **Ceiling:** 70 lines. At the ceiling, split by owner — never append
 
@@ -60,3 +60,7 @@ scripts/run-all-tests.sh                    # every battery, one pytest run each
 ```
 
 One battery per invocation is the supported form: a bare `pytest tests` cannot collect this tree, because sibling batteries reuse file basenames and each imports its own same-directory support module (`battery.md` §2). A battery writes nothing under the repository's `checkpoints/` — the session points the run's write root at a temporary directory (`battery.md` §2) — so a reader's tree is unchanged.
+
+## 7. If you have a GPU
+
+A GPU is optional and nothing above uses one: every rung trains and evaluates on CPU, which is the supported path and where the shipped evidence was produced (D-8, `protocol.md` §6). An agent cannot run the GPU path — the file sandbox denies read-write opens under `/dev`, not a driver and not a permissions fault — and the code is CPU-only regardless, so `run` refuses any device but `cpu` (D-17). `gpu.md` states all three plainly, gives the commands that verify the card with this venv from your own shell, and says how to measure the PyTorch-versus-NumPy speed difference on your machine once a GPU path exists (D-17, D-7, D-8).

@@ -1,11 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
-- **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path; the write root and its
-  one ambient override are the sibling `write-root.md`, split out because this file reached its ceiling. Rev 2's items
-  (a pool's id §3.1, the three further keys §4.1, the vocabulary §4.2, the axis rule §5.1, §6's GPU rule) stand
+- **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path (`write-root.md`, split out
+  because this file reached its ceiling). **Rev 4:** §6's probe rule is the sibling `devices.md`, because the open it
+  measures is the **read-write** one a driver performs. Rev 2's items (§3.1, §4.1, §4.2, §5.1, §6's GPU rule) stand
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -202,9 +202,9 @@ for; R5–R6 `residual`; R4's, R5's and R6's own pairs `architecture`, `connecti
 - **Returns:** one mapping read under these keys — `available`, the device names `run` accepts and always
   containing `cpu`; `default`, the one a run uses when none is named; and `gpu`, whether the platform exposes one
   and the name it goes by, with the reason it is unavailable (D-8, `protocol.md` §6).
-- **Rules:** `cpu` is always available and every rung and both table budgets run on it (D-8, ASM-15). `gpu` is
-  reported available only when the device actually opens **and a backend reports it usable** (Rev 2, measured: the
-  device nodes open in the sandbox while the backend reports no usable device, D-8, `strata/platform.md`).
+- **Rules:** `cpu` is always available and every rung and both table budgets run on it (D-8, ASM-15); a reachable GPU adds
+  no name to `available`, which names what `run` accepts and never what the machine has (`docs/L1/gpu.md` §3, D-8). The
+  probe, the operation it measures and the vocabulary `gpu.reason` carries are the sibling `devices.md` §1–§2 (Rev 4).
 - **Refusals:** none; it has no argument.
 - **Determinism:** two calls on one platform agree, and the answer depends on the platform and not on the caller;
   a run records the device it used, so a GPU run and a CPU run are never confused (D-8, `protocol.md` §6).

@@ -133,12 +133,12 @@ engine costs the clock and never the comparison's fairness (ASM-8, ASM-15, C-C2)
 few minutes in a talk and the shipped checkpoints show that training time matters; both use one protocol and one table
 membership, so what separates them is the sample count and the cell size and nothing else (D-8, `ladder.md` §6, D-6).
 
-`devices()` reports what the platform offers and the device a run uses by default (`surface.md` §6). A run started by
-this workflow is CPU-bound: the file sandbox denies the device nodes, so no delegated layer reaches the GPU, and a GPU
-run is the user's, started outside the sandbox, whose record says so (D-8, `strata/platform.md`, `protocol.md` §6). No
-part of the protocol needs a GPU — every rung and both table budgets run on CPU — which is also why the live table's
-cost is bounded by hands played and not by a device (D-8, ASM-15); a run records the device it used, so a GPU run and
-a CPU run are never confused (D-6, `protocol.md` §6).
+`devices()` reports what the platform offers and the device a run uses by default (`surface.md` §6, `devices.md` §1). A
+run started by this workflow is CPU-bound: the sandbox denies the read-write opens a driver performs, so no delegated
+layer reaches the GPU, and a GPU run is the user's, started outside the sandbox, whose record says so (D-8,
+`strata/platform.md`, `protocol.md` §6). No part of the protocol needs a GPU — every rung and both table budgets run on
+CPU — which is also why the live table's cost is bounded by hands played and not by a device (D-8, ASM-15); a run
+records the device it used, so a GPU run and a CPU run are never confused (D-6, `protocol.md` §6).
 
 ## 6. The notebooks this module owns (D-5)
 

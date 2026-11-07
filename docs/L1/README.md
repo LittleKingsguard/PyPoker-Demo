@@ -1,18 +1,19 @@
 # PyPoker-Demo — L1 Phase 1 design
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-06
 - **Scope:** the technique ladder on one fixed game (brief §2) and its league evaluation (brief §3, D-16)
 - **Ceiling:** 40 lines. At the ceiling, split by owner — never append
 
-## What changed at Rev 2, Rev 3 and Rev 4
+## What changed at Rev 2, Rev 3, Rev 4 and Rev 5
 
-D-16 replaced D-6's head-to-head opponent with a bounded round-robin league — the model's last M versions plus the three fixed baselines — as both training and evaluation opposition (Rev 2): `league.md` owns the pool, scheduler, matrix, rating and tables, and `e2e-surface.md` replaces `evaluation.head_to_head` with the league's entry points, 11 `evaluation` endpoints and 49 across the map. Rev 3 and Rev 4 repair the two blind walkthroughs (`strata/records/phase1-walkthrough.md`): the matrix is separated from the rating and a rank asserts no head-to-head win (`league.md` §3.1, §8), the measured per-hand cost and the live table's higher own figure replace ASM-15's 40 ms bound (`league.md` §7, ASM-21), `battery.md` §2 gives the supported way to run the batteries and says where they write, `ladder.md` §7 says which notebook ships and that it finds the repository root itself, `getting-started.md` is the newcomer route and warns where a run writes, `records.md` §9 states what a recorded cell seed reproduces, `protocol.md` §4 records that reproducibility is one build's and one pinned interpreter's, and the evidence bundle names its own build (`protocol.md` §5).
+D-16 replaced D-6's head-to-head opponent with a bounded round-robin league — the model's last M versions plus the three fixed baselines — as both training and evaluation opposition (Rev 2): `league.md` owns the pool, scheduler, matrix, rating and tables, and `e2e-surface.md` replaces `evaluation.head_to_head` with the league's entry points, 11 `evaluation` endpoints and 49 across the map. Rev 3 and Rev 4 repair the two blind walkthroughs (`strata/records/phase1-walkthrough.md`): the matrix is separated from the rating and a rank asserts no head-to-head win (`league.md` §3.1, §8), the measured per-hand cost and the live table's higher own figure replace ASM-15's 40 ms bound (`league.md` §7, ASM-21), `battery.md` §2 gives the supported way to run the batteries and says where they write, `ladder.md` §7 says which notebook ships and that it finds the repository root itself, `getting-started.md` is the newcomer route and warns where a run writes, `records.md` §9 states what a recorded cell seed reproduces, `protocol.md` §4 records that reproducibility is one build's and one pinned interpreter's, and the evidence bundle names its own build (`protocol.md` §5). Rev 5 adds `gpu.md`, which D-17 requires: the measurement that a delegated agent cannot reach the GPU, the code being CPU-only regardless, the commands a user runs in their own shell to verify the card, and the device rule that keeps a CPU figure and a GPU figure apart.
 
 ## Reading order
 
 | Document | What it answers |
 |---|---|
 | `getting-started.md` | the route in: Python, dependencies, `PYTHONPATH=src`, one training run, one league table |
+| `gpu.md` | what runs on CPU today, why an agent cannot run the GPU path, and the commands a user runs to verify the card and measure the PyTorch-versus-NumPy difference (D-17, D-7, D-8) |
 | `module-map.md` | the six modules, the league's owner, their interactions, path ownership, and the harness contract of brief §5 |
 | `e2e-surface.md` | every entry point the battery drives, the shared contracts behind them, the endpoint counts in `modules.json`, and which surfaces are general-purpose |
 | `records.md` | the mapping shape each entry point exchanges, the league's pool, cell, matrix and rating records included, so no module reads another's type (D-13) |

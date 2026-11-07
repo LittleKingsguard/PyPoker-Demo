@@ -1,10 +1,9 @@
 # training — L2 integration interface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.5 — the rung registry and the one training loop every
-  rung is a configuration of (D-3, D-16) — and the two paths this module owns beside them: `notebooks/`, the one thin
-  notebook per rung (D-5), and `checkpoints/`, the shipped models and the intra-run snapshots the pool is a view over
-  (`module-map.md` §5, D-16, ASM-18)
+  rung is a configuration of (D-3, D-16) — plus the two paths this module owns: `notebooks/`, one thin notebook per rung
+  (D-5), and `checkpoints/`, the shipped models and intra-run snapshots the pool is a view over (`module-map.md` §5, ASM-18)
 - **Reads:** `docs/L1/module-map.md` §1–§5, `e2e-surface.md` §1, §2, §3.5 and §5, `records.md` §1–§5, §7–§8, §12–§13,
   `ladder.md` §1–§7, `league.md` §1–§6, `protocol.md` §1–§6, `battery.md` §2–§5, `assumptions.md` (ASM-2, ASM-5,
   ASM-7–ASM-10, ASM-12, ASM-15, ASM-16, ASM-18); at the consumed edge `evaluation/surface.md` §3–§8, `evaluation/league.md`
@@ -21,11 +20,12 @@ rating and never chooses the pool's membership (`module-map.md` §3, D-16, ASM-1
 is a row of data, a rung-to-rung difference is attributable to the configuration and to nothing else, and a seventh
 configuration runs without new code (D-3, `ladder.md` §1, `battery.md` §3 FAM-15).
 
-## 2. The four documents
+## 2. The five documents
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
-| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further record keys a complete report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force) — four facts a measurement forced, each with its rejected alternative; **Rev 3** states in §4 where a run writes and how it spells a written path |
+| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further keys a report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force); **Rev 3** states in §4 where a run writes and how it spells a path; **Rev 4** moves §6's probe rule out to `devices.md` |
+| `devices.md` | the device record | `devices()`'s three keys (§1), the **read-write** open the probe measures and the four situations its `reason` tells apart (§2), and the one thing a run does with the device it records (§3) (D-8, `protocol.md` §6, `docs/L1/gpu.md` §2) |
 | `loop.md` | the ladder and its edges | the registry as data (§1); the configuration schema and the matched pair (§2); the one loop, step by step (§3); what a comparison holds constant and the R1/R2 parity rung (§4); budgets and devices (§5); the notebooks (§6); the checkpoints that ship (§7); the contracts at this edge (§8) and the battery invariants this module carries (§9) (D-3, D-7, D-8, D-16, ASM-8, ASM-18) |
 | `write-root.md` | where a run writes | the declared root and the write root (§1), the reads that never move (§2), the one ambient override `PYPOKER_CHECKPOINT_ROOT` and why it is not an entry point (§3), who points it where — the battery session and the reader's one command (§4), the spelling a record gives a written path (§5), what the redirection does not change (§6) and the battery cases that carry it (§7) (D-12, D-13, `battery.md` §2, `protocol.md` §5) |
 | `evidence.md` | the one shipped evidence file | `checkpoints/evidence/r1-live.json` as an integration fact: it is evidence and not a surface (§1), which of its blocks are this module's record (§2), the repository-relative spelling of its paths (§3), the two curve layouts (§4) and what no caller may do with it (§5) (D-8, D-12, `protocol.md` §5) |

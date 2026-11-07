@@ -1,6 +1,6 @@
 # training — L4 guardrails
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-06
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the test that
   catches it
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
@@ -94,12 +94,12 @@ Caught by: `test_errors.py::TRN-9.1`–`TRN-9.3`, FAM-15.5, FAM-16.28.
 the learner seat 0 in every hand makes half of each curve positional and R1's and R2's deals unequal — the parity pair's two arms
 would then differ on something that is not the backend (`episode.md` §1, FAM-13.4).
 Caught by: `test_episode.py::TRN-4.5`, FAM-13.4.
-## G18 — `devices()` probes the nodes, and asks a backend only after one opens (Rev 2)
-`os.open` on `/dev/kfd` and `/dev/dri/renderD128`, closing the handle after; a `PermissionError` is `"PERMISSION"`, a missing node
-`"ABSENT"`. **Measured:** both nodes open on this host while `torch` reports no usable device, so the node test alone would report a
-GPU the workflow cannot use; the probe therefore asks the backend once, after a node opened, and reports its refusal as the reason
-(`devices.md` §2). No `torch` import happens on a platform without the nodes, and none at module scope.
-Caught by: `test_devices.py::TRN-8.1`, `TRN-8.2`, FAM-1.42.
+## G18 — `devices()` measures the **read-write** open, and asks a backend only after one succeeds (Rev 3)
+`os.open(node, os.O_RDWR)` on `/dev/kfd` then `/dev/dri/renderD128`; a denial is followed by a control `O_RDONLY` open of the
+same node, separating the sandbox's read-write split from a permissions fault. Every `False` names the node, the operation,
+`errno.errorcode` and its number, and which of `devices.md` §2's five texts it is — **measured:** read-only opens succeed here
+while read-write is denied `EACCES`, so a read-only probe named the wrong cause; no `torch` import before the open or at scope.
+Caught by: `test_devices.py::TRN-8.2`, `TRN-8.4`–`TRN-8.10`, FAM-1.42.
 ## G19 — `rung()` and `fairness()` are pure
 Resolving builds a pool and reads it back; it deals no hand, builds no learner, writes no file and moves no stream. A cached
 build that writes a scratch pool file, or a `fairness` that imports a learner to compare capacities, breaks D-3 and FAM-3.17's

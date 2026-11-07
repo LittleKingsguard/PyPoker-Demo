@@ -56,6 +56,20 @@ through end to end:
 jupyter lab notebooks/r1-naive-numpy.ipynb
 ```
 
+### Using a GPU
+
+This project trains on **CPU**, which is the supported path and the one the shipped evidence came
+from. Moving R1's arithmetic from hand-rolled NumPy into PyTorch (rung R2) already bought **2.46×**
+on identical work — 0.1111 → 0.0451 s/hand, 333 s → 135 s for 3,000 hands — so the interpreter,
+not the accelerator, was the bottleneck at that point.
+
+A GPU is not currently usable, for two separate reasons: a delegated agent cannot reach the card,
+because the development sandbox denies read-write opens under `/dev` (not a driver or group
+fault), and the PyTorch backend itself is CPU-only — `training.devices()` lists `cpu` alone and
+`run(device="cuda")` refuses. `docs/L1/gpu.md` explains both, gives the commands that tell you
+whether *your* card is usable with this project's interpreter, and states what a GPU-enabled path
+would need.
+
 ## What the numbers mean — and what they do not
 
 A rung is never reported as progress on a training curve alone. Each one carries curves, its place

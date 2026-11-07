@@ -30,7 +30,7 @@ on another machine, and evidence that reproduces only where it was made is not e
 | `stages` | the wall clock of each stage of the job — `run_R1_live`, `build_pool`, `matrix_live`, `rating`, `report` — each `{"seconds": <float>}` (`records.md` §12, ASM-15) |
 | `errors` | the stages that raised, named with their exception; `[]` means every stage completed (`errors.md` §2) |
 | `rungs` | `rungs()`'s six resolved configurations, copied once: each rung's `axis`, `primary`, `carried_from`, `variants` and `pool`, plus the resolved `seeds`, `samples`, `param_budget`, `table`, `device` and `snapshot_every` (`registry.md` §1–§2) |
-| `devices` | `training.devices()`'s record of the platform the job ran on (`devices.md` §1, D-8) |
+| `devices` | `training.devices()`'s record of the platform the job ran on, **as that build's probe answered it** — the shipped file's `gpu.reason` is the superseded read-only probe's sentence and is evidence of that run, not of today's probe (`devices.md` §1–§2, D-8) |
 | `run` | the run record of `records.md` §12 plus this module's own `variants`, `header`, `baselines` and `axis row`, with `matrix` and `rating` attached beside them (`loop.md` §3–§4, `surface.md` §4.1) |
 | `run_wall_clock_seconds` | the run's own cost: the sum of its per-seed `timings` wall clocks, and never `stages.run_R1_live`, which times the call (`loop.md` §4, ASM-15) |
 | `run_hands` | the hands trained: the seed set's size × hands per variant per seed (`protocol.md` §2, ASM-8) |

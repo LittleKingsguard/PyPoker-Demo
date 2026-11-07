@@ -1,6 +1,6 @@
 # training — the shipped R1 evidence file, as an integration fact
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
 - **Owner of this file:** the one shipped evidence artefact under `checkpoints/` — that it exists and what it is not
   (§1), which of its blocks are this module's own record and which a caller attaches (§2), the spelling rule its paths
   obey (§3), the two curve layouts it and a run record carry (§4), and what no caller may do with it (§5) (D-8, D-12,
@@ -37,8 +37,8 @@ no cell and fits no rating (`module-map.md` §3, `records.md` §13, `surface.md`
 
 The remaining blocks are the job's, not an entry point's: `stages`, `errors`, `run_wall_clock_seconds`, `run_hands`,
 `pool_versions`, `pool_record`, `r2_pool`, `matrix`, `rating`, `report_families`, `report`, plus `rungs`, `devices`,
-`index_summary` and `index_missing`, which are `rungs()`, `devices()` and `checkpoints()` read once and copied, and
-`provenance`, which the producer writes and no entry point returns (`surface.md` §2, §6, §7, `evidence.md` §2, §6).
+`index_summary` and `index_missing` — `rungs()`, `devices()` and `checkpoints()` as the writing build answered them — and
+`provenance`, which the producer writes and no entry point returns (`devices.md` §2, `surface.md` §2, §6, §7, `evidence.md` §2).
 
 ## 3. The paths it carries are repository-relative
 
