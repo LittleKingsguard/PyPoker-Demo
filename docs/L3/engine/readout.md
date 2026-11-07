@@ -30,7 +30,7 @@ order" below always means engine seat order, `0` = button (`hand.md` §3).
 | `pot` | `int` | `state.total_pot_amount` — **includes** the current street’s outstanding bets (`state.py:2601-2606`), so `pot + sum(stacks) == 40` at every decision |
 | `to_call` | `int` | `state.checking_or_calling_amount` — 0 when the actor may check, else `min(actor_stack, max_bets - actor_bet)`, so it is never more than the actor’s stack and a call for less is bounded |
 | `limit` | `tuple[int, int]` | `(state.street.min_completion_betting_or_raising_amount, state.completion_betting_or_raising_count)` — the fixed bet size in force (2 on the pre-flop and flop, 4 on the turn and river) and the **bet-or-raise actions made so far this street** — a completion, a bet or a raise — 0 to 4 under ASM-6’s cap of four such actions a street: post-flop the opening bet plus three raises, pre-flop four raises after the posted blind, five bet levels — and the posted blind is never one of them, so a street’s first decision reads `0` (`e2e-surface.md` §2, `L2 environment.md` §2, ASM-6) |
-| `history` | `list[str]` | a **new list** of the handle’s applied actions, oldest first, and the empty list `[]` before the first one (`advance.md` §2) |
+| `history` | `list[str]` | a **new list** of the handle’s applied actions, oldest first, and the empty list `[]` before the first one (`history.md` §1) |
 | `legal` | `tuple[str, ...]` | `legal_actions(hand)` — the same tuple the entry point returns, same value and same order (`stepping.md` §1) |
 
 Five bet levels exist pre-flop but `limit[1]` stops at `4`, because the posted blind is a level and not one of

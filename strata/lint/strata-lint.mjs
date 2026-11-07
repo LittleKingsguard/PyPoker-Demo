@@ -10,7 +10,7 @@
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 
 /** Class maxima. A document may declare a lower ceiling; it may never declare a higher one.
  *  `record` is the handover's 60, the widest record shape; `tracker` is what `pending.md:1` and
@@ -123,6 +123,27 @@ export function recordFiles(root) {
     .filter((name) => name.endsWith('.md'))
     .sort()
     .map((name) => `records/${name}`)
+}
+
+/** Every markdown document a corpus keeps under `docs/`, relative to the repository root.
+ *  The layer documents declare their own ceilings in their headers; nothing else measures them,
+ *  which is how three of them sat over their limit unnoticed (F-1 applied to layer docs, not just
+ *  to the strata root). Returns `undefined` when there is no `docs/` directory at all, `[]` when
+ *  it exists and is empty — absent and empty are different facts, as for `records/`. */
+export function docFiles(root) {
+  const repo = dirname(root)
+  const top = join(repo, 'docs')
+  if (!existsSync(top)) return undefined
+  const out = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) walk(path)
+      else if (entry.name.endsWith('.md')) out.push(relative(repo, path).split('\\').join('/'))
+    }
+  }
+  walk(top)
+  return out.sort()
 }
 
 /** The registry entry for one record path: the first `RECORD_PATTERNS` row that matches it.
@@ -516,6 +537,27 @@ export function lint(root, options = {}) {
   // reddened for having no records. Records present print their per-file rows and no row here (D-26).
   if (recordPaths === undefined) add('INFO', 'ceiling', 'records/ absent')
   else if (recordPaths.length === 0) add('INFO', 'ceiling', 'records/ 0 file(s)')
+
+  // 1d. layer-document ceilings — `docs/` declares its own limits in each header, and until now
+  // nothing measured them. A violating file is named; a clean corpus is one summary row, because
+  // ninety per-file rows would bury every other check.
+  const docPaths = docFiles(root)
+  if (docPaths === undefined) add('INFO', 'ceiling', 'docs/ absent')
+  else {
+    const over = []
+    let undeclared = 0
+    for (const rel of docPaths) {
+      const text = readFileSync(join(dirname(root), rel), 'utf8')
+      const declared = parseDeclaredCeiling(text)
+      if (declared === undefined) { undeclared += 1; continue }
+      const lines = text.replace(/\n$/, '').split('\n').length
+      if (lines > declared) over.push(`${rel} ${lines}/${declared}`)
+    }
+    for (const detail of over) add('FAIL', 'ceiling', detail)
+    add(over.length === 0 ? 'PASS' : 'FAIL', 'ceiling',
+      `docs/ ${docPaths.length} file(s): ${docPaths.length - over.length - undeclared} within their declared ceilings`
+      + `${undeclared > 0 ? `, ${undeclared} undeclared` : ''}${over.length > 0 ? `, ${over.length} over` : ''}`)
+  }
 
   // 1b. register rows
   if (decisionsText !== '') {

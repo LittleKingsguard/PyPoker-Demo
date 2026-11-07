@@ -60,7 +60,7 @@ maximum is that same number (`state.py:4746-4748`), so the descriptor’s "no am
 exactly. Passing an amount would move the size into this module’s hands and make the descriptor untrue
 (`actions.md` §2).
 
-The returned handle holds the advanced state and one appended history entry (`advance.md` §2); the
+The returned handle holds the advanced state and one appended history entry (`history.md` §1); the
 argument handle is untouched, and the step draws no randomness because the deck was fixed at creation
 (`L2 surface.md` §7, ASM-2). Applying the hand’s last action returns a handle for which `is_terminal`
 is true.

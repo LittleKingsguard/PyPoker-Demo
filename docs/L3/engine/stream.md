@@ -29,7 +29,7 @@ do it, and both wrap their work in the same three lines:
 - **`equity`** needs it because it must sample, and `pokerkit`’s `calculate_equities` draws from
   Python’s **global** `random` with no generator argument (`from random import choices, sample`,
   `analysis.py:22,163,328`). It saves, seeds with the caller’s seed, computes, restores
-  (`equity.md` §3).
+  (`equity-sample.md` §1).
 
 **Seed before, restore after**, because together they buy the two properties the contract states and
 neither does alone: the *seed* makes the estimate a function of `(decision, seed, samples)` and of
@@ -65,4 +65,4 @@ linear in `samples`, and its opponent range is 1225 combinations pre-flop, 1081 
 the turn and 990 on the river. ASM-15 states the per-hand cost as a measurement in ASM-21’s band,
 never a bound, and gives `harness.timings` the measuring job; what this design must not do is hide the
 question — so it fixes no sample count, caches no estimate, and rounds no number. The sample count is
-`agents`’ parameter (`guardrails.md` G6).
+`agents`’ parameter (`cost.md` G6).

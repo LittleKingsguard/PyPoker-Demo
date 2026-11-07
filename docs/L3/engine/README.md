@@ -22,16 +22,20 @@ match (`docs/L2/engine/README.md` §3).
 | Document | Owner of that question | What it fixes |
 |---|---|---|
 | `hand.md` | the hand | the `Hand` handle over a `pokerkit` state, the **seat mapping**, `new_hand`'s seeding, `is_terminal`, `payoffs` |
-| `advance.md` | one applied action | the advance by copy (and the rejected replay), the public history and its grammar |
+| `advance.md` | one applied action | the advance by copy (and the rejected replay) |
+| `history.md` | the public history | the one-entry-per-action rule, the entry grammar, the `<amount>` and `<index>` definitions, and why a card never appears |
 | `actions.md` | the action vocabulary | the three descriptors: their type, value equality, stable text, and how `raise` resolves to the minimum legal completion |
 | `stepping.md` | legality and the step | `legal_actions`’ order and refusals, `apply_action`’s validation and its three-method idiom |
 | `readout.md` | the ten facts | each fact's derivation and type, the card spelling, the seat fact's shape, what the readout may never expose |
 | `episode.md` | `play_hand` | the policy protocol, the episode record, the decision records, where the reward lands |
-| `equity.md` | the equity question | what the answer is conditional on, the unseen deck, hand-or-readout equivalence |
+| `equity.md` | the equity question | what the answer is conditional on, and hand-or-readout equivalence |
+| `equity-sample.md` | the equity sample | the unseen deck, the `calculate_equities` call, the library's tie share, and the five things that bind the implementation |
 | `stream.md` | the global `random` stream | one seeding point, `equity`'s save/seed/restore, and the measured cost |
-| `errors.md` | refusals | the error hierarchy and the message grammar every refusal follows |
+| `errors.md` | refusals | the error hierarchy, and what is deliberately *not* refused |
+| `messages.md` | the message grammar | the message form, the canonical message per refusal, and the two properties the battery relies on |
 | `layout.md` | the files | the file layout of `src/engine/`, the nine exported names, what is not surface |
 | `guardrails.md` | L4 | one note per risk this design identified, in the order they bite |
+| `cost.md` | the cost of a hand | ASM-15's measurement question, what dominates it, the one knob that decides it, and what was not measured |
 | `platform.md` | the platform | the measured `pokerkit` 0.7.7 facts this design rests on, and the three received claims they correct |
 
 ## 3. The nine names, and what is *not* a name

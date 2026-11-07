@@ -7,7 +7,7 @@
 
     class Hand:                    # src/engine/hand.py — NOT surface
         _state: pokerkit.state.State
-        _history: tuple[str, ...]  # one entry per applied action, oldest first (advance.md §2)
+        _history: tuple[str, ...]  # one entry per applied action, oldest first (history.md §1)
 
 A `Hand` is an **opaque handle**: no public attribute, no mapping access, no iterator, no `__eq__`
 (identity equality only), and a constant `__repr__` such as `<engine.Hand>`. A caller only ever

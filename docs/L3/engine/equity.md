@@ -1,6 +1,6 @@
 # engine — the equity question
 
-- **Owner:** `equity`’s question — what it is conditional on, how the sample is obtained, and how a hand and a readout give the same number. The stream discipline that makes it repeatable is `stream.md`’s
+- **Owner:** `equity`’s question — what it is conditional on, and how a hand and a readout give the same number (the sample itself is `equity-sample.md`’s; the stream discipline that makes it repeatable is `stream.md`’s)
 - **Ceiling:** 90 lines. At the ceiling, split by owner — never append
 
 ## 1. The signature and its refusals
@@ -56,36 +56,9 @@ to act*’s share, never seat 0’s, whatever the argument shape.
 
 ## 3. The sample
 
-    unseen = [c for c in Deck.STANDARD if c not in set(hole + board)]   # 50, 47, 46 or 45 cards
-    opponent_range = [[a, b] for a, b in itertools.combinations(unseen, 2)]
-    value = calculate_equities(
-                ([[h1, h2]], opponent_range),      # the seat, then a uniform opponent hand
-                list(board),
-                2,                                 # hole_dealing_count
-                5,                                 # board_dealing_count
-                Deck.STANDARD,
-                (StandardHighHand,),
-                sample_count=samples,
-            )[0]
-
-What binds the implementation here:
-
-- the ranges are passed as lists of card combinations, the shape
-  `pokerkit.analysis.calculate_equities` documents (`analysis.py:225-337`), and the seat’s range holds
-  exactly one combination, so element `0` of the answer is the acting seat’s share;
-- `board` may be empty (pre-flop): the library completes it from the unseen deck per sample, which is
-  exactly the uniform opponent-and-runout model the question states;
-- ties count as their share inside the library (`increment = 1 / sum(statuses)`,
-  `analysis.py:194-198`), so no post-processing of the number happens here;
-- the result is `float(...)` of element `0`, and nothing else: no rounding, no clamping, no caching, no
-  memoisation. Rounding would make two different decisions report one number, clamping would hide a
-  library answer instead of reporting it, and a cache would make the estimate no longer the function
-  of `(decision, seed, samples)` that `L2 surface.md` §11 promises;
-- the opponent range is built in `Deck.STANDARD` order over the unseen cards, never from a `set`
-  iteration, so the sample universe is the same on every call and on every machine.
-
-The cost of this call is `stream.md` §3 — the equity sample is nearly all of a table’s cost and the
-one knob that decides where in ASM-21’s 0.105–0.153 s band a table’s per-hand cost lands.
+`equity-sample.md` §1 owns this question — the unseen deck, the `calculate_equities` call, the
+library's tie share and the five bindings moved there whole when this file reached its ceiling. The
+number stays so every citation of `equity.md` §3 still resolves.
 
 ## 4. What the battery may assert
 

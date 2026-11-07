@@ -44,7 +44,7 @@ indices for the whole ladder), and a `legal_actions` that lists one descriptor p
 
 ## 3. What is not a descriptor
 
-Anything else is refused with the contract named (`errors.md` §3, `InvalidAction`): an integer index,
+Anything else is refused with the contract named (`messages.md` §1, `InvalidAction`): an integer index,
 a `pokerkit` operation, a differently-cased spelling (`"Fold"`), a synonym (`"call"`, `"check"`,
 `"bet"`), `None`. There is no coercion and no normalisation — a caller that means an action passes one
 of the three strings, and a caller that passes an index has confused this module with `features`

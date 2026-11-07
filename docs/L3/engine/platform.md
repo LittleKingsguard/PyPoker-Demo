@@ -55,6 +55,6 @@ Consequence for this module: the advance is wrapped in the same save/seed/restor
 
 ## 5. Confirmed — `calculate_equities`
 
-Repeats bit-exactly under a fixed seed, stays inside [0, 1], counts ties as their share, accepts an
-empty board, and draws from the global `random` (`analysis.py:22,163,328`) with no generator argument,
-which is what forces `equity`’s save/seed/restore (`stream.md` §1).
+Repeats bit-exactly under a fixed seed only within one `PYTHONHASHSEED`-pinned process, stays inside [0, 1], counts ties as their share,
+accepts an empty board, and draws from the global `random` (`analysis.py:22,163,328`) with no generator argument, which is what forces `equity`’s save/seed/restore (`stream.md` §1);
+why the pin is needed is a separate question: the sampling universe is a `set` difference (`analysis.py:316`, drawn at `:163`) over string-hashed cards, so processes can differ.

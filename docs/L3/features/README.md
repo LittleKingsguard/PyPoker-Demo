@@ -8,7 +8,7 @@
   `docs/L1/ladder.md` §2–§5, `docs/L1/module-map.md` §2–§3, `docs/L1/battery.md` §2–§4,
   `docs/L1/assumptions.md` (ASM-2, ASM-6, ASM-7, ASM-9, ASM-10), `strata/decisions.md` (D-1, D-2, D-3,
   D-12, D-13, D-15); and, as inherited fact and never as code, `docs/L3/engine/README.md` §4,
-  `docs/L3/engine/readout.md` §2–§3, `docs/L3/engine/advance.md` §2, `docs/L3/engine/actions.md` §1–§2
+  `docs/L3/engine/readout.md` §2–§3, `docs/L3/engine/history.md` §1, `docs/L3/engine/actions.md` §1–§2
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Implements:** `src/features/` (written by L4, never by L3). `tests/features/` is this design's unit
   battery; `tests/e2e/test_fam0{1,2}_*.py` and `test_fam16_blind.py` are the L1 battery's share for it
@@ -68,7 +68,7 @@ argument — is `docs/L2/features/surface.md` §1 and is not restated here.
   ever leaves the engine (`docs/L3/engine/readout.md` §3). `features` **parses** this spelling
   (`cards.py`); it never imports the library that produced it.
 - **ASM-E2 — the history entry grammar.** A history entry is a plain `str` of one grammar and carries
-  no card (`docs/L3/engine/advance.md` §2): `"<street> seat <index> folds"`, `"… checks"`,
+  no card (`docs/L3/engine/history.md` §1): `"<street> seat <index> folds"`, `"… checks"`,
   `"… calls <amount>"`, `"… raises to <amount>"`. The encoding reads the **verb** (and checks the form's
   own shape) and carries neither the street, the seat nor the amount: a fifth form is refused by name
   (`history.py`, `flat-numeric.md` §5).

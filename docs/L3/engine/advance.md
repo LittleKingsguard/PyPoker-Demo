@@ -1,6 +1,6 @@
 # engine — advancing a hand
 
-- **Owner:** one applied action — the advance by copy, its justification against the rejected replay, and the public history each step appends
+- **Owner:** one applied action — the advance by copy, and its justification against the rejected replay (the history that step appends is `history.md`'s)
 - **Ceiling:** 70 lines. At the ceiling, split by owner — never append
 
 ## 1. Copy, never replay
@@ -40,7 +40,7 @@ re-applying the action list. Rejected on three independent grounds:
    (`hand.md` §2).
 
 Cost: measured, one `deepcopy` is about 0.1 ms per decision — well inside ASM-21’s 0.105–0.153 s
-per-hand band (`guardrails.md` G6).
+per-hand band (`cost.md` G6).
 
 Also rejected: mutating and returning the same handle. Every e2e case that keeps an earlier handle
 (`finished_hand`, `decision_walk`, the oracle’s mid-hand `equity`) depends on the old handle still
@@ -48,33 +48,9 @@ reading its own state.
 
 ## 2. The public history
 
-`Hand._history` is a tuple: **one entry per applied action and one only**, whatever the action, and
-however many `pokerkit` operations it caused internally (bet collection, board dealing, showdown
-setup — none of those is an applied action, `L2 surface.md` §7).
-
-An entry is a plain `str` of one grammar, built from the state *before* the step plus the operation’s
-own amount:
-
-    "<street> seat <index> folds"
-    "<street> seat <index> checks"                 # check_or_call with amount == 0
-    "<street> seat <index> calls <amount>"         # check_or_call with amount > 0
-    "<street> seat <index> raises to <amount>"     # complete_bet_or_raise_to
-
-`<amount>` is the chips added to the caller’s street bet for a call, and the total street bet level
-for a raise (the value `pokerkit` reports on the operation it returns). `<index>` is the **engine**
-seat (`hand.md` §3), never a `pokerkit` index.
-
-A card never appears in a history entry: the revealed cards are already in `board`, and a street
-change is visible both in the entry’s `<street>` and in `board`’s length. So the one-spelling rule of
-`readout.md` §3 binds `hole` and `board` only and cannot be broken through the history.
-
-Two records of one deal therefore compare through `history` alone, which is what FAM-16’s
-applied-action case and FAM-4’s reproducibility case read (`battery.md` §3, ASM-2).
-
-One consequence to name rather than discover: in heads-up a fold always ends the hand, and `readout`
-refuses a finished hand, so the `folds` entry is never observable through the entry points. It is built
-anyway — the grammar has no special case — and the fold is observable where it matters, as an episode
-decision and as the payoffs that follow it.
+`history.md` §1 owns this question — the one-entry rule, the entry grammar, the `<amount>` and
+`<index>` definitions and the heads-up fold note moved there whole when this file reached its
+ceiling. The number stays so every citation of `advance.md` §2 still resolves.
 
 ## 3. What the battery may assert
 
