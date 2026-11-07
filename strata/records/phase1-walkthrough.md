@@ -1,40 +1,39 @@
-# phase1 walkthrough — blind documentation pass (D-14) · run 3, 2026-11-06
+# phase1 walkthrough — blind documentation pass (D-14) · run 5, 2026-11-06
 
-Runner: a fresh agent, staged at `/tmp/wt3` as a listener's clone. Scenarios: 13 (the run-1/run-2
-twelve, plus the GPU scenario D-17 added). Verdict: **STALE**, but of a different kind from runs 1
-and 2 — **every one of the 13 steps completed from the documentation alone, and every documented
-command worked as written**. What remains is documentation that two earlier repairs did not finish.
+Runner: a fresh agent, staged at `/tmp/wt5` as a listener's clone. Scenarios: 13, unchanged across
+all five runs. Verdict: **STALE**, and the remaining findings are bookkeeping — every one of the 13
+steps completed from the documentation alone, every documented command worked as written, and the
+runner verified the shipped tree byte-identical (34 files, sha256 unchanged) after **both** the
+pytest battery and the `unittest` census. Substance is done; the docs disagree with the tree in
+three places.
 
-## What run 3 confirms as repaired
+## Confirmed working (run 5)
 
-Orientation and the reading order; the fixed game's parameters (2 seats, blinds 1/2, one blind
-level, stacks 20, bets 2/4, raise cap 4); dependencies and setup; the battery run rule (the five
-documented collection errors reproduce exactly); a redirected live R1 run (3,000 hands, 340 s,
-0.110–0.116 s/hand, shipped set md5-unchanged); the curves and how to read them; the live table
-(6 cells × 120 hands, 60/60 seats, 107.4 s) and two cells; the rating and its rank-versus-head-to-head
-rule; the shipped full table's provenance (`variant-1` untrained, 38,499 params); the notebook
-headless from `notebooks/` (exit 0, reproduces the shipped evidence digit for digit); the claims and
-refusals; a decision from a shipped checkpoint; and the GPU section, whose four commands all behaved
-exactly as documented (`rocminfo` exit 1 on the read-write open, `torch.cuda.is_available()` False,
-`devices()` listing `cpu`, `cuda` refused with `UnknownDevice`).
+Orientation and reading order; the fixed game's parameters; versions and imports; the battery run
+rule (219 pytest, 219 census, 13 batteries green, five documented collection errors); a redirected
+3,000-hand R1 run at 0.1051–0.1191 s/hand; curves and how to read them; a 720-hand live table in
+109.3 s with two cells read; the rating (+0.518 [0.345, 0.709]) and its rank-versus-head-to-head
+rule; the shipped full table's untrained membership and 0.1324 s/hand cost; the notebook headless
+(exit 0, reproducing the shipped evidence); the claims and refusals; a decision from a shipped
+checkpoint; and the whole GPU page, whose every command behaved as documented.
 
-## Findings (routed)
+## Findings
 
-| # | Finding | Owner |
-|---|---|---|
-| 1 | The cost repair stopped at L1: `docs/L2/evaluation/league.md` §5, `docs/L3/evaluation/tables.md` §1/§6 and `docs/L3/evaluation/declarations.md` still say 0.105–0.130 s/hand and ≈94 s, against the artefacts' own 0.153 s/hand and 110 s | L2/L3, via L1 |
-| 2 | `docs/L1/league.md` §7 claims both L1's own cost assumption and the brief's ASM-21 carry the wider band; ASM-21 did not until this pass amended it | L1 |
-| 3 | `docs/L1/gpu.md` §5 says no measured PyTorch figure exists; `strata/records/r2-speed.md`, the README and the documented R2 command all contradict it (0.0451–0.0453 s/hand, 2.45–2.46×) | L1 |
-| 4 | The R1 notebook, reached by `README.md` §Quickstart and `ladder.md` §7, rewrites all 33 shipped checkpoint files in place and says so nowhere; `getting-started.md` §4 warns only about the shell one-liner | L1 + `notebooks/` |
-
-Root cause, as the runner stated it: the repairs were **incomplete rather than the artefact wrong** —
-each stopped at the layer that authored the text, leaving every layer below it quoting the old
-number.
+| # | Finding | Owner | Disposition |
+|---|---|---|---|
+| F1 | `docs/L3/training/evidence.md` §2's `devices` row calls the bundle's `gpu.reason` "the superseded read-only probe's sentence"; the bundle now carries today's read-write sentence, because the evidence was regenerated after the probe was fixed | L3 training | routed |
+| F2 | Three L2/L3 documents cite "walkthrough finding 5" and `docs/L1/README.md` cites run 4's findings, but the record they point at was run 3's and no run-4 record was ever written; `strata/walkthrough.md` §7 replaces the record every run, so a citation by run number cannot stay true | L0 (record) + L1/L2/L3 (citation form) | record replaced by this one; the citing documents move to citing the **subject** rather than a run's finding number |
+| F3 | "Shipped" was stated two ways: the index names **18** artefacts (the retained five snapshots plus each seed's final) while the repository carried **33** `.ckpt` files (every snapshot), and `docs/L1/ladder.md` §7 called 33 "the shipped set's own" | L0 (tree) + L1/L3 (wording) | tree pruned to the index: 18 `.ckpt`, 0 unindexed, 0 missing, batteries green; the wording is routed |
 
 ## L0's own share
 
-`strata/brief.md` ASM-21 was the upstream defect for finding 1: it still carried a single 0.13 s
-scalar and ≈94 s. Amended this pass to the measured 0.105–0.153 band with the spread attributed to
-the oracle's per-decision equity sampling, so the layers now have one authoritative figure to quote.
+Both tree-side faults were mine. F3 is the visible one: I force-added every snapshot when first
+committing the checkpoint set, which made the repository disagree with its own index and with
+ASM-5's retention policy. Pruned to the 18 the index names, verified by walking `checkpoints/`
+against `training.checkpoints()` — `index entries 18, missing 0, unindexed 0` — and by
+`tests/training`, `tests/harness` and `tests/integration/training` (206 cases) afterwards.
 
-A unit is recommended as ready only on a `PASS` (D-14); this is a loop recommendation, not readiness.
+The citation lesson is also now a rule: a document cites the *finding's subject*, never "finding n
+of run k", because this file is replaced on every run (D-14, `strata/walkthrough.md` §7).
+
+A unit is recommended as ready only on a `PASS`; this remains a loop recommendation, not readiness.
