@@ -21,7 +21,10 @@ and the two hooks are idempotent (the first records the root in `PYPOKER_BATTERY
 neither writes into the repository's `checkpoints/` (`docs/L1/battery.md` §2,
 `docs/L3/harness/layout.md` §5, `docs/L2/training/write-root.md` §4). The battery imports
 nothing beyond the standard library and the six declared packages, so it stays collectable
-under either runner (`docs/L1/battery.md` §2).
+under either runner (`docs/L1/battery.md` §2). **The `-t .` is not optional**: without it
+discovery does not import this package, so the write-root hook never runs, the case set is not
+the battery's 219, and the run writes into the repository's `checkpoints/` instead of a private
+temporary root (`docs/L1/battery.md` §2).
 
 Every case is red before implementation exists. Each one reaches its first declared
 entry point through `_surface`, so an absent surface is one clear

@@ -59,7 +59,7 @@ scripts/run-all-tests.sh                    # every battery, one pytest run each
 .venv/bin/python -m pytest tests/e2e -q     # just the L1 end-to-end battery
 ```
 
-One battery per invocation is the supported form: a bare `pytest tests` cannot collect this tree, because sibling batteries reuse file basenames and each imports its own same-directory support module (`battery.md` §2). **A battery writes nothing under the repository's `checkpoints/`, whichever runner runs it**: each runner loads a hook that points the run's write root — `PYPOKER_CHECKPOINT_ROOT` — at a private temporary directory before any case runs and removes it at exit, so `pytest tests/e2e` and the `unittest` census alike leave your tree exactly as they found it (`battery.md` §2, D-8). Only a run you start deliberately writes the shipped layout (§4).
+One battery per invocation is the supported form: a bare `pytest tests` cannot collect this tree, because sibling batteries reuse file basenames and each imports its own same-directory support module (`battery.md` §2). **A battery writes nothing under the repository's `checkpoints/`, whichever runner runs it**: each runner loads a hook that points the run's write root — `PYPOKER_CHECKPOINT_ROOT` — at a private temporary directory before any case runs and removes it at exit, so `pytest tests/e2e` and the `unittest` census (spelled with its `-t .`, which is what makes discovery import the battery's package) alike leave your tree exactly as they found it (`battery.md` §2, D-8). Only a run you start deliberately writes the shipped layout (§4).
 
 ## 7. If you have a GPU
 

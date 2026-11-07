@@ -146,5 +146,5 @@ The census needs no guard: `tests/e2e/__init__.py` points the write root at a pr
     .venv/bin/python -m pytest tests/evaluation -q                                  # this design's unit battery
     .venv/bin/python -m pytest tests/integration/evaluation -q                      # the join battery
     .venv/bin/python -m pytest tests/e2e -q                                         # the L1 battery, read-only
-    .venv/bin/python -m unittest discover -s tests/e2e -t .                          # the L1 census, safe unguarded
+    .venv/bin/python -m unittest discover -s tests/e2e -t .                          # the L1 census; safe unguarded only in this -t . form
 `tests/e2e/` is read-only here: a case that disagrees with this design is a finding against the design or the case, never a file to edit (`battery.md` §2, `strata/examiner.md` §5).

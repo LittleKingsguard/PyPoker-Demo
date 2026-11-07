@@ -99,10 +99,10 @@ rung — it is `layout.md` §2's report to L2.
 
 ## 5. The session write root
 
-A battery writes checkpoints, so a documented runner loads a harness-owned hook (`module-map.md` §5) that sets
-`PYPOKER_CHECKPOINT_ROOT` to `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")` at import, before a case runs:
-`tests/conftest.py` under `pytest`, and `tests/e2e/__init__.py` under `unittest discover -s tests/e2e -t .`, which loads
-no conftest at all and imports that package before any case module (`battery.md` §2):
+A battery writes checkpoints, so a documented runner loads a harness-owned hook (`module-map.md` §5) setting
+`PYPOKER_CHECKPOINT_ROOT` to `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")` at import: `tests/conftest.py`
+under `pytest`, and `tests/e2e/__init__.py` under `unittest discover -s tests/e2e -t .`, the only form importing
+the package and so loading this hook before any case module — `unittest` loading no conftest (`battery.md` §2):
 
 - **unconditionally**, whatever the shell carries, because an inherited value must not send a battery's writes into
   `<repo>/checkpoints` — the walkthrough's defect, where running the batteries left `seed-4103`, `R2/` and `R4/` in a
