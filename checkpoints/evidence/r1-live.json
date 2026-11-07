@@ -1,19 +1,19 @@
 {
  "stages": {
   "run_R1_live": {
-   "seconds": 336.6196949639707
+   "seconds": 339.935722988972
   },
   "build_pool": {
-   "seconds": 1.1422031093388796e-05
+   "seconds": 1.1361960787326097e-05
   },
   "matrix_live": {
-   "seconds": 109.75157714902889
+   "seconds": 108.53024961898336
   },
   "rating": {
-   "seconds": 0.012767509033437818
+   "seconds": 0.01256761298282072
   },
   "report": {
-   "seconds": 0.00012858299305662513
+   "seconds": 0.0001083450042642653
   }
  },
  "errors": [],
@@ -850,21 +850,21 @@
    "naive-numeric": {
     "0": {
      "hands": 1000,
-     "wall_clock_seconds": 118.8716933989781,
-     "seconds_per_hand": 0.1188716933989781,
-     "hands_per_second": 8.412431685006993
+     "wall_clock_seconds": 117.6451933060307,
+     "seconds_per_hand": 0.11764519330603071,
+     "hands_per_second": 8.500134785776567
     },
     "1": {
      "hands": 1000,
-     "wall_clock_seconds": 105.74791891896166,
-     "seconds_per_hand": 0.10574791891896165,
-     "hands_per_second": 9.456450871305893
+     "wall_clock_seconds": 109.7647572629503,
+     "seconds_per_hand": 0.10976475726295029,
+     "hands_per_second": 9.110392305650707
     },
     "2": {
      "hands": 1000,
-     "wall_clock_seconds": 111.99859887303319,
-     "seconds_per_hand": 0.11199859887303319,
-     "hands_per_second": 8.928683126952743
+     "wall_clock_seconds": 112.52423350099707,
+     "seconds_per_hand": 0.11252423350099706,
+     "hands_per_second": 8.886974555495541
     }
    }
   },
@@ -1293,7 +1293,7 @@
    "table": "live"
   }
  },
- "run_wall_clock_seconds": 336.61821119097294,
+ "run_wall_clock_seconds": 339.9341840699781,
  "run_hands": 3000,
  "pool_versions": [],
  "pool_record": {
@@ -2235,7 +2235,7 @@
  "provenance": {
   "producer": "scripts/regenerate-evidence.py",
   "recipe": "docs/L3/training/evidence.md \u00a76",
-  "generated_utc": "2026-11-07T01:05:57Z",
+  "generated_utc": "2026-11-07T01:13:38Z",
   "source_digest": {
    "sha256": "9089ef9f802744381426cb183e1353425393e468e2a46b2fc481b992758bc955",
    "covered": "every `src/**/*.py` file plus `pyproject.toml`",
@@ -2299,7 +2299,7 @@
    ]
   },
   "git": {
-   "commit": "624df2eb994011a8bcd030cc9e289f2dfbf1dedb",
+   "commit": "1d3342b4476c0461d6fe548bcbf94f148248ffcd",
    "working_tree_dirty": true
   },
   "versions": {
