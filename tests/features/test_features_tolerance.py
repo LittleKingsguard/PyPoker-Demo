@@ -241,14 +241,16 @@ class FEA9Tolerance(S.FeaturesCase):
         )
         self.assert_ints(
             tokens[12:16], [76, 68, 88, 92],
-            "a pot of 1000, a to_call of 999, a bet size of 9 and 7 raises all have ids "
-            "(card-tokens.md §4)",
+            "a pot of 1000, a to_call of 999, a bet size of 9 and a bet-or-raise count "
+            "of 7 all have ids (card-tokens.md §4)",
         )
         flat = S.floats(F.encode(F.build_encoder(S.FLAT), record))
         self.assert_floats(flat[125:131], [500 / 20.0, 0.0, 1000 / 40.0, 999 / 20.0,
-                                           9 / 4.0, 7 / 3.0],
+                                           9 / 4.0, 7 / 4.0],
                            "the dense encoding divides by its fixed divisors and keeps the "
-                           "magnitude (flat-numeric.md §4)")
+                           "magnitude: the count's divisor is its own maximum of 4 under "
+                           "ASM-6's cap: 7 / 4.0 is 1.75 and is not clipped "
+                           "(flat-numeric.md §4, encodings.md §3)")
 
     def test_fea9_10_one_readout_and_one_encoder_are_reusable(self):
         """FEA-9.10 a readout reused across calls and an encoder held across calls are

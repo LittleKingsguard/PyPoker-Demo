@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-08
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-08
 - **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13) and what they cost
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -36,8 +36,8 @@ A cell's `seed` (`records.md` §9) is the seed its hands were dealt from, derive
 the pair's membership positions — not a key that replays the cell. `evaluation.match(a, b, hands, seed)`
 builds a **baseline** at the seed it is handed, while a table builds each baseline from the table seed and
 that baseline's position, so a cell with a baseline in it replayed from its recorded seed is a different
-cell and a different count (one measured replay read `51/3/66` where the cell recorded `57/3/60` — the cell-replay
-finding in `strata/records/phase1-walkthrough.md`).
+cell and a different count — one replay measured `51/3/66` where the cell recorded `57/3/60` — the replay rule
+`records.md` §9 carries (D-16, ASM-14).
 Two checkpoint members do replay from it, because a version is built at the seed its own checkpoint records
 either way. What always reproduces a cell is the table it came from: replay `evaluation.matrix(pool,
 [variant], "live")` over the same frozen pool, whose id and whose `table_seed` — one declared constant —

@@ -59,7 +59,7 @@ The override sits outside Python's call signature on purpose: one ambient fact p
 - **Every battery session, whichever runner.** `tests/conftest.py` under `pytest` and `tests/e2e/__init__.py` under the
   `unittest` census — both `harness`-owned (`module-map.md` §5) — set `PYPOKER_CHECKPOINT_ROOT` to a private
   `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")`, **unconditionally**, recording the one root in the
-  battery-only `PYPOKER_BATTERY_ROOT` so the second hook declines; it goes at exit (`docs/L3/harness/layout.md` §5, the write-root finding in `strata/records/phase1-walkthrough.md`, D-13).
+  battery-only `PYPOKER_BATTERY_ROOT` so the second hook declines; it goes at exit (`docs/L1/battery.md` §2 owns that rule, `docs/L3/harness/layout.md` §5 the mechanism, ASM-18, D-13).
 - **A reader, on one command line** — the one-liner `docs/L1/getting-started.md` §4 carries, citing this file's §3–§4 (D-13):
 
       PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run PYTHONPATH=src .venv/bin/python -c "import training; print(training.run('R1')['checkpoints'])"

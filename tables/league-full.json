@@ -77,20 +77,20 @@
         "hands": 1500,
         "directions": [
           {
-            "wins": 676,
+            "wins": 679,
             "ties": 36,
-            "losses": 788,
-            "mean_chip_delta": -0.19666666666666666,
+            "losses": 785,
+            "mean_chip_delta": -0.158,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
             }
           },
           {
-            "wins": 788,
+            "wins": 785,
             "ties": 36,
-            "losses": 676,
-            "mean_chip_delta": 0.19666666666666666,
+            "losses": 679,
+            "mean_chip_delta": 0.158,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
@@ -112,20 +112,20 @@
         "hands": 1500,
         "directions": [
           {
-            "wins": 744,
-            "ties": 2,
-            "losses": 754,
-            "mean_chip_delta": 0.020666666666666667,
+            "wins": 739,
+            "ties": 4,
+            "losses": 757,
+            "mean_chip_delta": -0.06333333333333334,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
             }
           },
           {
-            "wins": 754,
-            "ties": 2,
-            "losses": 744,
-            "mean_chip_delta": -0.020666666666666667,
+            "wins": 757,
+            "ties": 4,
+            "losses": 739,
+            "mean_chip_delta": 0.06333333333333334,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
@@ -221,20 +221,20 @@
         "hands": 1500,
         "directions": [
           {
-            "wins": 817,
-            "ties": 42,
-            "losses": 641,
-            "mean_chip_delta": 0.6493333333333333,
+            "wins": 813,
+            "ties": 43,
+            "losses": 644,
+            "mean_chip_delta": 0.6173333333333333,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
             }
           },
           {
-            "wins": 641,
-            "ties": 42,
-            "losses": 817,
-            "mean_chip_delta": -0.6493333333333333,
+            "wins": 644,
+            "ties": 43,
+            "losses": 813,
+            "mean_chip_delta": -0.6173333333333333,
             "seat_split": {
               "seat 0": 750,
               "seat 1": 750
@@ -288,37 +288,37 @@
   "rating": {
     "values": {
       "random": {
-        "value": -0.1693798126051863,
+        "value": -0.16835016406741055,
         "interval": [
-          -0.2042400442065048,
-          -0.128011017629923
+          -0.20439036415622855,
+          -0.12401581536985347
         ],
         "hands": 4500,
         "bounded": false
       },
       "always-call": {
-        "value": 0.09847062916409549,
+        "value": 0.10013630594851897,
         "interval": [
-          0.055395543823965304,
-          0.13493049351274106
+          0.06044880287989218,
+          0.13751874985561727
         ],
         "hands": 4500,
         "bounded": false
       },
       "oracle": {
-        "value": 0.07090918344109082,
+        "value": 0.06821385811889158,
         "interval": [
-          0.03642516540338712,
-          0.11373327401332052
+          0.034081095453888585,
+          0.11130557461327695
         ],
         "hands": 4500,
         "bounded": false
       },
       "variant-1": {
-        "value": -0.17744645188086883,
+        "value": -0.17070229123035396,
         "interval": [
-          -0.23646101809592227,
-          -0.13074320320318913
+          -0.2290403657140172,
+          -0.11541831890383358
         ],
         "hands": 4500,
         "bounded": false
@@ -405,9 +405,9 @@
   },
   "cost": {
     "hands": 9000,
-    "seconds_per_hand": 0.13237430744532805,
-    "hands_per_second": 7.554336028636148,
-    "wall_clock_seconds": 1191.3687670079526,
+    "seconds_per_hand": 0.1315770103466671,
+    "hands_per_second": 7.600111884023593,
+    "wall_clock_seconds": 1184.193093120004,
     "device": "cpu",
     "measured": true
   }

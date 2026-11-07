@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 end-to-end I/O surface
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-05
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
 - **Purpose:** the entry points the L1 e2e battery drives, named precisely enough to call (brief §5)
 - **Ceiling:** 160 lines. At the ceiling, split by owner — never append
 
@@ -25,7 +25,7 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 | `stacks` | both seats' remaining chips |
 | `pot` | chips already committed to the pot |
 | `to_call` | chips the acting seat must add to continue |
-| `limit` | the fixed bet size in force and the raises made this street |
+| `limit` | the fixed bet size in force and the bet-or-raise actions made this street — 0 to 4, the cap in bet-and-raise actions of ASM-6, not a count of raises after an opening bet |
 | `history` | the ordered public actions of this hand |
 | `legal` | the legal action descriptors, in the engine's order |
 

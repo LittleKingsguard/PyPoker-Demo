@@ -116,8 +116,11 @@ make that choice: L2 fixes its slot order (`encodings.md` §3).
 small bet `2` (preflop and flop), `87` the big bet `4` or a size just below it (3–4, the turn and river),
 `88` a size above the big bet (5 or more).
 
-`limit`, token 2 — the raises made this street, ids 89–92: `89` none, `90` one, `91` two, `92` three or
-more (the ASM-6 cap is three raises after the opening bet, so `92` is the cap and any excess).
+`limit`, token 2 — the bet-or-raise actions made this street, ids 89–92: `89` none, `90` one, `91` two,
+`92` three or more. ASM-6's cap is four such actions a street — post-flop the opening bet plus three
+raises, pre-flop four raises after the posted blind, five bet levels, the posted blind never counted —
+so `92` catches 3, 4 and any excess, and the ladder stays total. The ids, the shape `(40,)` and the
+vocabulary `96` do not move.
 
 ## 5. The history block
 
@@ -134,7 +137,7 @@ reasons `flat-numeric.md` §5 gives: they are other blocks, or not facts of the 
 ## 6. The vocabulary is 96, and nothing may leave it
 
     pad 1 (id 0) + cards 52 (1–52) + streets 4 (53–56) + seat 4 (57–60) + to_call 8 (61–68)
-      + pot 8 (69–76) + stacks 8 (77–84) + bet size 4 (85–88) + raises 4 (89–92)
+      + pot 8 (69–76) + stacks 8 (77–84) + bet size 4 (85–88) + bet-or-raise 4 (89–92)
       + history 3 (93–95)  =  96 ids, 0–95
 
 `observation_spec`'s `vocabulary` declares `96` and `agents` sizes an embedding table from it

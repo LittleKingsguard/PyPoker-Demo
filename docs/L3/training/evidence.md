@@ -41,43 +41,44 @@ on another machine, and evidence that reproduces only where it was made is not e
 | `rating` | `records.md` §11's Bradley-Terry rating over that matrix (`records.md` §11, `league.md` §5) |
 | `report_families` | the twelve key names of the report `evaluation.report` assembled, sorted, and none added: the seven families of `protocol.md` §1 plus the five facts beside them (`protocol.md` §1, `records.md` §13) |
 | `report` | `report`'s record key for key: the five facts first, then the seven families of `protocol.md` §1 in order — twelve keys, `matrix` and `rating` included (`records.md` §13) |
-| `index_summary` | `checkpoints()` read once: `shipped`, `pending`, the entry count and whether every entry's file exists (`checkpoints.md` §4–§5) |
+| `index_summary` | `checkpoints()` read once: `shipped` and `pending` from §4's rows of those names, then the entry count and whether every entry's file exists — `entries` as a count, `all_exist` and `index_missing` the **producer's own composition** (§6 step 7), no index key among them (`checkpoints.md` §4 `shipped`, `pending`; §5) |
 | `index_missing` | the entries `checkpoints()` names that the repository does not carry; `[]` is the shipped set being complete (`checkpoints.md` §5, FAM-12.5) |
 | `provenance` | the build the file came from, readable from the file alone: `producer`, `recipe`, `generated_utc`, `source_digest` (sha256, covered set, recipe, `file_count`, `files`), `git` (`commit`, `working_tree_dirty`), `versions` (python, numpy, pokerkit), `environment` (`PYTHONHASHSEED`), `device` and the `entry_points` called; `"unavailable"` where git cannot answer (§3, §6) |
 
 ## 3. What the shipped file holds
 
-The measurement is the file's, and a reader takes it from there rather than from any prose (`protocol.md` §2): every figure below is **one generation's** — commit `1d3342b4476c0461d6fe548bcbf94f148248ffcd`, `generated_utc` `2026-11-07T01:13:38Z` — and a regeneration moves every one, so a reader of a later build reads the file and not this page.
+The measurement is the file's, and a reader takes it from there rather than from any prose (`protocol.md` §2): every figure below is **one generation's** — commit `98c9bb38dfdc352132e2987c23fc07238ee5fd4d`, `generated_utc` `2026-11-07T06:22:40Z` — and a regeneration moves every one, so a reader of a later build reads the file and not this page. That generation was written from a working tree at that commit, with `working_tree_dirty` true — the encoding correction this round made was uncommitted when the bundle was produced — and its `source_digest` (`a5ceb419…`, 54 files) is taken over that working tree's `src/` and `pyproject.toml`, so the figures are attributable to the source they were built from and not to that commit's contents (`protocol.md` §2, §5).
 
 - **The run**: seeds `0, 1, 2` at 1,000 hands per variant per seed — 3,000 hands in `run_wall_clock_seconds`
-  339.9341840699781 s, the seeds' sum and never the call's, at 0.11764519330603071, 0.10976475726295029 and
-  0.11252423350099706 s per hand for seeds 0, 1 and 2; `run.curves["naive-numeric"]` is the axis `100 … 1,000` with
+  338.5215066120727 s, the seeds' sum and never the call's, at 0.11952304522803751, 0.10944006085599539 and
+  0.10955840052803978 s per hand for seeds 0, 1 and 2; `run.curves["naive-numeric"]` is the axis `100 … 1,000` with
   the three seeds' `td_error` series and the one spread (`run.timings`, `curves.md` §2–§4, ASM-21, ASM-8).
-- **The stages**: `run_R1_live` 339.935722988972 s, `build_pool` 1.1361960787326097e-05 s, `matrix_live` 108.53024961898336 s
-  over those 720 hands (0.1507 s/hand), `rating` 0.01256761298282072 s, `report` 0.0001083450042642653 s, `errors` `[]` (`records.md` §12, ASM-15).
+- **The stages**: `run_R1_live` 338.522867385007 s, `build_pool` 1.1010968592017889e-05 s, `matrix_live` 108.30009765701834 s
+  over those 720 hands (0.1504 s/hand), `rating` 0.012341816967818886 s, `report` 0.00010810495587065816 s, `errors` `[]` (`records.md` §12, ASM-15).
 - **The pool**: `pool-bcbea031cb617939`, `m` 5, `frozen`, the three pinned baselines and no version — R1 inherits no
   lineage and trains against `league.md` §2's baselines-only pool, so `pool_versions` `[]` (`records.md` §8, `registry.md` §3).
 - **The table**: four members — `random`, `always-call`, `oracle`, `variant-1` — six cells at 120 hands each, seats
   alternating 60/60 in every cell, table seed `20261105` (`records.md` §10, `league.md` §6, D-16). Its widest cell is
-  `random`–`variant-1` 9/0/111 against the mirror's 111/0/9 (−4.833333333333333 / +4.833333333333333). `variant-1` is
+  `random`–`variant-1` 8/0/112 against the mirror's 112/0/8 (−5.066666666666666 / +5.066666666666666). `variant-1` is
   the trained seed-0 final model of `naive-numeric`, loaded by `evaluation.policy_from`; it is **not** the untrained
   learner `tables/league-full.json` names by the same id (L1 `league.md` §8).
-- **The rating**: Bradley-Terry, anchored on the three baselines' mean at zero, 360 hands per member, converged in 29
+- **The rating**: Bradley-Terry, anchored on the three baselines' mean at zero, 360 hands per member, converged in 30
   iterations over 200 bootstrap resamples at `bootstrap_seed` 1609833776 (`records.md` §11, ASM-17): `random`
-  −0.32883650535109454 [−0.48104125475526555, −0.17045670560387302], `always-call` 0.18572816494167615
-  [0.039323780873805045, 0.3477999350799521], `oracle` 0.14310834040941836 [0.0026486280426915336, 0.27859514028563104],
-  `variant-1` 0.5182078734126888 [0.3445550910139468, 0.7087477222264041].
-- **The report and the index**: `protocol.md` §1 fixes seven families; twelve keys are those seven plus five facts; eighteen entries (`shipped`
-  `["R1"]`, `pending` `R2 … R6`), all on disk — `all_exist` true, `index_missing` `[]` (`checkpoints.md` §4–§5, FAM-12.5).
+  −0.3351310579148503 [−0.4878074353695099, −0.17651216876450093], `always-call` 0.1888958461471999
+  [0.044522358924820885, 0.35196116365330854], `oracle` 0.14623521176765042 [0.005688501074465833, 0.28198141970703006],
+  `variant-1` 0.5305232425642988 [0.35622155210160356, 0.7218225753504519].
+- **The report and the index**: `protocol.md` §1 fixes seven families; twelve keys are those seven plus five facts; eighteen entries
+  (`shipped` `["R1"]`, `pending` `R2 … R6` — §4's `shipped` and `pending` rows), all on disk — `all_exist` true, `index_missing`
+  `[]` (`checkpoints.md` §5, which owns the shipped set and the existence question; FAM-12.5).
 - **`r2_pool` holds R2's fifteen versions, and the regeneration closed that defect**: `pool-adc21204b5fef725` over
   `R1/naive-numeric/seed-{0,1,2}/step-{0600,0700,0800,0900,1000}`, because `registry._window` resolves a declared path
   through `layout._resolve` from the repository root (`checkpoints.md` §2, `registry.md` §3, `protocol.md` §5).
 - **The `spread` array is the statistic**: at all ten points it is the max minus the min of that variant's three
   `td_error` series to twelve places (largest absolute gap 0.0), so it is quotable as a run record's repetition (`curves.md` §4, FAM-4.8).
 - **`provenance` is the file's own record of the build it came from**: producer `scripts/regenerate-evidence.py`,
-  recipe `docs/L3/training/evidence.md §6`, `generated_utc` `2026-11-07T01:13:38Z`, `source_digest` sha256
-  `9089ef9f802744381426cb183e1353425393e468e2a46b2fc481b992758bc955`, 54 files (`src/**/*.py`, `pyproject.toml`),
-  `git` `1d3342b4476c0461d6fe548bcbf94f148248ffcd` with the tree dirty, python 3.12.3 / numpy 2.5.4 / pokerkit 0.7.7,
+  recipe `docs/L3/training/evidence.md §6`, `generated_utc` `2026-11-07T06:22:40Z`, `source_digest` sha256
+  `a5ceb419300b3f445cf6f6da205232b0b8886c5aa7b972a9f9f59873f83fa145`, 54 files (`src/**/*.py`, `pyproject.toml`),
+  `git` `98c9bb38dfdc352132e2987c23fc07238ee5fd4d` with `working_tree_dirty` true, python 3.12.3 / numpy 2.5.4 / pokerkit 0.7.7,
   `environment` `{"PYTHONHASHSEED": "0"}`, `device` `cpu` and the eleven entry points called — so whether the file is
   current is read from the file (§6, `protocol.md` §5).
 

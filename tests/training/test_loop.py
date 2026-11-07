@@ -433,8 +433,9 @@ class RunTest(TrainingCase):
                             or absolute.startswith(declared + os.sep),
                             "the write root differs from the declared <repo>/checkpoints "
                             "root (%r against %r), so no artefact of this run may lie "
-                            "under the shipped tree — the walkthrough's finding 5 as an "
-                            "assertion (write-root.md §1, §3, checkpoints.md §5): %r"
+                            "under the shipped tree — a battery writes nowhere under "
+                            "`checkpoints/`, whichever runner runs it "
+                            "(battery.md §2, write-root.md §1, §3, checkpoints.md §5): %r"
                             % (root, declared, absolute),
                         )
 

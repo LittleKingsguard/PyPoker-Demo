@@ -89,7 +89,7 @@ argument — is `docs/L2/features/surface.md` §1 and is not restated here.
 | `stacks` | `tuple[int, int]`: chips behind, seat order |
 | `pot` | `int`: includes the current street's bets; `pot + sum(stacks) == 40` at every decision |
 | `to_call` | `int`: 0 when the acting seat may check, never more than its own stack |
-| `limit` | `tuple[int, int]`: the bet size in force (2 or 4), the raises made this street (0–3) |
+| `limit` | `tuple[int, int]`: the bet size in force (2 or 4), the bet-or-raise actions made this street (0–4, the cap of ASM-6) |
 | `history` | `list[str]`: oldest first, empty before the first action, at most 23 entries |
 | `legal` | `tuple[str, ...]`: carried by the readout and **not** carried by an observation |
 

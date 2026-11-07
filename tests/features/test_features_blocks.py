@@ -269,19 +269,21 @@ class FEA4FlatBlocks(S.FeaturesCase):
                     values[128:129], [to_call / 20.0], "the to_call block of %r" % (to_call,),
                 )
 
-    def test_fea4_11_the_limit_block_is_the_bet_size_over_4_and_the_raises_over_3(self):
-        """FEA-4.11 the limit block is [the bet size in force / 4, the raises this street /
-        3] (flat-numeric.md §4, encodings.md §3)."""
+    def test_fea4_11_the_limit_block_is_the_bet_size_over_4_and_the_bet_or_raise_count_over_4(self):
+        """FEA-4.11 the limit block is [the bet size in force / 4, the bet-or-raise actions made
+        this street / 4]: the count takes 0-4 under ASM-6's cap of four such actions a street,
+        which is its own maximum, so the slot spans 0.0-1.0 and needs no clip
+        (flat-numeric.md §4, encodings.md §3)."""
         F = self.surface()
         encoder = F.build_encoder(S.FLAT)
-        for bet, raises in ((2, 0), (2, 3), (4, 0), (4, 1), (4, 3)):
-            with self.subTest(bet=bet, raises=raises):
+        for bet, count in ((2, 0), (2, 3), (2, 4), (4, 0), (4, 1), (4, 3), (4, 4)):
+            with self.subTest(bet=bet, count=count):
                 values = S.floats(
-                    F.encode(encoder, S.readout(limit=(bet, raises)))
+                    F.encode(encoder, S.readout(limit=(bet, count)))
                 )
                 self.assert_floats(
-                    values[129:131], [bet / 4.0, raises / 3.0],
-                    "the limit block of (%r, %r)" % (bet, raises),
+                    values[129:131], [bet / 4.0, count / 4.0],
+                    "the limit block of (%r, %r)" % (bet, count),
                 )
 
     def test_fea4_12_the_first_block_writes_the_street_and_the_last_the_history(self):

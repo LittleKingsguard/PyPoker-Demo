@@ -62,16 +62,16 @@ L3's (§8), and a caller reads the array through `shape`, `dtype` and indexing a
 | `stacks` | 2 | the acting seat's stack then the other's, each divided by 20 |
 | `pot` | 1 | divided by the 40 chips a hand begins with (`engine/environment.md` §1) |
 | `to_call` | 1 | divided by 20 |
-| `limit` | 2 | the bet size in force divided by 4, and the raises this street divided by 3 |
+| `limit` | 2 | the bet size in force divided by 4, and the bet-or-raise actions this street divided by 4 — the count's own maximum, so the slot spans 0.0–1.0 and no clip is needed |
 | `history` | 72 | 24 slots of 3: a one-hot over fold, check/call and raise, one slot per applied action; a slot past the history's end is all zeros |
 
 - The total is 203. The width is a fixed and modest vector by construction, so the budget of ASM-10 is
   reachable over it — but the budget is measured by `agents.param_count` on a learner, and this module
   asserts no width, architecture or parameter count of its own (`module-map.md` §3, ASM-10).
-- 24 history slots are enough for any hand: under ASM-6's cap of four bets a street a post-flop street
+- 24 history slots are enough: under ASM-6's cap of four bet-or-raise actions a street, a post-flop street
   holds at most six applied actions — a check, the opening bet, three raises and a call — and the pre-flop
-  street at most five, so a hand holds at most 3 × 6 + 5 = 23. The history is therefore carried whole, no
-  truncation rule is needed, and the encoding stays a pure function of the readout (`e2e-surface.md` §2, ASM-6).
+  street at most five, so a hand holds at most 3 × 6 + 5 = 23; the history is therefore carried whole, no
+  truncation rule needed, and the encoding stays a pure function of the readout (`e2e-surface.md` §2, ASM-6).
 
 ## 4. `card-tokens` — one integer token sequence
 
@@ -90,7 +90,7 @@ embedding's vocabulary (§1, §6).
 | `to_call` | 1 | 61–68 | a bucket of the amount to call; `61` is the zero amount, its own id and never the pad, because it is the boundary between checking and folding (`engine/surface.md` §2) |
 | `pot` | 1 | 69–76 | a bucket of the pot |
 | `stacks` | 2 | 77–84 | a bucket of each seat's stack |
-| `limit` | 2 | 85–88, 89–92 | the bet size in force, and the raises this street |
+| `limit` | 2 | 85–88, 89–92 | the bet size in force, and the bet-or-raise actions this street |
 | `history` | 24 | 93–95, and the pad `0` | one id per applied action — fold, check/call or raise — and the pad past the history's end |
 
 - The token count is 40 — `hole` 2, `board` 5, `street` 1, `seat` 2, `to_call` 1, `pot` 1, `stacks` 2,
@@ -121,8 +121,8 @@ internals (`module-map.md` §2, D-13):
 - `stacks` is one number per seat in seat order, `pot` and the two stacks partition the 40 chips a hand
   begins with, and `to_call` is never more than the acting seat's own stack (`engine/environment.md` §1,
   §2);
-- `limit` gives the bet size in force — 2 or 4 — and the raises made this street, 0 to 3 under the cap
-  (ASM-6, `engine/environment.md` §2);
+- `limit` gives the bet size in force — 2 or 4 — and the bet-or-raise actions made this street, 0 to 4 under
+  the cap of four such actions (ASM-6, `e2e-surface.md` §2, `engine/environment.md` §2);
 - `history` is an ordered list, the empty list before the first action and one entry per applied action,
   and at most 23 entries can occur under the raise cap (ASM-6); an entry prints stably, denotes the action
   that was applied, and is spelled by the engine's own grammar — street, seat, verb, amount — so this

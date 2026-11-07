@@ -87,25 +87,25 @@ passes lie end to end in the seed set's order, which is how a 15-version declara
 
 ## 4. `checkpoints()` — declared data, never a directory scan
 
-`checkpoints()` returns one mapping, read under two keys (`surface.md` §7):
+`checkpoints()` returns one mapping of eight keys, each one declared and never scanned (`surface.md` §7):
 
-| Key | Content |
-|---|---|
-| `entries` | one ordered list; **each entry one artefact**, listed once |
-| `shipped` | the rung names whose runs exist — `["R1"]` today |
+| Key | Content | Key | Content |
+|---|---|---|---|
+| `format` | the mapping's own name: `"pypoker-training-checkpoint-index"` | `version` | its schema number: `1` |
+| `root` | `checkpoints`: §1's **declared** root, spelled `_relative` from the repository root, so a redirected run's write root never moves it (`write-root.md` §2) | `shipped` | the rung names whose runs exist — `["R1"]` today |
+| `pending` | the rung names whose runs do **not** exist — `["R2", "R3", "R4", "R5", "R6"]` today, which is also why every path `entries` names is a file (§5) | `entries` | one ordered list; **each entry one artefact**, listed once |
+| `successor` | each rung's successor and no rung left out: `R1`→`R2` … `R5`→`R6`, `R6`→`None` (`ladder.md` §2, ASM-16) | `windows` | per shipped rung's primary variant, the retained window its successor inherits: `rung`, `retained`, `seeds`, `inherited_by` (`registry.md` §3) |
 
 One entry is a `records.md` §7 record extended with `kind`:
 
     {"id", "path", "rung", "variant", "seed", "step", "samples", "lineage", "kind"}
 
 - `id` — `"<rung>/<variant>/seed-<seed>/step-<step:04d>"` for a snapshot and `"<rung>/<variant>/seed-<seed>/final"` for a final
-  model: stable across tables, unique within the index, and containing none of the three baseline names (`records.md` §7,
-  `league.md` §2).
+  model: stable across tables, unique within the index, and containing none of the three baseline names (`records.md` §7, `league.md` §2).
 - `path` — §2's spelling, the artefact the entry names and no other.
 - `step` and `samples` — both the hands trained when the artefact was written: the loop trains one hand and learns once, so a
   snapshot's step and its sample count are the same integer and the file name carries it (`records.md` §7, `loop.md` §1 step 7).
-- `kind` — `"snapshot"` or `"final"`, which is what lets a window be read as the snapshot entries alone (`registry.md` §3).
-- `lineage` — §3's chain.
+- `kind` — `"snapshot"` or `"final"`, what lets a window be read as the snapshot entries alone (`registry.md` §3); `lineage` — §3's chain.
 
 **Order.** Rung in brief §2's order, then variant in `registry.md` §1's declaration order, then seed ascending, then step
 ascending, then that pair's `final`. Ordering is by the declaration and never by a directory listing, so two calls return equal
@@ -141,7 +141,7 @@ budget's end and are two files, so naming both is not a repeat), so no artefact 
 - **A battery writes into a temporary root, so this shipped set is never added to and never overwritten.** The battery's
   two hooks — `tests/conftest.py` under `pytest`, `tests/e2e/__init__.py` under the `unittest` census — point
   `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp` per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so
-  the eighteen artefacts above are as the shipped run left them (`battery.md` §2, the write-root finding in `strata/records/phase1-walkthrough.md`).
+  the eighteen artefacts above are as the shipped run left them (`battery.md` §2 owns that rule, ASM-18 names the eighteen).
 
 ## 6. What is left to L4
 

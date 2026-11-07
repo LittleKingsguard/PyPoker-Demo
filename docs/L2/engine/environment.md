@@ -30,9 +30,14 @@ ten keys (D-3, `battery.md` §3 FAM-2):
 | `stacks` | one number per seat in seat order: the chips that seat holds behind (`e2e-surface.md` §2, `battery.md` §3 FAM-2) |
 | `pot` | one number: the chips both seats have committed, the current street's bets included (`e2e-surface.md` §2, `battery.md` §3 FAM-2) |
 | `to_call` | one number: the chips the acting seat must add to continue, 0 when it may check for nothing, and never more than its own stack, which bounds a call for less (`e2e-surface.md` §2, `battery.md` §3 FAM-16) |
-| `limit` | the fixed bet size in force and the raises made so far on this street; a posted blind is not a raise, so a street's first decision reads none made, and a caller reads the bet size numerically (2 on the preflop and the flop, 4 on the turn and the river) (`e2e-surface.md` §2, ASM-6) |
+| `limit` | the fixed bet size in force and **the bet-or-raise actions made so far on this street** — 0 to 4 under the cap of ASM-6; a posted blind is not one of them, so a street's first decision reads none made, and a caller reads the bet size numerically (2 on the preflop and the flop, 4 on the turn and the river) (`e2e-surface.md` §2, ASM-6) |
 | `history` | a list of this hand's public actions, one per applied action, printing stably so two records of one deal compare, and empty — the empty list — before the first one (`e2e-surface.md` §2, `battery.md` §3 FAM-16) |
 | `legal` | the ordered descriptors `legal_actions` returns for the same hand, in the same order (`e2e-surface.md` §2) |
+
+The second `limit` entry is a count of **bet-or-raise actions** — a completion, a bet or a raise — and never of
+raises after an opening bet: ASM-6's cap is four such actions a street, the opening bet plus three raises on a
+post-flop street and four raises after the posted blind pre-flop, five bet levels, and the posted blind is never
+one of them, which is why a street's first decision reads `limit[1] == 0` (`e2e-surface.md` §2, ASM-6).
 
 A card is a value that names a rank and a suit, compares by value and prints stably; one spelling is
 used in `hole`, in `board` and in `history`, and which spelling that is is L3's (D-1, `e2e-surface.md` §2).

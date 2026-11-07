@@ -27,7 +27,7 @@ widths. What L3 fixes is the **order** of the blocks, the **slot order inside** 
 | 5 | `stacks` | 125 | 2 | `stacks-scaled`, ÷20 | `(stacks, seat)` | the acting seat's stack, then the other's |
 | 6 | `pot` | 127 | 1 | `amount-scaled`, ÷40 | `(pot,)` | the pot |
 | 7 | `to_call` | 128 | 1 | `amount-scaled`, ÷20 | `(to_call,)` | the amount to call |
-| 8 | `limit` | 129 | 2 | `limit-scaled`, ÷4 ÷3 | `(limit,)` | the bet size in force, the raises this street |
+| 8 | `limit` | 129 | 2 | `limit-scaled`, ÷4 ÷4 | `(limit,)` | the bet size in force, the bet-or-raise actions this street |
 | 9 | `history` | 131 | 72 | `history-onehot`, 24 slots | `(history,)` | 24 slots of 3, one per applied action |
 
 The widths sum to the declared shape, and each offset is the sum of the widths before it:
@@ -71,7 +71,7 @@ a range fitted from data:
 | the pot | 40 — the chips a hand begins with | 3–40 | 0.075–1.0 |
 | `to_call` | 20 | 0–20 | 0.0–1.0 |
 | the bet size in force | 4 — the big bet | 2 or 4 | 0.5 or 1.0 |
-| the raises this street | 3 — the raise cap less the opening bet | 0–3 | 0.0–1.0 |
+| the bet-or-raise actions this street | 4 — the cap of ASM-6, and the count's own maximum | 0–4 | 0.0–1.0 |
 
 Rejected: min-max scaling over the values a run happens to see (it would make the encoding a function
 of the data, not of the readout, so two runs of one seed would differ — ASM-2, `surface.md` §6), and
@@ -99,11 +99,11 @@ guessing would silently mislabel an action. The entry's street, seat and amount 
 street is its own block, the seat is its own block, and the amount of a past action is not a fact the
 readout carries anywhere else, so carrying it here would add a tenth fact (`encodings.md` §2).
 
-24 slots is enough and needs no truncation rule: the raise cap of ASM-6 makes a hand at most
-`3 × 6 + 5 = 23` applied actions (`encodings.md` §3). The refusal threshold is therefore **24**, the
-block's capacity, and not 23, the hand's maximum: a 24-entry history is representable (no hand produces
-one) and is accepted, and a 25th entry is refused rather than truncated — a truncation would silently
-drop the fact that broke the rule.
+24 slots is enough and needs no truncation rule: ASM-6's cap of four bet-or-raise actions a street
+makes a hand at most `3 × 6 + 5 = 23` applied actions (`encodings.md` §3). The refusal threshold is
+therefore **24**, the block's capacity, and not 23, the hand's maximum: a 24-entry history is
+representable (no hand produces one) and is accepted, and a 25th entry is refused rather than
+truncated — a truncation would silently drop the fact that broke the rule.
 
 ## 6. What is refused, and what is not
 

@@ -54,7 +54,7 @@ STACK_DIVISOR = 20           # the chips a seat begins a hand with
 POT_DIVISOR = 40             # the chips a hand begins with
 TO_CALL_DIVISOR = 20
 BET_DIVISOR = 4              # the big bet
-RAISE_DIVISOR = 3            # the raise cap less the opening bet
+RAISE_DIVISOR = 4            # the cap of bet-or-raise actions a street (ASM-6)
 
 
 def _table(rows):

@@ -1,8 +1,8 @@
 """HRN-9 — the battery's write root is private under both runners, and its two hooks are harness-owned.
 
 Drives `docs/L3/harness/layout.md` §5, `docs/L2/training/write-root.md` §3-§4 and
-`docs/L1/battery.md` §2, and closes `strata/records/phase1-walkthrough.md` finding 5 plus the
-run-4 finding against the documented census: the two hooks a documented runner loads —
+`docs/L1/battery.md` §2, and holds that write rule and ASM-18's eighteen shipped artefacts
+against the documented census: the two hooks a documented runner loads —
 `tests/conftest.py` under `pytest`, and `tests/e2e/__init__.py` under
 `unittest discover -s tests/e2e -t .`, which loads no conftest at all — set
 `PYPOKER_CHECKPOINT_ROOT` to a private `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")`
@@ -44,7 +44,7 @@ ROOT_VARIABLE = "PYPOKER_CHECKPOINT_ROOT"
 ROOT_PREFIX = "pypoker-battery-checkpoints-"
 
 #: `<repo>/src`: the one path the conftest puts on `sys.path`, exactly once — the outcome
-#: `layout.md` §5 fixes, and not a position (`module-map.md` §5, finding 5).
+#: `layout.md` §5 fixes, and not a position (`module-map.md` §5, `battery.md` §2).
 SRC_PATH = os.path.join(REPO_ROOT, "src")
 
 #: The one package the child imports by its bare name to show the `sys.path` entry is
@@ -64,7 +64,7 @@ MARKER_VARIABLE = "PYPOKER_BATTERY_ROOT"
 #: The child: load the conftest the way pytest does (importlib, never `runpy`), snapshot
 #: `sys.path` and the six packages straight after the load, then import one of the six by its
 #: bare name — and report all of it on one JSON line, so a failure names its reason instead of
-#: an opaque traceback (layout.md §5, module-map.md §5, finding 5).
+#: an opaque traceback (layout.md §5, module-map.md §5, battery.md §2).
 CHILD = """\
 import importlib, importlib.util, json, os, sys
 spec = importlib.util.spec_from_file_location("conftest_probe", %(conftest)r)
@@ -200,7 +200,7 @@ class SessionRootTest(unittest.TestCase):
             )
 
     def test_hrn_9_1_the_override_is_unconditional_and_the_root_is_outside_the_repository(self):
-        """HRN-9.1 with `PYPOKER_CHECKPOINT_ROOT` already set to `<repo>/checkpoints`, the child's value is an absolute `pypoker-battery-checkpoints-*` directory that exists and is not inside the repository — the override is unconditional (layout ¶5, write-root §3-§4, battery §2, finding 5)."""
+        """HRN-9.1 with `PYPOKER_CHECKPOINT_ROOT` already set to `<repo>/checkpoints`, the child's value is an absolute `pypoker-battery-checkpoints-*` directory that exists and is not inside the repository — the override is unconditional (layout ¶5, write-root §3-§4, battery §2, ASM-18)."""
         report = self.probe()
         path = report["path"]
         self.assertIsNotNone(
@@ -218,8 +218,8 @@ class SessionRootTest(unittest.TestCase):
             path,
             HOSTILE_ROOT,
             "the override is unconditional: an inherited %r must not survive, or a battery "
-            "writes into the shipped tree the walkthrough found dirty (layout.md §5, "
-            "write-root.md §3-§4, battery.md §2, finding 5): %r"
+            "writes into the shipped tree ASM-18 protects — the eighteen artefacts a reader "
+            "keeps (layout.md §5, write-root.md §3-§4, battery.md §2, ASM-18): %r"
             % (ROOT_VARIABLE, path),
         )
         self.assertTrue(
@@ -249,13 +249,14 @@ class SessionRootTest(unittest.TestCase):
         )
         self.assertFalse(
             resolved == shipped or resolved.startswith(shipped + os.sep),
-            "and never under `<repo>/checkpoints`, the tree the walkthrough found dirty "
-            "(layout.md §5, write-root.md §3-§4, battery.md §2, finding 5): %r is inside %r"
+            "and never under `<repo>/checkpoints`, the shipped tree ASM-18 protects — the "
+            "eighteen artefacts a reader keeps (layout.md §5, write-root.md §3-§4, "
+            "battery.md §2, ASM-18): %r is inside %r"
             % (resolved, shipped),
         )
 
     def test_hrn_9_2_the_directory_is_gone_once_the_session_s_process_exits(self):
-        """HRN-9.2 the child's directory existed while it ran and is gone once that process has exited — `atexit` removes it with `shutil.rmtree(path, True)`, because a battery leaves the repository as it found it (layout §5, battery §2, finding 5)."""
+        """HRN-9.2 the child's directory existed while it ran and is gone once that process has exited — `atexit` removes it with `shutil.rmtree(path, True)`, because a battery leaves the repository as it found it (layout §5, battery §2, ASM-18)."""
         report = self.probe()
         path = report["path"]
         self.assertIsNotNone(
@@ -273,12 +274,12 @@ class SessionRootTest(unittest.TestCase):
             os.path.exists(path),
             "the directory that process created is removed when it exits, with atexit and "
             "shutil.rmtree(path, True), so a battery leaves the repository as it found it "
-            "(layout.md §5, battery.md §2, finding 5): %r still exists in the parent"
+            "(layout.md §5, battery.md §2, ASM-18): %r still exists in the parent"
             % (path,),
         )
 
     def test_hrn_9_3_it_keeps_its_one_existing_job_and_imports_no_subsystem(self):
-        """HRN-9.3 in both documented environments — `PYTHONPATH` removed, and `PYTHONPATH=src` — loading `tests/conftest.py` imports none of `engine`, `features`, `agents`, `evaluation`, `training` or `harness`, leaves the absolute `<repo>/src` on `sys.path` exactly once, and that entry imports `engine` by its bare name — it keeps its one existing job, it adds none, and the position is not its contract (layout §5, module-map §5, D-13, finding 5)."""
+        """HRN-9.3 in both documented environments — `PYTHONPATH` removed, and `PYTHONPATH=src` — loading `tests/conftest.py` imports none of `engine`, `features`, `agents`, `evaluation`, `training` or `harness`, leaves the absolute `<repo>/src` on `sys.path` exactly once, and that entry imports `engine` by its bare name — it keeps its one existing job, it adds none, and the position is not its contract (layout §5, module-map §5, battery §2, D-13)."""
         for label, pythonpath in (
             ("`PYTHONPATH` removed", None),
             ("`PYTHONPATH=src`", "src"),
@@ -291,8 +292,8 @@ class SessionRootTest(unittest.TestCase):
                     "under %s loading tests/conftest.py imports no subsystem and stands in "
                     "for no entry point: the package's import boundary is unchanged and the "
                     "conftest is not a harness by another route (docs/L3/harness/layout.md "
-                    "§5, docs/L1/module-map.md §5, strata/records/phase1-walkthrough.md "
-                    "finding 5): the child had %r loaded" % (label, report["modules"]),
+                    "§5, docs/L1/module-map.md §5, docs/L1/battery.md §2): the child had "
+                    "%r loaded" % (label, report["modules"]),
                 )
                 paths = report["paths"]
                 matched = src_entries(paths)
@@ -301,8 +302,8 @@ class SessionRootTest(unittest.TestCase):
                     1,
                     "under %s the file still does its one existing job — the absolute "
                     "`<repo>/src` on `sys.path` exactly once — and no more (docs/L3/harness/"
-                    "layout.md §5, docs/L1/module-map.md §5, strata/records/"
-                    "phase1-walkthrough.md finding 5). The position is not asserted, and "
+                    "layout.md §5, docs/L1/module-map.md §5, docs/L1/battery.md §2). The "
+                    "position is not asserted, and "
                     "neither is which statement performed the insert: with `PYTHONPATH=src` "
                     "the documented command line's spelling is absolutised at interpreter "
                     "startup, the conftest's membership guard then correctly declines a "
@@ -319,8 +320,8 @@ class SessionRootTest(unittest.TestCase):
                     "under %s the `sys.path` entry is functional, not decorative: a battery "
                     "imports each of the six declared packages by its bare name, so %r must "
                     "import where the conftest has loaded (docs/L3/harness/layout.md §5, "
-                    "docs/L1/module-map.md §5, strata/records/phase1-walkthrough.md finding "
-                    "5): the child reported %r with %r"
+                    "docs/L1/module-map.md §5, docs/L1/battery.md §2): the child reported "
+                    "%r with %r"
                     % (label, IMPORT_PROBE, report["imported"], report["error"]),
                 )
 
@@ -404,9 +405,10 @@ class SessionRootTest(unittest.TestCase):
         )
         self.assertFalse(
             resolved == shipped or resolved.startswith(shipped + os.sep),
-            "%s must never put the write root under `<repo>/checkpoints`, the tree the "
-            "walkthrough found dirty (layout.md §5, write-root.md §3-§4, battery.md §2, "
-            "finding 5): %r is inside %r" % (hook, resolved, shipped),
+            "%s must never put the write root under `<repo>/checkpoints`, the shipped tree "
+            "ASM-18 protects — the eighteen artefacts a reader keeps (layout.md §5, "
+            "write-root.md §3-§4, battery.md §2, ASM-18): %r is inside %r"
+            % (hook, resolved, shipped),
         )
 
     def test_hrn_9_4_the_census_hook_establishes_the_root_before_any_case(self):

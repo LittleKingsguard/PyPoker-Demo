@@ -205,7 +205,7 @@ def _amount_scaled(readout, reads, params):
 
 
 def _limit_scaled(readout, reads, params):
-    """The bet size in force, then the raises this street (flat-numeric.md §4)."""
+    """The bet size in force, then the bet-or-raise actions this street (flat-numeric.md §4)."""
     bet_divisor, raise_divisor = params
     field = reads[0]
     bet, raises = _counts(readout[field], field)
@@ -225,7 +225,7 @@ def _amount_bucket(readout, reads, params):
 
 
 def _limit_ids(readout, reads, params):
-    """The bet size's bucket, then the raise count's (card-tokens.md §4)."""
+    """The bet size's bucket, then the bet-or-raise action count's (card-tokens.md §4)."""
     bet_ladder, raise_ladder = params
     field = reads[0]
     bet, raises = _counts(readout[field], field)
