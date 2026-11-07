@@ -1,19 +1,19 @@
 {
  "stages": {
   "run_R1_live": {
-   "seconds": 336.03927621402545
+   "seconds": 336.6196949639707
   },
   "build_pool": {
-   "seconds": 1.1901953257620335e-05
+   "seconds": 1.1422031093388796e-05
   },
   "matrix_live": {
-   "seconds": 110.29024880903307
+   "seconds": 109.75157714902889
   },
   "rating": {
-   "seconds": 0.01249439496314153
+   "seconds": 0.012767509033437818
   },
   "report": {
-   "seconds": 0.00011763296788558364
+   "seconds": 0.00012858299305662513
   }
  },
  "errors": [],
@@ -658,7 +658,7 @@
   "gpu": {
    "available": false,
    "name": null,
-   "reason": "a device node opens, but torch reports no usable device"
+   "reason": "/dev/kfd: the read-write open (os.O_RDWR) is denied EACCES (13), while a control read-only open (os.O_RDONLY) of the same node succeeds \u2014 the sandbox denies read-write opens under /dev, so a read-only open reports nothing about a device a driver could use; /dev/dri/renderD128: the read-write open (os.O_RDWR) is denied EACCES (13), while a control read-only open (os.O_RDONLY) of the same node succeeds \u2014 the sandbox denies read-write opens under /dev, so a read-only open reports nothing about a device a driver could use"
   }
  },
  "run": {
@@ -850,21 +850,21 @@
    "naive-numeric": {
     "0": {
      "hands": 1000,
-     "wall_clock_seconds": 117.03892362298211,
-     "seconds_per_hand": 0.11703892362298211,
-     "hands_per_second": 8.544166069241234
+     "wall_clock_seconds": 118.8716933989781,
+     "seconds_per_hand": 0.1188716933989781,
+     "hands_per_second": 8.412431685006993
     },
     "1": {
      "hands": 1000,
-     "wall_clock_seconds": 104.7669885570067,
-     "seconds_per_hand": 0.1047669885570067,
-     "hands_per_second": 9.544991354369907
+     "wall_clock_seconds": 105.74791891896166,
+     "seconds_per_hand": 0.10574791891896165,
+     "hands_per_second": 9.456450871305893
     },
     "2": {
      "hands": 1000,
-     "wall_clock_seconds": 111.36911400099052,
-     "seconds_per_hand": 0.11136911400099052,
-     "hands_per_second": 8.979150179744682
+     "wall_clock_seconds": 111.99859887303319,
+     "seconds_per_hand": 0.11199859887303319,
+     "hands_per_second": 8.928683126952743
     }
    }
   },
@@ -1293,7 +1293,7 @@
    "table": "live"
   }
  },
- "run_wall_clock_seconds": 333.17502618097933,
+ "run_wall_clock_seconds": 336.61821119097294,
  "run_hands": 3000,
  "pool_versions": [],
  "pool_record": {
@@ -2235,9 +2235,9 @@
  "provenance": {
   "producer": "scripts/regenerate-evidence.py",
   "recipe": "docs/L3/training/evidence.md \u00a76",
-  "generated_utc": "2026-11-06T22:54:55Z",
+  "generated_utc": "2026-11-07T01:05:57Z",
   "source_digest": {
-   "sha256": "1ca2e715f9687976bc3bc94c1c419682bc2235fa390ec1aaec30022f6b604c19",
+   "sha256": "9089ef9f802744381426cb183e1353425393e468e2a46b2fc481b992758bc955",
    "covered": "every `src/**/*.py` file plus `pyproject.toml`",
    "recipe": "sha256 of the byte string formed by concatenating, in ascending order of repository-relative POSIX path, each covered file's path, one NUL byte (0x00) and that file's exact bytes; `__pycache__` is not a covered directory",
    "file_count": 54,
@@ -2299,7 +2299,7 @@
    ]
   },
   "git": {
-   "commit": "b95b6e57fa5ecb163eb229bc306475475c2d54c8",
+   "commit": "624df2eb994011a8bcd030cc9e289f2dfbf1dedb",
    "working_tree_dirty": true
   },
   "versions": {
