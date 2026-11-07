@@ -137,8 +137,9 @@ budget's end and are two files, so naming both is not a repeat), so no artefact 
   path outside the repository (`module-map.md` §5, `battery.md` §3 FAM-12). A talk loads an entry through
   `evaluation.policy_from`, which reads the seed and the encoding from the container, so the first entry must be a checkpoint
   `agents.save` wrote and never a manifest (`evaluation/surface.md` §12, FAM-16.31).
-- **A battery writes into a temporary root, so this shipped set is never added to and never overwritten.** `tests/conftest.py`
-  points `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp` per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so
+- **A battery writes into a temporary root, so this shipped set is never added to and never overwritten.** The battery's
+  two hooks — `tests/conftest.py` under `pytest`, `tests/e2e/__init__.py` under the `unittest` census — point
+  `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp` per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so
   the eighteen artefacts above are as the shipped run left them (`battery.md` §2, walkthrough finding 5).
 
 ## 6. What is left to L4

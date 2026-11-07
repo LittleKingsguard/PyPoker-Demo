@@ -19,10 +19,10 @@ A table plays `cell_count(K) × hands_per_cell` hands, so the whole budget is ar
 
 The K = 9 and K = 10 columns are `league()`'s declared `hands_played`; the K = 4 column is R1's, whose pool is the three pinned baselines
 alone (`declarations.md` §4.1, `docs/L1/league.md` §2, §4). The per-hand cost is **measured, not bounded**: ASM-21 ratifies 0.105–0.153 s/hand on CPU, wide because
-the oracle decides it (0.255–0.315 s/hand in an oracle-bearing cell vs 0.002–0.004 without, in half a table's hands), so K = 4 `live` is ≈95–110 s (720 hands:
-110.29 s = 0.1532 s/hand in the evidence bundle, 107.4 s = 0.1491 in run 3) and `full` ≈20 min (this file's own `cost.wall_clock_seconds` still 1,191.37 s),
-a full window ≈10–12 minutes live and ≈2 hours full, and holding the slowest measured 0.1532 s/hand instead is the conservative bound of ≈2.3–2.9 hours — an over-statement,
-because a wider table pairs the oracle in a smaller share of its hands than K = 4's half, no case asserts a wall clock (ASM-21, `docs/L1/league.md` §7).
+the oracle decides it (0.255–0.315 s/hand in an oracle-bearing cell vs 0.002–0.004 without, in half a table's hands), so K = 4 `live` is ≈95–110 s (720 hands) and
+`full` ≈20 min (this file's `cost.wall_clock_seconds` in `tables/league-full.json`, 1,191.37 s); the live table's own seconds are that bundle's `stages.matrix_live` over those
+720 hands in `checkpoints/evidence/r1-live.json`, never this page's — a full window ≈10–12 minutes live and ≈2 hours full, and holding the slowest measured 0.1532 s/hand
+instead is the conservative bound of ≈2.3–2.9 hours — an over-statement, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half, no case asserts a wall clock (ASM-21, `docs/L1/league.md` §7).
 
 ## 2. What ships, and which player each member is
 

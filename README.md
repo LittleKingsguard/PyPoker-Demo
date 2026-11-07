@@ -82,7 +82,9 @@ It compares architectures on one small game. In particular:
 - an untrained model's row in the shipped full table is not the trained rung's row, even when both
   carry the same member id;
 - training time matters: the shipped R1 run is a live-budget run (1,000 hands per seed) whose
-  learning signal had not converged. The long-budget runs exist to show exactly that difference.
+  learning signal had not converged, and **no long-budget run ships yet** — the 200,000-hand
+  runs that would show the difference are the next thing to produce, not something you will
+  find in `checkpoints/`.
 
 ## Layout
 

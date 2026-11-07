@@ -121,11 +121,11 @@ and the table the agent is measured in — one object, one owner, no second eval
   standard library (`ladder.md` §7).
 - **The budget is arithmetic on K, and the cost of playing it is a measurement**: ASM-21 ratifies the measured band **0.105–0.153 s of CPU per hand**, wide
   because the oracle decides it: 0.255–0.315 s/hand in an oracle-bearing cell against 0.002–0.004 without, and it sits in half a table's hands. The live table
-  is ≈95–110 s at K = 4 (720 hands: 110.29 s at 0.1532 s/hand; 107.4 s re-measured) and ≈10–12 minutes at K = 9–10; the full table ≈2 hours, and holding
-  the slowest measured 0.1532 s/hand instead is the conservative bound of ≈2.3–2.9 hours, which over-states, because a wider table pairs the oracle in a smaller
-  share of its hands than K = 4's half. The shipped K = 4 `full` table's own `cost` block recorded 1,191.37 s (≈20 min) (ASM-21, ASM-15, ASM-14, D-16,
-  D-8, `docs/L1/league.md` §7). `harness.timings` reports the measured figure and no case asserts a wall clock was beaten (`battery.md` §3 FAM-10);
-  no per-hand figure travels in `league()`: a cost is a run record's `timings` and an artefact's `cost` block (`records.md` §12, `tables.md` §5).
+  is ≈95–110 s at K = 4 (720 hands) and ≈10–12 minutes at K = 9–10; the full table ≈2 hours; holding the slowest measured 0.1532 s/hand instead is the
+  conservative bound of ≈2.3–2.9 hours, which over-states, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half. No
+  per-hand figure travels in `league()`: a cost is a run record's `timings` and an artefact's `cost` block, and no document quotes one — the live table's
+  `stages.matrix_live` over those 720 hands in `checkpoints/evidence/r1-live.json`, the `full` table's `cost` block in `tables/league-full.json` (1,191.37 s, ≈20 min)
+  (`records.md` §12, `tables.md` §5). `harness.timings` reports the measured figure and no case asserts a wall clock was beaten (`battery.md` §3 FAM-10, ASM-21, ASM-15, ASM-14, D-16, D-8, `docs/L1/league.md` §7).
 - **`variant-1` is a slot, not a player.** `matrix` names a variant by the argument position it was handed
   (`surface.md` §10), so the shipped `full` table's `variant-1` and a live table's `variant-1` are two different
   learners: the shipped one is the offline producer's **untrained** learner at its recipe seed 31415, while the R1

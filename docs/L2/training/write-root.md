@@ -5,7 +5,7 @@
   ambient override and its name (§3), who points it where and the one command a reader uses (§4), the spelling a record
   gives a written path (§5), what the redirection does not change (§6) and the battery this contract carries (§7)
 - **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.5, `protocol.md` §4, §5, `records.md` §7, §12, `battery.md` §2,
-  `module-map.md` §4, §5, `assumptions.md` (ASM-2, ASM-5, ASM-18), `tests/conftest.py`; the L3 file this one is not —
+  `module-map.md` §4, §5, `assumptions.md` (ASM-2, ASM-5, ASM-18), `tests/conftest.py`, `tests/e2e/__init__.py`; the L3 file this one is not —
   the layout's names, its index and its write root — is always cited here as `docs/L3/training/checkpoints.md`
 - **Ceiling:** 90 lines. At the ceiling, split by owner — never append
 
@@ -56,10 +56,10 @@ The override sits outside Python's call signature on purpose: one ambient fact p
 
 ## 4. Who points it where
 
-- **Every battery session.** `tests/conftest.py`, which `harness` owns (`module-map.md` §5), sets
-  `PYPOKER_CHECKPOINT_ROOT` to a private `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")` for the whole pytest
-  session and **unconditionally**, so a value inherited from the developer's shell cannot let a battery write into the
-  shipped tree; the directory goes when the session ends (`docs/L3/harness/layout.md` §5, walkthrough finding 5, D-13).
+- **Every battery session, whichever runner.** `tests/conftest.py` under `pytest` and `tests/e2e/__init__.py` under the
+  `unittest` census — both `harness`-owned (`module-map.md` §5) — set `PYPOKER_CHECKPOINT_ROOT` to a private
+  `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")`, **unconditionally**, recording the one root in the
+  battery-only `PYPOKER_BATTERY_ROOT` so the second hook declines; it goes at exit (`docs/L3/harness/layout.md` §5, finding 5, D-13).
 - **A reader, on one command line** — the one-liner L1's `getting-started.md` §4 must carry (owed by L1, named here):
 
       PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run PYTHONPATH=src .venv/bin/python -c "import training; print(training.run('R1')['checkpoints'])"
@@ -86,5 +86,5 @@ lists no artefact a run wrote (declared data, never a scan), and only *where a r
 | `tests/training/test_checkpoints.py` TRN-6.5 | the layout makes the pair's directory under the write root and nothing else (§1) |
 | `tests/training/test_checkpoints.py` TRN-6.4, TRN-6.8 | `_snapshot_path`, `_final_path` and a declared window stay repository-rooted (§2) |
 | `tests/training/test_checkpoints.py` TRN-6.9 | a successful run adds no path and changes no byte under `<repo>/checkpoints/` (§1, §6) |
-| `tests/harness/test_harness_session_root.py` HRN-9.1, HRN-9.2 | the pytest session points the override at a private temporary directory, unconditionally, and removes it at exit (§4) |
+| `tests/harness/test_harness_session_root.py` HRN-9.1–HRN-9.2, HRN-9.4, HRN-9.5 | each hook points the override at a private temporary directory, unconditionally and once, and removes it at exit; one name still points a run (§4) |
 | FAM-12.1, FAM-12.5, FAM-16.31 | a record's paths exist, and every index path exists inside the repository, whatever the write root (§2, §5) |

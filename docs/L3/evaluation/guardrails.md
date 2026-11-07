@@ -141,10 +141,10 @@ string `n/a, single variant`, and `seeds`, `table`, `table seed` and `device` tr
 Filling an absent family, wrapping `n/a` into a record, or sorting members by rating is red.
 Caught by: `test_report.py::EVL-7.1`–`EVL-7.3`, FAM-11.1, FAM-11.9–11.11, FAM-16.27.
 ## G22 — Run every battery
+The census needs no guard: `tests/e2e/__init__.py` points the write root at a private temporary directory before any case, as `tests/conftest.py` does under `pytest` (`docs/L3/harness/layout.md` §5, `battery.md` §2).
 
     .venv/bin/python -m pytest tests/evaluation -q                                  # this design's unit battery
     .venv/bin/python -m pytest tests/integration/evaluation -q                      # the join battery
     .venv/bin/python -m pytest tests/e2e -q                                         # the L1 battery, read-only
-    .venv/bin/python -m unittest discover -s tests/e2e -t .                          # the L1 census
-
+    .venv/bin/python -m unittest discover -s tests/e2e -t .                          # the L1 census, safe unguarded
 `tests/e2e/` is read-only here: a case that disagrees with this design is a finding against the design or the case, never a file to edit (`battery.md` §2, `strata/examiner.md` §5).

@@ -108,7 +108,7 @@ Caught by: `test_registry.py::TRN-1.5`, `test_fairness.py::TRN-7.5`.
 ## G20 — A run writes under the write root; determinism is one build's, under the pin
 `run` writes its ten snapshots and its final model under `layout._write_root()` — `checkpoints/` unless
 `PYPOKER_CHECKPOINT_ROOT` names another root — so a reader's default run still writes the shipped layout while a battery,
-whose `tests/conftest.py` points that variable at a private `mkdtemp`, writes a temporary tree and never the shipped set
+whose battery hooks point that variable at a private `mkdtemp`, writes a temporary tree and never the shipped set
 (`write-root.md` §1, §3, §4, `checkpoints.md` §5). A battery-started run adds no path under `<repo>/checkpoints` and changes
 no byte there: its snapshots and its final model exist under the write root and are named in the record. What a re-run
 guarantees is **one build's and one pinned interpreter's**: with `PYTHONHASHSEED=0` a re-run at the declared budget and

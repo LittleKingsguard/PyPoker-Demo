@@ -47,14 +47,14 @@ on another machine, and evidence that reproduces only where it was made is not e
 
 ## 3. What the shipped file holds
 
-The measurement is the file's, and a reader takes it from there rather than from any prose (`protocol.md` §2):
+The measurement is the file's, and a reader takes it from there rather than from any prose (`protocol.md` §2): every figure below is **one generation's** — commit `1d3342b4476c0461d6fe548bcbf94f148248ffcd`, `generated_utc` `2026-11-07T01:13:38Z` — and a regeneration moves every one, so a reader of a later build reads the file and not this page.
 
 - **The run**: seeds `0, 1, 2` at 1,000 hands per variant per seed — 3,000 hands in `run_wall_clock_seconds`
-  333.17502618097933 s, the seeds' sum and never the call's, at 0.11703892362298211, 0.1047669885570067 and
-  0.11136911400099052 s per hand for seeds 0, 1 and 2; `run.curves["naive-numeric"]` is the axis `100 … 1,000` with
+  339.9341840699781 s, the seeds' sum and never the call's, at 0.11764519330603071, 0.10976475726295029 and
+  0.11252423350099706 s per hand for seeds 0, 1 and 2; `run.curves["naive-numeric"]` is the axis `100 … 1,000` with
   the three seeds' `td_error` series and the one spread (`run.timings`, `curves.md` §2–§4, ASM-21, ASM-8).
-- **The stages**: `run_R1_live` 336.03927621402545 s, `build_pool` 1.1901953257620335e-05 s, `matrix_live`
-  110.29024880903307 s, `rating` 0.01249439496314153 s, `report` 0.00011763296788558364 s, `errors` `[]` (`records.md` §12, ASM-15).
+- **The stages**: `run_R1_live` 339.935722988972 s, `build_pool` 1.1361960787326097e-05 s, `matrix_live` 108.53024961898336 s
+  over those 720 hands (0.1507 s/hand), `rating` 0.01256761298282072 s, `report` 0.0001083450042642653 s, `errors` `[]` (`records.md` §12, ASM-15).
 - **The pool**: `pool-bcbea031cb617939`, `m` 5, `frozen`, the three pinned baselines and no version — R1 inherits no
   lineage and trains against `league.md` §2's baselines-only pool, so `pool_versions` `[]` (`records.md` §8, `registry.md` §3).
 - **The table**: four members — `random`, `always-call`, `oracle`, `variant-1` — six cells at 120 hands each, seats
@@ -75,9 +75,9 @@ The measurement is the file's, and a reader takes it from there rather than from
 - **The `spread` array is the statistic**: at all ten points it is the max minus the min of that variant's three
   `td_error` series to twelve places (largest absolute gap 0.0), so it is quotable as a run record's repetition (`curves.md` §4, FAM-4.8).
 - **`provenance` is the file's own record of the build it came from**: producer `scripts/regenerate-evidence.py`,
-  recipe `docs/L3/training/evidence.md §6`, `generated_utc` `2026-11-06T22:54:55Z`, `source_digest` sha256
-  `1ca2e715f9687976bc3bc94c1c419682bc2235fa390ec1aaec30022f6b604c19`, 54 files (`src/**/*.py`, `pyproject.toml`),
-  `git` `b95b6e57fa5ecb163eb229bc306475475c2d54c8` with the tree dirty, python 3.12.3 / numpy 2.5.4 / pokerkit 0.7.7,
+  recipe `docs/L3/training/evidence.md §6`, `generated_utc` `2026-11-07T01:13:38Z`, `source_digest` sha256
+  `9089ef9f802744381426cb183e1353425393e468e2a46b2fc481b992758bc955`, 54 files (`src/**/*.py`, `pyproject.toml`),
+  `git` `1d3342b4476c0461d6fe548bcbf94f148248ffcd` with the tree dirty, python 3.12.3 / numpy 2.5.4 / pokerkit 0.7.7,
   `environment` `{"PYTHONHASHSEED": "0"}`, `device` `cpu` and the eleven entry points called — so whether the file is
   current is read from the file (§6, `protocol.md` §5).
 

@@ -100,8 +100,8 @@ Every case in these families is satisfiable from `surface.md` alone (D-11, D-12)
 - **L3 owns** the error classes the refusals raise, the driver's step bookkeeping and the layout of one seam call
   log entry (the `calls` sequence is contract, its keys are not), how the scratch root is created and named, the
   factory's dispatch, `src/harness/`'s layout, `tests/harness/`'s unit tests and `tests/conftest.py` (D-1, D-13).
-- **`tests/conftest.py` also points `training`'s write root at a private temporary directory** for the whole pytest
-  session (`PYPOKER_CHECKPOINT_ROOT`, `training/write-root.md` §3–§4), so no battery writes into the shipped tree (D-8).
+- **`tests/conftest.py` and `tests/e2e/__init__.py` point `training`'s write root at a private temporary directory**,
+  under `pytest` and the `unittest` census both, so no battery writes the shipped tree (`write-root.md` §3–§4, D-8).
 - **Not left to L3:** the six names, the four expectation kinds and their order, the six factory kinds, the two seam
   behaviours, the driver's case and result keys, the timing facts — a battery reads them (`e2e-surface.md` §1, D-12).
 - **Packaging, owned by path and not designed here.** `pyproject.toml` and the lock file are this module's

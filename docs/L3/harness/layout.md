@@ -3,7 +3,7 @@
 - **Layer:** L3 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06 · §5 added (walkthrough finding 5)
 - **Owner:** the layout of `src/harness/` — the one file and the order inside it (§1), the line budget unit by unit and
   what the ceiling may not be paid with (§2), the import boundary (§3), the compression ladder (§4), and the session
-  write root `tests/conftest.py` sets (§5)
+  write root `tests/conftest.py` and `tests/e2e/__init__.py` set (§5)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Read with:** `README.md` §3–§5, `driver.md`, `support.md`, `expectations.md`, `errors.md`, `guardrails.md`
 
@@ -99,22 +99,22 @@ rung — it is `layout.md` §2's report to L2.
 
 ## 5. The session write root
 
-A battery writes checkpoints, so `tests/conftest.py` — harness-owned and the one file every battery's pytest invocation
-executes (`module-map.md` §5) — sets `PYPOKER_CHECKPOINT_ROOT` to
-`tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")` at import, before a case is collected:
+A battery writes checkpoints, so a documented runner loads a harness-owned hook (`module-map.md` §5) that sets
+`PYPOKER_CHECKPOINT_ROOT` to `tempfile.mkdtemp(prefix="pypoker-battery-checkpoints-")` at import, before a case runs:
+`tests/conftest.py` under `pytest`, and `tests/e2e/__init__.py` under `unittest discover -s tests/e2e -t .`, which loads
+no conftest at all and imports that package before any case module (`battery.md` §2):
 
 - **unconditionally**, whatever the shell carries, because an inherited value must not send a battery's writes into
   `<repo>/checkpoints` — the walkthrough's defect, where running the batteries left `seed-4103`, `R2/` and `R4/` in a
   tree `.gitignore` hides (`write-root.md` §3–§4, `strata/records/phase1-walkthrough.md` finding 5);
-- **the override a reader already has**, never a second mechanism — one name, one meaning, the one `write-root.md`
-  §3–§4 gives a single command line (D-13);
-- **removed at session end** with `atexit` and `shutil.rmtree(path, True)`, because a battery leaves the repository as
-  it found it. `fixtures()`'s scratch root is deliberately kept (`support.md` §1) — it holds a case's own artefacts,
-  while this root only catches what a run would otherwise have written into the shipped tree (`checkpoints.md` §5);
-- **reads do not follow it**: the index, the declared windows and every pool built from a repository-relative
-  declaration still resolve against `<repo>` (`write-root.md` §2), a written path is absolute and its record relative
-  or unchanged (`checkpoints.md` §2);
-- **no import, no judgement**: `<repo>/src` goes on `sys.path` once (`module-map.md` §5) — the outcome, not a position;
-  the additions are `atexit`, `shutil` and `tempfile`, no entry point of `README.md` §3 is stood in for, and no case is
-  skipped, configured or re-meant (`battery.md` §2, D-13); `src/harness/` is untouched, so §3 and §4 stand. Caught by
-  `HRN-9.1`–`HRN-9.3`.
+- **idempotently across the two hooks**, so a process that loads both — `pytest` does, importing the e2e package too —
+  ends with one root: the hook that makes it records it in `PYPOKER_BATTERY_ROOT`, a marker no file under `src/` reads,
+  and a hook that finds that marker equal to the current override declines (`battery.md` §2);
+- **the override a reader already has**, never a second mechanism — one name, one meaning, the one `write-root.md` §3–§4
+  gives a single command line (D-13);
+- **removed at session end** with `atexit` and `shutil.rmtree(path, True)`, because a battery leaves the repository as it
+  found it — `fixtures()`'s root is deliberately kept (`support.md` §1), and only a run's writes are caught (`checkpoints.md` §5);
+- **reads do not follow it**: the index, the declared windows and every repository-declared pool still resolve against
+  `<repo>`, a written path is absolute and its record relative or unchanged (`write-root.md` §2, `checkpoints.md` §2);
+- **no import, no judgement**: `<repo>/src` on `sys.path` once, no entry point of `README.md` §3 stood in for, and no case
+  skipped, configured or re-meant (`module-map.md` §5, `battery.md` §2, D-13). Caught by `HRN-9.1`–`HRN-9.5`.

@@ -11,9 +11,17 @@ Run it from the repository root, with the project venv:
 ```
 
 `tests/e2e/__init__.py` exists so that `-t .` can import the start directory as
-`tests.e2e`; there is no `tests/__init__.py`, and none is needed. The battery imports
+`tests.e2e`; there is no `tests/__init__.py`, and none is needed. It is also this battery's
+write root hook: `unittest` loads no conftest at all, so the package init points
+`PYPOKER_CHECKPOINT_ROOT` — the one ambient override `training.layout` reads on every call —
+at a private `pypoker-battery-checkpoints-*` directory before any case module is imported, and
+removes it when the process exits. `pytest` reaches the same root through `tests/conftest.py`,
+and the two hooks are idempotent (the first records the root in `PYPOKER_BATTERY_ROOT`, which
+`src/` never reads, and the second declines), so **both documented runners are safe** and
+neither writes into the repository's `checkpoints/` (`docs/L1/battery.md` §2,
+`docs/L3/harness/layout.md` §5, `docs/L2/training/write-root.md` §4). The battery imports
 nothing beyond the standard library and the six declared packages, so it stays collectable
-if a `pytest` is ever declared (`docs/L1/battery.md` §2).
+under either runner (`docs/L1/battery.md` §2).
 
 Every case is red before implementation exists. Each one reaches its first declared
 entry point through `_surface`, so an absent surface is one clear
