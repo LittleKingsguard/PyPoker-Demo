@@ -1,40 +1,39 @@
-# Why R1/R2 stall at "beats random, loses to the callers" · measured 2026-11-07
+# Why R1/R2 stall: the game is nearly a coin flip · measured 2026-11-07
 
-Framing (user): if `always-call` is the stronger degenerate strategy the learner should at least reach
-it. It reaches the *other* one — always-raise — worse than calling everywhere it was measured (D-14).
+Framing (user): if both sides call or raise almost always, the outcome is decided by the draw (D-14).
 
-## What the trained policies do
+## The measurement that settles it
 
-Action census over ~560 decisions each, both seats (deep R2 = 200,000 hands; shipped R1 = 1,000):
-**raise 80–89 %, check-call 10–20 %, fold 1 %** — the calling core learned, plus a raise habit (D-14).
+Two mirror matches, 1,000 hands each, seats alternating (D-14) — only **three payoffs**, identical
+splits: `always-call` vs `always-call` gives **+2 / −2 / 0** at **48.0 % / 46.4 % / 5.6 %**, and
+always-raise vs always-raise gives **+20 / −20 / 0** at the **same three shares**.
 
-## The raise habit is a mistake, not an adaptation
+The win/loss split is **identical to the tenth of a percent**. The policy changes only the *stake*
+(±2 chips vs ±20), never who wins. With 20-chip stacks and a four-bet cap a hand reaches showdown for
+the same stake whatever the betting does, so the winner is the cards. Confirmed on the same deals:
+`(caller, raiser)` and `(raiser, caller)` return byte-identical payoffs even though their decision
+histories differ (D-14).
 
-The same policy against a twin forced to call wherever calling is legal (it differs only in not raising):
+## What is true of the learner
 
-- vs the R1 ancestor (its training pool): −1.423 learned, −0.693 forced to call — **worse by 0.730**.
-- vs `always-call`: −0.163 learned, −0.100 forced to call — **raising is worse by 0.063**.
+- **Raise versus call is EV-neutral.** Over 2,000 alternating-seat hands: caller-vs-caller −0.060 ±
+  0.088, raiser-vs-raiser −0.600 ± 0.87, caller-vs-raiser −0.420 ± 0.61 chips/hand. Every interval
+  spans zero. The raise habit the earlier record called "a mistake worth 0.730 chips/hand" is inside
+  noise (1.4 se) — that claim is retracted; it was a single-seat tally against a ±14-chip payoff.
+- **Folding is the only lever the game offers, and it is expensive.** Always-fold loses 0.540 ± 0.06
+  to a caller and 1.500 ± 0.02 to a raiser — many standard errors. The learner folds 1 %, i.e. it has
+  already learned the one decision this game actually rewards (D-6).
+- **Aggression raises variance, not expectation** (D-6): ±2 becomes ±20 on the same hands, and a max
+  operator over noisy estimates makes the higher-variance action look best — which is why both rules
+  landed on always-raise, not because it wins.
 
-Against `always-call` the twin reproduces the baseline exactly (137/11/152) — the control: the twin
-*is* `always-call`. The learner is not adapting to its pool; it leaves money on the table in both,
-most of all against the ancestors it trained on (D-16).
+## The consequence for the ladder
 
-## Neither capacity, nor time, nor hyperparameters
+Here the only behaviour that pays is "do not fold", which every rung reaches at once, so R1–R6 must
+look indistinguishable — and did. Not only because the instrument is underpowered, but because **the
+game was configured to make skill nearly irrelevant**: short stacks and a four-bet cap turn every
+non-folding hand into an all-in showdown decided by the draw (D-6).
 
-- **Time**: 200,000 hands × 3 seeds gave the same table as 3,000 (`r2-deep.md`); **capacity**: width
-  36 and width 120 (163 KB vs 864 KB of parameters) converge to the *same greedy policy*.
-- **Hyperparameters**: unsweepable — a configuration's `hyper` block is **silently ignored** (`grep
-  hyper src/training/loop.py` → nothing), so four sweep configs gave byte-identical results because
-  they were the same model. A key a run ignores and never refuses is a defect (D-14).
-
-## Conclusion
-
-The bottleneck is the **estimator**, not the representation: max-operator Q-learning on a terminal
-reward varying by ±20 chips, resolving an action-value difference of ~0.06–0.7 chips. The max of three
-noisy estimates is biased upward and takes whichever drew positive noise; more hands do not shrink
-that bias, which is why 600,000 hands moved nothing (D-6).
-
-For the ladder, one learning rule is held across R1–R6 so a rung isolates representation (D-3); if
-the rule is the bottleneck, R3–R6 compare representations under a biased estimator. The rule wants
-changing — Double Q, Monte-Carlo or n-step returns, reward normalisation — which re-baselines every
-artefact (D-14).
+Fixing it is a game-parameter decision, not a network one: deeper stacks (or bets small against deep
+stacks) so that bet, call and fold have distinguishable EV, and a re-baseline after it. That revises
+the assumptions D-2 left to the brief, so it comes back to the user (D-2, D-14).
