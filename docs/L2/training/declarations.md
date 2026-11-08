@@ -1,6 +1,6 @@
 # training — what a configuration declares, and what the run honours
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-08
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
 - **Owner of this file:** every key of `ladder.md` §3's schema read against the one loop's own behaviour (§1), the
   rule that keeps a discarded declaration out of a run (§2), the refusals it raises and what each message names (§3),
   the declarations a matched pair must share (§4), and why this module refuses a `hyper` block instead of learning to
@@ -26,8 +26,8 @@ named as refused in §2.
 | variant `param_budget`, `samples`, `seeds`, `device`, `table` | read: the declared budget the `params` block reports, and the defaults `surface.md` §4 names |
 | `axis`, `primary` | quoted by `fairness` — the axis a pair is reported on, and the variant the next rung inherits — and read by `run` nowhere (`surface.md` §5, `ladder.md` §2) |
 | `carried_from` | read by `registry.rung` when it builds a rung's window; for a configuration in no registry nothing reads it, because the window a run freezes is `pool.members` (`loop.md` §3 step 2) |
-| variant `learning_rule` | **refused** when it names another rule: a run holds ASM-7's one rule (§2) |
-| variant `hyper` | **refused** when it declares another value: a run holds ASM-7's six declarations (§2) |
+| variant `learning_rule` | read: forwarded into `agents.build_learner`'s spec, so a variant trains under the rule it names — a member of the catalogue (`rules.md` §2, D-19) — and a name the catalogue does not carry is **refused** (§2) |
+| variant `hyper` | **refused** when it declares another value: one hyper declaration serves every rule, so a run holds ASM-7's six declarations (§2, `rules.md` §2) |
 | `snapshot_every`, at either level | **refused** when it declares another interval: ASM-18 fixes ten, so the interval is the declared budget ÷ 10 (§2) |
 | `param_budget` at the configuration | read as the declaration the `params` block reports for an entry that declares none — honoured, never dropped (§2) |
 
@@ -38,18 +38,19 @@ not this module (`agents/surface.md` §3).
 
 ## 2. The rule: a declaration the run would discard is refused
 
-ASM-7 fixes one learning rule and its hyperparameters for the whole ladder, and ASM-18 fixes ten snapshots at the
-declared budget ÷ 10; that is *why* the loop reads neither a `hyper` block nor a `snapshot_every`, and it is why the
-honest answer is a refusal and not a silent substitution (`ladder.md` §4, ASM-7, ASM-18). Four declarations are refused,
-each before the first hand is dealt and before anything is written (`loop.md` §3 step 1, `e2e-surface.md` §2):
+ASM-7's one rule became the catalogue D-19 ratifies — two estimators a variant may name — while its hyperparameters stay
+one declaration for both (`rules.md` §2), and ASM-18 fixes ten snapshots at the declared budget ÷ 10. So the loop reads a
+`learning_rule` and forwards it, reads neither a `hyper` block nor a `snapshot_every`, and refuses a declaration it cannot
+honour rather than replacing it — four of them, before the first hand and before anything is written (§3 step 1):
 
 - **a `hyper` whose declared key disagrees with the declared hyper**, at either level — a configuration may carry the
   block beside its entries, and a block at a level nothing reads is the same discard. A key the block does not name is
   no claim and is accepted; a key it names must carry the value the run will use, in the shape the run will use
   (`agents/surface.md` §3). A differently typed `exploration` — a sentence where the schedule record is declared — is a
   disagreement, not a tolerance.
-- **a `learning_rule` naming anything but ASM-7's rule**, at either level. The rule is the ladder's, so a configuration
-  cannot hold a second one (`ladder.md` §4).
+- **a `learning_rule` the catalogue does not carry**, at either level: the rule is read and forwarded (§1), so what is
+  refused is a name no learner can be built under — not a second rule, because a configuration may declare two and train
+  two (`rules.md` §2, §7, D-19).
 - **a `snapshot_every` that is not the declared budget ÷ 10**, naming both numbers: honouring it would write fewer than
   ten snapshots and leave ASM-18's retained window unobservable (`loop.md` §3 step 7, guardrails G4). The declared budget
   is resolved as the run resolves the budget itself — the configuration's, else its first entry's — so the number the
@@ -59,10 +60,8 @@ each before the first hand is dealt and before anything is written (`loop.md` §
 
 The one key honoured where it was dropped is `param_budget`: the `params` block is per variant, so it reports that
 variant's own declared budget, else the configuration's, else the declared 10,000 — an entry-first order, unlike
-`seeds` and `samples`, which one run uses once. It is a declaration and not a capacity — a run measures no capacity
-(`surface.md` §4, ASM-10). Read, it is validated like every other setting this module reads: a `param_budget` that is
-not a positive integer is `VariantSettingInvalid` naming the value, never a `ValueError` out of an `int()` and never a
-coin that a band is computed around (`surface.md` §1, `docs/L3/training/errors.md` §2).
+`seeds` and `samples`, which one run uses once. A `param_budget` that is not a positive integer is
+`VariantSettingInvalid` naming the value, never a `ValueError` out of an `int()` (`surface.md` §1, §4, ASM-10).
 
 ## 3. The refusals, and what each message names
 
@@ -74,37 +73,38 @@ names, in its message:
   **the value the run uses**, and that varying it means changing the module's declaration (ASM-7). A message that says
   only "ignored" leaves the caller without the number that was in force.
 - **`PairDeclarationsDiffer`** — the key, and **both** arms' declared values, the same way `PoolIdsDiffer` names both
-  pool ids (`surface.md` §5, ASM-16). `fairness` raises it too, for the two keys it quotes as a held constant: a pair
+  pool ids (`surface.md` §5, ASM-16). `fairness` raises it too, for the one key it quotes as a held constant: a pair
   that declares two `hyper` blocks holds no constant there, and reporting one of them as held would be the same defect
-  in a report instead of a run (`surface.md` §5, `ladder.md` §4).
+  in a report instead of a run (`surface.md` §5, `ladder.md` §4). A differing `learning_rule` is not this refusal —
+  it is the pair's axis (`rules.md` §8, §4).
 
 A refusal here is a refusal of the run, so it deals no hand, builds no learner and writes no file (`e2e-surface.md` §2).
-Nothing is repaired and no declared value is replaced by the declared one in silence: a run either uses what the
-configuration declares or refuses it (§2).
+No declared value is replaced by the run's own in silence: a run uses what the configuration declares or refuses it (§2).
 
 ## 4. The declarations a matched pair shares
 
-Two entries of one configuration are the two arms of one comparison, so they declare one `learning_rule`, one `hyper`
-set, one `samples`, one `seeds`, one `device`, one `snapshot_every`, one `table` and one `param_budget` (`loop.md` §2,
-`ladder.md` §4). A run trains both arms against one frozen pool and at one budget (`surface.md` §4, ASM-16), so an entry
-declaring a second value for any of the eight is `PairDeclarationsDiffer` naming both values; the rule and the hyper set
-are already forced to ASM-7's by §2, and the other six are what §4 adds.
+Two entries of one configuration are the two arms of one comparison, so they declare one `hyper` set, one `samples`, one
+`seeds`, one `device`, one `snapshot_every`, one `table` and one `param_budget` (`loop.md` §2, `ladder.md` §4) — seven
+settings, and a second value for any of them is refused, because both arms train against one frozen pool at one budget
+(`surface.md` §4, ASM-16). Five are refused by `PairDeclarationsDiffer` naming both arms; `hyper` and `snapshot_every` are
+refused earlier and per arm by `IgnoredDeclaration` (§2), the pair class being unreachable for them by construction.
+`learning_rule` is deliberately not one of the seven: it is an axis a pair may differ on, and `fairness` reports the set
+it read, not one side's (`rules.md` §8, D-19).
 
-## 5. Why a refusal, and not a learner built from the block
+## 5. Why the rule is forwarded and the hyper refused
 
-Honouring a `hyper` block would mean handing it to `agents.build_learner`'s spec and having `learn`, `act`, `save` and
-`load` read it — a change in another module's surface, rule and checkpoint container, designed there and not here
-(D-13, `module-map.md` §2, `agents/surface.md` §4). It would also end the claim ASM-7 makes: if two configurations can
-carry two hyper sets, then "one rule and every hyperparameter held fixed across the ladder" is a convention nothing
-enforces, and a rung-to-rung difference is no longer attributable to the representation it is named for (D-3). The
-caller's sweep is not lost by refusing it: it is moved to the one place where it is auditable — the module's declared
-hyper (`src/training/declarations.py`), changed once, visibly, and then true for every rung that runs after it
-(ASM-7, `strata/records/r2-plateau-diagnosis.md`).
+The two answers differ because the register does. D-19 makes the estimator a parameter a variant names, so the run reads
+`learning_rule` and hands it to `agents.build_learner`, which builds that rule and refuses an uncatalogued name itself
+(`rules.md` §2, §4). The hyper declaration is not per rule — both rules consume the same six values — so honouring a
+per-configuration `hyper` would make "every hyperparameter held fixed across the ladder" a convention nothing enforces,
+and a rung-to-rung difference no longer attributable to the representation it is named for (`rules.md` §2, D-3, ASM-7);
+it would also mean another module's learner reading it, designed there and not here (D-13, `module-map.md` §2). The
+caller's sweep is not lost by refusing it: it moves to the one auditable place — the module's declared hyper
+(`src/training/declarations.py`), changed once, visibly, and true for every rung after it (ASM-7, `r2-plateau-diagnosis.md`).
 
 ## 6. What is left to L3
 
-The class names' definitions and their docstrings, the four message texts and their order, where each check sits inside
-the resolve step, and the shape of the comparison itself — value by value, or a normalised copy of the declaration
-(`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not L3's: that the four declarations are refused,
-that a `hyper` key the block omits is no claim, that the message names both values, and the pair's eight settings
-(§1–§4, guardrails G16).
+The class names' definitions and their docstrings, the message texts and their order, where each check sits inside the
+resolve step, and the shape of the comparison — value by value, or a normalised copy of the declaration
+(`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not L3's: that these declarations are refused, that a
+`hyper` key the block omits is no claim, that a message names both values, and the pair's seven settings (§1–§4, G16).

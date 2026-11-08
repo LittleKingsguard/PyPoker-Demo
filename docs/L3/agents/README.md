@@ -1,14 +1,14 @@
 # agents — module design (L3)
 
-- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
 - **Realises:** `docs/L2/agents/surface.md` (the ten entry points, their arguments, returns and refusals)
-  and `docs/L2/agents/learner.md` (the one masked-Q rule, the R1↔R2 backend axis, the parameter budget, a
-  version as a checkpoint, the three baselines, the `features` and `engine` edges)
+  and `docs/L2/agents/learner.md` (the rule catalogue and the one contract its members answer, the R1↔R2
+  backend axis, the parameter budget, a version as a checkpoint, the three baselines, the edges)
 - **Reads:** `docs/L1/e2e-surface.md` §1–§3.3, §5, `records.md` §2–§4, §6, §7, §9, `ladder.md` §2, §3, §5,
-  §6, `protocol.md` §3–§5, `assumptions.md` (ASM-2, ASM-4, ASM-5, ASM-7, ASM-10, ASM-12, ASM-18),
-  `battery.md` §3–§4, `strata/decisions.md` (D-1, D-2, D-3, D-6, D-7, D-11, D-12, D-13, D-16),
-  `strata/platform.md`, `docs/L2/features/surface.md` §1, §5, §6, §8, §9, `docs/L2/engine/surface.md` §2,
-  §11, `docs/L3/features/README.md` §4–§5 (inherited fact, never code).
+  §6, `protocol.md` §3–§5, `rules.md` §1–§8, `assumptions.md` (ASM-2, ASM-4, ASM-5, ASM-7, ASM-10, ASM-12,
+  ASM-18, ASM-25), `battery.md` §3–§4, `strata/decisions.md` (D-1, D-2, D-3, D-6, D-7, D-11, D-12, D-13,
+  D-16, D-19), `strata/platform.md`, `docs/L2/features/surface.md` §1, §5, §6, §8, §9,
+  `docs/L2/engine/surface.md` §2, §11, `docs/L3/features/README.md` §4–§5 (inherited fact, never code).
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Implements:** `src/agents/` (written by L4, never by L3). `tests/agents/` is this design's unit battery;
   `tests/e2e/`'s `test_fam01_surface.py` (FAM-1.17–1.26), `test_fam05_baselines.py`, `test_fam12_checkpoints.py`
@@ -16,20 +16,20 @@
 
 ## 1. What this module is
 
-`agents` is everything that chooses or learns an action: one learner family, the ladder's single learning
-rule, and the three fixed baselines (`module-map.md` §1, D-6, ASM-7). It acts, learns, saves, restores and
-hands out policies; it never deals a hand, decides legality, encodes an observation, measures a match or
-writes a report (D-2, D-3, D-6, `surface.md` §1, `learner.md` §6–§8). Rule, reward, vocabulary and readout
-facts are fixed for the ladder, so a rung difference is never the learning rule's (D-3, ASM-7, ASM-12).
+`agents` is everything that chooses or learns an action: one learner family, the catalogue of two learning rules a spec
+selects from, and the three fixed baselines (`module-map.md` §1, D-6, D-19, ASM-7). It acts, learns, saves, restores and
+hands out policies; it never deals a hand, decides legality, encodes an observation, measures a match or writes a report
+(D-2, D-3, D-6, `surface.md` §1, `learner.md` §6–§8). The **set** of rules, the reward, the vocabulary and the readout
+facts are fixed for the ladder, so a rung difference is never a rule's (D-3, ASM-7, ASM-12, `rules.md` §8).
 
 ## 2. The documents, one per owner
 
 | Document | Owner of that question | What it fixes |
 |---|---|---|
-| `rule.md` | the one learning rule | the aim, the mask, the reward, the semi-gradient step and the batch order; the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns (ASM-7, ASM-12) |
+| `rule.md` | the catalogue of two rules | each rule's target, the contract they share, the mask, the reward, the semi-gradient step and the batch order; the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns (D-19, ASM-7, ASM-12) |
 | `architecture.md` | the seven kinds | each kind's layer stack, how `width`/`depth`/`sparsity`/`residual` are read, the **one initialisation order**, the **parameter formula**, and the sizing contract (D-3, ASM-10) |
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |
-| `checkpoint.md` | a version | what a restore recovers, the **exact bytes** of the container, the format version, and `save`/`load`'s refusals (D-16, ASM-5, ASM-18) |
+| `checkpoint.md` | a version | what a restore recovers, the **exact bytes** of the container, the format version and the rule a version-1 file is read as, and `save`/`load`'s refusals (D-16, ASM-5, ASM-18, D-19) |
 | `baselines.md` | the three fixed rules | `random`'s keyed uniform draw, `always-call`'s procedure, `oracle`'s pot-odds inequality at **257** samples, the blindness, the `baselines()` record (D-6, ASM-4) |
 | `errors.md` | refusals | the hierarchy, the message grammar, the canonical message per refusal of `surface.md` §4–§12, and what is deliberately *not* refused |
 | `guardrails.md` | L4 | one numbered note per risk this design identified, in the order they bite, each naming the test that catches it |
@@ -50,17 +50,16 @@ adds, removes and renames none (D-12):
     baselines()                            -> Mapping
     build_baseline(name, seed)             -> callable
 
-`Learner`, `AgentsError` and its subclasses, the kind table, the hyper-declarations, the parameter layout,
-the keyed draw and every helper below an entry point are **not** surface (`e2e-surface.md` §1,
-`surface.md` §1, brief §5). Every rule that holds of all ten — an invalid argument raises an error naming
-the contract, no coercion, no substituted default, no swallowed error, no partial record, no global
-`random` (ASM-2) — is L2's and is not restated here.
+`Learner`, `AgentsError` and its subclasses, the kind table, the rule catalogue, the hyper-declarations, the
+parameter layout, the keyed draw and every helper below an entry point are **not** surface (`e2e-surface.md` §1,
+`surface.md` §1, brief §5). Every rule that holds of all ten — no coercion, no substituted default, no swallowed
+error, no partial record, no global `random` (ASM-2), an invalid argument refused by name — is L2's, not restated here.
 
 ## 4. The layout of `src/agents/`
 
     __init__.py       the ten entry points, `__all__`, and nothing else (§3)
-    errors.py         AgentsError and its sixteen subclasses (errors.md §2)
-    declarations.py   BACKENDS, ARCHITECTURES, HYPER, LEARNING_RULE, KINDS — the one catalogue (§5)
+    errors.py         AgentsError and its seventeen subclasses (errors.md §2)
+    declarations.py   BACKENDS, ARCHITECTURES, LEARNING_RULES, HYPER, KINDS — the one catalogue (§5)
     model.py          the kinds' stacks, the parameter formula, the initialisation order (arch. §2–§5)
     rule.py           epsilon, the keyed draw, the tie-break, the TD aim, the semi-gradient step (rule.md)
     numpy_backend.py  the forward and backward arithmetic in NumPy (backends.md §2)
@@ -76,13 +75,14 @@ fixes in `rule.py`, `model.py` and `checkpoint.py` are contract for `tests/agent
 
 ## 5. The catalogue `learners()` publishes
 
-Four keys, in this order: `backends`, `architectures`, `learning_rule`, `hyper` (`surface.md` §3).
+Four keys, in this order: `backends`, `architectures`, `learning_rules`, `hyper` (`surface.md` §3, D-19).
 `backends` is keyed `numpy` then `torch`, each value `{"name": <backend>}` — a record whose only string
 value is the name, so no prose can be read as one. `architectures` is keyed by the seven kinds in the order
 `naive-stack`, `token-embedding`, `wide`, `deep`, `sparse`, `residual`, `plain`, each value carrying `name`,
-`observation` and `observation_size` (203 for `naive-stack`, 96 for the six token kinds). `learning_rule` is
-the one `str` `masked-q-learning`; `hyper` is the rule's six fixed declarations (`rule.md` §6). The record is
-plain data, equal on two calls, never the copy a fairness check audits (`ladder.md` §3, §4).
+`observation` and `observation_size` (203 for `naive-stack`, 96 for the six token kinds). `learning_rules` is keyed by
+the two catalogue members in `rules.md` §2's order, each value a record of `name` and the `target` it aims at; `hyper`
+is the six fixed declarations both rules consume (`rule.md` §6). The record is plain data, equal on two calls, never
+the copy a fairness check audits (`ladder.md` §3, §4).
 
 ## 6. The import boundary — a hard rule
 
@@ -103,14 +103,14 @@ imported **inside** `torch_backend.py` when a torch learner is built and nowhere
   the policy's descriptor is `decode_action` of it — `"fold"`, `"check-call"`, `"raise"` (`features/surface.md` §8–§9).
 - A readout is the ten facts: `seat` a pair, `hole` two cards, `board` 0/3/4/5 cards, `stacks`/`limit` pairs,
   `pot`/`to_call` ints, `history` entries, `legal` descriptors (`docs/L3/features/README.md` §4).
-- `equity(decision_or_readout, seed, samples)` returns a float in `[0, 1]`, accepts a readout, repeats for one
-  decision, seed and count, and hands the global stream back (`engine/surface.md` §11) — the oracle's only
-  `engine` call (`learner.md` §7).
+- `equity(decision_or_readout, seed, samples)` returns a float in `[0, 1]`, accepts a readout and repeats for one
+  decision, seed and count (`engine/surface.md` §11) — the oracle's only `engine` call (`learner.md` §7).
 
 ## 8. Decisions a later module must not re-derive
 
-1. **One rule, one reward, one vocabulary, one fact set** (ASM-7, ASM-12, D-3): a rung changes the
-   representation or the architecture and nothing else; no hyperparameter is a per-learner argument.
+1. **One rule set, one reward, one vocabulary, one fact set** (ASM-7, ASM-12, D-19): a rung changes the
+   representation or the architecture and nothing else; no hyperparameter is a per-learner argument, and a pair may
+   differ on the rule at one capacity because both rules hold the same trainable parameters (ASM-10, D-19).
 2. **An answer depends on the state and the decision, not on call order**: the key is a function of seed,
    observation and mask, the schedule advances only inside `learn`, a policy's state advances nowhere.
 3. **The tie-break is total and backend-independent**: the smallest masked index within `1e-9` relative of

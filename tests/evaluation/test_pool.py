@@ -23,7 +23,9 @@ import unittest
 
 from _evaluation_support import (
     BASELINES,
+    DEFAULT_RULE,
     OPPONENT_SEEDS,
+    OTHER_RULE,
     POOL_M,
     START_LABEL,
     VERSION_IDS,
@@ -33,6 +35,7 @@ from _evaluation_support import (
     member_id,
     pool_digest,
     pool_member_ids,
+    pool_rules,
     probe_readouts,
     version_chain,
     version_record,
@@ -165,18 +168,18 @@ class PoolTest(EvaluationCase):
                 )
 
     def test_evl_2_4_the_id_is_the_declared_digest_and_no_other(self):
-        """EVL-2.4 `id == "pool-" + sha256("\\n".join(ordered ids)).hexdigest()[:16]` over `pool_members`'s order, recomputed here (`pool.md` §4, G2)."""
+        """EVL-2.4 `id == "pool-" + sha256(payload).hexdigest()[:16]` over `pool_members`'s order -- a baseline's id alone, a version's id, `\\x1f`, its rule -- recomputed here (`families.md` §4, G2, ASM-27)."""
         pool = self.frozen_pool(members=version_chain(VERSION_IDS[:3]))
         read = self.pool_members(pool)
         ids = pool_member_ids(read)
-        expected = pool_digest(ids)
+        expected = pool_digest(read["members"])
         self.assertEqual(
             read["id"],
             expected,
-            "the pool id is sha256 of the ordered member ids joined by a single \\n, "
-            "lowercase hex truncated to 16 characters and prefixed `pool-` "
-            "(pool.md §4, G2): got %r for %r, expected %r"
-            % (read["id"], ids, expected),
+            "the pool id is sha256 of the payload -- one line per member, a baseline's id "
+            "alone and a version's id, \\x1f, its rule -- joined by a single \\n, lowercase "
+            "hex truncated to 16 characters and prefixed `pool-` (families.md §4, ASM-27): "
+            "got %r for %r, expected %r" % (read["id"], ids, expected),
         )
         self.assertEqual(
             list(read)[0],
@@ -235,7 +238,7 @@ class PoolTest(EvaluationCase):
         )
 
     def test_evl_2_6_the_lineage_order_is_the_links_not_the_declaration_order(self):
-        """EVL-2.6 `_lineage_order` follows `lineage == id` from a start, and concatenates chains in the order their starts were declared -- sorting by step, by samples or by the declaration's order is red (`pool.md` §3, G4)."""
+        """EVL-2.6 `_families` follows `lineage == id` from a start, and orders the families by the position of each one's start in the declaration -- sorting by step, by samples or by the declaration's own order is red (`families.md` §1-§2, G4)."""
         records = version_chain(VERSION_IDS[:4])
         shuffled = [records[3], records[1], records[0], records[2]]
         ids = pool_member_ids(self.pool_members(self.frozen_pool(members=shuffled, m=4)))
@@ -414,9 +417,9 @@ class PoolTest(EvaluationCase):
         )
         self.assertEqual(
             after["id"],
-            pool_digest(ids),
+            pool_digest(after["members"]),
             "the advanced pool's id is the digest of its own ordered membership "
-            "(pool.md §4, §6): %r" % (after["id"],),
+            "(families.md §4, §5): %r" % (after["id"],),
         )
         self.assertEqual(
             int(after["m"]),
@@ -754,6 +757,230 @@ class PoolTest(EvaluationCase):
                     groups=(("seed",),),
                     label="opponent(seed=%r)" % (seed,),
                 )
+
+
+    # -- the rule a member declares, and the families it groups (D-19) ----
+    def test_evl_2_22_a_version_member_declares_its_rule_and_an_uncatalogued_one_is_refused(self):
+        """EVL-2.22 every version member declares a catalogue `rule` -- read from `agents.learners()` and never from a copy -- and a name the catalogue lacks is refused by name, before the pool exists (`pool.md` §2 item 1, `rules.md` §4, `records.md` §7, ASM-26)."""
+        package = self.evaluation()
+        catalogue = self.catalogue_rules()
+        self.assertEqual(
+            tuple(catalogue[:2]),
+            (DEFAULT_RULE, OTHER_RULE),
+            "the catalogue publishes the two rules in rules.md §2's order, so the names "
+            "this case asserts against are the module's own (rules.md §2, §4, D-19): %r"
+            % (catalogue,),
+        )
+        declared_rule = version_record(VERSION_IDS[0], START_LABEL, rule=OTHER_RULE)
+        read = self.pool_members(self.frozen_pool(members=[declared_rule]))
+        members = {member_id(entry): entry for entry in read["members"]}
+        self.assertEqual(
+            members[VERSION_IDS[0]]["rule"],
+            OTHER_RULE,
+            "each version member carries the rule it was trained under, so a table can "
+            "name the population it measured (records.md §7, ASM-27): %r"
+            % (members.get(VERSION_IDS[0]),),
+        )
+        for label, rule in (
+            ("a name outside the catalogue", "n-step-returns-battery"),
+            ("an empty name", ""),
+            ("a name holding the digest's separator", "masked\x1fq-learning"),
+            ("a name holding a newline", "masked\nq-learning"),
+            ("a name that is not a string", 42),
+        ):
+            with self.subTest(case=label):
+                offender = version_record(VERSION_IDS[0], START_LABEL)
+                offender["rule"] = rule
+                self.assert_evaluation_refusal(
+                    package.build_pool,
+                    declaration(members=[offender], m=POOL_M),
+                    entry="build_pool",
+                    groups=(("rule",),),
+                    label="a version declaring %r" % (rule,),
+                )
+        missing = version_record(VERSION_IDS[0], START_LABEL)
+        missing.pop("rule")
+        self.assert_evaluation_refusal(
+            package.build_pool,
+            declaration(members=[missing], m=POOL_M),
+            entry="build_pool",
+            groups=(("rule",),),
+            label="a version declaring no rule at all",
+        )
+
+    def test_evl_2_23_the_pool_record_declares_the_rules_its_versions_hold(self):
+        """EVL-2.23 `pool_members` returns the distinct rules its version members declare, in the window's order -- the empty tuple for a baselines-only pool, both rules for a window holding two families (`pool.md` §5, `records.md` §8, ASM-27)."""
+        masked = version_chain(VERSION_IDS[:2], rule=DEFAULT_RULE)
+        doubled = version_chain(
+            VERSION_IDS[2:4], start="own-start-other-5600", rule=OTHER_RULE
+        )
+        two = self.pool_members(self.frozen_pool(members=masked + doubled, m=5))
+        self.assertEqual(
+            tuple(pool_rules(two)),
+            (DEFAULT_RULE, OTHER_RULE),
+            "a pool record carries `rules`, the distinct rules its version members "
+            "declare, in the window's order (records.md §8, D-19): %r"
+            % (pool_rules(two),),
+        )
+        baselines_only = self.pool_members(self.frozen_pool(members=(), m=5))
+        self.assertEqual(
+            tuple(pool_rules(baselines_only)),
+            (),
+            "R1's pool is the three baselines alone, which declare no rule at all, so its "
+            "`rules` is the empty tuple (records.md §8, league.md §2): %r"
+            % (pool_rules(baselines_only),),
+        )
+        id_before = pool_digest(baselines_only["members"])
+        self.assertEqual(
+            baselines_only["id"],
+            id_before,
+            "a baselines-only pool digests as a bare list of names, so the id a shipped "
+            "artefact records survives the rule's arrival unchanged (families.md §4, "
+            "ASM-27)",
+        )
+
+    def test_evl_2_24_a_second_family_is_accepted_and_extends_its_own_newest(self):
+        """EVL-2.24 `offer` accepts a version whose lineage is a label no member carries -- which opens a second family -- where the single-chain rule refused it, and then rolls that family by its own newest member (`families.md` §5, `pool.md` §6, ASM-26)."""
+        package = self.evaluation()
+        first = version_chain(VERSION_IDS[:2], rule=DEFAULT_RULE)
+        pool = self.open_pool(members=first, m=5)
+        opening = version_record(
+            VERSION_IDS[2], "own-start-second-family-5601", rule=OTHER_RULE
+        )
+        pool = package.offer(pool, opening)
+        self.assertEqual(
+            pool_member_ids(self.pool_members(pool)),
+            tuple(BASELINES) + (VERSION_IDS[0], VERSION_IDS[1], VERSION_IDS[2]),
+            "a version whose lineage no member carries opens a second family, and the "
+            "window lists each family contiguously oldest to newest (families.md §2, §5): "
+            "%r" % (pool_member_ids(self.pool_members(pool)),),
+        )
+        extending = version_record(
+            VERSION_IDS[3], VERSION_IDS[2], rule=OTHER_RULE, step=400
+        )
+        pool = package.offer(pool, extending)
+        self.assertEqual(
+            pool_member_ids(self.pool_members(pool)),
+            tuple(BASELINES) + (VERSION_IDS[0], VERSION_IDS[1], VERSION_IDS[2],
+                                VERSION_IDS[3]),
+            "the second family rolls by its own newest member, so a window holding two "
+            "chains advances where the single-chain rule refused the second snapshot "
+            "(families.md §5, league.md §2, D-19): %r"
+            % (pool_member_ids(self.pool_members(pool)),),
+        )
+        with self.subTest(case="a lineage that forks its family"):
+            fork = version_record(VERSION_IDS[4], VERSION_IDS[2], step=500)
+            self.assert_evaluation_refusal(
+                package.offer,
+                pool,
+                fork,
+                entry="offer",
+                groups=(("lineage",), (VERSION_IDS[3],)),
+                label="a lineage naming a member that is not its family's newest",
+            )
+        with self.subTest(case="the same start label opens a second family"):
+            sibling = version_record(
+                VERSION_IDS[5], START_LABEL, rule=OTHER_RULE, step=600
+            )
+            opened = package.offer(
+                self.open_pool(members=version_chain(VERSION_IDS[:2]), m=5), sibling
+            )
+            self.assertEqual(
+                pool_member_ids(self.pool_members(opened)),
+                tuple(BASELINES) + (VERSION_IDS[0], VERSION_IDS[1], VERSION_IDS[5]),
+                "a lineage that is no member's id opens a new family, which is how a "
+                "second arm's first snapshot -- naming the rung start its sibling's "
+                "names -- joins the window (families.md §5, ASM-26, D-19): %r"
+                % (pool_member_ids(self.pool_members(opened)),),
+            )
+        with self.subTest(case="a version changing its family's rule"):
+            relabelled = version_record(VERSION_IDS[4], VERSION_IDS[3], rule=DEFAULT_RULE)
+            self.assert_evaluation_refusal(
+                package.offer,
+                pool,
+                relabelled,
+                entry="offer",
+                groups=(("rule",), (OTHER_RULE,), (DEFAULT_RULE,)),
+                label="a version whose rule is not the rule of the family it extends",
+            )
+
+    def test_evl_2_25_eviction_is_fair_share_and_never_empties_a_family(self):
+        """EVL-2.25 a full window evicts the oldest member of the family that holds the most, so no family is emptied while another holds two or more -- and one family's window is the last `m` of its chain, as it was before the catalogue (`families.md` §3, ASM-26)."""
+        package = self.evaluation()
+        alpha = version_chain(
+            VERSION_IDS[:3], start="own-start-family-a-5602", rule=DEFAULT_RULE
+        )
+        bravo = version_chain(
+            VERSION_IDS[3:6], start="own-start-family-b-5603", rule=OTHER_RULE
+        )
+        pool = self.open_pool(members=alpha + bravo, m=4)
+        kept = pool_member_ids(self.pool_members(pool))
+        self.assertEqual(
+            len(kept),
+            len(BASELINES) + 4,
+            "a window holds at most the bound it declares, beside the three pinned "
+            "baselines (pool.md §2, league.md §2): %r" % (kept,),
+        )
+        for family, names in (("a", VERSION_IDS[:3]), ("b", VERSION_IDS[3:6])):
+            with self.subTest(family=family):
+                self.assertTrue(
+                    any(name in kept for name in names),
+                    "fair-share eviction leaves at least one member of each family while "
+                    "another holds two or more (families.md §3, ASM-26): %r" % (kept,),
+                )
+        advanced = package.offer(
+            pool, version_record(VERSION_IDS[6], alpha[-1]["id"], rule=DEFAULT_RULE, step=700)
+        )
+        after = pool_member_ids(self.pool_members(advanced))
+        self.assertEqual(
+            len(after),
+            len(BASELINES) + 4,
+            "offering into a full window keeps the window at its bound (families.md §3): %r"
+            % (after,),
+        )
+        for family, names in (("a", VERSION_IDS[:3] + (VERSION_IDS[6],)),
+                              ("b", VERSION_IDS[3:6])):
+            with self.subTest(after_family=family):
+                self.assertTrue(
+                    any(name in after for name in names),
+                    "a seventh version rolls its own family and no family is emptied "
+                    "(families.md §3, §5, ASM-26): %r" % (after,),
+                )
+        with self.subTest(case="one family behaves as it did before"):
+            single = self.open_pool(members=version_chain(VERSION_IDS[:5]), m=3)
+            self.assertEqual(
+                pool_member_ids(self.pool_members(single)),
+                tuple(BASELINES) + VERSION_IDS[2:5],
+                "a window holding one family keeps the last `m` of that chain, which is "
+                "what every pool in the shipped tree holds (families.md §3, ASM-18): %r"
+                % (pool_member_ids(self.pool_members(single)),),
+            )
+
+    def test_evl_2_26_opening_the_mth_plus_one_family_is_refused_by_name(self):
+        """EVL-2.26 a declaration holding more families than its bound, and an offer that would open the (m+1)th family, are refused -- windowing could not keep one member of each, so a family would be emptied (`families.md` §3, §5, ASM-26)."""
+        package = self.evaluation()
+        starts = ("own-start-fam-1", "own-start-fam-2", "own-start-fam-3")
+        declared = [
+            version_record(name, start)
+            for name, start in zip(VERSION_IDS[:3], starts)
+        ]
+        self.assert_evaluation_refusal(
+            package.build_pool,
+            declaration(members=declared, m=2),
+            entry="build_pool",
+            groups=(("m", "bound", "famil"), ("2",)),
+            label="a declaration holding three families under a bound of two",
+        )
+        two = self.open_pool(members=declared[:2], m=2)
+        third = version_record(VERSION_IDS[2], starts[2])
+        self.assert_evaluation_refusal(
+            package.offer,
+            two,
+            third,
+            entry="offer",
+            groups=(("famil",), ("2",)),
+            label="an offer that would open the third family of a two-member window",
+        )
 
 
 #: A seed for a corrected member field: the digest must not read it (EVL-2.5).

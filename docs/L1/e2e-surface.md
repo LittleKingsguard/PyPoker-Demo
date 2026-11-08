@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 end-to-end I/O surface
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
 - **Purpose:** the entry points the L1 e2e battery drives, named precisely enough to call (brief §5)
 - **Ceiling:** 160 lines. At the ceiling, split by owner — never append
 
@@ -12,7 +12,7 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 
 ## 2. Shared contracts
 
-**Policy protocol.** A policy is a callable taking `(readout, legal_actions)` and returning one action descriptor from `legal_actions`. `engine` calls policies and never imports one; `agents.as_policy` and `evaluation.policy_from` return one. A policy that returns an illegal action is a contract violation, not a fold (D-2).
+**Policy protocol.** A policy is a callable taking `(readout, legal_actions)` and returning one action descriptor from `legal_actions`. `engine` calls policies and never imports one; `agents.as_policy` and `evaluation.policy_from` return one. A policy that returns an illegal action is a contract violation, not a fold (D-2). A policy built from a learner also carries `learning_rule`, the catalogue member its model learned under, so a table can name the population it measured; a baseline policy and a policy handed in from outside carry none (D-19, `rules.md` §7).
 
 **Readout facts — the information set.** `engine.readout(hand)` returns a mapping with exactly these keys, and they are the same facts for every rung (D-3):
 
@@ -33,7 +33,9 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 
 **Action vocabulary.** `features.action_space()` is fixed for the whole ladder: three indices — `0` fold, `1` check/call, `2` raise. An action descriptor is the vocabulary's own name — `fold`, `check-call` or `raise` — and carries no amount: `engine` resolves a raise to its minimum legal completion, which fixed-limit makes unique. `features.legal_indices` returns the indices in the descriptors' order, one per descriptor, and `decode_action` maps an index back to the descriptor `engine.apply_action` accepts. The vocabulary is the game's, not a rung's (D-2).
 
-**Pool.** A pool is an ordered member list plus its bound. A member is either a `version` — a checkpoint of a run, carrying an id, the lineage it came from and its path — or one of the three fixed baselines. A pool holds at most M versions and always holds the baselines, which are never evicted; a frozen pool's membership does not change while it is used (D-16, ASM-16). The same pool object is the training opposition and the evaluation opposition (D-16).
+**Pool.** A pool is an ordered member list plus its bound. A member is either a `version` — a checkpoint of a run, carrying an id, the lineage it came from, its path and the **rule** it was trained under — or one of the three fixed baselines, which carries no rule. A pool holds at most M versions and always holds the baselines, which are never evicted; a frozen pool's membership does not change while it is used (D-16, ASM-16). Versions are grouped into families — one lineage chain each, all its members under one rule — and a full window evicts fair-share, so no family is emptied while another holds two or more (D-19, ASM-26). The same pool object is the training opposition and the evaluation opposition (D-16).
+
+**Learning rule.** `agents.learners()` publishes the catalogue a learner spec selects from: `masked-q-learning` and `double-q-learning`, each stated with the target it aims at, and both consuming one `hyper` declaration and one state layout (`rules.md` §2, §3, D-19). A spec naming none builds the catalogue's **first** member, and a name outside the catalogue is refused by name — in a spec, in a variant entry, in a pool member and in a `load` spec alike. Whatever the rule, a learner answers `act`, `learn`, `save`, `load`, `param_count` and `as_policy` with one shape, so no caller branches on it (D-19, `rules.md` §3).
 
 **Cell.** A cell is one unordered pair of members played at one hand count, with seats alternating across hands, and reported in both directions: each member's wins, ties, losses, mean chip delta per hand and seat split (D-16, ASM-14). Every cell of one table is played at the same hand count, the three baseline cells included, so no member's row is measured more precisely than another's (D-16).
 
@@ -77,14 +79,14 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 
 | Entry point | Inputs | Returns | Kind |
 |---|---|---|---|
-| `learners` | — | the learner backends (`numpy`, `torch`) and the architecture kinds the ladder uses | fixed |
-| `build_learner` | a learner spec (backend, architecture, sizes, seed, and the encoder when the caller has one) | a learner; with no encoder it is sized from the `observation_size` its architecture kind declares, and `observation_spec` is the cross-check that keeps the two equal (D-3) | general |
-| `param_count` | learner | trainable parameter count — the matched-budget measurement (ASM-10) | general |
+| `learners` | — | the learner backends (`numpy`, `torch`), the architecture kinds the ladder uses, and the **learning-rule catalogue** with each member's target (`rules.md` §2, D-19) | fixed |
+| `build_learner` | a learner spec (backend, architecture, sizes, seed, the rule it learns under, and the encoder when the caller has one) | a learner under the declared rule — the catalogue's first when the spec names none; with no encoder it is sized from the `observation_size` its architecture kind declares, and `observation_spec` is the cross-check that keeps the two equal (D-3, D-19) | general |
+| `param_count` | learner | trainable parameter count — the matched-budget measurement, which no rule changes (ASM-10, D-19) | general |
 | `act` | learner, observation, legal mask | one action index plus the learner's own record of the decision | general |
-| `learn` | learner, transitions | the update's own statistics (loss or TD error) for the curve | general |
-| `save` | learner, path | the written checkpoint path | general |
-| `load` | learner spec, path | the restored learner | general |
-| `as_policy` | learner, encoder, seed | a policy in the sense of §2 | general |
+| `learn` | learner, transitions | the update's own statistics (loss or TD error) for the curve, under whichever rule the learner was built with | general |
+| `save` | learner, path | the written checkpoint path; the container records the rule beside the seed and the encoding (D-19) | general |
+| `load` | learner spec, path | the restored learner, under the rule its container records; a spec carrying a rule the file contradicts is refused naming both | general |
+| `as_policy` | learner, encoder, seed | a policy in the sense of §2, carrying the rule its learner was built under | general |
 | `baselines` | — | the three fixed names: `random`, `always-call`, `oracle` (D-6) | fixed |
 | `build_baseline` | baseline name, seed | a policy in the sense of §2 (ASM-4) | fixed |
 
@@ -94,15 +96,15 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 |---|---|---|---|
 | `protocol` | — | the evidence contract a report is judged against: the seven families of `protocol.md` §1, the seed set, the required header (D-6, D-16) | fixed |
 | `league` | — | the league's parameters: M, the three pinned baselines, the cell count for a given membership, the live and full cell sizes, the table seed, the rating method (D-16, ASM-14) | fixed |
-| `build_pool` | a membership declaration (versions with lineage, plus M and whether the pool is frozen) | a pool in the sense of §2; the baselines are added and pinned (D-16, ASM-16) | general |
-| `pool_members` | pool | the ordered members with their metadata, and the bound M the pool holds to | general |
-| `offer` | pool, one version | the pool advanced by one version: the rolling window drops its oldest evictable version and the baselines stay (D-16, ASM-18) | general |
+| `build_pool` | a membership declaration (versions with lineage and rule, plus M and whether the pool is frozen) | a pool in the sense of §2; the baselines are added and pinned, and a version's rule is refused if the catalogue does not carry it (D-16, ASM-16, ASM-26) | general |
+| `pool_members` | pool | the ordered members with their metadata — each version's rule included — the `rules` the pool holds, and the bound M the pool holds to (D-19) | general |
+| `offer` | pool, one version | the pool advanced by one version: the version extends one family and a full window evicts fair-share, so no family is emptied while another holds two or more (D-19, ASM-18, ASM-26) | general |
 | `opponent` | pool, seed | one policy drawn from the pool, for one training hand | general |
 | `match` | two policies or two members, hand count, seed | one cell in the sense of §2, with both seats' parameter counts and the seed used (D-16) | general |
-| `matrix` | pool, the rung's variant policies, a table budget (`live` or `full`) | the pairwise matrix: ordered members, one cell per unordered pair, the table seed and the per-cell hand count (D-16) | general |
+| `matrix` | pool, the rung's variant policies, a table budget (`live` or `full`) | the pairwise matrix: ordered members, one cell per unordered pair, each member's rule and the `population` they make up, the table seed and the per-cell hand count (D-16, D-19) | general |
 | `rating` | matrix | the fitted rating per member with its 95% interval, the method, the anchor, the hands behind each rating and the fit's convergence (D-16, ASM-17) | general |
-| `policy_from` | checkpoint path | a policy in the sense of §2, loaded in evaluation mode | general |
-| `report` | rung name, run record, matrix, rating | the complete per-rung report, or a failure naming the missing evidence family or the violated league rule (D-6, D-16) | general |
+| `policy_from` | checkpoint path | a policy in the sense of §2, loaded in evaluation mode, carrying the rule its container records | general |
+| `report` | rung name, run record, matrix, rating | the complete per-rung report, or a failure naming the missing evidence family or the violated league rule; its pool family and header carry the rules the measured population held (D-6, D-16, D-19) | general |
 
 ### 3.5 `training` — 6
 
@@ -110,10 +112,10 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 |---|---|---|---|
 | `rungs` | — | the six rung declarations in brief §2's order, each with its variants, its lineage and its budget | fixed |
 | `rung` | rung name | one resolved rung configuration, or an error naming the unknown rung | general |
-| `run` | rung name or rung config, seed set, budget, device | the run record: per-seed curves, throughput, the frozen pool's id and membership it trained against, the snapshot paths, and the seed, budget and device actually used (D-6, D-16) | general |
-| `fairness` | two rung configurations or two variants | what a comparison pair holds constant — the pool each arm used, one pool for both arms of a two-variant rung — and the single axis on which it differs (D-3, D-16) | general |
+| `run` | rung name or rung config, seed set, budget, device | the run record: per-seed curves, throughput, the frozen pool's id and membership it trained against, the snapshot paths, each variant's rule and the run's rule set, and the seed, budget and device actually used (D-6, D-16, D-19) | general |
+| `fairness` | two rung configurations or two variants | what a comparison pair holds constant — the pool each arm used, one pool for both arms of a two-variant rung, and the **set** of rules both sides declare — and the single axis on which it differs (D-3, D-16, D-19) | general |
 | `devices` | — | the available devices and the default, CPU inside the sandbox and GPU only for a user-started run (D-8) | fixed |
-| `checkpoints` | — | the shipped checkpoint index: each rung variant's final model, and the pool's retained versions (D-16, ASM-5, ASM-18) | general |
+| `checkpoints` | — | the shipped checkpoint index: each rung variant's final model, and the pool's retained versions, each with the rule it was trained under (D-16, ASM-5, ASM-18, D-19) | general |
 
 ### 3.6 `harness` — 6
 
@@ -146,6 +148,6 @@ The ceiling column is `50 + 10×N` (brief §5); `modules.json` carries the `endp
 
 ## 5. General-purpose surfaces and the blind instance
 
-A row marked `general` is defined for any valid instance; a row marked `fixed` has one instance that is the project's whole point (the one game of D-2, the two encodings of D-3, the three baselines of D-6, the six rungs of brief §2, the one league of D-16). The battery's blind instance rule applies to the `general` rows only: for each of them the test writer authors at least one case whose instance appears in no design document, invented from this surface alone (D-15, examiner.md §3). A row is `fixed` when no instance of it can be invented through the declared surface — an encoder exists only by one of the two declared encodings, so `observation_spec` is a fixed row and is tested, not blinded.
+A row marked `general` is defined for any valid instance; a row marked `fixed` has one instance that is the project's whole point (the one game of D-2, the two encodings of D-3, the three baselines of D-6, the six rungs of brief §2, the one league of D-16, the two learning rules of D-19). The battery's blind instance rule applies to the `general` rows only: for each of them the test writer authors at least one case whose instance appears in no design document, invented from this surface alone (D-15, examiner.md §3). A row is `fixed` when no instance of it can be invented through the declared surface — an encoder exists only by one of the two declared encodings, so `observation_spec` is a fixed row and is tested, not blinded.
 
 There are 37 `general` rows — 8 in `engine`, 3 in `features`, 7 in `agents`, 9 in `evaluation`, 4 in `training`, 6 in `harness` — so the battery carries at least 37 blind instances. One case may name one `general` row as its subject and exercise other rows as a path; being the subject is what counts.

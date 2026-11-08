@@ -23,9 +23,11 @@ import unittest
 
 from _training_support import (
     CHECKPOINT_ROOT,
+    LEARNING_RULE,
     RETAINED,
     REPO_ROOT,
     RUNG_NAMES,
+    SHARED,
     SIXTY_BUDGET,
     SNAPSHOTS,
     TINY_BUDGET,
@@ -39,6 +41,7 @@ from _training_support import (
     checkpoint_tree,
     internal,
     internal_module,
+    learning_rules,
     listed_paths,
     one_seed_run,
     repo_relative,
@@ -50,7 +53,8 @@ from _training_support import (
     write_tree,
 )
 
-#: `checkpoints.md` §4's nine keys of one entry, `records.md` §7's eight plus `kind`.
+#: `checkpoints.md` §4's ten keys of one entry: `records.md` §7's nine — `rule` among them
+#: since D-19 — plus the index's own `kind` (`records.md` §7, `checkpoints.md` §4, D-19).
 ENTRY_KEYS = {
     "id",
     "path",
@@ -60,6 +64,7 @@ ENTRY_KEYS = {
     "step",
     "samples",
     "lineage",
+    "rule",
     "kind",
 }
 
@@ -228,10 +233,11 @@ class CheckpointTest(TrainingCase):
             )
 
     def test_trn_6_3_every_entry_is_one_artefact_inside_the_repository(self):
-        """TRN-6.3 every entry carries the nine keys, a `kind` of `snapshot` or `final`, and a path ending in the checkpoint suffix that resolves to a file inside the repository (checkpoints.md §2, §4-§5, FAM-12.5, FAM-16.31)."""
+        """TRN-6.3 every entry carries the ten keys — `rule` among them since D-19 — a `kind` of `snapshot` or `final`, a `rule` the catalogue publishes, and a path ending in the checkpoint suffix that resolves to a file inside the repository (checkpoints.md §2, §4-§5, records.md §7, rules.md §2, §6, FAM-12.5, FAM-16.31, D-19)."""
         entries = self.entries()
         self.assertTrue(entries, "the index carries the entries of the shipped runs")
         root = os.path.abspath(REPO_ROOT)
+        catalogue = learning_rules()
         ids = []
         for entry in entries:
             with self.subTest(entry=entry.get("id")):
@@ -240,6 +246,14 @@ class CheckpointTest(TrainingCase):
                     ENTRY_KEYS,
                     "one entry is a records.md §7 record extended with `kind` "
                     "(checkpoints.md §4): %r" % (sorted(entry),),
+                )
+                self.assertIn(
+                    as_text(entry["rule"], "rule"),
+                    catalogue,
+                    "an entry's `rule` is a member of the catalogue "
+                    "agents.learners() publishes, because a name outside it is refused "
+                    "where it is declared (checkpoints.md §4, rules.md §2, §4, D-19): %r"
+                    % (entry["rule"],),
                 )
                 self.assertIn(
                     as_text(entry["kind"], "kind"),
@@ -850,6 +864,98 @@ class CheckpointTest(TrainingCase):
             "(checkpoints.md §3, loop.md §2, write-root.md §1, guardrails G20): %r"
             % (pair,),
         )
+
+    def test_trn_6_10_every_entry_names_the_rule_its_artefact_was_trained_under(self):
+        """TRN-6.10 the index lists the same eighteen artefacts with one fact added — every entry naming `masked-q-learning`, the rule the shipped window was trained under — and the retained window a successor rung inherits carries it on each version, so that membership can certify every member's estimator (checkpoints.md §4-§5, records.md §7, §8, rules.md §6, ASM-5, ASM-18, ASM-27, D-19)."""
+        entries = self.entries()
+        self.assertEqual(
+            len(entries),
+            len(SHARED["seeds"]) * (RETAINED + 1),
+            "the shipped set is R1's live run at the recorded seed set: five retained "
+            "snapshots plus that pair's final model per seed is eighteen artefacts, and "
+            "adding one fact to each entry adds no artefact and removes none "
+            "(checkpoints.md §5, ASM-18, protocol.md §5): %d entries"
+            % (len(entries),),
+        )
+        rules = {as_text(entry["rule"], "an entry's rule") for entry in entries}
+        self.assertEqual(
+            rules,
+            {LEARNING_RULE},
+            "each entry names the rule its artefact was trained under, and the shipped set "
+            "was written before the catalogue existed: a version 1 container carries no "
+            "`learning_rule` and is read as %r, the only rule its writer could have used "
+            "(records.md §7, rules.md §6, ASM-5, D-19): %r"
+            % (LEARNING_RULE, sorted(rules)),
+        )
+        self.assertIn(
+            LEARNING_RULE,
+            learning_rules(),
+            "the rule the shipped window declares is a catalogue member, so a pool built "
+            "from these records certifies an estimator the catalogue publishes "
+            "(rules.md §2, §4, D-19): %r" % (learning_rules(),),
+        )
+        declared = internal("index", "SHIPPED_RULES")
+        self.assertEqual(
+            set(declared),
+            {as_text(name, "a shipped rung name") for name in as_sequence(
+                self.index().get("shipped"), "'shipped'")},
+            "the rule is declared per rung beside `SHIPPED` — one dict keyed the same way — "
+            "so no shipped rung is left naming no rule, which a version record's required "
+            "`rule` forbids (checkpoints.md §4, records.md §7, D-19): %r"
+            % (sorted(declared),),
+        )
+        window = [
+            as_mapping(member, "a window member")
+            for member in as_sequence(
+                internal("index", "_window_members")(self.variant()), "the retained window"
+            )
+        ]
+        self.assertGreaterEqual(
+            len(window),
+            RETAINED,
+            "R1's retained window is what its successor inherits, so it holds at least the "
+            "M = %d versions the pool keeps (checkpoints.md §3, §5, registry.md §3, "
+            "ASM-18): %r" % (RETAINED, window),
+        )
+        for member in window:
+            self.assertEqual(
+                as_text(member["rule"], "a window member's rule"),
+                LEARNING_RULE,
+                "a version member of the inherited window carries its own `rule`, which is "
+                "what lets `evaluation.build_pool` certify the estimator of every member it "
+                "admits (records.md §7, §8, rules.md §6, ASM-27, D-19): %r" % (member,),
+            )
+        inherited = [
+            as_mapping(member, "an inherited pool member")
+            for member in as_sequence(
+                as_mapping(training().rung("R2")["pool"], "R2's pool entry")["members"],
+                "R2's declared membership",
+            )
+        ]
+        self.assertGreaterEqual(
+            len(inherited),
+            RETAINED,
+            "R2 trains against R1's retained window, so the membership it declares is not "
+            "empty while the repository carries those artefacts (registry.md §3, "
+            "FAM-12.4): %r" % (inherited,),
+        )
+        for member in inherited:
+            self.assertEqual(
+                as_text(member["rule"], "an inherited member's rule"),
+                LEARNING_RULE,
+                "the membership a successor rung declares carries each version's rule, so "
+                "the window it hands `evaluation.build_pool` is one the pool accepts and "
+                "its id can certify (records.md §7, §8, ASM-27, D-19): %r" % (member,),
+            )
+
+    def variant(self):
+        """The shipped rung's one variant name — the window is keyed by it (`index.py`)."""
+        shipped = as_sequence(self.index().get("shipped"), "'shipped'")
+        self.assertTrue(shipped, "the index names at least one shipped rung")
+        name = as_text(shipped[0], "a shipped rung name")
+        entry = as_mapping(as_sequence(training().rung(name)["variants"], "variants")[0],
+                           "a variant entry")
+        return as_text(entry.get("name"), "a variant's name")
 
 
 if __name__ == "__main__":

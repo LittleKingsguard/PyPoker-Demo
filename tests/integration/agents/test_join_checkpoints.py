@@ -7,7 +7,9 @@ which is what lets a shipped version be a league member (`docs/L1/records.md` §
 `docs/L1/protocol.md` §5, ASM-5).  The checkpoint is saved at a *learned* state and
 the exploration schedule is annealed past the catalogue's `samples`, so the compared
 decisions are taken on the greedy arm; otherwise a restore that dropped the
-parameters would pass.
+parameters would pass.  D-19's rule travels with the member: the container records
+the catalogue member the learner was trained under and a restore reads the file under
+it (`docs/L1/rules.md` §6, `docs/L3/agents/checkpoint.md` §1–§3).
 """
 
 import importlib.util
@@ -185,6 +187,97 @@ class CheckpointsAsMembers(J.JoinCase):
             compared,
             4,
             "the equality must be shown over several decisions of two real hands",
+        )
+
+    def test_join_agt_7_4_a_two_rule_pair_keeps_one_capacity_and_its_own_rule(self):
+        """JOIN-AGT-7.4 a two-rule pair has one capacity, each policy names its own rule, and a double-Q member round-trips with its rule.
+
+        `docs/L1/rules.md` §3 and §8: the rule is an axis a pair may differ on, and
+        the two members hold one capacity (`docs/L2/agents/surface.md` §5, ASM-10,
+        D-19) — so `param_count` cannot tell them apart while
+        `as_policy(...).learning_rule` must (`docs/L1/e2e-surface.md` §2,
+        `docs/L2/agents/surface.md` §10).  The double-Q member then goes through
+        `save`/`load` from its path alone with its rule intact (`docs/L1/rules.md`
+        §6, `docs/L2/agents/surface.md` §9), which is what lets a shipped version
+        certify the population it belongs to (`docs/L1/records.md` §7).
+        """
+        catalogue = tuple(J.learners()["learning_rules"])
+        self.assertGreaterEqual(
+            len(catalogue),
+            2,
+            "the rule catalogue carries the two members this case pairs "
+            "(docs/L1/rules.md §2, D-19)",
+        )
+        first, second = catalogue[0], catalogue[1]
+        encoder = J.build_encoder(J.encoding_for("naive-stack"))
+        spec = J.learner_spec(
+            "naive-stack", J.WIDTH_ONE, J.DEPTH_ONE, J.LEARNER_SEED
+        )
+        named = dict(spec)
+        named["learning_rule"] = second
+        learners = []
+        for rule, learner_spec in ((first, spec), (second, named)):
+            with self.subTest(rule=rule):
+                learner = J.build_learner(learner_spec)
+                policy = J.as_policy(learner, encoder, J.LEARNER_SEED)
+                self.assertEqual(
+                    getattr(policy, "learning_rule", None),
+                    rule,
+                    "a policy carries the catalogue member its learner was built "
+                    "under (docs/L1/e2e-surface.md §2, docs/L2/agents/surface.md §10, "
+                    "D-19)",
+                )
+                learners.append(learner)
+        self.assertEqual(
+            J.param_count(learners[0]),
+            J.param_count(learners[1]),
+            "the two catalogue members hold one trainable capacity, so a pair may "
+            "differ on the rule and still be matched (docs/L1/rules.md §3, ASM-10, "
+            "D-19)",
+        )
+
+        # A tiny budget: one played hand's transitions at seat 0, so the member has
+        # consumed something and its recorded position is not a fresh learner's.
+        doubled = learners[1]
+        episode = J.play_hand(J.DEAL_REWARD_A, J.caller, J.caller)
+        batch = J.seat_transitions(episode, 0, encoder)
+        consumed = J.learn(doubled, batch)
+        self.assertEqual(J.transitions_consumed(consumed), len(batch))
+        self.assertTrue(J.finite(J.td_error(consumed)))
+
+        path = J.save(doubled, self.checkpoint_path(J.CHECKPOINT_BETA))
+        restored = J.load(None, path)
+        self.assertEqual(
+            getattr(J.as_policy(restored, encoder, J.LEARNER_SEED), "learning_rule", None),
+            second,
+            "a member loaded from its path alone learns under the rule its container "
+            "records (docs/L2/agents/surface.md §9, docs/L1/rules.md §6, D-19)",
+        )
+        self.assertEqual(
+            J.param_count(restored),
+            J.param_count(doubled),
+            "a restore recovers the member's capacity as well as its rule "
+            "(docs/L2/agents/surface.md §5, §9)",
+        )
+        # `learn` reads no exploration draw, so one probe batch on both learners is
+        # an equality on the parameters and the target copy the file carries, at a
+        # position where `act` would still be exploring (`docs/L2/agents/surface.md`
+        # §7, §9, `docs/L1/protocol.md` §5, ASM-5).
+        probe = J.tiled(batch, J.BATCH_LENGTH)
+        saved = J.learn(doubled, probe)
+        loaded = J.learn(restored, probe)
+        self.assertEqual(
+            J.transitions_consumed(loaded),
+            J.transitions_consumed(saved),
+            "the restored member consumes the batch its saved learner consumes "
+            "(docs/L2/agents/surface.md §7, §9)",
+        )
+        self.assertEqual(
+            J.td_error(loaded),
+            J.td_error(saved),
+            "the restored member's next update is not its saved learner's: the "
+            "target copy, the counter and the position the file records did not "
+            "travel (docs/L2/agents/surface.md §9, docs/L3/agents/checkpoint.md §1-§4)",
         )
 
 

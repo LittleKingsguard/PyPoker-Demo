@@ -33,6 +33,7 @@ from _evaluation_support import (
     BASELINES,
     FAMILIES,
     OPPONENT_SEEDS,
+    OTHER_RULE,
     POOL_M,
     REPO_ROOT,
     SEED_SET,
@@ -109,7 +110,7 @@ class GuardrailsTest(EvaluationCase):
                 )
 
     def test_evl_11_g2_the_pool_id_is_that_digest_and_no_other(self):
-        """EVL-11.G2 `"pool-" + sha256("\\n".join(ordered ids)).hexdigest()[:16]`, with `m`, `frozen` and every member field excluded -- a digest over member records, a `repr` or a salted `hash()` is red (`pool.md` §4)."""
+        """EVL-11.G2 `"pool-" + sha256(payload).hexdigest()[:16]` with one line per member -- a baseline's id alone, a version's id, `\\x1f`, its rule -- and `m`, `frozen` and every other member field excluded; a digest over the ids alone, over member records, a `repr` or a salted `hash()` is red (`families.md` §4, ASM-27)."""
         package = self.evaluation()
         chain = version_chain(VERSION_IDS[:3])
         pool = package.build_pool(declaration(members=chain, m=POOL_M, frozen=True))
@@ -117,9 +118,9 @@ class GuardrailsTest(EvaluationCase):
         ids = pool_member_ids(read)
         self.assertEqual(
             read["id"],
-            pool_digest(ids),
-            "the pool id is the SHA-256 digest of the ordered ids joined by one \\n, "
-            "truncated to 16 hex characters and prefixed `pool-` (pool.md §4, G2): %r"
+            pool_digest(read["members"]),
+            "the pool id is the SHA-256 digest of the ordered member lines, truncated to "
+            "16 hex characters and prefixed `pool-` (families.md §4, ASM-27): %r"
             % (read["id"],),
         )
         renamed = [dict(record) for record in chain]
@@ -130,16 +131,27 @@ class GuardrailsTest(EvaluationCase):
             self.assertEqual(
                 package.pool_members(other)["id"],
                 read["id"],
-                "the digest excludes every member field but the id, so a corrected seed "
-                "or step does not rename the pool (pool.md §4, G2)",
+                "the digest excludes every member field but the id and the rule, so a "
+                "corrected seed or step does not rename the pool (families.md §4, ASM-27)",
+            )
+        with self.subTest(case="the rule is inside the payload"):
+            other_rule = [dict(record, rule=OTHER_RULE) for record in chain]
+            relabelled = package.build_pool(
+                declaration(members=other_rule, m=POOL_M, frozen=True)
+            )
+            self.assertNotEqual(
+                package.pool_members(relabelled)["id"],
+                read["id"],
+                "the digest carries each version's rule, so two pools of one membership "
+                "under two estimators do not wear one id (families.md §4, ASM-27)",
             )
         with self.subTest(case="bound and flag excluded"):
             bound = package.build_pool(declaration(members=chain, m=2, frozen=False))
             self.assertEqual(
                 package.pool_members(bound)["id"],
-                pool_digest(pool_member_ids(package.pool_members(bound))),
+                pool_digest(package.pool_members(bound)["members"]),
                 "m and frozen are excluded from the payload and the id is recomputed "
-                "over the membership alone (pool.md §4, G2): %r"
+                "over the membership alone (families.md §4, ASM-27): %r"
                 % (package.pool_members(bound)["id"],),
             )
         with self.subTest(case="membership change"):
@@ -193,7 +205,7 @@ class GuardrailsTest(EvaluationCase):
         )
 
     def test_evl_11_g4_the_lineage_order_is_the_links_not_the_declaration_s_order(self):
-        """EVL-11.G4 `_lineage_order` follows `lineage == id` from a start, refuses two members descending from one and a chain reaching no start, and concatenates chains in the order their starts were declared (`pool.md` §3, G4)."""
+        """EVL-11.G4 `_families` follows `lineage == id` from a start, refuses two members descending from one and a chain reaching no start, and orders the families by the position of each one's start in the declaration (`families.md` §1-§2, G4)."""
         package = self.evaluation()
         records = version_chain(VERSION_IDS[:4])
         shuffled = [records[2], records[0], records[3], records[1]]
@@ -301,9 +313,9 @@ class GuardrailsTest(EvaluationCase):
         )
         self.assertEqual(
             after["id"],
-            pool_digest(pool_member_ids(after)),
-            "the advanced pool's id is recomputed over its new ordered ids "
-            "(pool.md §6 step 5, G6): %r" % (after["id"],),
+            pool_digest(after["members"]),
+            "the advanced pool's id is recomputed over its new ordered member lines "
+            "(families.md §4, §5, G6): %r" % (after["id"],),
         )
         self.assertEqual(
             package.pool_members(pool),
@@ -313,22 +325,22 @@ class GuardrailsTest(EvaluationCase):
         )
 
     def test_evl_11_g7_pool_members_returns_the_record_and_the_version_records_verbatim(self):
-        """EVL-11.G7 `pool_members` is `{id, m, frozen, members}` freshly built per call, each version the `records.md` §7 record the declaration carried, untouched (`pool.md` §5)."""
+        """EVL-11.G7 `pool_members` is `{id, m, frozen, members, rules}` freshly built per call, each version the `records.md` §7 record the declaration carried, untouched (`pool.md` §5, `records.md` §8)."""
         package = self.evaluation()
         declared = version_chain(VERSION_IDS[:2])
         pool = package.build_pool(declaration(members=declared, m=POOL_M, frozen=True))
         first = package.pool_members(pool)
         self.assertEqual(
             set(first),
-            {"id", "m", "frozen", "members"},
-            "a pool record is records.md §8's four keys (pool.md §5, G7): %r"
-            % (tuple(first),),
+            {"id", "m", "frozen", "members", "rules"},
+            "a pool record is records.md §8's five required keys, `rules` included "
+            "(pool.md §5, records.md §8, D-19): %r" % (tuple(first),),
         )
         first["members"] = ()
         first["id"] = "pool-0000000000000000"
         self.assertEqual(
             package.pool_members(pool)["id"],
-            pool_digest(pool_member_ids(package.pool_members(pool))),
+            pool_digest(package.pool_members(pool)["members"]),
             "the read-back is freshly built, so a caller that edits it changes nothing "
             "(pool.md §5, G7)",
         )
@@ -530,7 +542,7 @@ class GuardrailsTest(EvaluationCase):
                     )
 
     def test_evl_11_g14_the_matrix_record_s_carries_its_keys_and_a_table_seed_no_argument_supplies(self):
-        """EVL-11.G14 `members`, `cells`, `hands_per_cell`, `table_seed`, `table`, then `pool`, `member_records`, `unlabelled`, `cell_count`; `table_seed` is the league's, a second seed argument does not exist, and `table` is the label as a value (`matrix.md` §3, §5, G14)."""
+        """EVL-11.G14 `members`, `cells`, `rules`, `population`, `hands_per_cell`, `table_seed`, `table`, then `pool`, `member_records`, `unlabelled`, `cell_count`; `table_seed` is the league's, a second seed argument does not exist, and `table` is the label as a value (`matrix.md` §5, §7, `records.md` §10, G14)."""
         package = self.evaluation()
         matrix = self.shared_matrix("k4")
         self.assertEqual(
@@ -538,6 +550,8 @@ class GuardrailsTest(EvaluationCase):
             (
                 "members",
                 "cells",
+                "rules",
+                "population",
                 "hands_per_cell",
                 "table_seed",
                 "table",

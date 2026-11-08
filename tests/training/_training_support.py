@@ -168,12 +168,16 @@ RETAINED = 5
 SNAPSHOTS = 10
 
 #: `fairness.md` §4's thirteen held-constant declarations, under its own key names.
+#: `rules` is the **set** of rules the two sides are trained under and never one side's
+#: value: `learning_rule` left the settings a pair must share when D-19 made it a sixth
+#: axis, so the scalar "learning rule" row is gone (`fairness.md` §4, `declarations.md`
+#: §4, `rules.md` §8, D-19).
 CONSTANT_KEYS = (
     "game",
     "action vocabulary",
     "readout facts",
     "reward",
-    "learning rule",
+    "rules",
     "hyper",
     "sample budget",
     "param budget",
@@ -253,6 +257,13 @@ INVENTED_BUDGET_POOL = "pool-invented-5519"
 INVENTED_PAIR_RUNG = "rung-invented-5521"
 INVENTED_PAIR_LEFT = "variant-invented-5521-a"
 INVENTED_PAIR_RIGHT = "variant-invented-5521-b"
+
+#: The invented two-rule configuration of D-19 (`rules.md` §7): one rung name, two arm
+#: names and a declared pool id, none of which a design document carries (`battery.md` §4).
+INVENTED_RULE_RUNG = "rung-invented-5522"
+INVENTED_RULE_LEFT = "variant-invented-5522-a"
+INVENTED_RULE_RIGHT = "variant-invented-5522-b"
+INVENTED_RULE_POOL = "pool-invented-5522"
 
 
 class SurfaceAbsent(AssertionError):
@@ -421,6 +432,55 @@ def baseline_names():
         else:
             names.append(str(entry))
     return names
+
+
+def learning_rules():
+    """The rule catalogue `agents.learners()` publishes, in its declared order.
+
+    `agents.learners()["learning_rules"]` is keyed by the catalogue's members in
+    `rules.md` §2's order, and its first member is the default `agents.build_learner`
+    applies to a spec naming none. A case reads the vocabulary from that call and never
+    restates a rule name, because the catalogue is what a `learning_rule` is judged
+    against — the one setting this battery does not invent (`battery.md` §4,
+    `docs/L2/training/declarations.md` §2, `rules.md` §2, §4, D-19).
+    """
+    published = agents().learners()["learning_rules"]
+    if hasattr(published, "keys"):
+        return tuple(str(name) for name in published)
+    names = []
+    for entry in published:
+        if hasattr(entry, "get"):
+            names.append(str(entry.get("name", entry.get("id"))))
+        else:
+            names.append(str(entry))
+    return tuple(names)
+
+
+def two_rule_names():
+    """The two catalogue rules an invented two-rule configuration declares, in order.
+
+    D-19 makes the estimator a parameter a variant names, so a configuration may train two
+    arms under two rules (`rules.md` §7-§8); this reader says which two, from the catalogue
+    itself, and refuses to invent a name the catalogue does not carry (`rules.md` §2, §4).
+    """
+    catalogue = learning_rules()
+    if len(catalogue) < 2:
+        raise SurfaceAbsent(
+            "agents.learners() publishes %d rule(s) and D-19 ratifies two estimators, so a "
+            "configuration cannot be shown training two rules: %r"
+            % (len(catalogue), catalogue)
+        )
+    return catalogue[0], catalogue[1]
+
+
+def rule_set(value):
+    """A `rules` row read as the **set** of rules it names.
+
+    `fairness.md` §4 and `rules.md` §7 make the row a set of rule names — one per distinct
+    estimator — so a case compares it as a set and never as one side's value; whether the
+    row is a `list` or a `set` is a shape the design leaves free (`fairness.md` §4, §8).
+    """
+    return {as_text(rule, "a rule name") for rule in as_sequence(value, "a rules row")}
 
 
 # --------------------------------------------------------------------------
@@ -755,6 +815,31 @@ def with_pool(entry, pool_id):
     return copy
 
 
+def two_rule_configuration(name=INVENTED_RULE_RUNG, left=INVENTED_RULE_LEFT,
+                           right=INVENTED_RULE_RIGHT, pool_id=INVENTED_RULE_POOL,
+                           seeds=None, samples=TINY_BUDGET):
+    """A two-entry configuration whose arms declare the catalogue's two rules (D-19).
+
+    The invented configuration's one entry, declared twice: the second arm carries the
+    catalogue's second rule and nothing else moves, so the pair the run trains differs on
+    the `rule` axis alone and every setting both arms must share — `hyper`, `samples`,
+    `seeds`, `device`, `snapshot_every`, `table`, `param_budget` — is one declaration
+    (`rules.md` §7-§8, `docs/L2/training/declarations.md` §4, `docs/L3/training/fairness.md`
+    §3). The rules are read from `agents.learners()`, so no name is restated here
+    (`rules.md` §2, §4).
+    """
+    first_rule, second_rule = two_rule_names()
+    configuration = custom_configuration(
+        name=name, variant=left, pool_id=pool_id, seeds=seeds, samples=samples
+    )
+    first = with_setting(variant_entries(configuration)[0], learning_rule=first_rule)
+    second = with_setting(first, name=right, learning_rule=second_rule)
+    configuration["variants"] = [first, second]
+    configuration["primary"] = left
+    configuration["axis"] = "the learning rule, at one architecture"
+    return configuration
+
+
 def with_setting(entry, **settings):
     """A copy of a variant entry with top-level settings replaced."""
     copy = dict(entry)
@@ -833,6 +918,23 @@ def custom_run():
         return training().run(configuration)
 
     return run_once(("custom", INVENTED_CUSTOM), thunk)
+
+
+def two_rule_run():
+    """`run` of the invented two-rule configuration, at the battery's tiny budget.
+
+    One seed and ten hands per arm, so `budget // 10` is one and every arm's curve closes
+    with ten points. Both arms are trained — D-19 makes the estimator a parameter a variant
+    names, so a configuration declaring two catalogue rules trains two learners — and the
+    record names each variant's rule and the run's `rules` set (`rules.md` §7,
+    `docs/L3/training/loop.md` §1 step 3, §3-§4).
+    """
+    configuration = two_rule_configuration()
+
+    def thunk():
+        return training().run(configuration)
+
+    return run_once(("two-rule", INVENTED_RULE_RUNG), thunk)
 
 
 def fallback_configuration():

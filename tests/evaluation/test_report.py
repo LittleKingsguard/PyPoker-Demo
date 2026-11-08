@@ -23,8 +23,10 @@ import unittest
 from _evaluation_support import (
     AXIS_ROW,
     BASELINES,
+    DEFAULT_RULE,
     FAMILIES,
     HEADER_ITEMS,
+    OTHER_RULE,
     RUNG_NAME,
     SEED_SET,
     START_LABEL,
@@ -38,6 +40,7 @@ from _evaluation_support import (
     no_file_reads,
     pool_member_ids,
     pool_record,
+    pool_rules,
     rating_entry_record,
     rating_record,
     report_inputs,
@@ -426,6 +429,65 @@ class ReportTest(EvaluationCase):
                 self.assert_evaluation_refusal(
                     package.report, *args, entry="report", groups=groups, label=label
                 )
+
+
+    def test_evl_7_11_the_pool_family_names_the_population_the_table_measured(self):
+        """EVL-7.11 a report's pool family carries the rules the measured population held -- the pool's own version members' rules plus the rung's variants', which are the members a table holds outside the pool (`report.md` §1-§2, `records.md` §8, D-19)."""
+        package = self.evaluation()
+        rung, record, matrix, rating = report_inputs()
+        # A table whose two variants were built under the catalogue's two rules, measured
+        # over R1's baselines-only pool: the pool row itself declares no rule, so the set
+        # the report states is the population the matrix names.
+        varied = dict(
+            matrix,
+            rules={name: None for name in matrix["members"]},
+            population=tuple(sorted((DEFAULT_RULE, OTHER_RULE))),
+        )
+        varied["rules"]["variant-1"] = DEFAULT_RULE
+        varied["rules"]["variant-2"] = OTHER_RULE
+        reported = package.report(
+            rung, dict(record, matrix=varied), varied, rating_record(varied)
+        )
+        pool_family = family_value(reported, "pool")
+        self.assertEqual(
+            tuple(pool_rules(pool_family)),
+            tuple(sorted((DEFAULT_RULE, OTHER_RULE))),
+            "the report's pool family carries the rules the measured population held, so "
+            "a reader of the pool row is told which estimators the table measured "
+            "(e2e-surface.md §3.4 report, records.md §8, D-19): %r" % (pool_family,),
+        )
+        self.assertEqual(
+            pool_member_ids(pool_family),
+            BASELINES,
+            "completing the pool family's `rules` adds no member and drops none "
+            "(report.md §4): %r" % (pool_member_ids(pool_family),),
+        )
+        with self.subTest(case="the record it is handed is not edited"):
+            handed = dict(record, pool={key: value for key, value in record["pool"].items()
+                                        if key != "rules"})
+            snapshot = copy.deepcopy(handed)
+            completed = package.report(
+                rung, handed, varied, rating_record(varied)
+            )
+            self.assertNotIn(
+                "rules",
+                handed["pool"],
+                "the report completes its own copy of the pool family and never edits the "
+                "record it is handed (report.md §4): %r" % (handed["pool"],),
+            )
+            self.assertEqual(
+                handed,
+                snapshot,
+                "the run record is read, not mutated, so a caller keeps what training gave "
+                "it (report.md §4, records.md §13): %r" % (handed,),
+            )
+            self.assertEqual(
+                tuple(pool_rules(family_value(completed, "pool"))),
+                tuple(sorted((DEFAULT_RULE, OTHER_RULE))),
+                "a pool row that declares no `rules` of its own still yields a pool family "
+                "naming the measured population (e2e-surface.md §3.4, D-19): %r"
+                % (family_value(completed, "pool"),),
+            )
 
 
 if __name__ == "__main__":

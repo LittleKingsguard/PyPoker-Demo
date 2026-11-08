@@ -1,18 +1,21 @@
 """AGT-3 — `build_learner(spec)`.
 
 Drives `docs/L2/agents/surface.md` §4, `docs/L3/agents/architecture.md` §3, §5,
-§6 and `docs/L3/agents/errors.md` §2-§4: one mapping in, one learner out; a spec
-that is not a mapping; the bare kind name needs `sizes`; the declared backend,
-kind, seed, settings and encoder are refused with the offending key and value;
-an extra key and an unread setting are accepted; `architecture` beats `sizes`;
-and an encoder-less build is sized from the kind's declared `observation_size`
-(D-3, D-12, ASM-2).
+§6, `docs/L3/agents/errors.md` §2-§4 and `docs/L1/rules.md` §2, §4: one mapping
+in, one learner out; a spec that is not a mapping; the bare kind name needs
+`sizes`; the declared backend, kind, seed, settings, encoder and learning rule
+are refused with the offending key and value; the optional `learning_rule` builds
+the catalogue's first member when absent and the named member when present; an
+extra key and an unread setting are accepted; `architecture` beats `sizes`; and
+an encoder-less build is sized from the kind's declared `observation_size`
+(D-3, D-12, ASM-2, D-19).
 """
 
 import unittest
 
 from _agents_support import (
     DENSE_KIND,
+    LEARNER_SEED,
     AgentsCase,
     ALL_MASK,
     dense_observation,
@@ -178,10 +181,16 @@ class BuildLearnerTest(AgentsCase):
                 )
 
     def test_agt3_12_an_extra_spec_key_is_ignored(self):
-        """AGT-3.12 a variant entry's `learning_rule`/`hyper` and other extra keys are ignored (`surface.md` §4, `errors.md` §4)."""
+        """AGT-3.12 a variant entry's `hyper` and the other extra keys are ignored (`surface.md` §4, `errors.md` §4).
+
+        `learning_rule` left this set when D-19 made it the spec key the learner is
+        built under: absent it is the catalogue's first member, and present it is
+        read and refused when it names no member (AGT-3.17, AGT-3.18).  The keys
+        below are still a run record's data and never a per-learner argument
+        (`records.md` §3, `rules.md` §6, D-19).
+        """
         package = self.agents()
         extra = {
-            "learning_rule": "masked-q-learning",
             "hyper": {"learning_rate": 0.001, "discount": 0.99},
             "param_budget": 10000,
             "samples": 1000,
@@ -280,6 +289,79 @@ class BuildLearnerTest(AgentsCase):
                     entry="build_learner",
                     groups=(("mapping",),),
                     label="a spec that is %s" % label,
+                )
+
+    def test_agt3_17_the_rule_is_the_declared_default_or_the_named_member(self):
+        """AGT-3.17 no `learning_rule` builds the catalogue's first member, a named one builds that member (`surface.md` §4, `rules.md` §2, §4, D-19).
+
+        The observation is `as_policy(learner, encoder, seed).learning_rule`, the
+        attribute `e2e-surface.md` §2 declares and `surface.md` §10 makes public, so
+        nothing here reads a private field of the learner.  Absent, the rule is
+        `learning_rules`'s first key and never inferred from the caller's silence;
+        present, it is the member the spec names.
+        """
+        package = self.agents()
+        catalogue = tuple(package.learners()["learning_rules"])
+        self.assertGreaterEqual(len(catalogue), 2, "the catalogue carries two members")
+        first, second = catalogue[0], "double-q-learning"
+        self.assertIn(second, catalogue, "the declared second member is in the catalogue")
+
+        def rule_of(learner):
+            policy = package.as_policy(learner, flat_encoder(), LEARNER_SEED)
+            return getattr(policy, "learning_rule", None)
+
+        default = package.build_learner(learner_spec(kind=DENSE_KIND))
+        self.assertEqual(
+            rule_of(default),
+            first,
+            "a spec naming no `learning_rule` is built under the catalogue's first "
+            "member, %r, the declared default (surface.md §4, rules.md §4)"
+            % (first,),
+        )
+        explicit = package.build_learner(
+            learner_spec(kind=DENSE_KIND, extra={"learning_rule": second})
+        )
+        self.assertEqual(
+            rule_of(explicit),
+            second,
+            "a spec naming %r builds a learner that learns under it (surface.md §4, "
+            "rules.md §2)" % (second,),
+        )
+        self.assertEqual(package.param_count(default), package.param_count(explicit))
+
+    def test_agt3_18_an_uncarried_learning_rule_is_refused(self):
+        """AGT-3.18 a name the catalogue does not carry, and a value that is not a string, are refused naming the key and the value (`surface.md` §4, `rules.md` §2, `errors.md` §3-§4, D-19).
+
+        §4 refuses a `learning_rule` §3 does not carry — a non-string and an
+        uncarried name alike — and the message names the entry point, the key, the
+        offending value and the catalogue's two names, so a caller reads which
+        values exist.  The refusal is this module's own (`errors.md` §2): a caller
+        catching `AgentsError` catches it, which a `KeyError` from a mistyped
+        catalogue would escape.
+        """
+        package = self.agents()
+        catalogue = tuple(package.learners()["learning_rules"])
+        cases = (
+            ("a name outside the catalogue", "monte-carlo"),
+            ("another name outside the catalogue", "sarsa"),
+            ("an integer", 7),
+            ("a float", 2.5),
+            ("None", None),
+            ("a bool", True),
+        )
+        for label, value in cases:
+            with self.subTest(case=label):
+                self.assert_agents_refusal(
+                    package.build_learner,
+                    learner_spec(kind=DENSE_KIND, extra={"learning_rule": value}),
+                    entry="build_learner",
+                    groups=(
+                        ("learning_rule",),
+                        (str(value),),
+                        (catalogue[0],),
+                        (catalogue[1],),
+                    ),
+                    label="%s: learning_rule = %r" % (label, value),
                 )
 
 

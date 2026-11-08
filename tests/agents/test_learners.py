@@ -1,11 +1,15 @@
 """AGT-2 — `learners()`, the declared catalogue.
 
 Drives `docs/L2/agents/surface.md` §3, `docs/L3/agents/README.md` §5,
-`docs/L3/agents/architecture.md` §1-§2 and `docs/L3/agents/rule.md` §6: four
-keys in order, two backends, one learning rule, seven kinds keyed in the
-design's order, `observation_size` cross-checked against `features` rather than
-copied, its count read as a count (a NumPy integer is accepted,
-`errors.md` §4), and the six fixed hyper-declarations (ASM-7, D-3, D-7).
+`docs/L3/agents/architecture.md` §1-§2, `docs/L3/agents/rule.md` §6 and
+`docs/L1/rules.md` §2: four keys in order, two backends, the **rule catalogue**
+of two members in the declared order with the target each aims at (D-19), seven
+kinds keyed in the design's order, `observation_size` cross-checked against
+`features` rather than copied, its count read as a count (a NumPy integer is
+accepted, `errors.md` §4), and the six fixed hyper-declarations (ASM-7, D-3,
+D-7).  AGT-2.3 replaced a case that asserted the singular `learning_rule` key:
+D-19 turned that one constant into `rules.md` §2's catalogue, and the singular
+key is gone (`surface.md` §3, `README.md` §5).
 """
 
 import operator
@@ -14,23 +18,27 @@ from collections.abc import Mapping
 
 from _agents_support import (
     DENSE_KIND,
+    LEARNER_SEED,
     SEVEN_KINDS,
     TOKEN_KINDS,
     AgentsCase,
     flat_encoder,
     features,
+    learner_spec,
     token_encoder,
 )
 
 
 class LearnersTest(AgentsCase):
     def test_agt2_1_four_keys_in_order(self):
-        """AGT-2.1 the record's four keys, in order (`surface.md` §3, `README.md` §5)."""
+        """AGT-2.1 the record's four keys, in order (`surface.md` §3, `README.md` §5, D-19)."""
         record = self.agents().learners()
         self.assertEqual(
             tuple(record),
-            ("backends", "architectures", "learning_rule", "hyper"),
-            "learners() must carry backends, architectures, learning_rule, hyper in that order",
+            ("backends", "architectures", "learning_rules", "hyper"),
+            "learners() must carry backends, architectures, learning_rules, hyper in "
+            "that order: D-19 replaced the singular `learning_rule` with the catalogue "
+            "`learning_rules` (surface.md §3, rules.md §2)",
         )
 
     def test_agt2_2_backends_keyed_numpy_then_torch(self):
@@ -50,11 +58,75 @@ class LearnersTest(AgentsCase):
                             % (field, held),
                         )
 
-    def test_agt2_3_learning_rule_is_masked_q_learning(self):
-        """AGT-2.3 `learning_rule` is exactly `masked-q-learning` (ASM-7, `surface.md` §3)."""
-        rule = self.agents().learners()["learning_rule"]
-        self.assertIsInstance(rule, str)
-        self.assertEqual(rule, "masked-q-learning")
+    def test_agt2_3_learning_rules_is_the_two_member_catalogue(self):
+        """AGT-2.3 `learning_rules` is exactly two members in the declared order, each `name` + `target` (`surface.md` §3, `rules.md` §2, D-19).
+
+        The singular `learning_rule` key this case used to read is gone: D-19
+        replaced the one module constant with `rules.md` §2's catalogue, and
+        `surface.md` §3 makes the order contract — `masked-q-learning` first, the
+        declared default of `rules.md` §4, then `double-q-learning`.  Each value is
+        a plain record carrying its `name`, equal to its key, and the `target` it
+        aims at as a **stable token and never a sentence** — no whitespace, no
+        sentence punctuation — because a report quotes the token as a name, and the
+        two targets must differ or the two members would aim at one arithmetic.
+        """
+        catalogue = self.agents().learners()["learning_rules"]
+        self.assertIsInstance(catalogue, Mapping, "learning_rules is one plain record")
+        self.assertEqual(
+            tuple(catalogue),
+            ("masked-q-learning", "double-q-learning"),
+            "learning_rules is keyed by the two catalogue members in rules.md §2's "
+            "order, masked-q-learning first (surface.md §3, D-19)",
+        )
+        targets = []
+        for name, entry in catalogue.items():
+            with self.subTest(rule=name):
+                self.assertIsInstance(entry, Mapping, "a member is a plain record")
+                self.assertEqual(
+                    set(entry),
+                    {"name", "target"},
+                    "a member carries its name and the target it aims at (surface.md §3)",
+                )
+                self.assertEqual(
+                    entry["name"],
+                    name,
+                    "a catalogue member's `name` is the key it is published under",
+                )
+                target = entry["target"]
+                self.assertIsInstance(
+                    target,
+                    str,
+                    "a member's `target` is a stable token, so it is a string "
+                    "(surface.md §3): %r" % (target,),
+                )
+                self.assertTrue(
+                    target.strip(),
+                    "a member's `target` is a non-empty token: %r" % (target,),
+                )
+                self.assertEqual(
+                    target,
+                    target.strip(),
+                    "a member's `target` carries no surrounding whitespace: %r"
+                    % (target,),
+                )
+                forbidden = [
+                    character
+                    for character in target
+                    if character.isspace() or character in ".,;:!?()'\""
+                ]
+                self.assertEqual(
+                    forbidden,
+                    [],
+                    "the target %r of %r carries %r: surface.md §3 declares a stable "
+                    "token and never a sentence" % (target, name, forbidden),
+                )
+                targets.append(target)
+        self.assertEqual(
+            len(set(targets)),
+            len(targets),
+            "the two members aim at different targets, and these are identical: %r "
+            "(rules.md §2, D-19)" % (targets,),
+        )
 
     def test_agt2_4_architectures_keyed_in_design_order(self):
         """AGT-2.4 seven architectures in `architecture.md` §1's order, each entry with `name`, `observation`, `observation_size` in order; the size is read as the count it is, so a NumPy integer is accepted (`architecture.md` §1, `surface.md` §3, `errors.md` §4)."""
@@ -149,6 +221,39 @@ class LearnersTest(AgentsCase):
         second = package.learners()
         self.assertEqual(first, second)
         self.assertIsNot(first, second)
+
+    def test_agt2_9_the_members_are_the_rules_build_learner_accepts(self):
+        """AGT-2.9 each catalogue member builds a learner, and that learner learns under it (`surface.md` §3-§4, §10, `rules.md` §2, §4, D-19).
+
+        §3's catalogue is what a spec selects from and §4 is the selection: a spec
+        naming a member builds, and the learner it builds carries that member — read
+        through the public attribute `e2e-surface.md` §2 declares for exactly this,
+        `as_policy(learner, encoder, seed).learning_rule`, and never through a
+        private field.  So the catalogue is neither shorter nor longer than the set
+        of rules `build_learner` accepts, one direction here and the other in
+        AGT-3.18.
+        """
+        package = self.agents()
+        catalogue = package.learners()["learning_rules"]
+        for name in catalogue:
+            with self.subTest(rule=name):
+                learner = package.build_learner(
+                    learner_spec(kind=DENSE_KIND, extra={"learning_rule": name})
+                )
+                self.assertGreater(
+                    package.param_count(learner),
+                    0,
+                    "a spec naming the catalogue member %r builds a learner "
+                    "(surface.md §4, rules.md §2)" % (name,),
+                )
+                policy = package.as_policy(learner, flat_encoder(), LEARNER_SEED)
+                self.assertEqual(
+                    getattr(policy, "learning_rule", None),
+                    name,
+                    "a learner built under the catalogue member %r learns under it, "
+                    "and its policy carries that member (e2e-surface.md §2, "
+                    "surface.md §10, D-19)" % (name,),
+                )
 
 
 if __name__ == "__main__":

@@ -72,9 +72,10 @@ class FrozenPoolParity(J.JoinCase):
         )
         self.assertEqual(
             str(readback_a["id"]),
-            J.pool_id(J.names_of(readback_a)),
-            "the id is a function of the ordered member ids and of nothing else "
-            "(docs/L2/evaluation/pool.md §4, records.md §8)",
+            J.pool_id(J.members_of(readback_a)),
+            "the id is a function of one line per member -- a baseline's id alone, a "
+            "version's id and its rule -- and of nothing else "
+            "(docs/L3/evaluation/families.md §4, records.md §8, ASM-27)",
         )
         self.assertEqual(
             J.canonical(J.pool_members(first)),
@@ -125,9 +126,9 @@ class FrozenPoolParity(J.JoinCase):
         )
         self.assertEqual(
             str(c["id"]),
-            J.pool_id(J.names_of(c)),
-            "the changed id is still the digest of the new ordered ids "
-            "(docs/L2/evaluation/pool.md §4)",
+            J.pool_id(J.members_of(c)),
+            "the changed id is still the digest of the new ordered membership "
+            "(docs/L3/evaluation/families.md §4, ASM-27)",
         )
 
     def test_join_evl_8_3_a_pool_that_may_change_is_not_a_table(self):

@@ -3,9 +3,15 @@
 A checkpoint is a zip with exactly two members, written through an open file handle so
 the caller's spelling is honoured byte for byte — `numpy.savez` would append `.npz`,
 never `os.makedirs`, never a suffix swap (`checkpoint.md` §2, G11).  `metadata.json`
-carries the fields of §2.1 and `parameters.npy` one `float64`, C-order, 1-D array of
-length `2·P + M`: the online parameters, the target copy, then each sparse layer's
-mask as `0.0`/`1.0`.
+carries the fields of §2.1 — the rule its learner was trained under among them — and
+`parameters.npy` one `float64`, C-order, 1-D array of length `2·P + M`: the online
+parameters, the target copy, then each sparse layer's mask as `0.0`/`1.0`.
+
+`format_version` is 2 (`rules.md` §6, D-19).  The repository ships 18 containers of
+version 1, written before the catalogue existed, and none is regenerated: a version-1
+file carries no `learning_rule` and is read as `masked-q-learning`, the only rule its
+writer could have used.  A version-1 file that *carries* the field is refused by name,
+because no version-1 writer wrote one (`checkpoint.md` §3).
 """
 
 from __future__ import annotations
@@ -19,10 +25,17 @@ from collections.abc import Mapping
 import numpy
 
 from . import declarations, learner as _learner, model
-from .errors import CheckpointMismatch, CheckpointUnreadable, CheckpointUnwritable
+from .errors import (
+    CheckpointMismatch,
+    CheckpointUnreadable,
+    CheckpointUnwritable,
+    UnknownRule,
+)
 
 MAGIC = "pypoker-agents-checkpoint"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
+#: The two versions this module reads: 2's required rule, and 1's absence of one.
+SUPPORTED_VERSIONS = (1, FORMAT_VERSION)
 DTYPE = "float64"
 METADATA = "metadata.json"
 PARAMETERS = "parameters.npy"
@@ -137,6 +150,9 @@ def _metadata(learner):
         "dtype": DTYPE,
         "backend": learner.backend_name,
         "kind": learner.kind,
+        # The catalogue member the learner was trained under: a version-2 field, and the
+        # one a table reads to name a member's population (`rules.md` §6, §7, D-19).
+        "learning_rule": learner.rule,
         "settings": {
             "width": int(learner.width),
             "depth": int(learner.depth),
@@ -338,6 +354,10 @@ def _form(text, metadata):
     _field(text, metadata, "dtype", "dtype", _named)
     _field(text, metadata, "backend", "backend", _named)
     _field(text, metadata, "kind", "kind", _named)
+    # The rule is a field of the form when it is present; whether it must be present is
+    # the format version's question and `_declared` answers it (`checkpoint.md` §3).
+    if "learning_rule" in metadata:
+        _field(text, metadata, "learning_rule", "learning_rule", _named)
     settings = _field(text, metadata, "settings", "settings", _recorded)
     for key in SETTINGS:
         _field(text, settings, key, "settings." + key, SETTING_TYPES[key])
@@ -401,9 +421,36 @@ def _declared(text, metadata):
     """
     if metadata["format"] != MAGIC:
         raise _wrong(text, "format", "the magic name %r" % (MAGIC,), metadata["format"])
-    if metadata["format_version"] != FORMAT_VERSION:
+    version = metadata["format_version"]
+    if version not in SUPPORTED_VERSIONS:
         raise _wrong(
-            text, "format_version", "%d" % (FORMAT_VERSION,), metadata["format_version"]
+            text, "format_version", "%d or %d" % SUPPORTED_VERSIONS, version
+        )
+    # The rule's presence is the format version's: version 2 requires it and version 1
+    # predates the catalogue, so a version-1 container carrying one was edited and is
+    # refused by name (`checkpoint.md` §3, `rules.md` §6, D-19).
+    if version == FORMAT_VERSION:
+        if "learning_rule" not in metadata:
+            raise CheckpointUnreadable(
+                "load(path): %r has a metadata.json without the field %r"
+                % (text, "learning_rule")
+            )
+        if metadata["learning_rule"] not in declarations.LEARNING_RULES:
+            raise UnknownRule(
+                "load(path): %r records the field 'learning_rule', which must be one "
+                "of %r, got %r"
+                % (
+                    text,
+                    tuple(declarations.LEARNING_RULES),
+                    metadata["learning_rule"],
+                )
+            )
+    elif "learning_rule" in metadata:
+        raise _wrong(
+            text,
+            "learning_rule",
+            "absent from a format version 1 container",
+            metadata["learning_rule"],
         )
     if metadata["dtype"] != DTYPE:
         raise _wrong(text, "dtype", repr(DTYPE), metadata["dtype"])
@@ -472,8 +519,8 @@ def _read_container(path):
             container = zipfile.ZipFile(handle)
         except (zipfile.BadZipFile, OSError) as error:
             raise CheckpointUnreadable(
-                "load(path): %r is not a pypoker-agents-checkpoint of format version 1 "
-                "(%s)" % (text, error)
+                "load(path): %r is not a pypoker-agents-checkpoint of format version "
+                "1 or 2 (%s)" % (text, error)
             ) from None
         with container:
             names = container.namelist()
@@ -492,7 +539,7 @@ def _read_container(path):
         ) from None
     if not isinstance(metadata, dict):
         raise CheckpointUnreadable(
-            "load(path): %r is not a pypoker-agents-checkpoint of format version 1"
+            "load(path): %r is not a pypoker-agents-checkpoint of format version 1 or 2"
             % (text,)
         )
     for field in REQUIRED:
@@ -507,6 +554,12 @@ def _read_container(path):
     # §3's value checks follow, and before `_rebuild` imports a backend or scatters a
     # value into a learner: an undeclared or out-of-range value is refused here.
     _declared(text, metadata)
+    # A version-1 container carries no `learning_rule` and is read as the only rule its
+    # writer could have used; the reading happens once, here, so `_compare` and
+    # `_rebuild` both see the rule the file is read as (`rules.md` §6, `checkpoint.md`
+    # §3, D-19).
+    if metadata["format_version"] == 1:
+        metadata["learning_rule"] = declarations.DEFAULT_LEARNING_RULE
     try:
         array = numpy.load(io.BytesIO(raw_parameters), allow_pickle=False)
     except (ValueError, OSError):
@@ -532,7 +585,9 @@ def _compare(spec, metadata):
     A compared key is **validated before it is compared** (`checkpoint.md` §3): a
     `seed` that is not an integer — a `bool` included, and never `int("1")` — is
     refused naming `load(spec)` and the offending value, so no `TypeError` from
-    `int()` escapes and nothing is coerced (`surface.md` §1, `errors.md` §4).
+    `int()` escapes and nothing is coerced (`surface.md` §1, `errors.md` §4).  A
+    `learning_rule` is validated against the catalogue before it is compared, and a
+    disagreement names both values as a `seed`'s does (`rules.md` §6, D-19).
     """
     if spec is None:
         return
@@ -566,6 +621,13 @@ def _compare(spec, metadata):
             raise CheckpointMismatch(
                 "load(spec): the spec's seed %r is not the checkpoint's seed %r"
                 % (seed, metadata["seed"])
+            )
+    if "learning_rule" in spec:
+        named_rule = _learner.learning_rule(spec["learning_rule"], "load")
+        if named_rule != metadata["learning_rule"]:
+            raise CheckpointMismatch(
+                "load(spec): the spec's learning_rule %r is not the checkpoint's "
+                "learning_rule %r" % (named_rule, metadata["learning_rule"])
             )
     if "encoder" in spec:
         encoded = _learner.encoder_spec(spec["encoder"], "load", "spec", "encoder")
@@ -673,6 +735,9 @@ def _rebuild(text, metadata, array):
         size,
         None if shape is None else tuple(shape),
         recorded["dtype"],
+        # The rule the file records, or the one a version-1 file is read as: the
+        # restored learner learns under the rule its container names (`rules.md` §6).
+        metadata["learning_rule"],
         metadata["exploration"]["position"],
         metadata["target"]["counter"],
     )

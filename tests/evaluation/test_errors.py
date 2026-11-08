@@ -24,6 +24,7 @@ from _evaluation_support import (
     BASELINES,
     HANDS_PER_CELL,
     OPPONENT_SEEDS,
+    OTHER_RULE,
     START_LABEL,
     VERSION_IDS,
     EvaluationCase,
@@ -49,7 +50,7 @@ from _evaluation_support import (
     version_record,
 )
 
-#: The thirty-three subclasses `errors.md` §2 declares, in the order it lists them.
+#: The thirty-six subclasses `errors.md` §2 declares, in the order it lists them.
 DECLARED_CLASSES = (
     "InvalidPool",
     "PoolDeclarationInvalid",
@@ -61,6 +62,9 @@ DECLARED_CLASSES = (
     "LineageCycle",
     "PoolFrozen",
     "LineageNotExtended",
+    "UnknownRule",
+    "RuleMismatch",
+    "FamilyBoundExceeded",
     "PoolNotFrozen",
     "InvalidSeed",
     "InvalidHandCount",
@@ -89,7 +93,7 @@ DECLARED_CLASSES = (
 
 class ErrorsTest(EvaluationCase):
     def test_evl_9_1_the_declared_hierarchy_exists(self):
-        """EVL-9.1 `src/evaluation/errors.py` declares `EvaluationError` and the thirty-three subclasses `errors.md` §2 names, each a distinct subclass of that base (`errors.md` §2, `README.md` §3-§4, G16)."""
+        """EVL-9.1 `src/evaluation/errors.py` declares `EvaluationError` and the thirty-six subclasses `errors.md` §2 names, each a distinct subclass of that base (`errors.md` §2, `README.md` §3-§4, G16)."""
         module = errors_module()
         root = getattr(module, "EvaluationError", None)
         self.assertTrue(
@@ -121,7 +125,7 @@ class ErrorsTest(EvaluationCase):
                 self.assertNotIn(
                     candidate,
                     seen,
-                    "the thirty-three classes are one per refusal family, and %r is a "
+                    "the thirty-six classes are one per refusal family, and %r is a "
                     "second name for one already declared (errors.md §2): %r"
                     % (name, candidate),
                 )
@@ -129,12 +133,12 @@ class ErrorsTest(EvaluationCase):
         self.assertEqual(
             len(seen),
             len(DECLARED_CLASSES),
-            "errors.md §2 declares thirty-three distinct subclasses under one base: %r"
+            "errors.md §2 declares thirty-six distinct subclasses under one base: %r"
             % (len(seen),),
         )
 
     def test_evl_9_2_every_declared_class_is_reachable_from_its_refusal(self):
-        """EVL-9.2 each of `errors.md` §2's thirty-three classes is reachable from the refusal `surface.md` §5-§13 declares for it, so the hierarchy names what a caller can route on (`errors.md` §2, `guardrails.md` G16)."""
+        """EVL-9.2 each of `errors.md` §2's thirty-six classes is reachable from the refusal `surface.md` §5-§13 declares for it, so the hierarchy names what a caller can route on (`errors.md` §2, `guardrails.md` G16)."""
         module = errors_module()
         for name, label, fn, args in self.provocations():
             with self.subTest(error=name, case=label):
@@ -271,6 +275,53 @@ class ErrorsTest(EvaluationCase):
                 "an offer that does not extend the newest",
                 package.offer,
                 (open_pool, version_record(VERSION_IDS[4], chain[0]["id"])),
+            ),
+            (
+                "UnknownRule",
+                "a version naming a rule the catalogue lacks",
+                package.build_pool,
+                (
+                    declaration(
+                        members=[
+                            version_record(
+                                VERSION_IDS[0], START_LABEL, rule="n-step-returns-battery"
+                            )
+                        ],
+                        m=3,
+                        frozen=True,
+                    ),
+                ),
+            ),
+            (
+                "RuleMismatch",
+                "a family whose two members declare two rules",
+                package.build_pool,
+                (
+                    declaration(
+                        members=[
+                            version_record(VERSION_IDS[0], START_LABEL),
+                            version_record(VERSION_IDS[1], VERSION_IDS[0], rule=OTHER_RULE),
+                        ],
+                        m=3,
+                        frozen=True,
+                    ),
+                ),
+            ),
+            (
+                "FamilyBoundExceeded",
+                "a declaration holding more families than its bound",
+                package.build_pool,
+                (
+                    declaration(
+                        members=[
+                            version_record(VERSION_IDS[0], "own-start-1"),
+                            version_record(VERSION_IDS[1], "own-start-2"),
+                            version_record(VERSION_IDS[2], "own-start-3"),
+                        ],
+                        m=2,
+                        frozen=True,
+                    ),
+                ),
             ),
             (
                 "PoolNotFrozen",

@@ -11,12 +11,26 @@ Each artefact appears **once**: the index is one ordered `entries` list, and no 
 named twice anywhere in the record (FAM-12.6). A rung whose run does not exist yet
 contributes no entry at all, because the index is not filtered to what happens to be on
 disk and it never invents a path it cannot point at (protocol.md §5).
+
+An entry is a `records.md` §7 version record and therefore carries the **rule** its
+artefact was trained under (D-19): the rule is declared per rung beside the rung and the
+variant — `SHIPPED_RULES` — because it is a fact about the run, and a pool built from this
+window has to be able to certify each member's estimator (records.md §7, §8, rules.md §6,
+ASM-27).
 """
 
 from . import declarations, layout
 
 #: The one rung whose live run ships today: `R1` at the live budget, three seeds.
 SHIPPED = {"R1": "naive-numeric"}
+
+#: The rule each shipped run trained under, declared per rung beside `SHIPPED` and keyed by
+#: it (`records.md` §7, D-19): a rung added to `SHIPPED` declares its rule here in the same
+#: edit, because a version record's `rule` is required and no default stands in for one.
+#: R1's live run was written before the catalogue existed, so its version-1 containers carry
+#: no `learning_rule` and `agents` reads them as `masked-q-learning` — the only rule its
+#: writer could have used — and the shipped set is not regenerated (rules.md §6, ASM-5).
+SHIPPED_RULES = {"R1": "masked-q-learning"}
 
 #: Which rung inherits each rung's retained window (ladder.md §2, ASM-16).
 SUCCESSOR = {"R1": "R2", "R2": "R3", "R3": "R4", "R4": "R5", "R5": "R6", "R6": None}
@@ -53,6 +67,9 @@ def _snapshot_entry(rung, variant, seed, step, lineage):
     The path is `layout._relative`'s spelling even here, where the entry is a window member
     handed to a pool rather than a line of the index: a version record is the same record
     wherever it is read, and one artefact has one spelling (checkpoints.md §2, records.md §7).
+    `rule` is the rule that run trained under — the one fact D-19 adds to the record — so a
+    pool built from this window certifies each member's estimator and its id covers it
+    (records.md §7, §8, rules.md §6, ASM-27).
     """
     return {
         "id": layout._version_id(rung, variant, seed, step),
@@ -63,6 +80,7 @@ def _snapshot_entry(rung, variant, seed, step, lineage):
         "step": int(step),
         "samples": int(step),
         "lineage": lineage,
+        "rule": SHIPPED_RULES[rung],
         "kind": "snapshot",
     }
 
@@ -78,6 +96,7 @@ def _final_entry(rung, variant, seed):
         "step": int(declarations.LIVE_BUDGET),
         "samples": int(declarations.LIVE_BUDGET),
         "lineage": layout._version_id(rung, variant, seed, declarations.LIVE_BUDGET),
+        "rule": SHIPPED_RULES[rung],
         "kind": "final",
     }
 
@@ -126,6 +145,7 @@ def checkpoints():
                 "rung": rung,
                 "retained": declarations.RETAINED,
                 "seeds": list(declarations.SEEDS),
+                "rule": SHIPPED_RULES[rung],
                 "inherited_by": SUCCESSOR.get(rung),
             }
             for rung, variant in SHIPPED.items()

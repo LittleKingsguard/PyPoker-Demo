@@ -1,6 +1,6 @@
 """The refusals of the `evaluation` module (`docs/L3/evaluation/errors.md` §2).
 
-One `EvaluationError` base and thirty-three subclasses, one per refusal family the L2
+One `EvaluationError` base and thirty-six subclasses, one per refusal family the L2
 surface declares (`docs/L2/evaluation/surface.md` §5-§13).  A caller catches
 `EvaluationError` to know that *this* module refused it, so a mistyped record key or a
 `TypeError` from a helper never masquerades as a refusal (`errors.md` §1).
@@ -53,7 +53,22 @@ class PoolFrozen(EvaluationError):
 
 
 class LineageNotExtended(EvaluationError):
-    """`offer`: the lineage is not the window's newest version."""
+    """`offer`: the lineage is not the newest member of the family it names."""
+
+
+class UnknownRule(EvaluationError):
+    """A member's `rule` is not one of the catalogue's members (`rules.md` §4, D-19)."""
+
+
+class RuleMismatch(EvaluationError):
+    """Two declarations of one rule disagree: a member's record against its checkpoint's,
+    or a version's `rule` against the rule of the family it extends (`records.md` §7,
+    ASM-26, D-19)."""
+
+
+class FamilyBoundExceeded(EvaluationError):
+    """A declaration or an offer holds more families than the window's bound allows
+    (`docs/L1/league.md` §2, ASM-26)."""
 
 
 class PoolNotFrozen(EvaluationError):

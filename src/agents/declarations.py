@@ -1,11 +1,12 @@
-"""The one catalogue: `BACKENDS`, `ARCHITECTURES`, `HYPER`, `LEARNING_RULE`, `KINDS`.
+"""The one catalogue: `BACKENDS`, `ARCHITECTURES`, `LEARNING_RULES`, `HYPER`, `KINDS`.
 
 `learners()` publishes these and nothing is restated elsewhere (`README.md` §5,
 `surface.md` §3): the two backends in `numpy` then `torch` order (D-7), the seven kinds
 in `architecture.md` §1's order with the family and the declared size each is sized
-from, the one learning rule (ASM-7), and the rule's six fixed declarations
-(`rule.md` §6).  The record is plain data, rebuilt on every call, so no caller can
-mutate the catalogue through a returned mapping.
+from, the two learning rules in `rules.md` §2's order with the target each aims at
+(D-19), and the six fixed declarations the two rules share (`rule.md` §6).  The record
+is plain data, rebuilt on every call, so no caller can mutate the catalogue through a
+returned mapping.
 """
 
 from __future__ import annotations
@@ -74,11 +75,30 @@ ARCHITECTURES = {
     for kind, row in KIND_ROWS.items()
 }
 
-#: The one value, for the whole ladder (ASM-7).
-LEARNING_RULE = "masked-q-learning"
+#: The learning-rule catalogue, in the declared order (`rules.md` §2, D-19): each
+#: member is a record carrying its `name` and the `target` it aims at, as a stable
+#: token and never a sentence.  `masked-q-learning` bootstraps from the masked maximum
+#: of the target copy's values; `double-q-learning` lets the online parameters choose
+#: the index and reads that index's value from the target copy (`rule.md` §2).
+LEARNING_RULES = {
+    "masked-q-learning": {
+        "name": "masked-q-learning",
+        "target": "max-of-target-copy-over-next-legal",
+    },
+    "double-q-learning": {
+        "name": "double-q-learning",
+        "target": "target-copy-at-online-argmax-over-next-legal",
+    },
+}
 
-#: The rule's six fixed declarations (`rule.md` §6): one value each, never a
-#: per-learner argument.
+#: The declared default: the catalogue's **first** member, which is what a learner
+#: spec naming none is built under and what a version-1 checkpoint reads as.  It is
+#: derived from the order above so the declaration cannot drift (`rules.md` §4, §6).
+DEFAULT_LEARNING_RULE = next(iter(LEARNING_RULES))
+
+#: The six fixed declarations both catalogue members consume (`rule.md` §6): one
+#: value each, never a per-learner argument and never a per-rule block, so a rule swap
+#: is one axis and no budget moves with it (`rules.md` §2, ASM-7).
 HYPER = {
     "learning_rate": 0.001,
     "batch_size": 32,
@@ -112,6 +132,8 @@ def catalogue():
     return {
         "backends": {name: {"name": name} for name in BACKENDS},
         "architectures": {kind: dict(entry) for kind, entry in ARCHITECTURES.items()},
-        "learning_rule": LEARNING_RULE,
+        "learning_rules": {
+            name: dict(entry) for name, entry in LEARNING_RULES.items()
+        },
         "hyper": hyper_record(),
     }

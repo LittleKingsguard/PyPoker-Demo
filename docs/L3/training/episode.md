@@ -1,9 +1,9 @@
 # training — one episode into transitions
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
 - **Owner:** how one `engine.play_hand` episode becomes `records.md` §4 transitions for the learner's seat — the seat
   alternation (§1), the assembled policy (§2), the decision ordering and the index (§3), `reward` and `next_legal` (§4), and
-  the one batch per hand handed to `agents.learn` (§5)
+  the one batch per hand handed to `agents.learn` (§5); **Rev 2** counts the five granted `agents` calls, `learners()` included (D-19)
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 - **Read with:** `loop.md` §1 steps 5–6, `seeds.md` §2, `curves.md` §3, `agents/rule.md` §2–§4, `errors.md` §4
 
@@ -33,7 +33,7 @@ granted calls and nothing else:
     index = agents.act(learner, obs, mask)["action"]    # the training-time decision
     return features.decode_action(index)               # the descriptor engine applies
 
-This is why `agents.as_policy` is not needed: `as_policy` is not among the four `agents` calls this module is granted
+This is why `agents.as_policy` is not needed: `as_policy` is not among the five `agents` calls this module is granted
 (`module-map.md` §2), and the policy above is the same decision — `act` is the training-time decision, at the learner's own seed
 and its own state (`agents/surface.md` §6, `agents/rule.md` §4). Nothing is recorded here: the policy keeps no log and returns
 no index, so the transitions are derived from the episode record alone and a unit case can build them without a learner

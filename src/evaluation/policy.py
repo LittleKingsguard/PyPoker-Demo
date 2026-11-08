@@ -4,16 +4,26 @@
 A **policy** is a callable taking ``(readout, legal_actions)`` and returning one
 descriptor from ``legal_actions``; this module calls policies and imports none
 (`surface.md` §2).  A side is resolved once, before any hand is played, to
-``(id, policy, params, unlabelled)``: a baseline is built at the seed the caller fixes, a
-version member is built from the two facts its own checkpoint records -- the seed and the
-encoding name -- and an opaque callable handed in from outside is named for its position
-and its capacity is recorded as an unmeasured ``0`` (`scheduler.md` §5, ASM-10).
+``(id, policy, params, unlabelled, rule)``: a baseline is built at the seed the caller
+fixes, a version member is built from the two facts its own checkpoint records -- the seed
+and the encoding name -- and an opaque callable handed in from outside is named for its
+position and its capacity is recorded as an unmeasured ``0`` (`scheduler.md` §5, ASM-10).
 
-`policy_from` reads **exactly** those two facts from the checkpoint's own container and
-nothing else: the learner, its parameters and its rule stay `agents.load`'s (ASM-20,
-G20).  No seed is ever substituted for a missing one, and no seed is a digest of a path.
-A recorded encoding name is checked by **building** it -- `features.build_encoder` is the
-granted arrow and no encoding catalogue is read (`scheduler.md` §5.1, `module-map.md` §2).
+The **rule** travels with the side: a policy built from a learner carries the catalogue
+member its learner was built under, so a cell can say which two estimators met, and a
+baseline or an opaque callable carries none (`e2e-surface.md` §2, `rules.md` §7, D-19).
+A member **record** that declares a `rule` is compared with the rule its policy carries
+and a disagreement is refused naming the member and both values (`scheduler.md` §5,
+ASM-20).
+
+`policy_from` reads **exactly** two facts from the checkpoint's own container and nothing
+else: the seed and the encoding name.  The learner, its parameters and its rule stay
+`agents.load`'s and `agents.as_policy`'s -- the rule a member reports is the one the
+policy `as_policy` built carries, which is the rule the file records (ASM-20, `rules.md`
+§6, G20).  No seed is ever substituted for a missing one, and no seed is a digest of a
+path.  A recorded encoding name is checked by **building** it -- `features.build_encoder`
+is the granted arrow and no encoding catalogue is read (`scheduler.md` §5.1,
+`module-map.md` §2).
 """
 
 import hashlib
@@ -33,9 +43,10 @@ from .errors import (
     InvalidSeed,
     MemberInvalid,
     MemberUnloadable,
+    RuleMismatch,
     UnknownEncoding,
 )
-from .pool import Pool
+from .pool import Pool, _rule
 from .seeds import _draw_index
 
 #: The deepest a recorded fact is looked for in one JSON document (`scheduler.md` §5.1).
@@ -43,26 +54,32 @@ _MAX_DEPTH = 8
 
 
 class _MemberPolicy:
-    """One member as a policy: its id, its measured capacity and the callable it plays.
+    """One member as a policy: its id, its measured capacity, the callable and its rule.
 
     A pool and a policy are opaque values a caller only passes back (`surface.md` §1);
     this carries the member's id and parameter count so a cell can name it and report its
-    capacity (`scheduler.md` §5).
+    capacity, and the catalogue member its learner was built under, so a cell records
+    which estimator it met (`scheduler.md` §4-§5, `rules.md` §7).
     """
 
-    __slots__ = ("member_id", "params", "policy", "unlabelled")
+    __slots__ = ("member_id", "params", "policy", "unlabelled", "learning_rule")
 
-    def __init__(self, member_id, params, policy, unlabelled=False):
+    def __init__(self, member_id, params, policy, unlabelled=False, learning_rule=None):
         self.member_id = member_id
         self.params = int(params)
         self.policy = policy
         self.unlabelled = bool(unlabelled)
+        self.learning_rule = learning_rule
 
     def __call__(self, readout, legal_actions):
         return self.policy(readout, legal_actions)
 
     def __repr__(self):
-        return "_MemberPolicy(member_id=%r, params=%r)" % (self.member_id, self.params)
+        return "_MemberPolicy(member_id=%r, params=%r, learning_rule=%r)" % (
+            self.member_id,
+            self.params,
+            self.learning_rule,
+        )
 
 
 def _token(text):
@@ -210,11 +227,25 @@ def _checkpoint_policy(member_id, path, entry, where):
             "refused the encoder that name builds (%s)"
             % (entry, where, path, encoding, exc)
         ) from exc
-    return _MemberPolicy(member_id, agents.param_count(learner), policy)
+    return _MemberPolicy(
+        member_id,
+        agents.param_count(learner),
+        policy,
+        # The rule the file records, reported by the policy `agents.as_policy` built:
+        # playback is rule-free, so the built policy is the witness (`rules.md` §6, D-19).
+        learning_rule=getattr(policy, "learning_rule", None),
+    )
 
 
 def _member_policy(record, entry, label=None, what="played", noun="member"):
-    """A `records.md` §7 version record as a policy: `policy_from`'s own builder (§5)."""
+    """A `records.md` §7 version record as a policy: `policy_from`'s own builder (§5).
+
+    A record that declares a `rule` is held to it: the policy is built from the
+    checkpoint, and a rule that disagrees with the one the policy carries is refused
+    naming the member and both values (`scheduler.md` §5, `records.md` §7, D-19).  A
+    record declaring none is admitted -- the container decides, and the rule the policy
+    reports is the rule the file records.
+    """
     member_id = record.get("id")
     if member_id is not None and (not isinstance(member_id, str) or not member_id):
         member_id = None
@@ -223,13 +254,21 @@ def _member_policy(record, entry, label=None, what="played", noun="member"):
         where = "%s, %s" % (label, subject)
     else:
         where = subject
+    declared = _rule(record, where, entry, required=False)
     path = record.get("path")
     if not path:
         raise MemberUnloadable(
             "%s(%s): the %s carries no path, so it cannot be %s"
             % (entry, where, noun, what)
         )
-    return _checkpoint_policy(member_id or label or "member", path, entry, where)
+    policy = _checkpoint_policy(member_id or label or "member", path, entry, where)
+    if declared is not None and policy.learning_rule != declared:
+        raise RuleMismatch(
+            "%s(%s): the member records the rule %r and its checkpoint %r records %r, "
+            "and a member is trained under one rule"
+            % (entry, where, declared, path, policy.learning_rule)
+        )
+    return policy
 
 
 def _artefact_id(path):
@@ -281,15 +320,23 @@ def opponent(pool, seed):
 # `_side` (`scheduler.md` §5)
 # ---------------------------------------------------------------------------
 def _side(value, label, entry, seed=None, position=1):
-    """One side of a cell, resolved to ``(id, policy, params, unlabelled)`` (§5).
+    """One side of a cell, resolved to ``(id, policy, params, unlabelled, rule)`` (§5).
 
-    A baseline name is built at ``seed``; a `records.md` §7 version record is built from
-    its checkpoint's recorded facts; a `_MemberPolicy` this module built carries its own
-    id and capacity; and any other callable is named ``policy-<position>`` with an
-    unmeasured ``0`` (`surface.md` §2, ASM-10).
+    A baseline name is built at ``seed`` and declares no rule; a `records.md` §7 version
+    record is built from its checkpoint's recorded facts and carries the rule the policy
+    its file records reports; a `_MemberPolicy` this module built carries its own id, its
+    capacity and its rule; and any other callable is named ``policy-<position>`` with an
+    unmeasured ``0`` and whatever rule its own ``learning_rule`` carries, which is none for
+    an opaque callable (`surface.md` §2, `rules.md` §7, ASM-10, D-19).
     """
     if isinstance(value, _MemberPolicy):
-        return (value.member_id, value, value.params, value.unlabelled)
+        return (
+            value.member_id,
+            value,
+            value.params,
+            value.unlabelled,
+            value.learning_rule,
+        )
     if isinstance(value, str):
         if value in agents.baselines():
             if seed is None:
@@ -297,7 +344,7 @@ def _side(value, label, entry, seed=None, position=1):
                     "%s(%s): a baseline side needs the seed the cell is played at (%r)"
                     % (entry, label, value)
                 )
-            return (value, agents.build_baseline(value, int(seed)), 0, False)
+            return (value, agents.build_baseline(value, int(seed)), 0, False, None)
         raise MemberInvalid(
             "%s(%s): the side must be a policy, a version record or one of %r, got %r"
             % (entry, label, tuple(agents.baselines()), value)
@@ -310,9 +357,15 @@ def _side(value, label, entry, seed=None, position=1):
                 "'id'" % (entry, label)
             )
         policy = _member_policy(dict(value), entry, label=label, what="played")
-        return (member_id, policy, policy.params, False)
+        return (member_id, policy, policy.params, False, policy.learning_rule)
     if callable(value):
-        return ("policy-%d" % position, value, 0, True)
+        return (
+            "policy-%d" % position,
+            value,
+            0,
+            True,
+            getattr(value, "learning_rule", None),
+        )
     raise MemberInvalid(
         "%s(%s): the side must be a policy, a version record or one of %r, got %r"
         % (entry, label, tuple(agents.baselines()), value)

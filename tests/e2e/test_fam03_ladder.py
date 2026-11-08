@@ -304,6 +304,71 @@ class FAM3Ladder(S.SurfaceCase):
                     "it used (protocol.md §5, league.md §2): %r" % (rung_name, record),
                 )
 
+    # -- the set of rules a comparison holds constant (D-19) ----------------
+    def test_fam3_19_fairness_reports_the_set_of_rules_it_holds_constant(self):
+        """FAM-3.19 fairness reports the set of rules the pair declares (rules.md §8)."""
+        catalogue = S.rule_names(self.ep("agents", "learners")())
+        pairs = [(left, right) for left, right in zip(S.RUNGS, S.RUNGS[1:])]
+        for rung_name in S.TWO_VARIANT_RUNGS:
+            declared = self.variant_names(self.rung(rung_name))
+            if len(declared) == 2:
+                pairs.append(((rung_name, declared[0]), (rung_name, declared[1])))
+        for left, right in pairs:
+            if isinstance(left, tuple):
+                side = self.variant(left[0], left[1])
+                other = self.variant(right[0], right[1])
+                pair = "%s pair" % (left[0],)
+            else:
+                side = self.rung(left)
+                other = self.rung(right)
+                pair = "%s, %s" % (left, right)
+            result = self.ep("training", "fairness")(side, other)
+            reported = S.find_values(result, "rule")
+            self.assertTrue(
+                reported,
+                "training.fairness reports the set of learning rules the pair holds "
+                "constant, beside its other constants (ladder.md §4, rules.md §8, D-19): %r"
+                % (result,),
+            )
+            body = S._family_token(S.flatten_text(reported))
+            rules = set()
+            for value in (side, other):
+                if S.is_mapping(value) and "variants" in value:
+                    entries = S.variant_entries(value)
+                else:
+                    entries = [value]
+                for entry in entries:
+                    rule = S.variant_setting(entry, "learning_rule")
+                    if isinstance(rule, str):
+                        rules.add(rule)
+            self.assertTrue(
+                rules,
+                "the %s declares a learning rule on at least one variant, because a rung's "
+                "variants are trained under a rule (records.md §2, ladder.md §3): %r"
+                % (pair, side),
+            )
+            for rule in sorted(rules):
+                self.assertIn(
+                    rule,
+                    catalogue,
+                    "a rule a rung holds constant is a catalogue member (rules.md §2, §4): "
+                    "%r not among %r" % (rule, catalogue),
+                )
+                self.assertIn(
+                    S._family_token(rule),
+                    body,
+                    "the %s's reported rule set holds %r, the rule its variants declare "
+                    "(ladder.md §4, rules.md §8, D-19): %r" % (pair, rule, reported),
+                )
+            self.assertNotIn(
+                S._family_token(S.RULE_SECOND),
+                body,
+                "the six rungs declare one rule each today, so the set a registry pair "
+                "holds constant is that one rule and not the whole catalogue — a rung "
+                "declaring the two-rule set is D-19's own re-baseline and not this ladder's "
+                "(ladder.md §2, rules.md §8, D-19): %r" % (reported,),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

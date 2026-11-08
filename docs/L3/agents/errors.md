@@ -11,10 +11,8 @@ contract; no entry point coerces a value, substitutes a default, swallows an err
 record*. The error is therefore the only reporting channel: nothing comes back as a failure record, nothing is
 logged and continued, and no refused call has an observable effect — `learn` validates the whole batch before
 its first step, `save` validates before it opens a handle, and `act` validates before it computes a value
-(`rule.md` §3, `checkpoint.md` §3).
-
-A hierarchy exists so a caller can catch "this module refused me" without catching a `TypeError` from a bug — a
-`KeyError` from a mistyped key or a `torch` error from the backend would leak an internal decision as a crash.
+(`rule.md` §3, `checkpoint.md` §3). A hierarchy exists so a caller can catch "this module refused me" without
+catching a `TypeError` from a bug in it.
 
 ## 2. The classes — `src/agents/errors.py`
 
@@ -24,6 +22,7 @@ A hierarchy exists so a caller can catch "this module refused me" without catchi
                                              #   kind name with no sizes carrying width and depth
     class UnknownBackend(AgentsError)        # build_learner: not one of learners()['backends']
     class UnknownArchitecture(AgentsError)   # build_learner: not one of learners()['architectures']
+    class UnknownRule(AgentsError)           # build_learner, load: not one of learners()['learning_rules']
     class InvalidSetting(AgentsError)        # build_learner: width/depth not a positive integer, sparsity
                                              #   outside [0, 1]
     class InvalidSeed(AgentsError)           # build_learner, as_policy, build_baseline: not an integer
@@ -42,10 +41,9 @@ A hierarchy exists so a caller can catch "this module refused me" without catchi
     class CheckpointUnreadable(AgentsError)  # load: missing, unreadable, or a form this module does not read
     class CheckpointMismatch(AgentsError)    # load: the spec disagrees with the file on a compared key
 
-Sixteen subclasses, one per refusal family of `surface.md` §4–§12. The classes are **not** module-level names of
-the `agents` package: they live below an entry point and are not surface (`README.md` §3, `e2e-surface.md` §1).
-A battery asserts the *behaviour* — that the call raises, and what the message says — never the class, because
-the class is this module's freedom (`docs/L3/features/errors.md` §2 makes the same choice for the same reason).
+Seventeen subclasses, one per refusal family of `surface.md` §4–§12. They are **not** module-level names of the
+`agents` package — below an entry point is not surface (`README.md` §3, `e2e-surface.md` §1) — and a battery asserts
+the *behaviour*, never the class, which is this module's freedom (`docs/L3/features/errors.md` §2).
 
 ## 3. The message grammar
 
@@ -53,10 +51,9 @@ Every message has the form
 
     "<entry point>(<argument or field>): <the violated contract>, got <what was passed>"
 
-so the contract is named in the design's own words and the offending value is visible. Where nothing was
-passed — a key a record is missing — the message names the missing key instead of inventing a `got` clause. The
-canonical messages; L4 follows these spellings, and the unit battery matches them tolerantly (the entry point's
-name, the key's or argument's name, and the value):
+so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a
+key a record is missing — the message names the missing key instead of inventing a `got` clause. L4 follows these
+spellings, and the unit battery matches them tolerantly (the entry point's name, the key's name, and the value):
 
 | Where | Message |
 |---|---|
@@ -65,6 +62,7 @@ name, the key's or argument's name, and the value):
 | `build_learner` bare kind, no sizes | `build_learner(spec): the kind 'deep' names no width or depth, and 'sizes' is absent` |
 | `build_learner` backend | `build_learner(spec): the backend must be one of ('numpy', 'torch'), got 'jax'` |
 | `build_learner` kind | `build_learner(spec): the kind must be one of ('naive-stack', 'token-embedding', 'wide', 'deep', 'sparse', 'residual', 'plain'), got 'naivestack'` |
+| `build_learner` learning rule | `build_learner(spec): 'learning_rule' must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'` |
 | `build_learner` seed | `build_learner(spec): the seed must be an integer, got '6174'` |
 | `build_learner` width or depth | `build_learner(spec): 'width' must be a positive integer, got 0` |
 | `build_learner` sparsity | `build_learner(spec): 'sparsity' must be in [0, 1], got 1.5` |
@@ -80,9 +78,11 @@ name, the key's or argument's name, and the value):
 | `param_count` baseline | `param_count(learner): a baseline is not a learner, and its parameter count is the 0 baselines() declares` |
 | `save` path | `save(path): the path '/ckpt/missing/x.pt' is not a writable file location` |
 | `load` path | `load(path): '/ckpt/x.pt' cannot be read: No such file or directory` |
-| `load` form | `load(path): '/ckpt/x.pt' is not a pypoker-agents-checkpoint of format version 1` |
+| `load` form | `load(path): '/ckpt/x.pt' is not a pypoker-agents-checkpoint of format version 1 or 2` |
+| `load` version | `load(path): '/ckpt/x.pt' records the field 'format_version', which must be 1 or 2, got 4242` |
+| `load` rule | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; and `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'` |
 | `load` field value | `load(path): '/ckpt/x.pt' records the field 'backend', which must be one of ('numpy', 'torch'), got 'jax'` |
-| `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174` |
+| `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174`; a rule: `load(spec): the spec's learning_rule 'masked-q-learning' is not the checkpoint's learning_rule 'double-q-learning'` |
 | `as_policy` seed | `as_policy(seed): the seed must be an integer, got None` |
 | `as_policy` encoder | `as_policy(encoder): the encoder declares vocabulary 96 and the learner is dense-numeric at 203` |
 | a policy's readout | `policy(readout): the readout is missing 'to_call', which the rule needs` |
@@ -92,19 +92,19 @@ name, the key's or argument's name, and the value):
 Three properties the battery relies on: the message always contains the entry point's own name, the name of the
 argument or key at fault, and the offending value; it never claims a value was accepted
 (`docs/L3/features/errors.md` §3); and a refusal raised while a policy works is **this** module's, named
-`policy(readout)` — a `features` error escaping `features.encode` inside `as_policy`'s closure would carry
-another module's class and another entry point's name, which a caller cannot catch as `AgentsError` (§2).
+`policy(readout)`, since a `features` error escaping `features.encode` would carry another module's class (§2).
 
 ## 4. What is *not* refused
 
 Refusing more than the contract refuses is also a defect — a battery may pass any valid instance
 (`battery.md` §4, D-15). So this module does **not** refuse:
 
-- an **extra key in a learner spec**, `learning_rule`, `hyper`, `param_budget`, `samples`, `seeds`, `device`
-  and `name` included: those are a run record's data and not a per-learner argument (`surface.md` §4,
-  `records.md` §2). `variant_learner` in `tests/e2e/_surface.py` hands exactly such an entry over;
-- **`sizes` when `architecture` is present**: it is redundant, `architecture` is authoritative
-  (`records.md` §3);
+- an **extra key in a learner spec**, `hyper`, `param_budget`, `samples`, `seeds`, `device` and `name` included:
+  those are a run record's data and not a per-learner argument (`surface.md` §4, `records.md` §2).
+  `variant_learner` in `tests/e2e/_surface.py` hands exactly such an entry over;
+- an **absent `learning_rule`**: a spec naming no rule is built under the catalogue's first member, the declared
+  default of `rules.md` §4 and never an inference from the caller's silence (`records.md` §3, D-19);
+- **`sizes` when `architecture` is present**: redundant — `architecture` is authoritative (`records.md` §3);
 - a **`sparsity` or `residual` a kind does not read** — `sparsity: 0.5` on a `deep` kind is accepted and ignored
   (`architecture.md` §3, `surface.md` §4);
 - a **`numpy` integer for a seed**, for a width, for a depth and for an action index: `numpy.int64` is an
@@ -119,8 +119,8 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
   time: the module keeps no cache and no registry (`surface.md` §4, §8).
 
 The only shapes refused on a record are the ones that are not that record at all: not a mapping, missing a key
-the contract requires, or carrying a value the contract forbids. That is a check on well-formedness, not on a
-caller's convenience.
+the contract requires, or carrying a value the contract forbids — a check on well-formedness, not a caller's
+convenience.
 
 ## 5. Where the messages are asserted
 

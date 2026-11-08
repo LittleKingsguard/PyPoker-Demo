@@ -32,6 +32,7 @@ from .errors import (
     InvalidSpec,
     UnknownArchitecture,
     UnknownBackend,
+    UnknownRule,
 )
 
 TRANSITION_KEYS = (
@@ -234,6 +235,23 @@ def _mask(value, entry, field):
     return tuple(sorted(items))
 
 
+def learning_rule(value, entry):
+    """One catalogue member's name, or the refusal (`rules.md` §2, §4, D-19).
+
+    A learner learns under one of `learners()['learning_rules']`'s members, named by
+    the catalogue's own spelling: a value that is not a string, or a string no member
+    carries, is refused naming the value and the catalogue's names, and is never
+    mapped onto the declared default — a silent substitution would train a model
+    under a rule its spec does not name (`surface.md` §4, §9; `errors.md` §3).
+    """
+    if not isinstance(value, str) or value not in declarations.LEARNING_RULES:
+        raise UnknownRule(
+            "%s(spec): 'learning_rule' must be one of %r, got %r"
+            % (entry, tuple(declarations.LEARNING_RULES), value)
+        )
+    return value
+
+
 def _backend(name):
     """The one module that performs this backend's arithmetic (`backends.md` §4).
 
@@ -261,12 +279,15 @@ def _backend(name):
 # The learner
 # --------------------------------------------------------------------------
 class Learner:
-    """One masked-Q learner, complete at construction and opaque to a caller.
+    """One learner of the catalogue, complete at construction and opaque to a caller.
 
     It holds the backend's state — the online parameters, their target copy and the
     sparse masks — the sizing record a caller's arguments are checked against, the
-    seed its exploration is keyed by, the schedule position `learn` advances and the
-    target copy's consumed-transition counter (`rule.md` §3-§4, `checkpoint.md` §1).
+    seed its exploration is keyed by, the catalogue member it learns under, the
+    schedule position `learn` advances and the target copy's consumed-transition
+    counter (`rule.md` §2-§4, `checkpoint.md` §1).  `rule` is the only field a
+    learner's arithmetic reads and nothing else does: `act`, `param_count`, `as_policy`
+    and the two checkpoints' members are rule-free (`surface.md` §4-§7, D-19).
     """
 
     __slots__ = (
@@ -285,6 +306,7 @@ class Learner:
         "size",
         "shape",
         "dtype",
+        "rule",
         "position",
         "counter",
     )
@@ -305,6 +327,7 @@ class Learner:
         size,
         shape,
         dtype,
+        rule,
         position=0,
         counter=0,
     ):
@@ -323,15 +346,17 @@ class Learner:
         self.size = size
         self.shape = shape
         self.dtype = dtype
+        self.rule = rule
         self.position = position
         self.counter = counter
 
     def __repr__(self):
-        return "Learner(%s, %r, width %d, depth %d)" % (
+        return "Learner(%s, %r, width %d, depth %d, %s)" % (
             self.backend_name,
             self.kind,
             self.width,
             self.depth,
+            self.rule,
         )
 
 
@@ -357,7 +382,12 @@ def _resolve_kind(architecture, sizes):
 
 
 def build_learner(spec):
-    """One learner from one spec (`surface.md` §4, `records.md` §3)."""
+    """One learner from one spec, under the rule the spec names (`surface.md` §4).
+
+    `learning_rule` is optional: absent, the learner is built under the catalogue's
+    **first** member, the declared default of `rules.md` §4.  A named rule the
+    catalogue does not carry is refused before anything is built (`errors.md` §4).
+    """
     if not isinstance(spec, Mapping):
         raise InvalidSpec(
             "build_learner(spec): the spec must be a mapping, got %s"
@@ -384,6 +414,16 @@ def build_learner(spec):
             "build_learner(spec): the kind must be one of %r, got %r"
             % (declarations.KINDS, kind)
         )
+
+    # The rule is read here, before any setting is resolved and before a parameter is
+    # drawn, so a refused name leaves nothing built (`errors.md` §1).  Absent, it is
+    # the declared default and not a value inferred from the caller's silence
+    # (`rules.md` §4, `records.md` §3).
+    under = (
+        learning_rule(spec["learning_rule"], "build_learner")
+        if "learning_rule" in spec
+        else declarations.DEFAULT_LEARNING_RULE
+    )
     fallback = sizes if isinstance(sizes, Mapping) else {}
     width = _integer(settings.get("width", fallback.get("width")), "width", "build_learner")
     depth = _integer(settings.get("depth", fallback.get("depth")), "depth", "build_learner")
@@ -451,6 +491,9 @@ def build_learner(spec):
         size,
         shape,
         dtype,
+        # The catalogue member this learner learns under: the spec's or the declared
+        # default, recorded by every checkpoint it writes (`rules.md` §4, §6).
+        under,
     )
 
 
@@ -544,7 +587,13 @@ def _batch(transitions):
 
 
 def learn(learner, transitions):
-    """`rule.md` §3: one semi-gradient step per transition, in the caller's order."""
+    """`rule.md` §3: one semi-gradient step per transition, in the caller's order.
+
+    The two catalogue members differ in the target's arithmetic and nowhere else: the
+    terminal target, the validation order, the per-transition loop, the td-error
+    accumulation, the SGD step, the refresh counter, the schedule position and the two
+    returned keys are one shared path (`rule.md` §2-§3, `rules.md` §3, D-19).
+    """
     held = _require_learner(learner, "learn")
     records = [_transition(held, record) for record in _batch(transitions)]
 
@@ -567,9 +616,26 @@ def learn(learner, transitions):
                 target=True,
                 need_cache=False,
             )
-            target = record["reward"] + discount * max(
-                float(successor[index]) for index in record["next_legal"]
-            )
+            if held.rule == "double-q-learning":
+                # Double Q-learning decouples selection from evaluation: the **online**
+                # parameters choose the masked index under the declared tie-break, and
+                # the **target copy** values it (`rules.md` §2, `rule.md` §2).  It is a
+                # second forward pass of one observation and no new state.
+                online, _discarded = backend.forward(
+                    held.state,
+                    held.layout,
+                    record["next_observation"],
+                    need_cache=False,
+                )
+                index = rule._tie_break(online, record["next_legal"])
+                bootstrap = float(successor[index])
+            else:
+                # `masked-q-learning`, the catalogue's first member and the only other
+                # one: the masked maximum of the target copy's values (`rule.md` §2).
+                bootstrap = max(
+                    float(successor[index]) for index in record["next_legal"]
+                )
+            target = record["reward"] + discount * bootstrap
         delta = target - float(scored[record["action"]])
         total += abs(delta)
         backend.apply(held.state, held.layout, cache, record["action"], delta, rate)

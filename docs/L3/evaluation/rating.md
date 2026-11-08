@@ -14,9 +14,10 @@ members** on this game at this cell size and is never a claim of poker skill, a 
 statement about a member the table does not name (D-16, `league.md` §8, brief §8).
 
 `rating(matrix)` reads `records.md` §10's matrix record — this module's own or a hand-built one, because what is
-checked is the record and not its provenance (`surface.md` §11) — and reads only its five required keys: `members`,
-`cells`, `hands_per_cell`, `table_seed` and `table` (`matrix.md` §5). This module's own keys — `pool`,
-`member_records`, `unlabelled`, `cell_count` — are ignored, so a hand-built table is rated as readily as a played
+checked is the record and not its provenance (`surface.md` §11) — and reads only the keys it fits: `members`, `cells`,
+`hands_per_cell`, `table_seed` and `table` (`matrix.md` §5). The record's `rules` and `population` are **not read**: they
+say which estimators played, not how the fit goes (D-19, `league.md` §4). This module's own keys — `pool`,
+`member_records`, `unlabelled`, `cell_count` — are ignored too, so a hand-built table is rated as readily as a played
 one. It plays no hand, reads no file and leaves the global `random` stream where it found it (`surface.md` §1).
 
 ## 2. The parameterisation, and the anchor

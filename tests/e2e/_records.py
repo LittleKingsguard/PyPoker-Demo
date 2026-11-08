@@ -121,18 +121,25 @@ def ids_of(value):
 # ---------------------------------------------------------------------------
 def make_version(case, name, seed=S.SEED_A, step=53, samples=S.BUDGET_TINY,
                  lineage="R6-residual-battery", rung="R7", variant="deep-sparse",
-                 width=None, depth=None):
+                 width=None, depth=None, rule=None):
     """One version record of ``records.md`` §7, with a checkpoint the case really wrote.
 
     The battery builds a small learner through ``agents.build_learner``, saves it with
     ``agents.save`` into the process scratch area, and wraps the artefact as a version:
     an id, the path ``evaluation.policy_from`` loads, the rung and variant that
-    produced it, the seed, the snapshot's step and the hands trained, and the lineage
-    it descends from.  Every one of those values is the battery's own.
+    produced it, the seed, the snapshot's step and the hands trained, the lineage it
+    descends from, and — D-19's required key — the **rule** it was trained under.  Every
+    one of those values is the battery's own.
+
+    ``rule`` defaults to the catalogue's first member, the declared default of
+    ``rules.md`` §4, so every caller that predates the catalogue keeps the version it
+    built before; the learner is built under the rule the record declares, so a version
+    whose file and record disagreed would only exist where a case doctors it on purpose.
     """
     width = S.VERSION_WIDTH if width is None else width
     depth = S.VERSION_DEPTH if depth is None else depth
-    spec = case.learner_spec(width=width, depth=depth, seed=seed)
+    rule = S.RULE_DEFAULT if rule is None else rule
+    spec = case.learner_spec(width=width, depth=depth, seed=seed, learning_rule=rule)
     learner = case.ep("agents", "build_learner")(spec)
     target = os.path.join(work_dir(), "version-%s.pt" % (name,))
     written = case.ep("agents", "save")(learner, target)
@@ -145,13 +152,22 @@ def make_version(case, name, seed=S.SEED_A, step=53, samples=S.BUDGET_TINY,
         "step": step,
         "samples": samples,
         "lineage": lineage,
+        "rule": rule,
     }
 
 
-def version_chain(case, names, seed=S.SEED_A, step=53):
-    """A lineage chain of version records, each descending from the one before it."""
+def version_chain(case, names, seed=S.SEED_A, step=53, rule=None,
+                  lineage_start="R6-residual-battery", rung="R7",
+                  variant="deep-sparse"):
+    """A lineage chain of version records, each descending from the one before it.
+
+    ``lineage_start`` is the label the chain's first member descends from: a label no
+    member of the pool carries, which is what makes this chain **one family** of a pool
+    that holds several (``ASM-26``).  Two chains given two starts and two rules are two
+    families, and that is how a case builds a heterogeneous window (D-19).
+    """
     out = []
-    previous = "R6-residual-battery"
+    previous = lineage_start
     for index, name in enumerate(names):
         out.append(
             make_version(
@@ -161,13 +177,16 @@ def version_chain(case, names, seed=S.SEED_A, step=53):
                 step=step * (index + 1),
                 samples=S.BUDGET_TINY * (index + 1),
                 lineage=previous,
+                rule=rule,
+                rung=rung,
+                variant=variant,
             )
         )
         previous = "version-%s" % (name,)
     return out
 
 
-def next_version(case, name, newest, seed=None, later=37):
+def next_version(case, name, newest, seed=None, later=37, rule=None):
     """One version offered into a window: it sits at the head of the lineage order.
 
     ``records.md`` §7 makes a version's ``lineage`` the version it descends from, and
@@ -177,7 +196,9 @@ def next_version(case, name, newest, seed=None, later=37):
     lineage points nowhere in the window would leave the window with no order to roll,
     which is what makes "the oldest evictable version is dropped" unobservable and the
     membership — and so the id — unchanged.  The tag, the seed and the increment are the
-    battery's own.
+    battery's own.  ``rule`` is the rule the version is trained under, defaulting to the
+    newest member's own rule, because a family is one lineage chain under one rule
+    (``ASM-26``).
     """
     step, samples = 53, S.BUDGET_TINY
     lineage = "R6-residual-battery"
@@ -188,6 +209,8 @@ def next_version(case, name, newest, seed=None, later=37):
         samples = _as_int(newest.get("samples"), 0) + S.BUDGET_TINY
         rung = newest.get("rung") or rung
         variant = newest.get("variant") or variant
+        if rule is None:
+            rule = newest.get("rule")
     elif newest:
         lineage = str(newest)
     return make_version(
@@ -199,6 +222,7 @@ def next_version(case, name, newest, seed=None, later=37):
         lineage=lineage,
         rung=rung,
         variant=variant,
+        rule=rule,
     )
 
 
@@ -252,6 +276,110 @@ def pool_id(pool, row):
         "neither build_pool's record nor pool_members names a pool id; records.md §8 "
         "requires one so two reports can compare a run with a table by the id alone"
     )
+
+
+# ---------------------------------------------------------------------------
+# The rule a record names (records.md §7, §8, §9, §10, §12; rules.md §4, §7)
+#
+# D-19 put one fact in five records: a version carries `rule`, a pool record the
+# `rules` its version members declare, a cell one rule per member, a matrix one rule
+# per member plus the `population` they make up, and a run record each variant's rule
+# plus the run's `rules` set.  The fact is the same in all five, so the readers below
+# share one walker: the container is the record's own, the fact is the catalogue name
+# (or `None` for a baseline, which declares no rule).
+# ---------------------------------------------------------------------------
+def rule_of(entry):
+    """The rule a record states for itself, under whatever key declares it, or ``None``."""
+    if not isinstance(entry, Mapping):
+        return None
+    for key, value in entry.items():
+        if "rule" in tok(key) and isinstance(value, str):
+            return value
+    return None
+
+
+def rules_of(value):
+    """Every ``(member id, rule)`` pair a rules-shaped container states, in its order.
+
+    A container may be keyed by member — a cell's and a matrix's ``rules`` — or be the
+    list of names a pool record or a run record states — the distinct rules, no member
+    attached.  Both shapes are read here, and a member whose rule is a baseline's
+    ``None`` keeps its place, because "which estimators met" is an answer a cell gives
+    and "one of them declares none" is part of it (``records.md`` §9, §10).
+    """
+    out = []
+    if isinstance(value, Mapping):
+        for key, inner in value.items():
+            if isinstance(inner, Mapping):
+                out.append((str(key), rule_of(inner)))
+            elif inner is None or isinstance(inner, (str, bytes)):
+                out.append((str(key), None if inner is None else str(inner)))
+            else:
+                out.append((str(key), None))
+        return out
+    if isinstance(value, (list, tuple, set, frozenset)):
+        for item in value:
+            if isinstance(item, Mapping):
+                name = None
+                for field in ("id", "member", "name", "variant"):
+                    candidate = item.get(field)
+                    if isinstance(candidate, str):
+                        name = candidate
+                        break
+                out.append((name, rule_of(item)))
+            elif item is None or isinstance(item, (str, bytes)):
+                out.append((None, None if item is None else str(item)))
+            else:
+                out.append((None, rule_of(item)))
+        return out
+    if isinstance(value, (str, bytes)):
+        return [(None, str(value))]
+    return out
+
+
+def rule_names_of(value):
+    """The distinct rule names a rules-shaped container states, in first-seen order."""
+    seen = []
+    for _member, rule in rules_of(value):
+        if rule is not None and rule not in seen:
+            seen.append(rule)
+    return seen
+
+
+def pool_rules(row):
+    """The ``rules`` a pool record declares — a **required** key of ``records.md`` §8."""
+    return required(row, "a pool record (records.md §8)", "rules")
+
+
+def version_rule(member):
+    """The ``rule`` a version member declares — a **required** key of ``records.md`` §7."""
+    return required(member, "a version member of the pool (records.md §7)", "rule")
+
+
+def cell_rules(cell):
+    """The ``rules`` a cell declares — a **required** key of ``records.md`` §9."""
+    return required(cell, "a cell record (records.md §9)", "rules")
+
+
+def matrix_rules(matrix):
+    """The ``rules`` a matrix declares — a **required** key of ``records.md`` §10."""
+    return required(matrix, "a matrix record (records.md §10)", "rules")
+
+
+def matrix_population(matrix):
+    """The ``population`` a matrix declares — a **required** key of ``records.md`` §10."""
+    return required(matrix, "a matrix record (records.md §10)", "population")
+
+
+def run_rules(record):
+    """The ``rules`` set a run record declares — a **required** key of ``records.md`` §12."""
+    return required(record, "a run record (records.md §12)", "rules")
+
+
+def variant_rule(entry):
+    """The ``learning_rule`` one variant entry of a run record names (§12, D-19)."""
+    return required(entry, "a variant entry of a run record (records.md §12)",
+                    "learning_rule", "rule")
 
 
 def version_members(row):

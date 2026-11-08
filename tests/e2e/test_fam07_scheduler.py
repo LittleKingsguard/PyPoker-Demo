@@ -223,6 +223,26 @@ class FAM7Scheduler(S.SurfaceCase):
             % (sorted(set(drawn)),),
         )
 
+    def test_fam7_10_a_cell_names_the_rule_each_member_carried(self):
+        """FAM-7.10 a cell's `rules` names each member's learning rule."""
+        # Two learners of one architecture, built under the two catalogue rules: the
+        # estimator is the only thing that differs between the cell's two members
+        # (`rules.md` §3, D-19).  The cell is 11 invented hands (battery.md §2).
+        masked = self.rule_policy(S.RULE_DEFAULT, seed=S.SEED_I)
+        doubled = self.rule_policy(S.RULE_SECOND, seed=S.SEED_J)
+        cell = self.match(
+            left=masked, right=doubled, hands=S.HANDS_TINY, seed=S.TABLE_SEED_B
+        )
+        rules = R.cell_rules(cell)
+        named = [rule for _member, rule in R.rules_of(rules) if rule]
+        self.assertEqual(
+            sorted(named),
+            sorted(S.RULES),
+            "records.md §9 makes a cell's `rules` each member's rule by its id — the "
+            "catalogue name its policy carries — so a cell says which two estimators met "
+            "(e2e-surface.md §2, league.md §3, D-19): %r" % (rules,),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -203,6 +203,69 @@ class FAM12Checkpoints(S.SurfaceCase):
             % (listed, repeated),
         )
 
+    # -- the rule a checkpoint records (D-19) ------------------------------
+    def test_fam12_7_a_saved_checkpoint_records_the_rule_it_was_trained_under(self):
+        """FAM-12.7 a checkpoint records its rule and reloads under it."""
+        encoder = self.encoder()
+        walk = self.decision_walk(S.SEED_C, self.baseline("always-call", S.SEED_D), limit=2)
+        self.assertTrue(walk, "the case drove no decision at all")
+        for rule in (S.RULE_DEFAULT, S.RULE_SECOND):
+            learner = self.rule_learner(rule, seed=S.SEED_I)
+            path = self.ep("agents", "save")(
+                learner, os.path.join(self.scratch(), "fam12-7-%s.ckpt" % (S._family_token(rule),))
+            )
+            self.assertEqual(
+                getattr(self.ep("evaluation", "policy_from")(path), "learning_rule", None),
+                rule,
+                "a checkpoint records the rule its learner was trained under, and "
+                "evaluation.policy_from reports the rule the file records, because playback "
+                "is rule-free and the file is the only witness (rules.md §6, "
+                "e2e-surface.md §3.4, D-19): %r" % (path,),
+            )
+            spec = self.learner_spec(
+                width=S.RULE_WIDTH, depth=S.RULE_DEPTH, seed=S.SEED_I, learning_rule=rule
+            )
+            restored = self.ep("agents", "load")(spec, path)
+            for _hand, readout, _legal, _action, _index in walk:
+                self.assertEqual(
+                    self.action_index(self.act(restored, encoder, readout)),
+                    self.action_index(self.act(learner, encoder, readout)),
+                    "a checkpoint restores under the rule it records, and the restored "
+                    "learner decides as the saved one (rules.md §6, ASM-5): %r" % (path,),
+                )
+
+    def test_fam12_8_the_index_names_the_rule_each_artefact_was_trained_under(self):
+        """FAM-12.8 training.checkpoints() carries each entry's rule."""
+        index = self.ep("training", "checkpoints")()
+        reported = S.find_values(index, "rule")
+        self.assertTrue(
+            reported,
+            "training.checkpoints() indexes the shipped set, and each entry carries the "
+            "rule it was trained under, so a reader can tell which estimator a member is "
+            "(e2e-surface.md §3.5, rules.md §6, D-19): %r" % (index,),
+        )
+        names = set()
+        for value in reported:
+            names |= {text.strip() for text in S.strings(value) if text.strip()}
+        declared = S.rule_names(self.ep("agents", "learners")())
+        for name in sorted(names):
+            self.assertIn(
+                name,
+                declared,
+                "every rule the index reports is a catalogue member, because a name outside "
+                "it is refused where it is declared (rules.md §2, §4): %r not in %r"
+                % (name, declared),
+            )
+        self.assertEqual(
+            sorted(names),
+            [S.RULE_DEFAULT],
+            "the checkpoints the repository ships were written before the catalogue "
+            "existed, so a version 1 container carries no `learning_rule` and is read as "
+            "%r, the only rule its writer could have used — the shipped set is not "
+            "regenerated (rules.md §6, ASM-5): the index reports %r"
+            % (S.RULE_DEFAULT, sorted(names)),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

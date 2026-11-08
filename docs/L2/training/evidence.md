@@ -1,10 +1,10 @@
 # training — the shipped R1 evidence file, as an integration fact
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
 - **Owner of this file:** the one shipped evidence artefact under `checkpoints/` — that it exists and what it is not
   (§1), which of its blocks are this module's own record and which a caller attaches (§2), the spelling rule its paths
   obey (§3), the two curve layouts it and a run record carry (§4), and what no caller may do with it (§5) (D-8, D-12,
-  D-16, `protocol.md` §5, `records.md` §12–§13)
+  D-16, `protocol.md` §5, `records.md` §12–§13, `rules.md` §7). **Rev 5:** §2 names the run block's `rules` (D-19)
 - **Ceiling:** 85 lines. At the ceiling, split by owner — never append
 - **Reads:** `docs/L1/protocol.md` §5, `league.md` §8, `records.md` §12–§13, `module-map.md` §3, §5; at this module's own
   design `docs/L3/training/evidence.md` §1–§7, `checkpoints.md` §2, §4–§5, `loop.md` §3–§4, `curves.md` §4–§5
@@ -30,10 +30,10 @@ from (`docs/L3/training/evidence.md` §2). Their content, and the module design'
 
 ## 2. Which blocks are this module's record, and which a caller attaches
 
-The bundle's `run` block **is** the record `run` returns — `records.md` §12's ten required keys plus this module's own
-`variants`, `header`, `baselines` and `axis row` (`surface.md` §4, §4.1) — with two differences that belong to the
-job: `curves` is reshaped as §4 says, and `matrix` and `rating` are **attached by the caller**, because a run measures
-no cell and fits no rating (`module-map.md` §3, `records.md` §13, `surface.md` §4.1).
+The bundle's `run` block **is** the record `run` returns — `records.md` §12's required keys, its `pool`, `variants` and `rules`
+naming the rules the run trained and the rules its pool's members declare (`rules.md` §7, D-19), plus this module's own
+`header`, `baselines` and `axis row` (`surface.md` §4, §4.1) — with two differences that belong to the job: `curves` is reshaped
+as §4 says, and `matrix`/`rating` are **attached by the caller**, a run measuring no cell (`module-map.md` §3, `records.md` §13).
 
 The remaining blocks are the job's, not an entry point's: `stages`, `errors`, `run_wall_clock_seconds`, `run_hands`,
 `pool_versions`, `pool_record`, `r2_pool`, `matrix`, `rating`, `report_families`, `report`, plus `rungs`, `devices`,

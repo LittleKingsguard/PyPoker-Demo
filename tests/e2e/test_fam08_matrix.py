@@ -256,6 +256,39 @@ class FAM8Matrix(S.SurfaceCase):
             "the refusal says what the matrix violated — the foreign member, the pool's "
             "membership or the missing baseline (e2e-surface §2): %r" % (text,),
         )
+    # -- the rules the table met, and the population they make up (D-19) ---
+    def test_fam8_10_a_matrix_names_each_member_s_rule_and_its_population(self):
+        """FAM-8.10 a matrix states each member's rule and the `population` it measured."""
+        matrix = S.shared_rule_league(self)["matrix"]
+        members = R.matrix_members(matrix)
+        rules = {
+            R.tok(member): rule for member, rule in R.rules_of(R.matrix_rules(matrix))
+        }
+        for member in members:
+            self.assertIn(
+                R.tok(member),
+                rules,
+                "records.md §10 makes the matrix's `rules` each member's rule by its id — "
+                "`None` for a baseline, which carries none — so a table says which "
+                "estimators its members are (e2e-surface.md §2, D-19): %r is missing from %r"
+                % (member, R.matrix_rules(matrix)),
+            )
+        trained = sorted(rule for rule in rules.values() if rule)
+        self.assertEqual(
+            trained,
+            sorted(S.RULES),
+            "the table's trained members carry the two rules their policies carry, so the "
+            "same architecture under two rules is what the matrix names (league.md §4, "
+            "rules.md §7, D-19): %r" % (R.matrix_rules(matrix),),
+        )
+        population = R.rule_names_of(R.matrix_population(matrix))
+        self.assertEqual(
+            sorted(population),
+            sorted(S.RULES),
+            "a matrix states its `population`: the distinct rules its members declared, "
+            "sorted, so a table says which estimators it was fitted over (records.md §10, "
+            "league.md §4, D-19): %r" % (R.matrix_population(matrix),),
+        )
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@ computes: it is data a resolver reads and a fairness report quotes.
 
 from collections.abc import Mapping
 
+import agents
+
 from . import errors
 
 #: The seed set of protocol.md §2, fixed at `0, 1, 2` and recorded in every run record.
@@ -36,7 +38,9 @@ TABLE_BUDGETS = ("live", "full")
 #: The device a run uses when none is named (D-8, protocol.md §6).
 DEVICE = "cpu"
 
-#: The one learning rule of the whole ladder (ASM-7, agents/surface.md §3).
+#: What the six rows below declare: the catalogue's first member (rules.md §2, §4, D-19).
+#: Not a rule the run is fixed to — a variant may name another catalogued rule, and
+#: `learning_rules()` is how the run learns which names exist.
 LEARNING_RULE = "masked-q-learning"
 
 #: `agents.learners()["hyper"]`'s declarations, quoted so a fairness report can name the
@@ -80,15 +84,17 @@ KIND_FAMILY = {
     "plain": "token-sequence",
 }
 
-#: The five axes a comparison is read on (`docs/L2/training/surface.md` §5).
-AXES = ("backend", "encoding", "architecture", "connectivity", "residual")
+#: The six axes a comparison is read on (`docs/L2/training/surface.md` §5,
+#: `docs/L3/training/fairness.md` §2, and D-19, which makes the rule an axis).
+AXES = ("backend", "encoding", "architecture", "connectivity", "residual", "rule")
 
 #: The three pinned baselines, in `agents.baselines()`'s order (D-6, ASM-16).
 BASELINES = ("random", "always-call", "oracle")
 
-#: The eight settings both arms of one pair declare one value for (declarations.md §4).
+#: The seven settings both arms of one pair declare one value for: `learning_rule` is not
+#: one of them, because two arms may declare two catalogue rules and every variant is
+#: trained (docs/L2/training/declarations.md §4, rules.md §8, D-19).
 PAIR_SETTINGS = (
-    "learning_rule",
     "hyper",
     "samples",
     "seeds",
@@ -97,6 +103,19 @@ PAIR_SETTINGS = (
     "table",
     "param_budget",
 )
+
+
+def learning_rules():
+    """The catalogue's rule names, in `agents.learners()`'s order (rules.md §2, §4, D-19).
+
+    The one place this module reads the catalogue: `agents.learners()["learning_rules"]` is
+    keyed by the catalogue's members in `rules.md` §2's order, so a reader learns which
+    rules exist and which one is first — the declared default `agents.build_learner`
+    applies to a spec naming none — without a second copy of the names here. Never
+    hard-coded, because a private list would be a vocabulary that drifts from its owner's
+    (`rules.md` §2, §4, D-19, `agents/surface.md` §3).
+    """
+    return tuple(agents.learners()["learning_rules"])
 
 
 def _architecture(kind, width, depth, sparsity=0.0, residual=False):
@@ -113,10 +132,11 @@ def _architecture(kind, width, depth, sparsity=0.0, residual=False):
 def _variant(name, backend, encoding, architecture):
     """One variant entry of a rung configuration (records.md §2, ladder.md §3).
 
-    The rule and its hyperparameters, the budgets, the seed set, the device, the
-    snapshot interval and the table budget are one declaration for the whole ladder, so
-    two arms of a pair quote the same values and no rung carries a second copy (ASM-7,
-    ASM-8, ASM-10).
+    A variant declares its own `learning_rule` — these six rows name the catalogue's first
+    member, and a variant may name another catalogued rule — while the hyperparameters, the
+    budgets, the seed set, the device, the snapshot interval and the table budget stay one
+    declaration for the whole ladder, so two arms of a pair quote the same values and no
+    rung carries a second copy (rules.md §2, §4, D-19, ASM-7, ASM-8, ASM-10).
     """
     return {
         "name": name,
@@ -292,6 +312,52 @@ def check_variant(entry, where):
         )
 
 
+def check_param_budget_value(declared, where, entry=None):
+    """Refuse a declared `param_budget` that is not a positive integer, at either level.
+
+    The `params` block reports the **declared** budget and measures no capacity, so the
+    number the record's ±2% band is computed around is the number the configuration
+    declared, returned unchanged: a `bool`, a non-integer or a value below one is refused
+    here rather than coerced by an `int()` or truncated (ASM-10,
+    docs/L2/training/declarations.md §2, docs/L3/training/errors.md §4).
+    """
+    if isinstance(declared, bool) or not isinstance(declared, int) or declared < 1:
+        if entry is not None:
+            raise errors.VariantSettingInvalid(
+                "training.run refused the variant %r of the configuration %r: "
+                "'param_budget' is %r, and a parameter budget is a positive integer, "
+                "because the params block reports the declared budget and measures no "
+                "capacity (ASM-10)" % (entry, where, declared)
+            )
+        raise errors.VariantSettingInvalid(
+            "training.run refused the configuration %r: 'param_budget' is %r, and a "
+            "parameter budget is a positive integer, because the params block reports the "
+            "declared budget and measures no capacity (ASM-10)" % (where, declared)
+        )
+    return declared
+
+
+def check_param_budget(configuration):
+    """Refuse every declared `param_budget` that is not a positive integer (ASM-10).
+
+    The configuration's own declaration is read first, then each entry's in declaration
+    order, so a run refuses a number it could not report or band before the pool is built
+    and before the first hand is dealt (`docs/L3/training/loop.md` §1 steps 1-2,
+    docs/L3/training/errors.md §4). A level that declares none is no claim and is skipped.
+    """
+    where = configuration.get("name")
+    own = configuration.get("param_budget")
+    if own is not None:
+        check_param_budget_value(own, where)
+    for entry in configuration["variants"]:
+        if not isinstance(entry, Mapping):
+            continue
+        declared = entry.get("param_budget")
+        if declared is None:
+            continue
+        check_param_budget_value(declared, where, entry.get("name"))
+
+
 def _text(value):
     """One declared value as a refusal names it (docs/L3/training/errors.md §3)."""
     return repr(value)
@@ -356,13 +422,33 @@ def _declared_samples(configuration, entries):
     return None
 
 
-def _check_hyper(where, entries):
-    """Refuse a `hyper` key a run would not use: one `HYPER` does not carry, or another value.
+def _check_hyper(where, configuration, entries):
+    """Refuse a `hyper` key a run would not use, at the configuration and at each entry.
 
-    The module's declared hyper is the ladder's one set of hyperparameters, so a block that
-    names another value names something the learner is not built from (ASM-7, D-13,
+    One `HYPER` does not carry the key, or the key carries another value. The module's
+    declared hyper is the ladder's one set of hyperparameters, so a block that names
+    another value names something the learner is not built from, at either level; a block
+    that is not a mapping names no key and is no claim (ASM-7, D-13,
     docs/L2/training/declarations.md §2).
     """
+    own = configuration.get("hyper")
+    if isinstance(own, Mapping):
+        for key, value in own.items():
+            if key not in HYPER:
+                raise errors.IgnoredDeclaration(
+                    "training.run refused the configuration %r: 'hyper' names %r %r "
+                    "and the run uses no such declaration, because the module's declared "
+                    "hyper is fixed for the whole ladder and carries %s — vary it in "
+                    "src/training/declarations.py (ASM-7)"
+                    % (where, key, value, ", ".join(HYPER))
+                )
+            if value != HYPER[key]:
+                raise errors.IgnoredDeclaration(
+                    "training.run refused the configuration %r: 'hyper' names %r %r "
+                    "and the run uses %r, because the module's declared hyper is fixed "
+                    "for the whole ladder — vary it in src/training/declarations.py "
+                    "(ASM-7)" % (where, key, value, HYPER[key])
+                )
     for entry in entries:
         block = entry.get("hyper") if isinstance(entry, Mapping) else None
         if not isinstance(block, Mapping):
@@ -385,22 +471,36 @@ def _check_hyper(where, entries):
                 )
 
 
-def _check_learning_rule(where, entries):
-    """Refuse a `learning_rule` that is not the ladder's one rule (ASM-7).
+def _check_learning_rule(where, configuration, entries):
+    """Refuse a `learning_rule` the catalogue does not carry, at either level (D-19).
 
-    One rule is fixed for the whole ladder, so a configuration cannot hold a second one;
-    an entry that names none is no claim and is accepted (docs/L2/training/declarations.md
-    §2, `ladder.md` §4).
+    The catalogue `agents.learners()` publishes — read once through `learning_rules()` — is
+    the whole vocabulary a rule is judged against, at the configuration first and then at
+    each entry. A declared name no member carries, or a name that is not a string, is a
+    rule no learner can be built under; a **second catalogued** rule is read, forwarded and
+    trained, so what is refused here is an uncatalogued name and never a rule the run is
+    not fixed to. A level that declares no rule — or declares `None` — is no claim and is
+    accepted (rules.md §2, §4, D-19, docs/L2/training/declarations.md §2).
     """
+    catalogue = learning_rules()
+    own = configuration.get("learning_rule")
+    if own is not None and own not in catalogue:
+        raise errors.IgnoredDeclaration(
+            "training.run refused the configuration %r: 'learning_rule' is %r, and the "
+            "catalogue agents.learners() publishes (src/agents/declarations.py) carries "
+            "%s — name one of those, or name none for the catalogue's first "
+            "(rules.md §2, §4, D-19)" % (where, own, ", ".join(catalogue))
+        )
     for entry in entries:
         rule = entry.get("learning_rule") if isinstance(entry, Mapping) else None
-        if rule is None or rule == LEARNING_RULE:
+        if rule is None or rule in catalogue:
             continue
         raise errors.IgnoredDeclaration(
-            "training.run refused the variant %r of the configuration %r: "
-            "'learning_rule' is %r and the run uses %r, because one learning rule is "
-            "fixed for the whole ladder — vary it in src/training/declarations.py "
-            "(ASM-7)" % (entry.get("name"), where, rule, LEARNING_RULE)
+            "training.run refused the variant %r of the configuration %r: 'learning_rule' "
+            "is %r, and the catalogue agents.learners() publishes (src/agents/"
+            "declarations.py) carries %s — name one of those, or name none for the "
+            "catalogue's first (rules.md §2, §4, D-19)"
+            % (entry.get("name"), where, rule, ", ".join(catalogue))
         )
 
 
@@ -444,17 +544,18 @@ def _check_snapshot_every(configuration, where, entries):
 def check_declarations(configuration):
     """Refuse every declaration a run would not use, before the pool is built.
 
-    One place for the rule `docs/L2/training/declarations.md` §2–§4 states: an entry's
-    `hyper` key that is unknown or disagrees with `HYPER`, a `learning_rule` that is not
-    `LEARNING_RULE`, a `snapshot_every` at either level that is not the declared samples ÷
-    10, and — for a two-entry configuration — the eight settings both arms must share.
-    Every refusal is raised before the first hand is dealt and before anything is written
+    One place for the rule `docs/L2/training/declarations.md` §2–§4 states: a `hyper` key
+    that is unknown or disagrees with `HYPER`, and a `learning_rule` the catalogue
+    `agents.learners()` publishes does not carry — each **at the configuration and at each
+    entry** — and a `snapshot_every` at either level that is not the declared samples ÷ 10,
+    plus, for a two-entry configuration, the seven settings both arms must share. Every
+    refusal is raised before the first hand is dealt and before anything is written
     (ASM-7, ASM-8, ASM-18, docs/L3/training/loop.md §1 step 1).
     """
     where = configuration.get("name")
     entries = list(configuration["variants"])
-    _check_hyper(where, entries)
-    _check_learning_rule(where, entries)
+    _check_hyper(where, configuration, entries)
+    _check_learning_rule(where, configuration, entries)
     _check_snapshot_every(configuration, where, entries)
     if len(entries) != 2:
         return

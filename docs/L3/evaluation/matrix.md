@@ -66,7 +66,9 @@ appears in, so one member is one player throughout a table (`scheduler.md` §5):
 The three baseline cells are in the table like every other cell, and the baselines' policies are built at the
 derived seeds, so their three mutual cells are as reproducible as any other and no model influences them
 (`league.md` §3, `protocol.md` §3). A version's policy is built at its checkpoint's own seed and not at the table's:
-the member is the same player in two tables, which is what makes one checkpoint one row (`protocol.md` §5).
+the member is the same player in two tables, which is what makes one checkpoint one row (`protocol.md` §5). **Every
+member's rule is resolved in this same pass, with its side** — `_side` returns it beside the policy (`scheduler.md` §5), so
+§5's `rules`, `population` and `member_records` come off the sides the table plays (`records.md` §10, D-19).
 
 > **The rule `surface.md` §10 now states** — and it is what this design pinned: `_member_seed(table_seed, position)`
 > applies to policies this module builds **from a name**, which is the three baselines and nothing else, while a
@@ -78,25 +80,29 @@ the member is the same player in two tables, which is what makes one checkpoint 
 
 ## 5. The record
 
-`records.md` §10's five keys come first, then this module's own keys, which no caller may depend on (`records.md`
+`records.md` §10's seven keys come first, then this module's own keys, which no caller may depend on (`records.md`
 §1, D-13). `matrix` returns exactly these keys, in this order:
 
 | Key | Content |
 |---|---|
 | `members` | the K ids of §1, in membership order — the pool's members, then `variant-1`, `variant-2` (`records.md` §10) |
 | `cells` | the `K(K−1)/2` cell records of §2, in the enumeration's order (`records.md` §9) |
+| `rules` | each member's rule **by id** — the rule its policy carries, `None` for a baseline and for an opaque policy that carries none: `records.md` §9's `rules` one level up (`records.md` §10, D-19) |
+| `population` | the distinct rules those members declared, **sorted** — the population this table measured, so a reader of the rating knows which estimators it was fitted across (`records.md` §10, `league.md` §4, D-19) |
 | `hands_per_cell` | the one hand count every cell was played at: 120 `live`, 1500 `full` (§6) |
 | `table_seed` | `declarations.TABLE_SEED` (§3, `records.md` §10) |
 | `table` | the label it was asked for, `live` or `full`, as a value (`records.md` §10) |
 | `pool` | the frozen pool's id — the string `pool_members` returns, so a table names the pool it measured (`records.md` §8, `league.md` §3) |
-| `member_records` | one record per member, in `members` order: a baseline's `{"id", "baseline": True, "pinned": True, "params": 0}`, a version's `records.md` §7 record, a variant's `{"id": "variant-1", "params": <int>, "unlabelled": <bool>}` |
+| `member_records` | one record per member, in `members` order, **each carrying its `rule`**: a baseline's `{"id", "baseline": True, "pinned": True, "params": 0, "rule": None}`, a version's `records.md` §7 record with the rule its policy reports, a variant's `{"id": "variant-1", "params": <int>, "unlabelled": <bool>, "rule": <str or None>}` |
 | `unlabelled` | the ids of the members whose capacity is unmeasured — the variants handed in as opaque policies, whose `params` is `0` and whose `0` is not a measurement (`surface.md` §2, ASM-10) |
 | `cell_count` | `K(K−1)/2`, the same number `league()["cell_count"](K)` returns (`declarations.md` §5) |
 
-The five required keys are what `rating` and `report` read (`rating.md` §1, `report.md` §3); `pool`, `member_records`,
+The seven required keys are what `rating` and `report` read (`rating.md` §1, `report.md` §3); `pool`, `member_records`,
 `unlabelled` and `cell_count` are this module's own, and they are there so a table names *what* it measured and a
-reader can tell a measured `0` from an unmeasured one (`surface.md` §2, `records.md` §10). `unlabelled` says that
-`matrix` was handed a policy already built and measured no capacity itself: it is a statement about the table's
+reader can tell a measured `0` from an unmeasured one (`surface.md` §2, `records.md` §10). **The rating is a function of
+the matrix and reads neither `rules` nor `population`** (`league.md` §4, D-19): the two keys are evidence about who played,
+not inputs to the fit. `unlabelled` says that `matrix` was handed a policy already built and measured no capacity itself:
+it is a statement about the table's
 provenance and never about whether that policy's learner was trained, which a table cannot know — a member's status
 belongs in the producer's own provenance block, not in this record (`tables.md` §2, §5).
 
@@ -122,6 +128,7 @@ live and 9,000, 54,000 or 67,500 full (`tables.md` §1).
 | `MemberDuplicate` | the membership of §1 is **not distinct** — a pool member's id is `variant-1` or `variant-2` and a variant is in that slot, naming the id, because a cell pairs two **distinct** members (`surface.md` §10, `records.md` §9, `errors.md` §2) |
 | `MemberUnloadable` | a pool version member carries no `path`, or its `path` names no readable file, naming the member (`surface.md` §10) |
 | `CheckpointRecordMissing` | a version's container records no seed or no encoding name, so its policy cannot be built at the seed it decides at — naming the fact, the member and the path (`scheduler.md` §5.1, §6) |
+| `RuleMismatch` | a version member's record declares a `rule` its own policy contradicts — naming the member and both values, after the load and **before any cell is played** (`scheduler.md` §5, `families.md` §6, D-19) |
 
 The order is the table's: cheap checks first, then the members that must be loaded — so an unfrozen pool is
 reported before a single checkpoint is touched, and no cell is played for a table that will be refused. A matrix is
@@ -129,9 +136,9 @@ never repaired and never partially returned (`e2e-surface.md` §2). The `MemberD
 pool's side** — `build_pool` and `offer` already refuse two members carrying one id, so no pool this module builds names
 one member twice (`pool.md` §2, §8) — and it is reachable through §1 and no other way: a declared version whose id is
 `variant-1` or `variant-2` collides with a variant's slot label, and the table refuses rather than pair a member with
-itself. Every row of this table is **driven**, and so is §4's version row: `EVL-4.10` plays a frozen pool holding one
-real version member through the table at its checkpoint's recorded seed, `EVL-4.8` drives the guard and `EVL-4.9` the
-member classes, all before any cell (`scheduler.md` §5.1, `guardrails.md` G16, G20).
+itself. Every row of this table is **driven**, and so is §4's version row: `EVL-4.10` plays a real version member at its
+checkpoint's recorded seed, `EVL-4.8` drives the guard and `EVL-4.9` the member classes, all before any cell
+(`guardrails.md` G16, G20).
 
 ## 8. What is deliberately free
 
@@ -139,5 +146,5 @@ member classes, all before any cell (`scheduler.md` §5.1, `guardrails.md` G16, 
   enumeration order is what is fixed, not the type (`records.md` §10);
 - whether the cells are built lazily and collected, or played into a list — only that every cell is played at the
   table's one hand count and that two cells are never interleaved (`scheduler.md` §1);
-- the repr of a member record for a variant beyond the three keys of §5. `pool` is **the pool record's `id` string**
-  and nothing else, because `pool_identity` must not mistake a member's id for the pool's (`README.md` §6).
+- the repr of a member record for a variant beyond §5's four keys. `pool` is **the pool record's `id` string** and nothing
+  else, because `pool_identity` must not mistake a member's id for the pool's (`README.md` §6).

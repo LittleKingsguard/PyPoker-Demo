@@ -4,13 +4,14 @@
 more than one axis is refused and never gets that far. It plays no hand, builds no learner,
 writes nothing and moves no stream (`docs/L2/training/surface.md` §5).
 
-**The one rule that is this design's own.** The five axes are `backend`, `encoding`,
-`architecture` (width and depth), `connectivity` (sparsity) and `residual`. A pair compares
-`architecture` only when its two sides agree on the representation family *and* on
-`sparsity`: where they differ, the width is the capacity match's compensation — ASM-10
-requires a `sparse` arm to be declared wider than its dense mate, and a token encoding to
-sit at a different width than a dense one — so it belongs to the `encoding` or the
-`connectivity` axis and is never counted a second time (`docs/L3/training/fairness.md` §2).
+**The one rule that is this design's own.** The six axes are `backend`, `encoding`,
+`architecture` (width and depth), `connectivity` (sparsity), `residual` and `rule` — the rule
+a variant is trained under. A pair compares `architecture` only when its two sides agree on
+the representation family *and* on `sparsity`: where they differ, the width is the capacity
+match's compensation — ASM-10 requires a `sparse` arm to be declared wider than its dense
+mate, and a token encoding to sit at a different width than a dense one — so it belongs to
+the `encoding` or the `connectivity` axis and is never counted a second time
+(`docs/L3/training/fairness.md` §2).
 """
 
 from collections.abc import Mapping
@@ -128,8 +129,41 @@ def _setting(entry, key, default=None):
     return default if value is None else value
 
 
-def _differences(left, right):
+def _rule(entry, configuration=None):
+    """The rule a side is trained under: its own, else its configuration's, else the first.
+
+    A side that declares no `learning_rule` is trained under the catalogue's **first**
+    member, the declared default `agents.build_learner` applies to a spec naming none, so
+    the rule is resolved through `declarations.learning_rules()` rather than compared as a
+    raw key: a side spelling the default out and a side leaving it unsaid are one rule and
+    never a phantom difference (`rules.md` §4, D-19, `fairness.md` §2, §7).
+    """
+    declared = entry.get("learning_rule") if isinstance(entry, Mapping) else None
+    if declared is None and isinstance(configuration, Mapping):
+        declared = configuration.get("learning_rule")
+    if declared is not None:
+        return declared
+    return declarations.learning_rules()[0]
+
+
+def _rule_set(rules):
+    """The **set** of rules two sides are trained under, in declaration order, left first.
+
+    Never one side's value: what a rung holds constant is the set of rules its variants
+    declare, and two rules are the pair's `rule` axis rather than a constant one arm
+    imposed (`rules.md` §8, D-19, `fairness.md` §4).
+    """
+    distinct = []
+    for rule in rules:
+        if rule not in distinct:
+            distinct.append(rule)
+    return distinct
+
+
+def _differences(left, right, rules=None):
     """The axes two variant entries differ on, and the field names that differ."""
+    if rules is None:
+        rules = (_rule(left), _rule(right))
     axes = []
     fields = []
     if left.get("backend") != right.get("backend"):
@@ -153,12 +187,15 @@ def _differences(left, right):
     if bool(_setting(left, "residual", False)) != bool(_setting(right, "residual", False)):
         axes.append("residual")
         fields.append("residual")
+    if rules[0] != rules[1]:
+        axes.append("rule")
+        fields.append("learning_rule")
     return axes, fields
 
 
-def _axis(left, right, later=None):
+def _axis(left, right, later=None, rules=None):
     """`{of, differs, declared}` for two entries, or for two primaries and their rung."""
-    axes, fields = _differences(left, right)
+    axes, fields = _differences(left, right, rules)
     if len(axes) > 1:
         raise errors.MultipleAxes(
             "training.fairness refused the pair: it differs on %d axes, %s, and a reportable "
@@ -228,10 +265,21 @@ def _pool_report(left, right):
     }
 
 
-def _constants(left, right, pool_report=None):
-    """The thirteen declarations `ladder.md` §4 makes a comparison hold constant."""
+def _constants(left, right, pool_report=None, rules=None):
+    """The thirteen declarations `ladder.md` §4 makes a comparison hold constant.
+
+    `rules` is the **set** of rules the two sides are trained under — each side's
+    `learning_rule`, else its configuration's copy, else the catalogue's first — so the row
+    never reports one side's value as the constant held (`fairness.md` §4, `rules.md` §8,
+    D-19).
+    """
     left_entry = _primary(left) if "variants" in left else left
     right_entry = _primary(right) if "variants" in right else right
+    if rules is None:
+        rules = (
+            _rule(left_entry, left if "variants" in left else None),
+            _rule(right_entry, right if "variants" in right else None),
+        )
     if pool_report is None:
         pool_report = _pool_report(left, right)
     return {
@@ -239,9 +287,7 @@ def _constants(left, right, pool_report=None):
         "action vocabulary": {index: features.decode_action(index) for index in (0, 1, 2)},
         "readout facts": list(READOUT_FACTS),
         "reward": "the seat's net chip delta at its terminal decision, unshaped (ASM-12)",
-        "learning rule": left_entry.get("learning_rule")
-        or right_entry.get("learning_rule")
-        or declarations.LEARNING_RULE,
+        "rules": _rule_set(rules),
         "hyper": left_entry.get("hyper")
         or right_entry.get("hyper")
         or dict(declarations.HYPER),
@@ -280,10 +326,15 @@ def fairness(left, right):
             str(left_value.get("primary") or left_entry.get("name")),
             str(right_value.get("primary") or right_entry.get("name")),
         ]
+        rules = (
+            _rule(left_entry, left_value),
+            _rule(right_entry, right_value),
+        )
     else:
         left_entry = left_value
         right_entry = right_value
         pair = [str(left_entry.get("name")), str(right_entry.get("name"))]
+        rules = (_rule(left_entry), _rule(right_entry))
     for position, entry in enumerate((left_entry, right_entry)):
         _require(
             entry,
@@ -293,9 +344,9 @@ def fairness(left, right):
             ),
         )
     if kind == "configuration":
-        axis = _axis(left_entry, right_entry, later=right_value)
+        axis = _axis(left_entry, right_entry, later=right_value, rules=rules)
     else:
-        axis = _axis(left_entry, right_entry)
+        axis = _axis(left_entry, right_entry, rules=rules)
     left_id = _declared_pool(left_value)
     right_id = _declared_pool(right_value)
     if kind == "entry" and left_id is not None and right_id is not None:
@@ -305,9 +356,7 @@ def fairness(left, right):
                 "%r and %r, and both arms train against one frozen pool (ASM-16)"
                 % (left_id, right_id)
             )
-    difference = declarations.pair_difference(
-        left_entry, right_entry, keys=("learning_rule", "hyper")
-    )
+    difference = declarations.pair_difference(left_entry, right_entry, keys=("hyper",))
     if difference is not None:
         key, declared_left, declared_right = difference
         raise errors.PairDeclarationsDiffer(
@@ -319,6 +368,6 @@ def fairness(left, right):
     return {
         "pair": pair,
         "axis": axis,
-        "constants": _constants(left_value, right_value, report),
+        "constants": _constants(left_value, right_value, report, rules=rules),
         "pool": report,
     }

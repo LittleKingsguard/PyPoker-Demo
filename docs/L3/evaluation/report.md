@@ -15,7 +15,7 @@ attached (`records.md` §12–§13) — against `protocol()`'s declaration, and 
 | # | Family | What the report carries | The word its absence is refused with |
 |---|---|---|---|
 | 1 | `curves` | per variant, per seed: the sample axis and at least one learning signal from `agents.learn`, with the spread across seeds | `curves` |
-| 2 | `pool` | `records.md` §8's pool record — id, M, the ordered members with lineage — i.e. the shape `pool_members` returns | `pool` |
+| 2 | `pool` | `records.md` §8's pool record — id, M, the ordered members with lineage, and `rules`: the **population the report's table was measured over** — i.e. the shape `pool_members` returns, completed where it must be (`rules.md` §4, D-19) | `pool` |
 | 3 | `matrix` | the matrix record the report is about (§2) | `matrix` |
 | 4 | `rating` | the rating record fitted to it | `rating` |
 | 5 | `baselines` | the three baseline rows inside that matrix, each at the table's one hand count | `baselines` |
@@ -25,6 +25,11 @@ attached (`records.md` §12–§13) — against `protocol()`'s declaration, and 
 The names are `protocol()["families"]`'s keys, `axis row`'s space included, and they are the same seven strings in
 the report's own keys: a report is machine-readable evidence and a reader finds a family by the name the protocol
 spells (`surface.md` §13, `battery.md` §3 FAM-4, FAM-11).
+
+**D-19 adds no eighth family and no new required item.** The rules a run held ride inside two keys that already exist: the
+`pool` family, which is `records.md` §8's record and carries `rules`, and the `header`, which the run record already fills
+with the facts a third party needs (`records.md` §8, §12, `protocol.md` §1, D-19). A new *required* item would refuse a
+record another battery hand-builds, which is over-refusal and therefore a defect of its own (`errors.md` §5, D-19).
 
 ## 2. The record
 
@@ -45,6 +50,14 @@ report is *about* them, and `surface.md` §13 hands them to it directly as well 
 family is a copy of the record's value, unchanged — a `curves` list stays that list, a `baselines` row-record stays
 that record, and `axis row` stays the string `n/a, single variant` when that is what the run wrote (FAM-11.10). The
 report copies and never merges, so no family is reshaped into a second spelling of itself.
+
+**The one fact a report completes is the pool family's `rules`** (`rules.md` §4, D-19). The population the report's table
+was measured over is the pool's own version members' rules plus the rung's variants' — the members a table holds outside
+the pool — and that is exactly the matrix's `population` (`matrix.md` §5, `records.md` §10). When the pool block already
+names it, the family is copied as it stands; when it declares fewer, the report states the population on its own copy of
+that family, adding the names the pool's block lacks in `population`'s order and nothing else (§4). The record
+handed in — the run record, and the pool block inside it — is never edited, so a caller keeps what `training` gave it and a
+second call on the same arguments gives an equal report (`surface.md` §13, `records.md` §13).
 
 ## 3. The refusals, and the membership rule
 
@@ -81,6 +94,9 @@ raising the same way rather than returning a partial report.
   refusal comes before every other check.
 - **It never invents a version.** R1 has no lineage, so its `pool` family is the three baselines and nothing else:
   the report carries the pool record it was handed and adds no member to it (`league.md` §2, FAM-11.9).
+- **It never *requires* a new content item, and never edits an argument to make one fit.** D-19's population is carried
+  inside the `pool` family's own `rules` key (§1–§2) and no family's `required` tuple grows, so a record another battery
+  hand-builds is still a reportable record (`declarations.md` §3, `errors.md` §5, D-19).
 - **It never reduces the matrix to a ranking**, and it never sorts members by rating: the matrix is carried raw, both
   directions of every cell, and the rating travels beside it because a fit assumes a transitive order that poker
   payoffs need not have (`league.md` §3, `protocol.md` §2, D-16).
@@ -90,7 +106,8 @@ raising the same way rather than returning a partial report.
   members on this game at this cell size, and nothing in the report upgrades it into a claim of poker skill
   (`league.md` §8, D-16).
 - **It never edits the run record it is handed**: the argument is read, not mutated, so a caller keeps what
-  `training` gave it (`records.md` §13).
+  `training` gave it, and the completed `rules` is written onto the report's own copy of the pool family (`records.md`
+  §13, `rules.md` §4).
 
 ## 5. What is deliberately free
 

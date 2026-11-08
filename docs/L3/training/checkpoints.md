@@ -1,6 +1,6 @@
 # training — the artefacts and the index
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09 · **Rev 3** makes an entry's `rule` required beside `kind` (§4, `records.md` §7, D-19)
 - **Owner:** the file layout under `checkpoints/` (§1), the write root a run writes under (§1–§2), the naming rules and the `.ckpt`
   suffix (§2), the ten snapshots and the retained five (§3), `checkpoints()` — declared data, never a scan (§4), and what ships (§5)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
@@ -24,8 +24,8 @@
 | `layout._resolve` | `_resolve(path)` | a recorded path as a filesystem path: an absolute one as it stands, a relative one read from the repository root and never from the caller's working directory |
 | `layout._resolved` | `_resolved(records)` | the same member records with each `path` resolved — what a `build_pool` call is handed, because a pool tests a path with `os.path.isfile` and a record spells it from the root |
 
-The ten are contract for `tests/training/` (`README.md` §4). `ROOT` is not a directory scan: nothing here lists the tree (`§4`),
-no name creates a directory on import, and `_prepare` is the one that creates one at all — under the write root (§2).
+The ten are contract for `tests/training/` (`README.md` §4). `ROOT` is not a directory scan: nothing here lists the tree
+(§4), no name creates a directory on import, and `_prepare` is the one that creates one at all — under the write root (§2).
 
 ## 2. The names, the suffix, and who makes the directory
 
@@ -73,17 +73,14 @@ budget's end (`loop.md` §1 steps 7–8, ASM-18). Its run record **names** the l
     named = {step-<6·interval>, … step-<10·interval>} ∪ {final}      # 5 + 1 per variant × seed
 
 The battery reads exactly this. `tests/e2e/_records.py`'s `checkpoint_span(M, variants, seeds)` allows between `variants × seeds`
-and `variants × seeds × (M + 1)` paths in the record's `checkpoints` entry, and the two bounds are tight against a 60- or
-250-hand run: FAM-12.1 (R1, 250 hands, one seed) requires **exactly 6**, its floor being the final model and its ceiling `1 × (5 +
-1)`; FAM-12.4 requires at least `M + 1 = 6`, so that one run is pinned to six; FAM-15.1 and FAM-16.29 (the custom two-variant
-rung, 60 hands, one seed) allow **exactly 12** — `2 × 6`. A design that named all ten snapshots and the final would report 11 per
-pair and fail all three cases.
+and `variants × seeds × (M + 1)` paths in the record's `checkpoints` entry, tight against a 60- or 250-hand run: FAM-12.1 (R1,
+250 hands, one seed) requires exactly 6, FAM-12.4 at least `M + 1 = 6`, and FAM-15.1/FAM-16.29 (two-variant rung, 60 hands)
+exactly 12 — `2 × 6`. Naming all ten snapshots and the final would report 11 per pair and fail all three (ASM-18).
 
 Snapshot *k+1* descends from snapshot *k*: a snapshot's `lineage` is the `id` of the previous one written by that run, a seed's
-first snapshot descends from the last version the run wrote before it, and the run's first descends from its rung's own start —
-so a rung's retained versions are one chain in the recorded seed set's order (`loop.md` §7, `records.md` §7). The three seeds'
-passes lie end to end in the seed set's order, which is how a 15-version declaration becomes a five-version window
-(`registry.md` §3, `league.md` §2).
+first snapshot from the last version the run wrote before it, and the run's first from its rung's own start — so a rung's retained
+versions are one chain in the recorded seed set's order (`loop.md` §7, `records.md` §7). The three seeds' passes lie end to end,
+which is how a 15-version declaration becomes a five-version window (`registry.md` §3, `league.md` §2).
 
 ## 4. `checkpoints()` — declared data, never a directory scan
 
@@ -94,11 +91,11 @@ passes lie end to end in the seed set's order, which is how a 15-version declara
 | `format` | the mapping's own name: `"pypoker-training-checkpoint-index"` | `version` | its schema number: `1` |
 | `root` | `checkpoints`: §1's **declared** root, spelled `_relative` from the repository root, so a redirected run's write root never moves it (`write-root.md` §2) | `shipped` | the rung names whose runs exist — `["R1"]` today |
 | `pending` | the rung names whose runs do **not** exist — `["R2", "R3", "R4", "R5", "R6"]` today, which is also why every path `entries` names is a file (§5) | `entries` | one ordered list; **each entry one artefact**, listed once |
-| `successor` | each rung's successor and no rung left out: `R1`→`R2` … `R5`→`R6`, `R6`→`None` (`ladder.md` §2, ASM-16) | `windows` | per shipped rung's primary variant, the retained window its successor inherits: `rung`, `retained`, `seeds`, `inherited_by` (`registry.md` §3) |
+| `successor` | each rung's successor and no rung left out: `R1`→`R2` … `R5`→`R6`, `R6`→`None` (`ladder.md` §2, ASM-16) | `windows` | per shipped rung's primary variant, the retained window its successor inherits: `rung`, `retained`, `seeds`, `rule`, `inherited_by` (`registry.md` §3) |
 
-One entry is a `records.md` §7 record extended with `kind`:
+One entry is a `records.md` §7 record extended with `kind`, and since D-19 it carries the rule it was trained under:
 
-    {"id", "path", "rung", "variant", "seed", "step", "samples", "lineage", "kind"}
+    {"id", "path", "rung", "variant", "seed", "step", "samples", "lineage", "rule", "kind"}
 
 - `id` — `"<rung>/<variant>/seed-<seed>/step-<step:04d>"` for a snapshot and `"<rung>/<variant>/seed-<seed>/final"` for a final
   model: stable across tables, unique within the index, and containing none of the three baseline names (`records.md` §7, `league.md` §2).
@@ -106,45 +103,48 @@ One entry is a `records.md` §7 record extended with `kind`:
 - `step` and `samples` — both the hands trained when the artefact was written: the loop trains one hand and learns once, so a
   snapshot's step and its sample count are the same integer and the file name carries it (`records.md` §7, `loop.md` §1 step 7).
 - `kind` — `"snapshot"` or `"final"`, what lets a window be read as the snapshot entries alone (`registry.md` §3); `lineage` — §3's chain.
+- `rule` — the catalogue member the artefact was **trained under**, **required** by `records.md` §7 since D-19, so the membership a
+  successor rung inherits is a window `evaluation.build_pool` accepts and the pool id certifies each member's estimator
+  (`records.md` §7, §8, `rules.md` §6, ASM-27). It is declared per rung in `index.py`'s `SHIPPED_RULES`, beside `SHIPPED`, and never
+  inferred: the shipped run is R1's, and its rule is **`masked-q-learning`** — the only rule that existed when its version-1
+  containers were written, and exactly how `agents` reads them (`rules.md` §6, ASM-5, D-19).
 
 **Order.** Rung in brief §2's order, then variant in `registry.md` §1's declaration order, then seed ascending, then step
 ascending, then that pair's `final`. Ordering is by the declaration and never by a directory listing, so two calls return equal
 lists and a reader gets one order (`surface.md` §7, `battery.md` §3 FAM-12).
 
-**Declared, so never scanned.** `_entries()` reads `SHIPPED_FINALS` and `SHIPPED_WINDOWS` — two literal declarations in
-`index.py` — and concatenates them; no entry point lists a directory, stats a scratch path or filters by what happens to be on
-disk (`protocol.md` §5, FAM-16.31's `carried` assertion: none of the battery's own scratch checkpoints appears in the index).
-`SHIPPED_FINALS` names per rung and variant and seed the final model that run wrote; `SHIPPED_WINDOWS` names per rung the
-retained snapshot window in lineage order, which is also what `registry._window` reads (`registry.md` §3). A declaration is
-cheaper and honest; a scan is neither.
+**Declared, so never scanned.** `_entries()` reads `SHIPPED`, `SHIPPED_RULES`, `SHIPPED_FINALS` and `SHIPPED_WINDOWS` — literal
+declarations in `index.py` — and concatenates them; no entry point lists a directory, stats a scratch path or filters by what
+happens to be on disk (`protocol.md` §5, FAM-16.31's `carried` assertion: no scratch checkpoint of the battery's appears).
+`SHIPPED_FINALS` names per rung, variant and seed the final model that run wrote; `SHIPPED_WINDOWS` names per rung the retained
+window in lineage order, which `registry._window` also reads; `SHIPPED_RULES` names each shipped run's rule (`registry.md` §3).
 
-**Once, and once only.** Every artefact appears in `entries` exactly one time, because `tests/e2e/_surface.py`'s
-`checkpoint_path_listing` counts *listings* — every path the index names anywhere, repeats included — and FAM-12.6 fails on a
-single repeat. So the index carries **one** list of paths and no second list beside it: `shipped` holds rung names, and a pair's
-tenth snapshot and its final model are two distinct paths (`step-<10·interval>.ckpt` and `final.ckpt` hold the same state at the
-budget's end and are two files, so naming both is not a repeat), so no artefact is listed twice (ASM-18, `protocol.md` §5).
+**Once, and once only.** Every artefact appears in `entries` exactly one time: `tests/e2e/_surface.py`'s `checkpoint_path_listing`
+counts *listings*, repeats included, and FAM-12.6 fails on a single repeat, so the index carries **one** list of paths and
+`shipped` holds rung names — a pair's tenth snapshot and its final model being two distinct files, so naming both is no repeat
+(ASM-18, `protocol.md` §5).
 
 ## 5. What ships, and what a missing run means
 
-- **R1's live run ships**: three seeds × (five retained snapshots + one final model) = **18 artefacts**, and `shipped` is
-  `["R1"]`: `checkpoints/R1/naive-numeric/seed-{0,1,2}/step-{0600,0700,0800,0900,1000}.ckpt` and `…/final.ckpt`. A run **writes** 33 paths for
-  three seeds — ten snapshots plus that pair's final, 11 per variant × seed, regenerable, a run rewrites them — while the repository
-  **ships** 18: the window's last five per seed plus each seed's final, six per pair, the set a reader protects, what `training.checkpoints()` indexes and `checkpoints/` holds (ASM-18, `protocol.md` §5, `checkpoints/evidence/r1-live.json`).
+- **R1's live run ships**: three seeds × (five retained snapshots + one final model) = **18 artefacts**, `shipped` is `["R1"]`, and
+  every one of them names one rule, `masked-q-learning`: `checkpoints/R1/naive-numeric/seed-{0,1,2}/step-{0600,0700,0800,0900,
+  1000}.ckpt` and `…/final.ckpt`. A run **writes** 33 paths for three seeds — ten snapshots plus that pair's final, 11 per variant ×
+  seed, regenerable — while the repository **ships** 18: the window's last five per seed plus each seed's final, six per pair, the set
+  a reader protects and what `training.checkpoints()` indexes (ASM-18, `protocol.md` §5, `checkpoints/evidence/r1-live.json`, D-19).
 - **R2–R6's entries appear when their runs exist**: a rung whose run has not been written contributes **nothing** to `entries`,
-  rather than a fabricated path. This is the one place where "declared data" and "the artefact exists" are reconciled: the
-  declaration lists the runs that exist, so every path it names is a file (`protocol.md` §5); an entry for a run that was never
-  executed would fail FAM-12.5's and FAM-16.31's existence checks, and a scan would list the battery's own scratch files.
-- **What does not ship**: the five earlier snapshots of each pair (fifteen of the 33 a run writes), any scratch path, `tables/` (that is `evaluation`'s) and any
-  path outside the repository (`module-map.md` §5, `battery.md` §3 FAM-12). A talk loads an entry through
-  `evaluation.policy_from`, which reads the seed and the encoding from the container, so the first entry must be a checkpoint
-  `agents.save` wrote and never a manifest (`evaluation/surface.md` §12, FAM-16.31).
-- **A battery writes into a temporary root, so this shipped set is never added to and never overwritten.** The battery's
-  two hooks — `tests/conftest.py` under `pytest`, `tests/e2e/__init__.py` under the `unittest` census — point
-  `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp` per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so
-  the eighteen artefacts above are as the shipped run left them (`battery.md` §2 owns that rule, ASM-18 names the eighteen).
+  rather than a fabricated path — this is where "declared data" and "the artefact exists" are reconciled: the declaration lists
+  the runs that exist, so every path it names is a file (`protocol.md` §5); an entry for a run never executed would fail FAM-12.5's
+  and FAM-16.31's existence checks, and a scan would list the battery's own scratch files.
+- **What does not ship**: the five earlier snapshots of each pair (fifteen of the 33 a run writes), any scratch path, `tables/`
+  (that is `evaluation`'s) and any path outside the repository (`module-map.md` §5, FAM-12). A talk loads an entry through
+  `evaluation.policy_from`, so the first entry is a checkpoint `agents.save` wrote, never a manifest (`evaluation/surface.md` §12).
+- **A battery writes into a temporary root, so this shipped set is never added to and never overwritten**: `tests/conftest.py`
+  under `pytest` and `tests/e2e/__init__.py` under the `unittest` census point `PYPOKER_CHECKPOINT_ROOT` at a private `mkdtemp`
+  per session (`write-root.md` §4, `docs/L3/harness/layout.md` §5), so the eighteen artefacts are as the shipped run left them
+  (`battery.md` §2 owns that rule, ASM-18 names the eighteen).
 
 ## 6. What is left to L4
 
-Whether a path is a `str` or a `Path`, how the two declarations are written out, and whether `_entries` sorts or concatenates.
+Whether a path is a `str` or a `Path`, how the declarations are written out, and whether `_entries` sorts or concatenates.
 Not L4's: §1's two name forms and the ten names' contracts, the `.ckpt` suffix and its reason, the six named artefacts per pair,
-the entry's nine keys, §4's order, the one-listing rule, and `shipped` being rung names (`guardrails.md` G11–G13).
+the entry's ten keys (`rule` among them), §4's order, the one-listing rule, and `shipped` being rung names (`guardrails.md` G11–G13).

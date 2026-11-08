@@ -150,6 +150,13 @@ CHECKPOINT_E = "evaluation-join-snipe.ckpt"
 CHECKPOINT_F = "evaluation-join-curlew.ckpt"
 CHECKPOINT_MISSING = "evaluation-join-absent.ckpt"
 
+#: The learning-rule catalogue's two members, by the names this battery asserts against
+#: (`rules.md` §2, D-19).  The catalogue itself is always read off `agents.learners()`,
+#: which a case checks, so no copy of it lives in the module under test.
+DEFAULT_RULE = "masked-q-learning"
+OTHER_RULE = "double-q-learning"
+RULES = (DEFAULT_RULE, OTHER_RULE)
+
 HAND_BUILT_MEMBERS = (
     "random",
     "always-call",
@@ -425,9 +432,25 @@ def bootstrap_seed(table_seed):
     return _digest(b"pypoker-evaluation/bootstrap/v1", table_seed)
 
 
-def pool_id(ordered_ids):
-    """A pool's id, a function of the ordered member ids and of nothing else."""
-    payload = "\n".join(str(member) for member in ordered_ids).encode("utf-8")
+def pool_id(members):
+    """A pool's id: one line per member, a baseline's id alone and a version's with its rule.
+
+    `docs/L3/evaluation/families.md` §4 and ASM-27: the payload is a baseline's id alone
+    and a version's `id`, ``\\x1f``, then its `rule`, one line per member, joined by one
+    ``\\n``; SHA-256, truncated to sixteen hex characters and prefixed `pool-`.  A
+    sequence of bare ids is read as a baselines-only membership, which is what a caller
+    holding only names can mean.
+    """
+    lines = []
+    for member in members:
+        if isinstance(member, Mapping):
+            if member.get("baseline"):
+                lines.append(str(member["id"]))
+            else:
+                lines.append("%s\x1f%s" % (member["id"], member["rule"]))
+        else:
+            lines.append(str(member))
+    payload = "\n".join(lines).encode("utf-8")
     return "pool-" + hashlib.sha256(payload).hexdigest()[:16]
 
 
@@ -447,19 +470,25 @@ def scratch_root():
 
 
 def checkpoint(name=CHECKPOINT_A, seed=CHECKPOINT_SEED, width=WIDTH_A, depth=DEPTH_A,
-               kind=DEFAULT_KIND):
-    """A real checkpoint: `agents.build_learner` then `agents.save`."""
+               kind=DEFAULT_KIND, rule=None):
+    """A real checkpoint: `agents.build_learner` then `agents.save`.
+
+    `rule` is the catalogue member the learner is built under, and the container records
+    it: `rules.md` §6 makes a checkpoint's `learning_rule` a required field of the format
+    (D-19).  A caller naming none gets the catalogue's first member, the declared default.
+    """
     key = ("checkpoint", name)
     if key not in _SHARED:
         encoder = build_encoder(encoding_for(kind))
-        learner = build_learner(
-            {
-                "backend": "numpy",
-                "architecture": {"kind": kind, "width": width, "depth": depth},
-                "seed": seed,
-                "encoder": encoder,
-            }
-        )
+        spec = {
+            "backend": "numpy",
+            "architecture": {"kind": kind, "width": width, "depth": depth},
+            "seed": seed,
+            "encoder": encoder,
+        }
+        if rule is not None:
+            spec["learning_rule"] = rule
+        learner = build_learner(spec)
         path = save(learner, os.path.join(scratch_root(), name))
         _SHARED[key] = {
             "path": path,
@@ -467,6 +496,7 @@ def checkpoint(name=CHECKPOINT_A, seed=CHECKPOINT_SEED, width=WIDTH_A, depth=DEP
             "encoder": encoder,
             "params": param_count(learner),
             "seed": seed,
+            "rule": rule,
         }
     return _SHARED[key]
 
@@ -484,10 +514,15 @@ def version(member_id, lineage, checkpoint_name=CHECKPOINT_A, seed=CHECKPOINT_SE
         "step": step,
         "samples": samples,
         "lineage": lineage,
+        # `records.md` §7 makes a version member's rule required (D-19); the checkpoint
+        # this record names was built without a `learning_rule`, so it records the
+        # catalogue's first member, which is the declared default of `rules.md` §4.
+        "rule": DEFAULT_RULE,
     }
 
 
-def bare_version(member_id, lineage, step=STEP, samples=SAMPLES, seed=CHECKPOINT_SEED):
+def bare_version(member_id, lineage, step=STEP, samples=SAMPLES, seed=CHECKPOINT_SEED,
+                 rule=DEFAULT_RULE):
     """One `records.md` §7 version record with no `path`: admitted, not loadable."""
     return {
         "id": member_id,
@@ -497,6 +532,7 @@ def bare_version(member_id, lineage, step=STEP, samples=SAMPLES, seed=CHECKPOINT
         "seed": seed,
         "step": step,
         "samples": samples,
+        "rule": rule,
     }
 
 
@@ -714,10 +750,15 @@ def hand_built_pool_record(members=None):
         else:
             declared.append(bare_version(member_id, START_LABEL))
     return {
-        "id": pool_id([record["id"] for record in declared]),
+        "id": pool_id(declared),
         "m": league()["m"],
         "frozen": True,
         "members": declared,
+        "rules": tuple(
+            dict.fromkeys(
+                record["rule"] for record in declared if not record.get("baseline")
+            )
+        ),
     }
 
 
@@ -751,6 +792,26 @@ def clone(record):
 def names_of(pool_record):
     """The ordered member ids of a `records.md` §8 pool record."""
     return [str(member["id"]) for member in pool_record["members"]]
+
+
+def members_of(pool_record):
+    """The ordered members of a `records.md` §8 pool record — the digest's own input.
+
+    `docs/L3/evaluation/families.md` §4 makes the id a function of one line per member, a
+    version's rule included, so a case that recomputes the id hands over the records and
+    not their names (ASM-27).
+    """
+    return [dict(member) for member in pool_record["members"]]
+
+
+def pool_rules(pool_record):
+    """The `rules` a pool record declares — a **required** key of `records.md` §8."""
+    if "rules" not in pool_record:
+        raise AssertionError(
+            "a pool record carries `rules`, the distinct rules its version members declare "
+            "(records.md §8, D-19): %r" % (sorted(str(key) for key in pool_record),)
+        )
+    return tuple(pool_record["rules"])
 
 
 def member_record(pool_record, member_id):

@@ -1,15 +1,12 @@
 # PyPoker-Demo — L1 record shapes
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
-- **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16 included
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
+- **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16 and the learning rule of D-19 included
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
 ## 1. Why these are L1's
 
-Every entry point above the engine exchanges a plain mapping, and a shape declared only in prose is a
-contract nobody can build against: L2, the batteries and a notebook would each invent their own (D-13).
-The shapes below are therefore part of the surface. A key marked **required** is asserted by the e2e
-battery (`battery.md` §3); any other key is the owning module's own and a caller must not depend on it.
+Every entry point above the engine exchanges a plain mapping, and a shape declared only in prose is a contract nobody can build against: L2, the batteries and a notebook would each invent their own (D-13). The shapes below are therefore part of the surface. A key marked **required** is asserted by the e2e battery (`battery.md` §3); any other key is the owning module's own and a caller must not depend on it.
 
 ## 2. Variant entry — one entry of a rung configuration's `variants`
 
@@ -17,13 +14,11 @@ battery (`battery.md` §3); any other key is the owning module's own and a calle
 |---|---|
 | `name`, `backend`, `encoding` | **required** — the variant name from `ladder.md` §2; `numpy` for R1 and `torch` from R2 on (D-7); `flat-numeric` for R1/R2 and `card-tokens` for R3–R6 (D-3) |
 | `architecture` | **required** — `kind`, plus `width`, `depth`, `sparsity`, `residual` as the kind uses them (D-3) |
-| `learning_rule`, `hyper`, `param_budget`, `samples`, `seeds`, `device`, `snapshot_every`, `table` | the rule and its hyperparameters (ASM-7); the budgets, the snapshot interval and the table budget of `ladder.md` §3, §6 (ASM-8, ASM-18) |
+| `learning_rule`, `hyper`, `param_budget`, `samples`, `seeds`, `device`, `snapshot_every`, `table` | the rule this variant is **trained** under — one of the catalogue's members, absent meaning its first, and two variants of one configuration may name two (`rules.md` §2, §4, D-19) — and its hyperparameters (ASM-7); the budgets, the snapshot interval and the table budget of `ladder.md` §3, §6 (ASM-8, ASM-18) |
 
 ## 3. Learner spec — `agents.build_learner`
 
-`backend` and `architecture` (**required**, as in §2), `seed` (**required** — the seed of the learner's
-own generator, `protocol.md` §4), and `sizes`, an optional redundant shorthand for width and depth;
-`architecture` is authoritative when both are present.
+`backend` and `architecture` (**required**, as in §2), `seed` (**required** — the seed of the learner's own generator, `protocol.md` §4), `learning_rule` (the catalogue member the learner learns under — **optional**, and a spec naming none is built under the catalogue's **first** member, `masked-q-learning`, a default declared here and in `rules.md` §4 and never inferred from the caller), and `sizes`, an optional redundant shorthand for width and depth; `architecture` is authoritative when both are present.
 
 ## 4. Transition record — `agents.learn`
 
@@ -34,10 +29,7 @@ successor, as `features.legal_indices` returns them, so a masked update re-deriv
 
 ## 5. Episode record — `engine.play_hand`
 
-**Required**: `seed`; `decisions`, the ordered decisions, each carrying `seat`, `readout`, `legal`,
-`action` and `reward`; and `payoffs`, net chips per seat summing to zero (`protocol.md` §2). Rewards are
-zero except at most one non-zero reward per seat, at that seat's terminal decision — the reward is the
-hand's outcome, not a shaped term (ASM-12).
+**Required**: `seed`; `decisions`, the ordered decisions, each carrying `seat`, `readout`, `legal`, `action` and `reward`; and `payoffs`, net chips per seat summing to zero (`protocol.md` §2). Rewards are zero except at most one non-zero reward per seat, at that seat's terminal decision — the reward is the hand's outcome, not a shaped term (ASM-12).
 
 ## 6. Decision record — `agents.act`
 
@@ -51,15 +43,11 @@ hand's outcome, not a shaped term (ASM-12).
 | `id`, `path` | **required** — the member's id, stable across tables so two reports can name the same version (D-16); the checkpoint path `evaluation.policy_from` loads |
 | `rung`, `variant`, `seed`, `step`, `samples` | **required** — what produced it: the rung, the variant, the seed, the snapshot's step and the hands trained (ASM-18) |
 | `lineage` | **required** — the version this one descends from, or its rung's own start for the first; the pool's window is ordered by it (D-16, ASM-18) |
+| `rule` | **required** — the catalogue member the version was trained under, so a table can name the population it measured and the pool id can certify it (`rules.md` §6, ASM-27); it is the name the member's own container records, and a member whose rule disagrees with its file is refused, as is a name the catalogue does not carry (D-19, ASM-20) |
 
 ## 8. Pool declaration and pool record — `build_pool`, `pool_members`, `offer`
 
-A declaration is `members` (**required** — the versions, by id and lineage), `m` (**required** — the
-bound) and `frozen` (**required** — whether the pool may not change while used). A pool record returns
-`id` and `m` (**required**), `frozen` (**required** — whether the pool was frozen when it was used, which
-is how a pair's parity is read), and `members` (**required**) in lineage order, each a §7 record, with the
-three baselines present and marked pinned (D-16, ASM-16). The id changes when and only when the
-membership does, so a run record and a table can be compared by the id alone (D-16).
+A declaration is `members` (**required** — the versions, by id, lineage and rule), `m` (**required** — the bound) and `frozen` (**required** — whether the pool may not change while used). A pool record returns `id` and `m` (**required**), `frozen` (**required** — whether the pool was frozen when it was used, which is how a pair's parity is read), `members` (**required**) in the pool's order — the three pinned baselines, then each family's chain oldest to newest, the families in the order they entered the window (ASM-26) — each a §7 record, and `rules` (**required** — the distinct rules its version members declare, in that order, which is the population a table over it measured) (D-16, D-19, ASM-16, ASM-26). The id changes when and only when the membership does — a version's rule included — so a run record and a table can be compared by the id alone (D-16, ASM-27).
 
 ## 9. Cell record — `evaluation.match`
 
@@ -69,6 +57,7 @@ membership does, so a run record and a table can be compared by the id alone (D-
 | `hands` | **required** — the hands played, one seat alternation across them |
 | `directions` | **required** — one entry per seat, each with `wins`, `ties`, `losses`, `mean_chip_delta` and `seat_split`; the two directions are the same hands seen from each seat (D-16, ASM-14) |
 | `params` | **required** — each member's parameter count: `agents.param_count` for a version, the zero `agents.baselines()` declares for a baseline (ASM-10) |
+| `rules` | **required** — each member's rule, by id: the catalogue name its policy carries, and `None` for a baseline or an opaque policy that carries none, so a cell says which estimators met (D-19, `e2e-surface.md` §2) |
 | `seed` | **required** — the cell's own seed: the seed its hands were dealt from, derived from the matrix's table seed and the pair's membership positions. It is **not** a key that replays the cell on its own (`league.md` §3.1) |
 
 `seat_split` names the hands each seat held the button, and each row's numbers are for its own member's
@@ -76,12 +65,7 @@ side of those hands (`protocol.md` §2).
 
 ## 10. Matrix record — `evaluation.matrix`
 
-`members` (**required** — the ordered membership: the frozen pool plus the rung's variants), `cells`
-(**required** — exactly K(K−1)/2 §9 records, one per unordered pair), `hands_per_cell` (**required** —
-one value for every cell, the baseline cells included), `table_seed` (**required**), and `table`
-(**required** — `live` or `full`, which the report's header repeats). A matrix with a cell of a different
-hand count, a member outside the pool, or a missing baseline is refused and is not a table (`league.md`
-§4, D-16).
+`members` (**required** — the ordered membership: the frozen pool plus the rung's variants), `cells` (**required** — exactly K(K−1)/2 §9 records, one per unordered pair), `rules` (**required** — each member's rule by id, as a §9 `rules` entry), `population` (**required** — the distinct rules those members declared, sorted, the population this table measured, D-19), `hands_per_cell` (**required** — one value for every cell, the baseline cells included), `table_seed` (**required**), and `table` (**required** — `live` or `full`, which the report's header repeats). A matrix with a cell of a different hand count, a member outside the pool, or a missing baseline is refused and is not a table (`league.md` §4, D-16).
 
 ## 11. Rating record — `evaluation.rating`
 
@@ -95,12 +79,11 @@ hand count, a member outside the pool, or a missing baseline is refused and is n
 
 `rung` (**required** — the rung name, or an unregistered configuration's label), `curves` (**required** — per variant per
 seed: the sample axis, a learning signal, and the variant's spread across seeds — one array per point, repeated in each
-of its seeds' entries), `pool` (**required** — the id and membership trained against, one id for both arms of a pair),
-`checkpoints` (**required** — the retained snapshots and the final model per variant per seed), `seeds`, `budget`,
+of its seeds' entries), `pool` (**required** — the id and membership trained against, one id for both arms of a pair, and the `rules` its members declare), `variants` (**required** — one entry per declared variant, each naming its `learning_rule`, so a run says which estimator produced which curve, D-19), `rules` (**required** — the set of rules the run declared and trained), `checkpoints` (**required** — the retained snapshots and the final model per variant per seed), `seeds`, `budget`,
 `device` (**required** — what the run used), `params` (**required** — the declared parameter budget; a cell records the
 measured count), `table` (**required** — the declared table budget, `live` or `full`), and `timings` (**required** — hands
 and seconds per hand, in `harness.timings`'s facts (D-7, ASM-15)). The seed set is the one the run used, and the record
-is the record of what happened (D-6, D-16).
+is the record of what happened (D-6, D-16, D-19).
 
 ## 13. The assembled record handed to `evaluation.report`
 

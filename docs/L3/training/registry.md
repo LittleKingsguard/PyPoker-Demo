@@ -1,8 +1,9 @@
 # training — the registry as data
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
 - **Owner:** `rungs()` and `rung()` — the six rows as literal data (§1), the resolved configuration key by key (§2), the pool
-  entry and the read-back id (§3), the parameter arithmetic (§4), the refusals and the determinism of resolution (§5)
+  entry and the read-back id (§3), the parameter arithmetic (§4), the refusals and the determinism of resolution (§5); **Rev 2** states
+  that a row's `learning_rule` is what the six rows declare and not a rule a run is fixed to, refused only against the catalogue (D-19); **Rev 3** gives the inherited window's members their `rule` (§3)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Read with:** `README.md` §3, §7, `loop.md` §1, §5, `checkpoints.md` §5, `fairness.md` §2, `errors.md` §4
 
@@ -42,9 +43,9 @@ Each `axis` is `ladder.md` §2's rung-row sentence under a one-word label, and t
 text: R1 names `encoding`, R2 `backend`, R3 `tokenisation`, R4 `width`/`depth`, R5 `dense`/`sparse`/`connectivity`, R6
 `residual`. `carried_from` is the previous rung's **variant name**, the primary the next rung inherits (D-16, `ladder.md` §2).
 
-**The declarations every variant entry shares** (`records.md` §2, `ladder.md` §3), written once in `declarations.py`:
+**The declarations every variant entry of the six rows carries** (`records.md` §2, `ladder.md` §3), written once in `declarations.py`:
 
-    LEARNING_RULE = "masked-q-learning"                       # ASM-7
+    LEARNING_RULE = "masked-q-learning"   # the catalogue's first member (rules.md §2, §4, D-19); a row may name another
     HYPER = {"learning_rate": 0.001, "batch_size": 32, "target_update_interval": 200, "optimiser": "sgd",
              "exploration": {"start": 1.0, "end": 0.05, "samples": 2000}, "discount": 0.99}
     PARAM_BUDGET = 10000          # ASM-10; the ±2% bound is 9,800 … 10,200
@@ -55,7 +56,9 @@ text: R1 names `encoding`, R2 `backend`, R3 `tokenisation`, R4 `width`/`depth`, 
     RETAINED, SNAPSHOTS = 5, 10   # M and the ten snapshot points (ASM-18)
 
 `HYPER` is the record `agents.learners()["hyper"]` publishes, copied here as the run record's data and never compared against
-it (`agents/surface.md` §3, `rule.md` §6); `param_budget` is **declared** and no run measures it (`surface.md` §4). Each rung's
+it (`agents/surface.md` §3, `rule.md` §6); `param_budget` is **declared** and no run measures it (`surface.md` §4). `LEARNING_RULE` is
+not a rule the run is fixed to: it is what these six rows declare, and a run refuses a rule only when the catalogue
+`declarations.learning_rules()` reads from `agents.learners()` does not carry it (`loop.md` §1 step 1, `rules.md` §4, D-19). Each rung's
 `snapshot_every` is 100 — its declared budget's interval, 1000 ÷ 10 — and `loop.md` §3 fixes what a run does with it.
 
 ## 2. The resolved configuration, key by key (D2)
@@ -86,9 +89,9 @@ writes no file and moves no stream (D-3, `surface.md` §3); it reads the index's
 
 `_pool_entry(name, carried_from)` builds it in four steps and no others:
 
-1. `_window(carried_from)` reads the declared window of the rung this one inherits — `index.SHIPPED_WINDOWS[carried_from]`,
-   version records in lineage order — and **drops every version whose `path` names no readable file**, so a declared but absent
-   lineage checkpoint leaves the window short and the record states the membership it used (`protocol.md` §5, `loop.md` §3).
+1. `_window(carried_from)` reads the declared window of the rung this one inherits — `index.SHIPPED_WINDOWS[carried_from]`, version
+   records in lineage order, each carrying its `rule` — and **drops every version whose `path` names no readable file**, so a declared
+   but absent lineage checkpoint leaves the window short and the record states the membership it used (`protocol.md` §5, `loop.md` §3).
    R1 has no `carried_from`, so its window is empty and its pool is the three baselines alone (FAM-3.17).
 2. The declaration is `{"members": <that filtered window>, "m": 5, "frozen": True}` — `records.md` §8's shape, with no
    baselines in it, because `build_pool` adds and pins them itself.
@@ -97,8 +100,8 @@ writes no file and moves no stream (D-3, `surface.md` §3); it reads the index's
 4. `id` is the read-back's `id` and `members` is the filtered window as declared; the read-back's own member list (baselines
    first, then the window) is **not** copied into the configuration, because it belongs to the run record (`loop.md` §4).
 
-So **the declared `id` is the read-back id of the membership the repository actually carries** — never a fabricated one and
-never two (D2, `records.md` §8). Two arms of one rung name one pool entry, hence one id (FAM-3.17, FAM-3.18, ASM-16).
+So **the declared `id` is the read-back id of the membership the repository actually carries** — never a fabricated one and never
+two (D2, `records.md` §8; ASM-27, which makes the digest cover each version's `rule`). Two arms of one rung name one pool entry, hence one id (FAM-3.17, FAM-3.18, ASM-16).
 
 **A configuration in no registry** carries the same entry and supplies its own `members` and `id`, which is how a custom league
 reaches the loop as data (`ladder.md` §3, FAM-15.4). Its members may carry no `path`: they are filtered out by step 1's

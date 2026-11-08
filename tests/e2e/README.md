@@ -23,7 +23,7 @@ neither writes into the repository's `checkpoints/` (`docs/L1/battery.md` §2,
 nothing beyond the standard library and the six declared packages, so it stays collectable
 under either runner (`docs/L1/battery.md` §2). **The `-t .` is not optional**: without it
 discovery does not import this package, so the write-root hook never runs, the case set is not
-the battery's 219, and the run writes into the repository's `checkpoints/` instead of a private
+the battery's 240, and the run writes into the repository's `checkpoints/` instead of a private
 temporary root (`docs/L1/battery.md` §2).
 
 Every case is red before implementation exists. Each one reaches its first declared
@@ -35,7 +35,8 @@ collection error, and never an error thrown by the battery itself.
 
 Rev 2 replaced the head-to-head opponent with the bounded round-robin league (D-16):
 `evaluation` declares eleven entry points and the map forty-nine (`e2e-surface.md` §3.4,
-§4). The families below are the sixteen of `battery.md` §3, in its order.
+§4). D-19 makes the learning rule a catalogue (`docs/L1/rules.md`), which is FAM-17. The
+families below are the seventeen of `battery.md` §3, in its order.
 
 | File | Family | What it holds | Cases |
 |---|---|---|---|
@@ -43,23 +44,25 @@ Rev 2 replaced the head-to-head opponent with the bounded round-robin league (D-
 | `_records.py` | — | the `records.md` readers FAM-6..FAM-16 assert through (version §7, pool §8, cell §9, matrix §10, rating §11, run record §12), the container-agnostic matrix doctorers, the process-wide scratch area the shared pool needs, and the version/table fixtures | — |
 | `test_fam01_surface.py` | FAM-1 | one case per entry point, all 49, in `e2e-surface.md` §3 order | 49 |
 | `test_fam02_invariance.py` | FAM-2 | the D-2 game, the D-3 action vocabulary and the information set, identical across the ladder | 11 |
-| `test_fam03_ladder.py` | FAM-3 | six rungs in brief §2's order; every adjacent and intra-rung pair; the one frozen pool both arms of R4, R5 and R6 declare and record | 18 |
+| `test_fam03_ladder.py` | FAM-3 | six rungs in brief §2's order; every adjacent and intra-rung pair; the one frozen pool both arms of R4, R5 and R6 declare and record; the **set** of learning rules a pair holds constant (D-19) | 19 |
 | `test_fam04_seeds.py` | FAM-4 | the seed contract of `protocol.md` §2 and §4 with the pool in the reproducible tuple | 13 |
 | `test_fam05_baselines.py` | FAM-5 | `random`, `always-call`, `oracle` as checkable rules (D-6, ASM-4) | 8 |
-| `test_fam06_pool.py` | FAM-6 | the bound M, the pinned baselines, `offer`'s eviction from an unfrozen window, a frozen pool holding still, R1's three-baseline pool, and the membership's deterministic id | 12 |
-| `test_fam07_scheduler.py` | FAM-7 | one cell at a time: hand accounting, seat alternation, both directions from one set of hands, and the drawn opponent | 9 |
-| `test_fam08_matrix.py` | FAM-8 | membership, K(K−1)/2 cells, one hand count, the baseline cells, and the three refusals | 9 |
+| `test_fam06_pool.py` | FAM-6 | the bound M, the pinned baselines, `offer`'s eviction from an unfrozen window, a frozen pool holding still, R1's three-baseline pool, the membership's deterministic id, a version's `rule` and the id that certifies it, the pool's `rules`, and a second family rolling into and surviving a full window (D-19) | 17 |
+| `test_fam07_scheduler.py` | FAM-7 | one cell at a time: hand accounting, seat alternation, both directions from one set of hands, the drawn opponent, and a cell's `rules` for its two members (D-19) | 10 |
+| `test_fam08_matrix.py` | FAM-8 | membership, K(K−1)/2 cells, one hand count, the baseline cells, the three refusals, and each member's rule with the matrix's `population` (D-19) | 10 |
 | `test_fam09_rating.py` | FAM-9 | one value and a 95% interval per member, Bradley-Terry, the baselines' zero anchor, the bounded member | 8 |
 | `test_fam10_tables.py` | FAM-10 | the two budgets and their cell sizes, the live table's arithmetic, and the cost record | 5 |
-| `test_fam11_report.py` | FAM-11 | the seven evidence families, a named refusal for each missing one, R1's pool row and the single-variant axis row | 12 |
-| `test_fam12_checkpoints.py` | FAM-12 | the M-retained-snapshots-plus-final-model rule, the decision boundary, the retained window, and the shipped index | 6 |
+| `test_fam11_report.py` | FAM-11 | the seven evidence families, a named refusal for each missing one, R1's pool row, the single-variant axis row, and a pool family that carries the measured population's rules (D-19) | 13 |
+| `test_fam12_checkpoints.py` | FAM-12 | the M-retained-snapshots-plus-final-model rule, the decision boundary, the retained window, the shipped index, and the rule each checkpoint and each index entry records (D-19) | 8 |
 | `test_fam13_parity.py` | FAM-13 | R1 against R2 on identical work, the recorded cost of both, and the driver's own clock (D-7) | 6 |
 | `test_fam14_harness.py` | FAM-14 | `drive`, `fixtures`, `factory`, `seam`, `expect` and `timings` as support, not substitute | 11 |
 | `test_fam15_custom.py` | FAM-15 | the battery's own seventh rung, its declared membership and the invented pool, run and reported as data | 5 |
 | `test_fam16_blind.py` | FAM-16 | the 37 blind instances of §5 below | 37 |
+| `test_fam17_rules.py` | FAM-17 | the learning-rule catalogue D-19 adds: two named rules with their targets, one capacity and one contract between them, the declared default, a name outside the catalogue refused by name, a checkpoint's rule, a configuration that trains **two** rules, fairness on the rule axis, and the heterogeneous table that names its population | 10 |
 
-219 cases: FAM-1 49, FAM-2 11, FAM-3 18, FAM-4 13, FAM-5 8, FAM-6 12, FAM-7 9,
-FAM-8 9, FAM-9 8, FAM-10 5, FAM-11 12, FAM-12 6, FAM-13 6, FAM-14 11, FAM-15 5, FAM-16 37.
+240 cases: FAM-1 49, FAM-2 11, FAM-3 19, FAM-4 13, FAM-5 8, FAM-6 17, FAM-7 10,
+FAM-8 10, FAM-9 8, FAM-10 5, FAM-11 13, FAM-12 8, FAM-13 6, FAM-14 11, FAM-15 5,
+FAM-16 37, FAM-17 10.
 
 This directory is the harness's *consumer*, not its implementation: the `50 + 10×N` line
 ceiling of `docs/L1/module-map.md` §4 applies to the harness's own files, and
@@ -71,7 +74,11 @@ ceiling of `docs/L1/module-map.md` §4 applies to the harness's own files, and
 a cell at the live budget's 120 hands, so the smallest table the surface allows is K = 4
 (the three pinned baselines plus one variant) and 6 cells — 720 hands. `_surface` builds
 one baselines-plus-one-variant table and its rating once per process and shares them
-(`shared_league`), and FAM-16 builds one invented-membership table the same way. Everything
+(`shared_league`), and FAM-16 builds one invented-membership table the same way. D-19's
+table is the one a **second** variant costs: two policies of two rules over the
+baselines alone, K = 5 and 10 cells — 1,200 hands, built once per process and shared by
+FAM-8, FAM-11 and FAM-17 (`shared_rule_league`), which is the smallest membership that
+holds both rules and the last table the battery can afford (`battery.md` §2, ASM-14). Everything
 else the battery plays stays in the tens of hands per case (`battery.md` §2), and the
 timing cases assert that a cost record carries the hands counted and a per-hand cost or its
 reciprocal throughput — read by what the keys name, never by a literal spelling — and never
@@ -96,6 +103,15 @@ an instance that appears in no design document. The battery's own vocabulary:
   each a real checkpoint the case writes with `agents.save`, carrying an invented rung,
   variant, seed, training step, hands trained and the predecessor it descends from, in the
   record shape of `records.md` §7;
+- the two learning rules of `rules.md` §2, `masked-q-learning` and `double-q-learning`,
+  read off `agents.learners()` and never spelled twice — with `n-step-returns-battery`
+  and `monte-carlo-battery` as the invented names **outside** the catalogue, one for a
+  learner spec, a pool member and a `load` spec, one for a variant entry (`rules.md` §4,
+  D-19);
+- a two-rule configuration `R9-dual-rule` (`SurfaceCase.two_rule_rung`) whose axis,
+  variant names `masked-arm`/`double-arm`, width 53, depth 3, seed set, pool id and
+  baselines-only membership are the battery's own, and whose two variant entries agree on
+  everything a pair must share and differ on `learning_rule` alone (D-19, `rules.md` §7);
 - a seventh rung `R7` (`_surface.custom_rung`) whose axis, variant names
   `deep-sparse`/`wide-sparse`, hyperparameters, sample budget, seed set, pool id and
   declared membership are the battery's own, written to `ladder.md` §3's schema — the

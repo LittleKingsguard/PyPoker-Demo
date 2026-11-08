@@ -456,8 +456,21 @@ class GuardrailTest(AgentsCase):
                 )
 
     def test_agt11_g13_load_compares_only_the_enumerated_keys(self):
-        """G13 width, depth, `sizes` and extra keys are not compared; the file's geometry is the authority (`checkpoint.md` §3, `surface.md` §9, G13)."""
+        """G13 width, depth, `sizes` and extra keys are not compared while `learning_rule` is; the file's geometry is the authority (`checkpoint.md` §3, `surface.md` §9, G13, D-19).
+
+        The compared keys are `backend`, the kind, `seed`, `learning_rule` whenever
+        the spec names one, and the encoder's representation and size; a bare kind
+        leaves width and depth uncompared and `sizes` never disagrees
+        (`checkpoint.md` §3).  Both sides are driven: a spec naming the file's own
+        rule beside the uncompared keys loads, and the same spec with the other
+        catalogue member is refused naming the key and both values — so "extra keys
+        are ignored" is kept for the keys that are still ignored, and `learning_rule`
+        is not one of them any more.
+        """
         package = self.agents()
+        catalogue = tuple(package.learners()["learning_rules"])
+        self.assertGreaterEqual(len(catalogue), 2)
+        default_rule, other_rule = catalogue[0], catalogue[1]
         learner = self.build(kind="naive-stack", width=6, depth=1)
         kept = package.param_count(learner)
         path = package.save(learner, os.path.join(self.tempdir(), CHECKPOINT_NAMES[1]))
@@ -470,10 +483,28 @@ class GuardrailTest(AgentsCase):
         )
         restored = package.load(spec, path)
         self.assertEqual(package.param_count(restored), kept)
+        agreed = package.load(dict(spec, learning_rule=default_rule), path)
+        self.assertEqual(
+            package.param_count(agreed),
+            kept,
+            "a spec naming the file's own `learning_rule` is a compared key that "
+            "agrees, and width, depth, `sizes` and the extra keys beside it are still "
+            "not compared (checkpoint.md §3, surface.md §9)",
+        )
+        self.assert_refused(
+            package.load,
+            dict(spec, learning_rule=other_rule),
+            path,
+            entry="load",
+            groups=(("learning_rule",), (other_rule,), (default_rule,)),
+            label="a spec naming the other catalogue member than the file records",
+        )
 
     def test_agt11_g14_valid_instances_are_not_refused(self):
-        """G14 an extra key, `sizes` beside `architecture`, an unread `sparsity`, a numpy seed and the extreme settings are accepted (`errors.md` §4, `architecture.md` §3, G14)."""
+        """G14 an extra key, `sizes` beside `architecture`, an unread `sparsity`, a numpy seed, either catalogue member as `learning_rule` and the extreme settings are accepted (`errors.md` §4, `architecture.md` §3, `rules.md` §2, §4, G14, D-19)."""
         package = self.agents()
+        catalogue = tuple(package.learners()["learning_rules"])
+        self.assertGreaterEqual(len(catalogue), 2)
         cases = (
             (
                 "sizes beside architecture",
@@ -487,9 +518,14 @@ class GuardrailTest(AgentsCase):
             ),
             ("a numpy integer seed", learner_spec(seed=np.int64(LEARNER_SEED))),
             (
-                "an extra run-record key",
-                learner_spec(extra={"learning_rule": "masked-q-learning", "hyper": {}}),
+                "the declared default named as the rule",
+                learner_spec(extra={"learning_rule": catalogue[0]}),
             ),
+            (
+                "the other catalogue member named as the rule",
+                learner_spec(extra={"learning_rule": catalogue[1]}),
+            ),
+            ("an extra run-record key", learner_spec(extra={"hyper": {}})),
             (
                 "a width and depth of one",
                 learner_spec(architecture={"kind": "deep", "width": 1, "depth": 1}),

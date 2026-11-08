@@ -8,8 +8,11 @@ describes (D-6, `protocol.md` §2).
 
 Each family is copied by value from the record under the name `protocol()` spells --
 `axis row`'s space included -- and the report adds none: an absent family is refused by
-name, never filled in (`report.md` §3-§4).  A report is assembled from records alone: it
-plays no hand, reads no file, moves no stream and never edits the record it is handed.
+name, never filled in (`report.md` §3-§4).  The one fact a report completes is the pool
+family's `rules`: the population the report's table was measured over is those rules plus
+the rung's variants', and the pool family states it (`e2e-surface.md` §3.4, D-19).  A
+report is assembled from records alone: it plays no hand, reads no file, moves no stream
+and never edits the record it is handed.
 """
 
 from collections.abc import Mapping
@@ -136,6 +139,70 @@ def _rating_identity(rating_value, matrix_members):
             )
 
 
+def _measured_population(matrix_value):
+    """The distinct rules the table's members declared, sorted (`records.md` §10, D-19).
+
+    A matrix this module built carries `population`; a hand-built one may carry `rules` or
+    neither, so the readers below take what the record states, in that order, and infer
+    nothing a record does not say (`errors.md` §5, `rating.md` §1).
+    """
+    if not isinstance(matrix_value, Mapping):
+        return ()
+
+    def names_of(value):
+        found = []
+        if isinstance(value, Mapping):
+            for inner in value.values():
+                if isinstance(inner, str):
+                    found.append(inner)
+        elif isinstance(value, str):
+            found.append(value)
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            for item in value:
+                if isinstance(item, str):
+                    found.append(item)
+                elif isinstance(item, Mapping):
+                    name = item.get("rule", item.get("learning_rule"))
+                    if isinstance(name, str):
+                        found.append(name)
+        return found
+
+    found = names_of(matrix_value.get("population"))
+    if not found:
+        found = names_of(matrix_value.get("rules"))
+    if not found:
+        found = names_of(matrix_value.get("member_records"))
+    distinct = []
+    for name in found:
+        if name not in distinct:
+            distinct.append(name)
+    return tuple(sorted(distinct))
+
+
+def _pool_family(pool_value, population):
+    """The pool family, its `rules` completed to the population the table measured.
+
+    A pool record carries the rules its own version members declare (`records.md` §8), and
+    a report's pool family additionally states the population the report's table was
+    measured over -- those rules plus the rung's variants' rules, the members a table
+    holds outside the pool (`e2e-surface.md` §3.4's `report` row, `report.md` §2, D-19).
+    Nothing is added when the family already names that population, and the value handed
+    in is never edited (`report.md` §4).
+    """
+    if not isinstance(pool_value, Mapping) or "members" not in pool_value:
+        return pool_value
+    own = pool_value.get("rules")
+    declared = []
+    if isinstance(own, (list, tuple)):
+        declared = [name for name in own if isinstance(name, str)]
+    missing = [name for name in population if name not in declared]
+    if not missing:
+        return pool_value
+    family = dict(pool_value)
+    family["rules"] = tuple(declared) + tuple(missing)
+    return family
+
+
 def report(rung_name, record, matrix, rating):
     """The complete per-rung report (`surface.md` §13, `records.md` §13).
 
@@ -177,6 +244,7 @@ def report(rung_name, record, matrix, rating):
     seeds = record.get("seeds")
     if seeds is None:
         seeds = _header_value(header, "seeds")
+    population = _measured_population(matrix)
     assembled = {
         "rung": rung_name,
         "seeds": tuple(seeds) if isinstance(seeds, (list, tuple)) else seeds,
@@ -189,6 +257,8 @@ def report(rung_name, record, matrix, rating):
             assembled[name] = matrix
         elif name == "rating":
             assembled[name] = rating
+        elif name == "pool":
+            assembled[name] = _pool_family(families[name], population)
         else:
             assembled[name] = families[name]
     return assembled

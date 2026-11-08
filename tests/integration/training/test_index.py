@@ -228,5 +228,81 @@ class CheckpointJoin(J.JoinCase):
             )
 
 
+    def test_trnj_6_4_every_entry_names_the_rule_its_artefact_was_trained_under(self):
+        """TRNJ-6.4 each index entry is a `records.md` §7 record, so it carries the rule it was trained under.
+
+        `docs/L1/records.md` §7 makes a version record's `rule` **required** (D-19), and
+        `docs/L3/training/checkpoints.md` §4 makes an entry that record extended with
+        `kind` — so the shipped index names one catalogue rule, the membership a successor
+        rung declares carries the same one on every version, and a run of that successor
+        reports that set in its pool block.  A window naming no rule could not be handed
+        to `evaluation.build_pool` at all, and a pool id could not certify a population.
+        """
+        entries = J.entries()
+        seeds = list(J.rung("R1")["variants"][0]["seeds"])
+        bound = int(J.league()["m"])
+        self.assertEqual(
+            len(entries),
+            len(seeds) * (bound + 1),
+            "the index lists the same artefacts with one fact added: the shipped run is "
+            "R1's at the recorded seed set, five retained snapshots plus that pair's final "
+            "model per seed (docs/L3/training/checkpoints.md §5, ASM-18): %r"
+            % (len(entries),),
+        )
+        rules = {str(entry["rule"]) for entry in entries}
+        self.assertEqual(
+            len(rules),
+            1,
+            "every shipped entry names one rule, because the shipped run was trained under "
+            "one estimator (docs/L3/training/checkpoints.md §4-§5, records.md §7, D-19): %r"
+            % (sorted(rules),),
+        )
+        shipped_rule = sorted(rules)[0]
+        self.assertIn(
+            shipped_rule,
+            _catalogue(J.learners()),
+            "the rule an entry names is a member of the catalogue `agents.learners()` "
+            "publishes, never a name invented here (rules.md §2, §4, D-19): %r not in %r"
+            % (shipped_rule, _catalogue(J.learners())),
+        )
+        window = J.pool_declaration_of(J.rung("R2"))["members"]
+        self.assertTrue(
+            window,
+            "R2 inherits R1's retained window, so its declared membership is not empty "
+            "while the repository carries those artefacts (docs/L3/training/registry.md "
+            "§3, FAM-12.4)",
+        )
+        for member in window:
+            self.assertEqual(
+                str(member["rule"]),
+                shipped_rule,
+                "the membership a successor rung declares carries each version's `rule`, "
+                "so the window is one `evaluation.build_pool` accepts and certifies "
+                "(records.md §7, §8, ASM-27, D-19): %r" % (member,),
+            )
+        pool = J.pool_of(J.window_run())
+        self.assertEqual(
+            sorted(str(rule) for rule in pool["rules"]),
+            sorted(rules),
+            "the pool block of the successor's run record carries the set its members "
+            "declare, which is the set the index declares for them, so a run says which "
+            "population its opposition held (records.md §8, §12, D-19): %r"
+            % (pool.get("rules"),),
+        )
+
+
+def _catalogue(declared):
+    """The learning-rule catalogue `agents.learners()` publishes, as its member names."""
+    published = declared.get("learning_rules") if hasattr(declared, "get") else None
+    if published is None:
+        raise AssertionError(
+            "agents.learners() publishes the learning-rule catalogue (rules.md §2, D-19): "
+            "%r" % (sorted(str(key) for key in declared),)
+        )
+    if hasattr(published, "keys"):
+        return [str(name) for name in published]
+    return [str(name) for name in published]
+
+
 if __name__ == "__main__":
     unittest.main()

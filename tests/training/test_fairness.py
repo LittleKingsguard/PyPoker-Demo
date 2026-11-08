@@ -3,16 +3,18 @@
 Drives `docs/L3/training/fairness.md` §1-§7 and `docs/L2/training/surface.md` §5 (Rev 2,
 §5.1's axis rule included): the eight reportable pairs and their one axis each, the
 `{of, differs, declared}` reading for two configurations and for two variant entries, the
-thirteen `constants` keys — the game and the pool among them — the pool report's six keys
-with `same` and the intersection for an adjacent pair, the five refusals, and Rev 2's
-sixth: two arms declaring two `hyper` blocks are `PairDeclarationsDiffer`, because a pair
-that declares two blocks holds no constant there (`TRN-7.8`, `declarations.md` §4).
+thirteen `constants` keys — the game, the pool and the **set** of rules among them — the
+pool report's six keys with `same` and the intersection for an adjacent pair, the five
+refusals, Rev 2's sixth: two arms declaring two `hyper` blocks are `PairDeclarationsDiffer`,
+because a pair that declares two blocks holds no constant there (`TRN-7.8`,
+`declarations.md` §4), and D-19's sixth axis: two arms declaring two catalogue rules are
+reportable on `rule` and their `constants["rules"]` holds both (`TRN-7.9`, `rules.md` §8).
 
 Reportability is `§2`'s correction and not a restatement: `architecture` is compared only
 where the two sides agree on the representation family and on `sparsity`, so R5's `sparse`
 (62 wide) against its `dense` (50 wide) differs on `sparsity` alone (ASM-10, guardrails
 G14). `fairness` plays no hand, builds no learner, writes nothing and moves no stream
-(§7, G19), and the last case proves it by patching every route it could have taken.
+(§7, G19), and `TRN-7.7` proves it by patching every route it could have taken.
 """
 
 import unittest
@@ -27,7 +29,6 @@ from _training_support import (
     INVENTED_POOL_A,
     INVENTED_POOL_B,
     INVENTED_PAIR_POOL,
-    LEARNING_RULE,
     PARAM_BUDGET,
     RETAINED,
     RUNG_NAMES,
@@ -44,8 +45,12 @@ from _training_support import (
     entry_of,
     error_class,
     member_ids,
+    rule_set,
     training,
+    two_rule_configuration,
+    two_rule_names,
     variant_entries,
+    variant_name,
     with_pool,
     with_setting,
     write_tree,
@@ -176,7 +181,7 @@ class FairnessTest(TrainingCase):
         )
 
     def test_trn_7_4_constants_carries_the_thirteen_held_declarations(self):
-        """TRN-7.4 `constants` carries `fairness.md` §4's thirteen keys, with `game` equal to `engine.game_config()`, a `pool` report repeated inside it, and the vocabulary and readout facts declared as data (fairness.md §4, guardrails G15, FAM-3.14, FAM-13.3)."""
+        """TRN-7.4 `constants` carries `fairness.md` §4's thirteen keys — `rules` among them, holding the **set** of rules the two sides are trained under and never one side's value — with `game` equal to `engine.game_config()`, a `pool` report repeated inside it, and the vocabulary and readout facts declared as data (fairness.md §4, declarations.md §4, rules.md §8, guardrails G15, FAM-3.14, FAM-13.3, D-19)."""
         record = self.result(self.rung("R1"), self.rung("R2"))
         constants = as_mapping(record["constants"], "'constants'")
         for key in CONSTANT_KEYS:
@@ -213,10 +218,26 @@ class FairnessTest(TrainingCase):
             "the ten readout facts are declared here for the same reason, identical for "
             "every encoding (fairness.md §4, D-3): %r" % (constants["readout facts"],),
         )
+        declared_rules = {
+            as_text(entry["learning_rule"], "a declared rule")
+            for entry in (self.entry("R1", "naive-numeric"),
+                          self.entry("R2", "naive-numeric-torch"))
+        }
         self.assertEqual(
-            as_text(constants["learning rule"], "learning rule"),
-            LEARNING_RULE,
-            "the ladder declares one rule (fairness.md §4, ASM-7)",
+            rule_set(constants["rules"]),
+            declared_rules,
+            "`rules` is the **set** of rules the two sides are trained under — one name for "
+            "a pair declaring one rule — and never one side's value, because `learning_rule` "
+            "left the settings a pair must share when D-19 made it a sixth axis; the "
+            "invented two-rule pair is TRN-7.9's (fairness.md §4, declarations.md §4, "
+            "rules.md §8, D-19): %r" % (constants["rules"],),
+        )
+        self.assertEqual(
+            len(rule_set(constants["rules"])),
+            1,
+            "R1 and R2 declare one rule, so the set holds one member and not two copies of "
+            "it: what the row reports is a set, deduplicated (fairness.md §4, rules.md §8, "
+            "D-19): %r" % (constants["rules"],),
         )
         self.assertEqual(
             constants["hyper"],
@@ -468,6 +489,83 @@ class FairnessTest(TrainingCase):
             "constants are reported, so the refusal above is about the difference and not "
             "about `hyper` being named at all (declarations.md §4, fairness.md §4): %r"
             % (sorted(accepted),),
+        )
+
+    def test_trn_7_9_two_rules_are_the_rule_axis_and_the_set_is_reported(self):
+        """TRN-7.9 two entries declaring the catalogue's two rules differ on the `rule` axis — `of` names the axis and `differs` names `learning_rule` — and are **not** refused, their `constants["rules"]` holding both rules; the control: two entries declaring one rule report a one-element set (fairness.md §2, §4, §6, surface.md §5, declarations.md §3-§4, rules.md §8, D-19)."""
+        first_rule, second_rule = two_rule_names()
+        entries = variant_entries(two_rule_configuration())
+        self.assertEqual(
+            [as_text(entry["learning_rule"], "a declared rule") for entry in entries],
+            [first_rule, second_rule],
+            "the invented pair declares the catalogue's two rules in its order, read from "
+            "agents.learners() and not restated (rules.md §2, §4, D-19)",
+        )
+        pair = self.result(entries[0], entries[1])
+        self.assertEqual(
+            set(as_mapping(pair, "a fairness record")),
+            {"pair", "axis", "constants", "pool"},
+            "a pair whose arms declare two catalogue rules is reportable and returns the "
+            "record every comparison returns, so a differing `learning_rule` is the `rule` "
+            "axis and never a PairDeclarationsDiffer refusal (fairness.md §2, §6, "
+            "declarations.md §3-§4, rules.md §8, D-19): %r" % (sorted(pair),),
+        )
+        self.assertEqual(
+            [as_text(name, "a pair name") for name in as_sequence(pair["pair"], "'pair'")],
+            [variant_name(entry) for entry in entries],
+            "`pair` reports the two sides by their own names (fairness.md §1)",
+        )
+        axis = as_mapping(pair["axis"], "axis")
+        self.assertEqual(
+            as_text(axis["of"], "of"),
+            "rule",
+            "`of` is the one axis the difference falls in, and two estimators are the "
+            "`rule` axis D-19 added beside the five (fairness.md §2, surface.md §5, "
+            "rules.md §4, §8, D-19): %r" % (axis["of"],),
+        )
+        self.assertEqual(
+            {
+                as_text(field, "a differing field")
+                for field in as_sequence(axis["differs"], "'differs'")
+            },
+            {"learning_rule"},
+            "`differs` names the field that differs, and it is `learning_rule` alone: the "
+            "two arms agree on backend, encoding, architecture, connectivity and residual, "
+            "so the rule is the whole difference (fairness.md §2, rules.md §8, D-19): %r"
+            % (axis["differs"],),
+        )
+        self.assertIsNone(
+            axis["declared"],
+            "for two entries `declared` is None, there being no configuration's axis "
+            "sentence to quote (fairness.md §2)",
+        )
+        constants = as_mapping(pair["constants"], "'constants'")
+        self.assertEqual(
+            rule_set(constants["rules"]),
+            {first_rule, second_rule},
+            "what the pair holds constant is the **set** of rules it declares — both, in "
+            "declaration order and never one side's — because two estimators are reported "
+            "as the axis and not imposed as a constant (fairness.md §4, §6, declarations.md "
+            "§4, rules.md §8, D-19): %r" % (constants["rules"],),
+        )
+        self.assertEqual(
+            len(rule_set(constants["rules"])),
+            2,
+            "two rules are two members of the set and not one name repeated, which is what "
+            "a report quoting one side would show (fairness.md §4, rules.md §8): %r"
+            % (constants["rules"],),
+        )
+        control = as_mapping(
+            self.result(entries[0], with_setting(entries[1], learning_rule=first_rule)),
+            "a fairness record of two entries declaring one rule",
+        )
+        control_constants = as_mapping(control["constants"], "'constants'")
+        self.assertEqual(
+            rule_set(control_constants["rules"]),
+            {first_rule},
+            "the control: two entries declaring one rule report a one-element set, so the "
+            "row above is what the pair declares and not a fixed pair of names "
+            "(fairness.md §4, rules.md §8, D-19): %r" % (control_constants["rules"],),
         )
 
 

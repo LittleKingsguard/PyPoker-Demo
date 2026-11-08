@@ -1,10 +1,11 @@
 """AGT-4 — `param_count(learner)`.
 
-Drives `docs/L2/agents/surface.md` §5, `docs/L2/agents/learner.md` §3 and
-`docs/L3/agents/architecture.md` §5: one plain integer, a function of the spec
-alone, equal in both backends (one model, D-7), strictly larger at a larger
-width, unchanged by `learn`, refused for a baseline, and reported by a restored
-learner (ASM-10, ASM-5).
+Drives `docs/L2/agents/surface.md` §5, `docs/L2/agents/learner.md` §3,
+`docs/L3/agents/architecture.md` §5 and `docs/L1/rules.md` §3: one plain
+integer, a function of the spec alone, equal in both backends (one model, D-7)
+and under both catalogue members (D-19), strictly larger at a larger width,
+unchanged by `learn`, refused for a baseline, and reported by a restored learner
+(ASM-10, ASM-5).
 """
 
 import unittest
@@ -13,6 +14,7 @@ from _agents_support import (
     AgentsCase,
     batch,
     dense_observation,
+    learner_spec,
 )
 
 
@@ -83,6 +85,42 @@ class ParamCountTest(AgentsCase):
         path = package.save(learner, self.tempdir() + "/v-8127-count.pt")
         restored = package.load(None, path)
         self.assertEqual(package.param_count(restored), kept)
+
+    def test_agt4_8_one_architecture_counts_the_same_under_both_rules(self):
+        """AGT-4.8 the same architecture reports one `param_count` under either catalogue member (`surface.md` §5, `rules.md` §3, ASM-10, D-19).
+
+        A rule changes the arithmetic of a target and nothing of the state layout —
+        the online parameters and their target copy — so the counting rule of
+        `learner.md` §3, one rule over every trainable value, cannot move with it.
+        This is the capacity half of the pair `rules.md` §8 makes comparable: two
+        arms may differ on the rule and still be capacity-matched.
+        """
+        package = self.agents()
+        catalogue = tuple(package.learners()["learning_rules"])
+        self.assertGreaterEqual(len(catalogue), 2)
+        for kind in ("naive-stack", "deep", "sparse"):
+            with self.subTest(kind=kind):
+                counts = {}
+                for rule in catalogue:
+                    learner = package.build_learner(
+                        learner_spec(kind=kind, extra={"learning_rule": rule})
+                    )
+                    count = package.param_count(learner)
+                    self.assertNotIsInstance(count, bool, "a flag is not a count")
+                    self.assertIsInstance(count, int)
+                    self.assertGreater(count, 0)
+                    counts[rule] = count
+                undeclared = package.param_count(
+                    package.build_learner(learner_spec(kind=kind))
+                )
+                self.assertEqual(
+                    sorted(counts.values()),
+                    [undeclared] * len(catalogue),
+                    "the %r kind reports %r under the catalogue's members and %d "
+                    "under the declared default alone: a rule may not move the "
+                    "trainable count (surface.md §5, rules.md §3, ASM-10, D-19)"
+                    % (kind, counts, undeclared),
+                )
 
 
 if __name__ == "__main__":

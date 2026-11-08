@@ -4,9 +4,11 @@
 family judges the surface as a caller meets it: each name is callable with objects
 built by the *other* two modules' entry points (`features.build_encoder`,
 `engine.new_hand`, `engine.play_hand`), and a minimal call returns the declared kind
-(`docs/L2/agents/surface.md` §1, §4–§12).  A name that is absent, or that returns a
-shape the next module cannot consume, is one finding per name (`battery.md` §3
-FAM-1).
+(`docs/L2/agents/surface.md` §1, §4–§12).  `learners()` is read under the four keys
+§3 declares, the rule catalogue among them: D-19 makes it `learning_rules`, carrying
+more than one member and never the singular constant it replaced (`docs/L1/rules.md`
+§2, D-19).  A name that is absent, or that returns a shape the next module cannot
+consume, is one finding per name (`battery.md` §3 FAM-1).
 """
 
 import importlib.util
@@ -130,12 +132,17 @@ class SurfaceAtTheJoin(J.JoinCase):
             self.assertIsInstance(
                 declared, Mapping, "learners() must return one mapping (surface §3)"
             )
-            for key in ("backends", "architectures", "learning_rule", "hyper"):
+            for key in (
+                "backends",
+                "architectures",
+                "learning_rules",
+                "hyper",
+            ):
                 self.assertIn(
                     key,
                     declared,
-                    "learners() must carry the %r key (docs/L2/agents/surface.md §3)"
-                    % (key,),
+                    "learners() must carry the %r key (docs/L2/agents/surface.md §3, "
+                    "docs/L1/rules.md §2, D-19)" % (key,),
                 )
             self.assertEqual(
                 len(declared["backends"]), 2, "learners() declares two backends"
@@ -144,6 +151,13 @@ class SurfaceAtTheJoin(J.JoinCase):
                 len(declared["architectures"]),
                 0,
                 "learners() must declare its architecture kinds",
+            )
+            self.assertGreaterEqual(
+                len(declared["learning_rules"]),
+                2,
+                "learners() publishes the rule catalogue, and it carries more than one "
+                "member — a spec selects from it and every member is a training target "
+                "(docs/L2/agents/surface.md §3, docs/L1/rules.md §2, D-19)",
             )
 
         def check_build():

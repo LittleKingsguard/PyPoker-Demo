@@ -30,7 +30,14 @@ LEGAL = "legal"
 
 
 class Policy:
-    """One learner, frozen: its parameters, its position and its own seed."""
+    """One learner, frozen: its parameters, its position, its own seed, its rule.
+
+    `learning_rule` is the catalogue member the learner was built under.  It is the
+    only thing a policy carries that a decision does not read: `evaluation` reads it to
+    label a table's members, so a table names the population it measured even when a
+    variant was built in process and no record of it exists yet (`e2e-surface.md` §2,
+    `rules.md` §7, D-19).
+    """
 
     __slots__ = (
         "_backend",
@@ -40,9 +47,12 @@ class Policy:
         "_position",
         "_encoder",
         "_facts",
+        "learning_rule",
     )
 
-    def __init__(self, backend, layout, state, seed, position, encoder, facts):
+    def __init__(
+        self, backend, layout, state, seed, position, encoder, facts, learning_rule
+    ):
         self._backend = backend
         self._layout = layout
         self._state = state
@@ -50,12 +60,14 @@ class Policy:
         self._position = position
         self._encoder = encoder
         self._facts = tuple(facts)
+        self.learning_rule = learning_rule
 
     def __repr__(self):
-        return "Policy(%r, position %d, seed %d)" % (
+        return "Policy(%r, position %d, seed %d, %s)" % (
             self._layout.kind,
             self._position,
             self._seed,
+            self.learning_rule,
         )
 
     def __call__(self, readout, legal_actions):
@@ -122,4 +134,7 @@ def as_policy(learner, encoder, seed):
         int(held.position),
         encoder,
         (LEGAL,) + tuple(encoded["fields"]),
+        # The rule the frozen model learned under, carried so a table can name the
+        # population it measured (`e2e-surface.md` §2, `rules.md` §7, D-19).
+        held.rule,
     )

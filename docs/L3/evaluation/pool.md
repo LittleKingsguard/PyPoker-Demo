@@ -1,106 +1,88 @@
 # evaluation — the bounded pool
 
-- **Owner:** the pool — the `Pool` value, `build_pool`, `pool_members`, `offer` and the draw `opponent` makes:
-  the declaration, the **lineage order**, the window, the **id digest**, the frozen flag, the read-back, the
-  eviction rule and every refusal (`surface.md` §5–§8, `league.md` §1–§2)
+- **Owner:** the pool — the `Pool` value (§1), the declaration (§2), the read-back (§5), the draw `opponent` makes (§7),
+  every refusal (§8) and what is free (§9); the **lineage order**, the **id digest** and `offer`'s eviction are
+  `families.md`'s (§3, §4, §6) (`surface.md` §5–§8, `league.md` §1–§2)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** `declarations.md` §4, `scheduler.md` §5, `matrix.md` §1, `errors.md` §2–§4
+- **Read with:** `families.md` §1–§6, `declarations.md` §4, `scheduler.md` §5, `matrix.md` §1, `errors.md` §2–§4
+
+D-19 gave the window more than one estimator, and the three sections that followed from it — the lineage order, the id
+digest and `offer`'s eviction — moved to `families.md` under their own owner. Their **numbers stay here as redirects**,
+because other layers cite `pool.md` §3, §4 and §6 by number (`README.md` §2, D-12, ASM-26, ASM-27).
 
 ## 1. The value
 
-A pool is one ordered member list plus its bound, its frozen flag and its id — both the opposition the training
-loop samples and a table's rows and columns (`league.md` §1, D-16). It is **opaque**: a caller only passes it
-back to `pool_members`, `offer`, `opponent` and `matrix` (`surface.md` §1). `src/evaluation/pool.py`:
+A pool is one ordered member list plus its bound, its frozen flag and its id — both the opposition the training loop
+samples and a table's rows and columns (`league.md` §1, D-16). It is **opaque**: a caller only passes it back to
+`pool_members`, `offer`, `opponent` and `matrix` (`surface.md` §1). `src/evaluation/pool.py`:
 
     class Pool:                       # immutable; no caller reads it, no record exposes it
-        id:      str                  # §4's digest
+        id:      str                  # families.md §4's digest
         m:       int                  # the bound this pool holds to, 1 … league()["m"]
         frozen:  bool                 # records.md §8's required flag
-        members: tuple                # §5's ordered records, the three baselines first
+        members: tuple                # §5's ordered records, the families contiguous (families.md §2)
 
-`offer` returns a **new** `Pool` and leaves its argument unchanged, so a caller may keep an earlier pool; nothing here caches, registers or mutates (`surface.md` §7).
+`offer` returns a **new** `Pool` and leaves its argument unchanged, so a caller may keep an earlier pool; nothing here
+caches, registers or mutates (`surface.md` §7).
 
 ## 2. From a declaration to a membership
 
-`build_pool(declaration)` reads exactly three keys — `members`, `m` and `frozen` — and every one is
-**required** (`records.md` §8, `surface.md` §5):
+`build_pool(declaration)` reads exactly three keys — `members`, `m` and `frozen` — and every one is **required**
+(`records.md` §8, `surface.md` §5):
 
-1. `members` is a sequence of member records, possibly empty: R1's pool is the three baselines alone (`league.md` §2), and each record must carry an `id` and a `lineage`, both non-empty `str` (`records.md` §7). An `id` that **is one of the three pinned baselines' names** is refused, naming the member: the three are pinned in every pool, so such a version would name one member twice (`surface.md` §5, `errors.md` §2, §4).
+1. `members` is a sequence of member records, possibly empty: R1's pool is the three baselines alone (`league.md` §2), and each record must carry an `id`, a `lineage` and a `rule`, all three non-empty `str` (`records.md` §7, §8). An `id` that **is one of the three pinned baselines' names** is refused, naming the member: the three are pinned in every pool, so such a version would name one member twice (`surface.md` §5, `errors.md` §4). A `rule` the catalogue does not carry is `UnknownRule`, naming the member, the name and the catalogue — never mapped onto the declared default (`families.md` §6, D-19).
 2. `m` is a positive integer no larger than `league()["m"]`: a declaration may be **tighter** than M and never
    wider (`league.md` §2, D-16). A `bool` is refused — a flag is not a bound.
 3. `frozen` is a boolean flag (`bool` or the NumPy scalar `bool_`). It is stored, not interpreted: `offer`
    refuses a frozen pool and `matrix` refuses an unfrozen one (`surface.md` §7, §10).
-4. The versions are ordered by §3 and **windowed to their last `m`**: a declaration richer than the bound is
-   windowed, never refused (`league.md` §2, ASM-18).
+4. The versions are grouped into **families** and ordered, then **windowed to `m`** by the fair-share eviction rule
+   `offer` uses: a declaration richer than the bound is windowed, never refused, unless it holds more than `m`
+   families (`families.md` §2–§3, `league.md` §2, ASM-18, ASM-26).
 5. The three baselines are added **first**, in `agents.baselines()`'s order, each as `{"id": <name>, "baseline": True, "pinned": True, "params": 0}` — a baseline's id is its name (D-16).
-6. The id is computed from the ordered ids (§4) and the pool returned.
+6. The id is computed from the ordered member lines (`families.md` §4) and the pool returned.
 
-A member's other keys — `path`, `rung`, `variant`, `seed`, `step`, `samples` — are **carried, not required**: only `id`
-and `lineage` are refused when absent, because only those two declare a version and order the window (`surface.md` §5). A
-member declared **without** `path` is admitted, and `matrix` and `opponent` refuse it when it is asked to be a policy.
+A member's other keys — `path`, `rung`, `variant`, `seed`, `step`, `samples` — are **carried, not required**; `id`,
+`lineage` and `rule` are the three that are refused when absent, because the first two declare a version and order the
+window and the third says which population it belongs to (`records.md` §7, D-19, `surface.md` §5). A member declared
+**without** `path` is admitted, and `matrix` and `opponent` refuse it when it is asked to be a policy (`pool.md` §8).
 
-## 3. The lineage order — one chain per link
+## 3. The lineage order — the families' order: `families.md` §1–§2
 
-A version's `lineage` is the id of the version it descends from, or its rung's own start label for the first
-(`records.md` §7, ASM-18). `_lineage_order(members)` therefore:
+The order that stood here is now the **families**: one lineage chain each, every member under one rule, the chains
+listed contiguously oldest to newest and the families in the order they entered the window. §2 step 4 above applies it
+and `families.md` §1–§2 owns it, with its three unorderable declarations (`ASM-26`, `records.md` §7).
 
-1. indexes the declaration by `id`; two records carrying one id are refused (`MemberDuplicate`);
-2. indexes it by `lineage`; **two members descending from one** are refused (`LineageConflict`), naming both —
-   the window would have two successors for one link and so no order (`surface.md` §5);
-3. calls a member whose `lineage` is not a declared `id` a **start** — `"R3/start"`, a rung label such as
-   `"R6-residual"`, or any id the declaration does not hold;
-4. walks each start by following `lineage == id`; the walk's members, oldest first, are one **chain**;
-5. refuses a chain that reaches no start (`LineageCycle`, naming a member on it): a walk that revisits a member
-   is a cycle, and a declared member no walk visits sits on one (`records.md` §7, `surface.md` §5);
-6. orders the chains by **the position of their start in the declaration's `members` sequence** and concatenates
-   them, each chain oldest to newest. One chain is the common case — a rung inherits one lineage — and then this
-   step does nothing; a declaration holding two (R4's two arms, say) is taken in the order it lists them.
+## 4. The id digest — `families.md` §4
 
-The result is the ordered version list, **oldest first**, which §5 reads back and §6 rolls.
-
-## 4. The id digest
-
-The id is a function of the **ordered member ids and of nothing else**, so it changes when and only when the
-membership does, and two arms of a pair prove they held one pool by comparing it (`records.md` §8, ASM-16):
-
-    payload = "\n".join(ids).encode("utf-8")          # ids: §5's order, baselines first, then versions
-    id      = "pool-" + hashlib.sha256(payload).hexdigest()[:16]
-
-`ids` are the member ids exactly as their records spell them, joined by a single `"\n"` with no trailing
-separator; the digest is SHA-256, lowercase hex, truncated to its first **16** characters, prefixed `pool-`. An
-id that is empty or carries a `"\n"` is refused at `build_pool` and at `offer` (`MemberInvalid`), because a
-separator inside an id would make two memberships digest alike.
-
-Excluded from the payload, deliberately: `m`, `frozen` and every other member field — a corrected `seed` or `step` does not rename the pool, and neither does a re-declared bound (`surface.md` §5's "and of nothing else"). The id is a plain `str`, it is the pool record's first key, and it is what a run record and a matrix are compared by (`records.md` §8, §12).
+The payload is one line per member — a baseline's `id` alone, a version's `id`, `"\x1f"` and its `rule` — joined by
+`"\n"`, and the id is `"pool-" + sha256(payload).hexdigest()[:16]`. `families.md` §4 owns the digest, why the rule is
+inside it, and why a baselines-only pool keeps the id it had (`ASM-27`, `records.md` §8).
 
 ## 5. `pool_members` — the read-back
 
 `pool_members(pool)` returns `records.md` §8's pool record, freshly built on each call so a caller that edits it
 changes nothing:
 
-    {"id": <§4's id>, "m": <the bound>, "frozen": <the flag>, "members": (<the ordered records>,)}
+    {"id": <families.md §4's id>, "m": <the bound>, "frozen": <the flag>,
+     "members": (<the ordered records>,), "rules": (<the distinct rules the versions declare>,)}
 
-`members` is §1's tuple: the three baselines first, then the window **oldest to newest**. Each baseline is its
-four-key record of §2 step 5; each version is the `records.md` §7 record the declaration carried, its own keys
-and values untouched. A frozen pool's read-back does not change while it is used, which is how a pair's parity
-is read (`surface.md` §6).
+`members` is §1's tuple: the three baselines first, then the window **oldest to newest**, each family contiguously
+(`families.md` §2). Each baseline is its four-key record of §2 step 5; each version is the `records.md` §7 record the
+declaration carried — its `rule` included — with its own keys and values untouched. `rules` is the **distinct** rules
+its version members declare, in the window's order, and the **empty tuple** for R1's pool: a baseline is a fixed rule
+and not a trained estimator, so it contributes none, and `rules` is the population a table over this pool measured
+(`records.md` §8, `families.md` §2, D-19, ASM-16). A frozen pool's read-back does not change while it is used, which is
+how a pair's parity is read (`surface.md` §6).
 
-## 6. `offer` — advance a pool by one version
+## 6. `offer`'s rolling — `families.md` §3, §5
 
-`offer(pool, version)` returns a new pool whose window has one more version at its head (`surface.md` §7):
-
-1. the argument must be a `Pool` (`InvalidPool`) and must be **unfrozen** (`PoolFrozen`, naming the flag);
-2. the version must carry `id` and `lineage` (§2 item 1's rule, `MemberInvalid`) and must not already be a
-   member (`MemberDuplicate`, naming it);
-3. when the window holds a version, the offered version's `lineage` must be the **newest** version member's `id`
-   (`LineageNotExtended`, naming the lineage given and the id it had to extend) — the window has one order and
-   an offer extends it (`league.md` §2). A window holding no version accepts any version and begins its order;
-4. the version joins at the head, and **when the window already holds `m` versions the oldest one leaves and
-   nothing else does**: the baselines are pinned and never evicted (`surface.md` §7, ASM-16);
-5. the id is recomputed from the new ordered ids (§4) and the new pool returned; the argument is unchanged.
-
-`offer` plays no hand, moves no stream and re-reads no checkpoint: it is a declaration operation on a named
-object, not a side effect of training (`league.md` §1, ASM-2).
+`offer(pool, version)` returns a new pool in which the version extends **exactly one family** — the one whose newest
+member it names, or a new family when its `lineage` names no member — and a full window evicts **fair-share**, the
+oldest member of the family that holds the most, so no family is emptied while another holds two or more
+(`families.md` §3, §5, ASM-26). `families.md` §5 owns the four outcomes and §6 their refusals. What this section keeps
+is §2's guarantee at the pool's surface: the baselines are pinned and never evicted, the argument pool is unchanged, and
+the version's own `rule` is required and checked exactly as §2 step 1 checks a declared member's (`league.md` §2,
+`surface.md` §7).
 
 ## 7. `opponent` — the training loop's draw
 
@@ -114,10 +96,12 @@ object, not a side effect of training (`league.md` §1, ASM-2).
 
 A baseline is drawn at the caller's seed and a version at the seed its checkpoint records, read from the container
 (`scheduler.md` §5.1, `records.md` §7), so a drawn opponent is one policy that answers one decision one way
-(`agents/surface.md` §10, ASM-2). It refuses a seed that is not an integer (`InvalidSeed`), a value that is not a pool
-(`InvalidPool`), and a drawn version carrying no `path` (`MemberUnloadable`, naming the member) — a version that cannot be
-loaded cannot be an opponent (`records.md` §7, `protocol.md` §5). Nothing else: the draw is the seed's position in the
-ordering (`league.md` §3, FAM-7.9).
+(`agents/surface.md` §10, ASM-2). A drawn version's record carries a `rule`, and the policy its file records must
+agree: a disagreement is `RuleMismatch`, naming the member and both values, raised after the load and before a hand is
+played (`scheduler.md` §5–§6, D-19). It refuses a seed that is not an integer (`InvalidSeed`), a value that is not a
+pool (`InvalidPool`), and a drawn version carrying no `path` (`MemberUnloadable`, naming the member) — a version that
+cannot be loaded cannot be an opponent (`records.md` §7, `protocol.md` §5). Nothing else: the draw is the seed's
+position in the ordering (`league.md` §3, FAM-7.9).
 
 **What `seed % n` promises.** One seed draws one member every time, and it does **not** make distinct seeds distinct
 members — only `n` residues exist, so two seeds congruent modulo `n` draw one member. It promises a spread: `n`
@@ -131,14 +115,17 @@ policy (FAM-7.9).
 |---|---|---|
 | `build_pool` | `PoolDeclarationInvalid` | the argument is not a mapping, or is missing `members`, `m` or `frozen`, or `frozen` is not a boolean — the key is named |
 | `build_pool` | `PoolBoundInvalid` | `m` is not a positive integer, is a `bool`, or exceeds `league()["m"]` — the bound is named |
-| `build_pool`, `offer` | `MemberInvalid` | a member is not a mapping, or its `id` or `lineage` is missing, empty or holds a newline |
+| `build_pool`, `offer` | `MemberInvalid` | a member is not a mapping, or its `id`, `lineage` or `rule` is missing, empty, or holds a newline or the digest's separator (`families.md` §6) |
+| `build_pool`, `offer` | `UnknownRule` | the `rule` is not one the catalogue carries — the member, the name and the catalogue (`families.md` §6, D-19) |
 | `build_pool` | `MemberUnloadable` | a declared `path` names no readable file — the member is named (`protocol.md` §5) |
-| `build_pool`, `offer` | `MemberDuplicate` | two records carry one id, a declared id is one of the three baselines' names (`surface.md` §5), or an offered version is already a member |
-| `build_pool` | `LineageConflict` | two members descend from one (`surface.md` §5) |
-| `build_pool` | `LineageCycle` | a chain reaches no start (`surface.md` §5) |
+| `build_pool`, `offer` | `MemberDuplicate` | two records carry one id, or a declared id is one of the three baselines' names, or an offered version is already a member |
+| `build_pool` | `LineageConflict`, `LineageCycle` | two members descend from one, or a chain reaches no start — §3's order has none (`families.md` §1) |
+| `build_pool` | `RuleMismatch` | a family's members declare two rules — the member and both rules (`families.md` §6) |
+| `build_pool`, `offer` | `FamilyBoundExceeded` | the families asked for exceed the bound `m` — the count and the bound (`families.md` §3) |
 | `pool_members`, `offer`, `opponent` | `InvalidPool` | the argument is not a pool this module built (`surface.md` §6) |
 | `offer` | `PoolFrozen` | the pool is frozen and its membership does not change while it is used |
-| `offer` | `LineageNotExtended` | the version's lineage is not the window's newest version member |
+| `offer` | `LineageNotExtended` | the lineage is not its family's newest member (`families.md` §5) |
+| `offer` | `RuleMismatch` | the version's rule differs from the family it extends — the version and both rules |
 | `opponent` | `InvalidSeed` | the seed is not an integer |
 | `opponent` | `MemberUnloadable`, `CheckpointRecordMissing` | the drawn version carries no `path`, or its container records no seed or encoding name — `scheduler.md` §6's classes |
 
@@ -146,5 +133,8 @@ Each message follows `errors.md` §3's grammar and is raised before anything is 
 
 ## 9. What is deliberately free
 
-- the `Pool`'s storage (a class, a `NamedTuple`, a dataclass) and its repr: only §1's four facts and their immutability are contract; whether `members` reads back as a tuple or a list, and whether a record is copied deeply or shallowly — a caller compares values;
-- the order of the three baselines within the first three positions is `agents.baselines()`'s; that they come first is this design's (§2 step 5).
+- the `Pool`'s storage (a class, a `NamedTuple`, a dataclass) and its repr: only §1's four facts and their
+  immutability are contract; whether `members` reads back as a tuple or a list, and whether a record is copied deeply or
+  shallowly — a caller compares values;
+- the order of the three baselines within the first three positions is `agents.baselines()`'s; that they come first is
+  this design's (§2 step 5), and that they are never inside a family is `families.md` §2's.

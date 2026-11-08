@@ -160,6 +160,12 @@ START_LABEL = "own-start-5500"
 TABLE_SEED_HAND = 771113
 HANDS_PER_CELL = 120
 
+#: The learning-rule catalogue's two members (`rules.md` §2, D-19), by the names the
+#: battery asserts against; the catalogue itself is always read off `agents.learners()`.
+DEFAULT_RULE = "masked-q-learning"
+OTHER_RULE = "double-q-learning"
+RULES = (DEFAULT_RULE, OTHER_RULE)
+
 #: The invented configuration label an unregistered rung carries (`ladder.md` §1).
 RUNG_NAME = "R7-heron-ladder"
 
@@ -363,13 +369,24 @@ def draw_index(seed, size):
     return seed % size
 
 
-def pool_digest(ids):
-    """`pool.md` §4's id: the ordered ids joined by one ``\\n``, SHA-256, 16 hex, prefixed.
+def pool_digest(members):
+    """`families.md` §4's id: one line per member, SHA-256, 16 hex, prefixed.
 
-    Recomputed in the case so a digest over member records, a `repr` or a salted
-    `hash()` is red (`guardrails.md` G2).
+    A baseline contributes its id alone and a version contributes its `id`, ``\\x1f``,
+    then its `rule`; the lines are joined by one ``\\n`` with no trailing separator.
+    Recomputed in the case so a digest over member records, a `repr` or a salted `hash()`
+    is red, and so a digest of the ids alone is red for a version (`guardrails.md` G2,
+    ASM-27).
     """
-    payload = "\n".join(ids).encode("utf-8")
+    lines = []
+    for member in members:
+        if isinstance(member, str):
+            lines.append(member)
+        elif member.get("baseline"):
+            lines.append(str(member["id"]))
+        else:
+            lines.append("%s\x1f%s" % (member["id"], member["rule"]))
+    payload = "\n".join(lines).encode("utf-8")
     return "pool-" + hashlib.sha256(payload).hexdigest()[:16]
 
 
@@ -663,13 +680,16 @@ def version_record(
     samples=0,
     rung=RUNG_NAME,
     variant="heron",
+    rule=DEFAULT_RULE,
 ):
     """One `records.md` §7 version record, with the `path` only when the battery has one.
 
-    `records.md` §7 marks `id` and `path` required, while `docs/L2/evaluation/surface.md`
-    §5 admits a declared member without a `path` and lets `matrix`/`opponent` refuse it
-    when it must be a policy. A record built here without a path is that admitted
-    version and nothing else.
+    `records.md` §7 marks `id`, `path` and — D-19's key — `rule` required, while
+    `docs/L2/evaluation/surface.md` §5 admits a declared member without a `path` and lets
+    `matrix`/`opponent` refuse it when it must be a policy.  A record built here without a
+    path is that admitted version and nothing else.  `rule` defaults to the catalogue's
+    first member, the declared default of `rules.md` §4, so every caller that predates the
+    catalogue keeps the version it built before.
     """
     record = {
         "id": member_id_value,
@@ -679,17 +699,19 @@ def version_record(
         "step": step,
         "samples": samples,
         "lineage": lineage,
+        "rule": rule,
     }
     if path is not None:
         record["path"] = path
     return record
 
 
-def version_chain(ids, start=START_LABEL, paths=None):
+def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE):
     """A single lineage chain, oldest first, declared in lineage order.
 
     The first member descends from `start`, the i-th from the (i-1)-th, which is how a
-    rung's snapshots are declared (`pool.md` §3, `records.md` §7).
+    rung's snapshots are declared (`pool.md` §3, `records.md` §7).  One chain under one
+    rule is one family (`families.md` §1, ASM-26).
     """
     records = []
     for index, member in enumerate(ids):
@@ -703,6 +725,7 @@ def version_chain(ids, start=START_LABEL, paths=None):
                 seed=LEARNER_SEED + index,
                 step=100 * (index + 1),
                 samples=1200 * (index + 1),
+                rule=rule,
             )
         )
     return records
@@ -723,21 +746,48 @@ def baseline_members():
     return [baseline_member(name) for name in BASELINES]
 
 
-def pool_record(members=(), m=5, frozen=True, identity=None):
+def pool_record(members=(), m=5, frozen=True, identity=None, rules=()):
     """A hand-built `records.md` §8 pool record: baselines first, then the versions.
 
     `report` reads its `pool` family as this shape (`report.md` §2, `surface.md` §13),
     and a hand-built one keeps the report cases free of `build_pool`'s cost and of its
-    own defects (`errors.md` §1: a report is assembled from records alone).
+    own defects (`errors.md` §1: a report is assembled from records alone).  `rules` is
+    the distinct set its version members declare (`records.md` §8, D-19); it defaults to
+    the empty tuple, which is what a baselines-only row declares, and is derived from the
+    members when a case hands over versions without stating it.
     """
     ordered = baseline_members() + [dict(entry) for entry in members]
     ids = [member_id(entry) for entry in ordered]
+    declared = tuple(rules) if rules else declared_rules(ordered)
     return {
-        "id": identity or pool_digest(ids),
+        "id": identity or pool_digest(ordered),
         "m": m,
         "frozen": frozen,
         "members": tuple(ordered),
+        "rules": declared,
     }
+
+
+def declared_rules(members):
+    """The distinct rules a members sequence declares, in its order (`records.md` §8)."""
+    seen = []
+    for entry in members:
+        if isinstance(entry, Mapping) and entry.get("baseline"):
+            continue
+        name = entry.get("rule") if isinstance(entry, Mapping) else None
+        if isinstance(name, str) and name not in seen:
+            seen.append(name)
+    return tuple(seen)
+
+
+def pool_rules(record):
+    """The `rules` a pool record declares — a **required** key of `records.md` §8."""
+    if not isinstance(record, Mapping) or "rules" not in record:
+        raise AssertionError(
+            "a pool record carries `rules`, the distinct rules its version members declare "
+            "(records.md §8, D-19): %r" % (record,)
+        )
+    return record["rules"]
 
 
 # ---------------------------------------------------------------------------
@@ -1013,14 +1063,16 @@ def scratch_root():
 _CHECKPOINTS = {}
 
 
-def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="naive-stack", width=4, depth=1, backend="numpy"):
+def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="naive-stack", width=4, depth=1, backend="numpy", rule=None):
     """A real checkpoint saved by `agents.save`, cached per class of spec.
 
     The learner is built through `agents.build_learner` and saved through
-    `agents.save`; the checkpoint's own container records the seed and the encoding
-    name that `policy_from` must read (`scheduler.md` §5.1, `surface.md` §12).
+    `agents.save`; the checkpoint's own container records the seed, the encoding name
+    that `policy_from` must read (`scheduler.md` §5.1, `surface.md` §12) and -- D-19's
+    field -- the rule its learner was trained under (`rules.md` §6).  `rule` defaults to
+    none declared, which `build_learner` builds under the catalogue's first member.
     """
-    key = (name, seed, encoding, kind, width, depth, backend)
+    key = (name, seed, encoding, kind, width, depth, backend, rule)
     if key not in _CHECKPOINTS:
         encoder = features().build_encoder(encoding)
         spec = {
@@ -1029,6 +1081,8 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
             "seed": seed,
             "encoder": encoder,
         }
+        if rule is not None:
+            spec["learning_rule"] = rule
         learner = agents().build_learner(spec)
         path = os.path.join(scratch_root(), name + "-%d.ckpt" % seed)
         agents().save(learner, path)
@@ -1040,6 +1094,7 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
             "encoding": encoding,
             "kind": kind,
             "seed": seed,
+            "rule": rule,
             "params": agents().param_count(learner),
         }
     return _CHECKPOINTS[key]
@@ -1351,6 +1406,23 @@ class EvaluationCase(unittest.TestCase):
 
     def checkpoint(self, name="member", **kwargs):
         return checkpoint(name=name, **kwargs)
+
+    def catalogue_rules(self):
+        """The learning-rule catalogue `agents.learners()` publishes, in declared order.
+
+        `rules.md` §2 makes `learning_rules` the catalogue a learner spec selects from and
+        §4 makes its first member the declared default.  The names are read off the
+        granted arrow and never copied from a document, so a battery asserts against the
+        module's own catalogue (`module-map.md` §2, D-19).
+        """
+        declared = agents().learners()
+        for key, value in declared.items():
+            if "rule" in token(key) and isinstance(value, Mapping):
+                return tuple(str(name) for name in value)
+        raise AssertionError(
+            "agents.learners() publishes the learning-rule catalogue (rules.md §2, D-19): "
+            "%r carries none" % (sorted(str(key) for key in declared),)
+        )
 
     def stream_state(self):
         """The global `random` stream's state, which only the deal may move (`surface.md` §1)."""

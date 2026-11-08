@@ -25,6 +25,7 @@ import unittest
 from _evaluation_support import (
     BASELINES,
     BUDGETS,
+    DEFAULT_RULE,
     POOL_M,
     VERSION_IDS,
     START_LABEL,
@@ -185,7 +186,7 @@ class MatrixTest(EvaluationCase):
                         )
 
     def test_evl_4_5_the_record_carries_its_keys_and_the_cell_count(self):
-        """EVL-4.5 the record's five required keys come first in `matrix.md` §5's order, then `pool`, `member_records`, `unlabelled` and `cell_count`; `unlabelled` names the opaque variant's unmeasured zero and a variant record is its three-key record (`matrix.md` §5, `records.md` §10, G11, G14)."""
+        """EVL-4.5 the record's seven required keys come first in `records.md` §10's order, then `pool`, `member_records`, `unlabelled` and `cell_count`; `unlabelled` names the opaque variant's unmeasured zero and a variant record is its four-key record (`matrix.md` §5, §7, `records.md` §10, G11, G14)."""
         package = self.evaluation()
         matrix = self.shared_matrix("k5")
         self.assertEqual(
@@ -193,6 +194,8 @@ class MatrixTest(EvaluationCase):
             (
                 "members",
                 "cells",
+                "rules",
+                "population",
                 "hands_per_cell",
                 "table_seed",
                 "table",
@@ -201,7 +204,7 @@ class MatrixTest(EvaluationCase):
                 "unlabelled",
                 "cell_count",
             ),
-            "matrix returns exactly matrix.md §5's keys, in its order, the five "
+            "matrix returns exactly matrix.md §5's keys, in its order, the seven "
             "records.md §10 keys first (matrix.md §5, G14): %r" % (tuple(matrix),),
         )
         members = matrix_member_ids(matrix)
@@ -737,6 +740,62 @@ class MatrixTest(EvaluationCase):
                     "so the same three baseline cells appear in the table holding the "
                     "version as in the %s table that holds none (matrix.md §3-§4, G13)"
                     % (key,),
+                )
+
+
+    # -- the rules the table met, and the population they make up (D-19) ---
+    def test_evl_4_11_a_matrix_names_each_member_s_rule_and_its_population(self):
+        """EVL-4.11 a matrix's `rules` names each member's rule by its id -- `None` for a baseline and for a variant handed in as an opaque policy -- and its `population` is the distinct rules those members declared, sorted (`matrix.md` §5, `records.md` §10, D-19)."""
+        matrix = self.shared_matrix("k5")
+        members = matrix_member_ids(matrix)
+        rules = matrix["rules"]
+        self.assertEqual(
+            sorted(rules),
+            sorted(members),
+            "a matrix states each member's rule by its id, so the mapping names the whole "
+            "membership (records.md §10, e2e-surface.md §2, D-19): %r" % (rules,),
+        )
+        for name in BASELINES:
+            with self.subTest(baseline=name):
+                self.assertIsNone(
+                    rules[name],
+                    "a baseline is a fixed rule and declares none, and the table says so "
+                    "with `None` (records.md §10, D-19): %r" % (rules,),
+                )
+        self.assertEqual(
+            rules["variant-1"],
+            DEFAULT_RULE,
+            "a variant handed in as a member policy reports the rule its learner was built "
+            "under, so the table names the estimator it measured (rules.md §7, D-19): %r"
+            % (rules,),
+        )
+        self.assertIsNone(
+            rules["variant-2"],
+            "an opaque variant carries no rule and the record invents none (records.md "
+            "§10, errors.md §5): %r" % (rules,),
+        )
+        self.assertEqual(
+            tuple(matrix["population"]),
+            (DEFAULT_RULE,),
+            "the matrix's `population` is the distinct rules its members declared, sorted, "
+            "with the baselines' `None` excluded (records.md §10, D-19): %r"
+            % (matrix["population"],),
+        )
+        records = list(matrix["member_records"])
+        for record, name in zip(records, members):
+            with self.subTest(member=name):
+                self.assertIn(
+                    "rule",
+                    record,
+                    "each member record carries the rule its policy carries, so a reader "
+                    "of one row is told which estimator it is (matrix.md §5, D-19): %r"
+                    % (record,),
+                )
+                self.assertEqual(
+                    record["rule"],
+                    rules[name],
+                    "a member's record and the table's `rules` name one rule (matrix.md "
+                    "§5): %r against %r" % (record["rule"], rules[name]),
                 )
 
 

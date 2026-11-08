@@ -15,11 +15,13 @@ import sys
 import unittest
 
 try:  # discovered as part of the tests.e2e package (unittest discover -t .)
+    from . import _records as R  # noqa: F401
     from . import _surface as S  # noqa: F401
 except ImportError:  # discovered as a plain directory, as pytest's prepend mode does
     _HERE = os.path.dirname(os.path.abspath(__file__))
     if _HERE not in sys.path:
         sys.path.insert(0, _HERE)
+    import _records as R  # noqa: E402
     import _surface as S  # noqa: E402
 
 FAMILIES = S.FAMILIES
@@ -216,6 +218,39 @@ class FAM11Report(S.SurfaceCase):
                 text,
                 "the protocol's header carries %r, which is what makes a table re-runnable "
                 "(protocol.md §1, D-6): %r" % (token, declared),
+            )
+
+    def test_fam11_13_the_report_s_pool_family_carries_the_measured_population_s_rules(self):
+        """FAM-11.13 the pool family carries the rules the measured population held."""
+        # The table is the battery's two-rule one (five members, ten cells, built once per
+        # process and shared): a report whose population is two estimators is the only one
+        # that can show the family carrying a *set* (D-19, battery.md §2).
+        league = S.shared_rule_league(self)
+        record = self.evidence_record(
+            self.run_record("R2", (S.SEED_A,), S.BUDGET_TINY),
+            matrix=league["matrix"],
+            rating=league["rating"],
+            pool_row=self.members(league["pool"]),
+            seeds=(S.SEED_A,),
+            budget=S.BUDGET_TINY,
+        )
+        report = self.report_of("R2", record, league["matrix"], league["rating"])
+        pool_family = S.family_value(report, "pool")
+        self.assertIsNotNone(
+            pool_family,
+            "a report carries its pool family under the design's own name, so a case can "
+            "read the row itself and not a flattened copy of the whole report (protocol.md "
+            "§1, records.md §13): %r" % (sorted(str(key) for key in report),),
+        )
+        body = R.tok(S.flatten_text(pool_family))
+        for rule in S.RULES:
+            self.assertIn(
+                R.tok(rule),
+                body,
+                "the report's pool family carries the rules the measured population held, "
+                "so a reader of the pool row is told which estimators the table measured "
+                "(e2e-surface.md §3.4 `report`, battery.md §3 FAM-11, D-19): %r"
+                % (pool_family,),
             )
 
 

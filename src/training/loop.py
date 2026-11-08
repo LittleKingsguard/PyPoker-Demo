@@ -172,14 +172,20 @@ def _param_budget(configuration, entry):
     declared budget, so the order is the entry's own `param_budget`, then the
     configuration's, then `declarations.PARAM_BUDGET` — and no capacity is measured
     (`agents.param_count` is not among the four granted `agents` calls, `module-map.md`
-    §2, ASM-10, docs/L2/training/declarations.md §2).
+    §2, ASM-10, docs/L2/training/declarations.md §2). A declared number is resolved
+    through `declarations.check_param_budget_value`, so a `bool`, a non-integer or a value
+    below one never reaches the ±2% band; `declarations.PARAM_BUDGET` is the module's own
+    data rather than a declaration and is returned as it stands (docs/L3/training/errors.md
+    §4).
     """
+    where = configuration.get("name")
     declared = entry.get("param_budget")
-    if declared is None:
-        declared = configuration.get("param_budget")
-    if declared is None:
-        declared = declarations.PARAM_BUDGET
-    return int(declared)
+    if declared is not None:
+        return declarations.check_param_budget_value(declared, where, entry.get("name"))
+    declared = configuration.get("param_budget")
+    if declared is not None:
+        return declarations.check_param_budget_value(declared, where)
+    return declarations.PARAM_BUDGET
 
 
 def _pool(configuration):
@@ -228,14 +234,50 @@ def _timings(start, hands):
     }
 
 
+def _declared_rule(configuration, entry):
+    """The rule a variant declares — its entry's, else its configuration's, else `None`.
+
+    A rule is read at either level, so a configuration may carry the declaration beside its
+    entries and an entry may name its own; a level that declares none — or declares `None`
+    — is no claim, and `None` is returned so a caller passes no rule at all rather than a
+    rule this module substituted (docs/L2/training/declarations.md §1–§2, rules.md §4,
+    D-19).
+    """
+    declared = entry.get("learning_rule")
+    if declared is not None:
+        return declared
+    declared = configuration.get("learning_rule")
+    if declared is not None:
+        return declared
+    return None
+
+
+def _trained_rule(configuration, entry):
+    """The rule a variant's learner is built under: the declared one, else the first.
+
+    A variant naming no rule is built by `agents` under the catalogue's **first** member,
+    so the rule is resolved by reading `declarations.learning_rules()` — the catalogue
+    `agents.learners()` publishes — and never by standing `declarations.LEARNING_RULE` in
+    for it, because that constant is what the six rows declare and not a default this
+    module owns (rules.md §4, D-19, docs/L3/training/loop.md §1 step 3).
+    """
+    declared = _declared_rule(configuration, entry)
+    if declared is not None:
+        return declared
+    return declarations.learning_rules()[0]
+
+
 def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     """Steps 3-8 for one variant at one seed: train, snapshot, save, and measure.
 
     The interval is `budget // 10` and not the declared `snapshot_every`, because ASM-18
     fixes ten equally spaced snapshots at whatever budget the run was given. The learner is
-    built at the run seed itself; the hand's deal seed and opponent seed are `seeds.py`'s
-    derivations, so both arms of a pair play the same hands against the same opponents
-    (protocol.md §4, ASM-2, ASM-8).
+    built at the run seed itself, under the rule the entry — else its configuration —
+    declares: a spec naming none carries no `learning_rule` key at all, so `agents` builds
+    the catalogue's first and this module substitutes no rule of its own (D-19, rules.md
+    §4). The hand's deal seed and opponent seed are `seeds.py`'s derivations, so both arms
+    of a pair play the same hands against the same opponents (protocol.md §4, ASM-2,
+    ASM-8).
 
     `agents.save` is handed `layout._write_path` of a declared path — the write root,
     which is the declared `<repo>/checkpoints` unless the ambient override names another
@@ -253,14 +295,16 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     interval = max(1, int(budget) // declarations.SNAPSHOTS)
     encoder = features.build_encoder(entry["encoding"])
     features.observation_spec(encoder)
-    learner = agents.build_learner(
-        {
-            "backend": entry["backend"],
-            "architecture": dict(entry["architecture"]),
-            "seed": int(seed),
-            "encoder": encoder,
-        }
-    )
+    spec = {
+        "backend": entry["backend"],
+        "architecture": dict(entry["architecture"]),
+        "seed": int(seed),
+        "encoder": encoder,
+    }
+    rule = _declared_rule(configuration, entry)
+    if rule is not None:
+        spec["learning_rule"] = rule
+    learner = agents.build_learner(spec)
     policy = policies._learner_policy(learner, encoder)
     layout._prepare(name, variant, seed)
     curve = curves._Curve(curves._axis(int(budget), interval))
@@ -361,6 +405,25 @@ def _recorded_members(members):
     return recorded
 
 
+def _member_rules(members):
+    """The distinct rules the pool's **version** members declare, in membership order.
+
+    `records.md` §8's pool record carries `rules` — the population a table over the pool
+    measured — and a run record's `pool` block carries the same set, because a run says
+    which estimators its opposition was trained under (`records.md` §8, §12, `rules.md` §7,
+    D-19). It is read off the members `pool_members` returned and never invented here: the
+    three pinned baselines declare no rule, so a baselines-only window reports an empty set
+    (`records.md` §7, §8; `docs/L3/training/loop.md` §3).
+    """
+    rules = []
+    for member in members:
+        rule = member.get("rule") if isinstance(member, Mapping) else None
+        if rule is None or rule in rules:
+            continue
+        rules.append(rule)
+    return rules
+
+
 def _record(
     configuration,
     pool_id,
@@ -375,7 +438,15 @@ def _record(
     table,
     interval,
 ):
-    """Step 9: `records.md` §12's record and this module's own three evidence keys."""
+    """Step 9: `records.md` §12's record and this module's own three evidence keys.
+
+    `rules` is the distinct set of rules the run trained, in declaration order and deduped:
+    one name for a ladder rung, whose six rows declare the catalogue's first, and two for a
+    configuration whose arms name two estimators (`records.md` §12, rules.md §7, D-19). The
+    `pool` block carries the same kind of set for the opposition — `_member_rules` of the
+    members `pool_members` returned — because `records.md` §12 makes the pool's `rules` part
+    of the record (`records.md` §8, D-19).
+    """
     params = {}
     for entry in configuration["variants"]:
         budget = _param_budget(configuration, entry)
@@ -384,6 +455,11 @@ def _record(
             "lower": budget * (1.0 - declarations.PARAM_TOLERANCE),
             "upper": budget * (1.0 + declarations.PARAM_TOLERANCE),
         }
+    rules = []
+    for entry in configuration["variants"]:
+        rule = _trained_rule(configuration, entry)
+        if rule not in rules:
+            rules.append(rule)
     record = {
         "rung": configuration.get("name"),
         "curves": curve_block,
@@ -393,6 +469,7 @@ def _record(
             "m": int(pool_record["m"]),
             "frozen": bool(pool_record["frozen"]),
             "members": _recorded_members(pool_record["members"]),
+            "rules": _member_rules(pool_record["members"]),
         },
         "checkpoints": checkpoints_block,
         "seeds": list(seed_set),
@@ -402,6 +479,7 @@ def _record(
         "table": table,
         "timings": timings_block,
         "variants": variant_block,
+        "rules": rules,
     }
     record["header"] = _header(
         configuration, table, hands, seed_set, device, checkpoints_block, interval
@@ -433,6 +511,7 @@ def run(rung, seeds=None, budget=None, device=None):
     table = _table(configuration)
     for entry in configuration["variants"]:
         declarations.check_variant(entry, str(configuration.get("name")))
+    declarations.check_param_budget(configuration)
     declarations.check_declarations(configuration)
     pool, pool_id, pool_record = _pool(configuration)
     interval = max(1, hands // declarations.SNAPSHOTS)
@@ -461,6 +540,7 @@ def run(rung, seeds=None, budget=None, device=None):
                 "backend": entry["backend"],
                 "encoding": entry["encoding"],
                 "architecture": dict(entry["architecture"]),
+                "learning_rule": _trained_rule(configuration, entry),
                 "samples": int(entry.get("samples", hands)),
                 "snapshot_every": int(interval),
             }

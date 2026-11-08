@@ -344,6 +344,207 @@ class FAM6Pool(S.SurfaceCase):
             "before %r, after %r" % (before, R.version_members(self.members(rolled))),
         )
 
+    # -- the rule a member was trained under (D-19) ------------------------
+    def test_fam6_13_a_version_member_carries_the_rule_it_was_trained_under(self):
+        """FAM-6.13 a version member records the rule its model was trained under."""
+        version = self.version("kestrel", rule=S.RULE_SECOND)
+        _pool, row = self.built([version])
+        member = None
+        for record in R.member_records(row):
+            if R.tok(record.get("id")) == R.tok(version["id"]):
+                member = record
+                break
+        self.assertIsNotNone(
+            member,
+            "pool_members returns the version members it holds, by id (records.md §8): %r"
+            % (R.member_ids(row),),
+        )
+        self.assertEqual(
+            R.version_rule(member),
+            S.RULE_SECOND,
+            "records.md §7 makes `rule` a required key of a version member — the catalogue "
+            "member it was trained under — so a table can name the population it measured "
+            "and a member is never confused with one from another rule (rules.md §6, D-19): "
+            "%r" % (member,),
+        )
+
+    def test_fam6_14_pool_members_reports_the_rules_the_pool_holds(self):
+        """FAM-6.14 a pool record states the distinct rules its versions declare."""
+        # Two families under two rules: one lineage chain each, every member of a family
+        # trained under that family's rule (league.md §2, ASM-26).
+        masked = R.version_chain(self, ("kestrel", "bramble"), rule=S.RULE_DEFAULT)
+        doubled = R.version_chain(
+            self,
+            ("thistle", "quarry"),
+            rule=S.RULE_SECOND,
+            lineage_start="R5-residual-battery",
+        )
+        _pool, row = self.built(masked + doubled)
+        rules = R.pool_rules(row)
+        self.assertEqual(
+            sorted(R.rule_names_of(rules)),
+            sorted(S.RULES),
+            "a pool record carries `rules` — the distinct rules its version members "
+            "declare — because that is the population a table over it measured (records.md "
+            "§8, league.md §2, D-19): %r" % (rules,),
+        )
+        _single_pool, single_row = self.built(masked)
+        self.assertEqual(
+            R.rule_names_of(R.pool_rules(single_row)),
+            [S.RULE_DEFAULT],
+            "a pool whose versions are one family under one rule declares that one rule, "
+            "which is what every pool in the shipped tree holds today (rules.md §8): %r"
+            % (R.pool_rules(single_row),),
+        )
+
+    def test_fam6_15_the_pool_id_certifies_the_rule_and_no_other_field(self):
+        """FAM-6.15 the id changes with a member's rule, not with its step or samples."""
+        masked = self.version("kestrel", rule=S.RULE_DEFAULT)
+        doubled = self.version("kestrel", rule=S.RULE_SECOND)
+        self.assertEqual(
+            masked["id"],
+            doubled["id"],
+            "the two members compared here are the same version under two rules, so both "
+            "carry one id and only the rule moves (records.md §7, ASM-27): %r against %r"
+            % (masked["id"], doubled["id"]),
+        )
+        for key in ("rung", "variant", "seed", "step", "samples", "lineage"):
+            self.assertEqual(
+                masked[key],
+                doubled[key],
+                "the two members differ on their rule and on nothing else, so the pool id "
+                "difference below is the rule's: %r differs (%r against %r)"
+                % (key, masked[key], doubled[key]),
+            )
+        one, one_row = self.built([masked])
+        two, two_row = self.built([doubled])
+        self.assertNotEqual(
+            R.pool_id(one, one_row),
+            R.pool_id(two, two_row),
+            "the pool id digests each version's id and its rule, so two pools of one "
+            "membership under two estimators do not wear one id — a table must be able to "
+            "say which population a rating was fitted over (records.md §8, ASM-27, D-19)",
+        )
+        corrected = dict(masked)
+        corrected["step"] = int(masked["step"]) + 907
+        corrected["samples"] = int(masked["samples"]) + 811
+        three, three_row = self.built([corrected])
+        self.assertEqual(
+            R.pool_id(one, one_row),
+            R.pool_id(three, three_row),
+            "`m`, `frozen` and every other member field stay outside the digest's payload, "
+            "so a corrected step or sample count does not rename the pool — the id changes "
+            "when and only when the membership does (records.md §8, ASM-27)",
+        )
+
+    def test_fam6_16_a_version_naming_an_uncatalogued_rule_is_refused(self):
+        """FAM-6.16 a version declaring a rule the catalogue lacks is refused by name."""
+        offending = "n-step-returns-battery"
+        version = self.version("kestrel")
+        version["rule"] = offending
+        text = S.refusal_text(lambda: self.built([version]))
+        self.assertIsNotNone(
+            text,
+            "a version declaring a rule outside the catalogue is refused where it is "
+            "declared, and never mapped onto the declared default (rules.md §4, §6, "
+            "records.md §7, D-19): the declaration %r built a pool" % (version,),
+        )
+        self.assertIn(
+            R.tok(offending),
+            R.tok(text),
+            "the refusal names the rule it refused (rules.md §4): %r" % (text,),
+        )
+
+    def test_fam6_17_a_second_family_rolls_in_and_a_full_window_keeps_every_family(self):
+        """FAM-6.17 a second family is accepted, and fair-share eviction keeps each one."""
+        # One family resident: a second family's next version is a label no member
+        # carries, which opens a new family rather than extending the one that is there
+        # (league.md §2, ASM-26).
+        first = R.version_chain(self, ("kestrel", "bramble"), rule=S.RULE_DEFAULT)
+        pool, row = self.advancing(first)
+        self.assertEqual(
+            len(R.version_members(row)),
+            2,
+            "the case starts from one family of two versions (league.md §2): %r"
+            % (R.version_members(row),),
+        )
+        opening = R.make_version(
+            self,
+            "thistle",
+            seed=S.SEED_C,
+            step=53,
+            lineage="R5-battery-family-b",
+            rule=S.RULE_SECOND,
+        )
+        pool = self.ep("evaluation", "offer")(pool, opening)
+        members = R.version_members(self.members(pool))
+        self.assertIn(
+            "version-thistle",
+            members,
+            "a version whose lineage is a label no member carries opens a second family, and "
+            "the offer is accepted where a single-chain window refused a second chain "
+            "(league.md §2, ASM-26, D-19): %r" % (members,),
+        )
+        self.assertEqual(
+            len(members),
+            3,
+            "the window grew by the version it was offered and dropped nothing, because it "
+            "was under its bound (league.md §2): %r" % (members,),
+        )
+
+        # Two families of three at a bound of four: the full window evicts fair-share, so
+        # neither family is emptied while the other holds two or more (ASM-26).
+        alpha = R.version_chain(
+            self,
+            ("alpha1", "alpha2", "alpha3"),
+            rule=S.RULE_DEFAULT,
+            lineage_start="R6-battery-family-a",
+        )
+        bravo = R.version_chain(
+            self,
+            ("bravo1", "bravo2", "bravo3"),
+            rule=S.RULE_SECOND,
+            lineage_start="R5-battery-family-b",
+        )
+        full_pool, full_row = self.advancing(alpha + bravo, m=4)
+        kept = R.version_members(full_row)
+        self.assertEqual(
+            len(kept),
+            4,
+            "a pool holds at most the bound it declares, which may be tighter than the "
+            "league's M (league.md §2, records.md §8): %r" % (kept,),
+        )
+        for family in ("alpha", "bravo"):
+            self.assertTrue(
+                any(member.startswith("version-" + family) for member in kept),
+                "the window's eviction is fair-share: the version that leaves is the "
+                "oldest of the family that holds the most, so no family is emptied while "
+                "another holds two or more (league.md §2, ASM-26, D-19): %r" % (kept,),
+            )
+
+        seventh = R.next_version(self, "alpha4", alpha[-1], rule=S.RULE_DEFAULT)
+        rolled = self.ep("evaluation", "offer")(full_pool, seventh)
+        after = R.version_members(self.members(rolled))
+        self.assertEqual(
+            len(after),
+            4,
+            "offering into a full window keeps the window at its bound (league.md §2): %r"
+            % (after,),
+        )
+        self.assertIn(
+            "version-alpha4",
+            after,
+            "the offered version extends its family's newest member, so it joins the window "
+            "(league.md §2, ASM-26): %r" % (after,),
+        )
+        for family in ("alpha", "bravo"):
+            self.assertTrue(
+                any(member.startswith("version-" + family) for member in after),
+                "after a seventh version is offered, the window still holds a member of "
+                "each family, which is how heterogeneity survives the bound (league.md §2, "
+                "ASM-26, D-19): %r" % (after,),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,6 +28,7 @@ from _evaluation_support import (
     ALT_HANDS,
     BOOTSTRAP_TAG,
     CELL_TAG,
+    DEFAULT_RULE,
     HAND_TAG,
     MATCH_HANDS,
     MATCH_SEED,
@@ -35,6 +36,8 @@ from _evaluation_support import (
     ODD_HANDS,
     OTHER_LEARNER_SEED,
     OTHER_MATCH_SEED,
+    OTHER_RULE,
+    POOL_M,
     START_LABEL,
     VERSION_IDS,
     EvaluationCase,
@@ -596,6 +599,94 @@ class SchedulerTest(EvaluationCase):
             "both opaque sides' zeros are unmeasured and named in unlabelled "
             "(scheduler.md §4, G11): %r" % (unlabelled_of(first),),
         )
+
+
+    def test_evl_3_18_a_cell_names_the_rule_each_member_carried(self):
+        """EVL-3.18 a cell's `rules` names each member's rule by its id -- the catalogue member its policy carries, `None` for a baseline or an opaque callable -- so a cell says which estimators met (`scheduler.md` §4-§5, `records.md` §9, D-19)."""
+        package = self.evaluation()
+        saved = self.checkpoint(name="rule-member")
+        policy = package.policy_from(saved["path"])
+        cell = package.match(policy, first_legal, MATCH_HANDS, MATCH_SEED)
+        rules = cell["rules"]
+        self.assertEqual(
+            sorted(rules),
+            sorted(member_id(entry) for entry in cell["members"]),
+            "a cell's `rules` names each member of its pair by the cell's own ids "
+            "(records.md §9, D-19): %r" % (rules,),
+        )
+        self.assertEqual(
+            tuple(rules.values())[0],
+            DEFAULT_RULE,
+            "a member policy built from a checkpoint reports the rule its learner was "
+            "built under, so the cell names the estimator that met (rules.md §7, "
+            "e2e-surface.md §2, D-19): %r" % (rules,),
+        )
+        self.assertIsNone(
+            tuple(rules.values())[1],
+            "an opaque callable carries no rule, and the cell says so with `None` rather "
+            "than inventing one (records.md §9, e2e-surface.md §2): %r" % (rules,),
+        )
+        with self.subTest(case="a baseline cell declares none"):
+            baseline_cell = package.match("random", "oracle", MATCH_HANDS, MATCH_SEED)
+            self.assertEqual(
+                tuple(baseline_cell["rules"].values()),
+                (None, None),
+                "a baseline is a fixed rule and not a trained estimator, so both sides of "
+                "a baseline cell declare no rule (records.md §9, D-19): %r"
+                % (baseline_cell["rules"],),
+            )
+
+    def test_evl_3_19_policy_from_reports_the_rule_its_container_records(self):
+        """EVL-3.19 the policy `policy_from` returns carries the rule the checkpoint records, read from the policy `agents.as_policy` built and never inferred (`scheduler.md` §5-§5.1, `surface.md` §12, `rules.md` §6, D-19)."""
+        package = self.evaluation()
+        for rule in (DEFAULT_RULE, OTHER_RULE):
+            with self.subTest(rule=rule):
+                saved = self.checkpoint(name="rule-%s" % (token(rule),), rule=rule)
+                policy = package.policy_from(saved["path"])
+                self.assertEqual(
+                    getattr(policy, "learning_rule", None),
+                    rule,
+                    "a checkpoint records the rule its learner was trained under, and the "
+                    "policy reports it, because playback is rule-free and the file is the "
+                    "only witness (rules.md §6, surface.md §12): %r" % (saved["path"],),
+                )
+
+    def test_evl_3_20_a_member_record_contradicting_its_checkpoint_is_refused(self):
+        """EVL-3.20 a version record whose `rule` disagrees with the rule its checkpoint records is refused naming the member and both values, before a cell is played (`scheduler.md` §5, `records.md` §7, ASM-20, D-19)."""
+        package = self.evaluation()
+        saved = self.checkpoint(name="contradicted-member")
+        honest = version_record(
+            VERSION_IDS[0], START_LABEL, path=saved["path"], rule=DEFAULT_RULE
+        )
+        cell = package.match(honest, "always-call", MATCH_HANDS, MATCH_SEED)
+        self.assertEqual(
+            cell["rules"][VERSION_IDS[0]],
+            DEFAULT_RULE,
+            "a member record that agrees with its file is played and its rule recorded "
+            "(records.md §7, scheduler.md §5): %r" % (cell["rules"],),
+        )
+        liar = dict(honest, rule=OTHER_RULE)
+        self.assert_evaluation_refusal(
+            package.match,
+            liar,
+            "always-call",
+            MATCH_HANDS,
+            MATCH_SEED,
+            entry="match",
+            groups=((OTHER_RULE,), (DEFAULT_RULE,)),
+            label="a member record contradicting its checkpoint's rule",
+        )
+        with self.subTest(case="the same contradiction through a table"):
+            pool = self.frozen_pool(members=[liar], m=POOL_M)
+            self.assert_evaluation_refusal(
+                package.matrix,
+                pool,
+                [first_legal],
+                "live",
+                entry="matrix",
+                groups=((OTHER_RULE,), (DEFAULT_RULE,)),
+                label="a table over a member record that contradicts its checkpoint",
+            )
 
 
 if __name__ == "__main__":

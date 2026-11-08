@@ -8,10 +8,14 @@ rule — the offending value in the message. A refused call has no observable ef
 §1, `e2e-surface.md` §2).
 
 Rev 2 adds this module's two declaration refusals (`docs/L2/training/declarations.md`
-§2-§4): `TRN-9.15` drives `IgnoredDeclaration`'s six shapes and the two blocks that are no
-claim, and `TRN-9.16` the `run` half of `PairDeclarationsDiffer` — a pair `fairness` is
-asked to hold constant is `TRN-7.8`'s, in `test_fairness.py`, because `fairness` owns that
-message.
+§2-§4): `TRN-9.15` drives `IgnoredDeclaration`'s seven shapes and the two blocks that are
+no claim, and `TRN-9.16` the five settings §4 has `PairDeclarationsDiffer` refuse at
+`run` — the other two of the seven, `hyper` and `snapshot_every`, are refused earlier and
+per arm by `IgnoredDeclaration`, so the pair class is unreachable for them, and a pair
+`fairness` is asked to hold constant is `TRN-7.8`'s, in `test_fairness.py`, because
+`fairness` owns that message. Rev 3 adds `TRN-9.17`: a `learning_rule` the catalogue does
+not carry is judged before the pool is built, so a run refused for its rule freezes no
+membership and deals no hand (`rules.md` §4, D-19).
 
 The instances are the battery's: an invented rung name, an invented device, an invented
 backend, encoding and kind, a seed and a budget no design document carries
@@ -44,13 +48,13 @@ from _training_support import (
     INVENTED_RUNG,
     INVENTED_SECOND_BUDGET,
     INVENTED_VARIANT,
-    LEARNING_RULE,
     PAIR_SAMPLES,
     PARAM_BUDGET,
     REFUSED_SEED,
     RUN_SEED,
     RUNG_NAMES,
     SNAPSHOTS,
+    SPREAD_SEED,
     TINY_BUDGET,
     TrainingCase,
     as_mapping,
@@ -63,6 +67,7 @@ from _training_support import (
     error_root,
     paths_mentioning,
     training,
+    two_rule_names,
     variant_entries,
     with_architecture,
     with_pool,
@@ -359,7 +364,8 @@ class RefusalTest(TrainingCase):
         return body
 
     def test_trn_9_15_ignored_declaration_names_the_declared_and_the_used_value(self):
-        """TRN-9.15 a `learning_rate` the declaration does not carry, an `exploration` written as a sentence, an unknown `hyper` key, another `learning_rule` and a `snapshot_every` off the declared budget ÷ 10 at either level are each `IgnoredDeclaration`, naming the entry, the configuration, the key, the value declared **and** the value the run uses; a block that equals the declaration and one that names neither key at all are no claim and are not refused (declarations.md §2-§3, errors.md §2, §4, loop.md §1 step 1, §2, ASM-7, ASM-18)."""
+        """TRN-9.15 a `learning_rate` the declaration does not carry, an `exploration` written as a sentence, an unknown `hyper` key, a `learning_rule` the catalogue does not carry and a `snapshot_every` off the declared budget ÷ 10 at either level are each `IgnoredDeclaration`, naming the entry, the configuration, the key, the value declared **and** the catalogue or value the run uses; a block that equals the declaration and one that names neither key at all are no claim and are not refused, and the two rules a `learning_rule` is judged against are the catalogue's own, read from `agents.learners()` (declarations.md §2-§3, errors.md §2, §4, loop.md §1 step 1, §2, ASM-7, ASM-18, D-19)."""
+        first_rule, second_rule = two_rule_names()
         interval = "the interval the declared %d samples fix, %d" % (
             TINY_BUDGET,
             TINY_BUDGET // SNAPSHOTS,
@@ -399,10 +405,12 @@ class RefusalTest(TrainingCase):
                 self.configuration_with(
                     hyper=dict(HYPER, **{IGNORED_HYPER_KEY: IGNORED_HYPER_VALUE})
                 ),
+                # `errors.md` §4 fixes this shape's tokens — the key, its own value and the
+                # six names `HYPER` carries — and not the wording of the clause between
+                # them, so no phrase of that clause is pinned here.
                 (
                     (IGNORED_HYPER_KEY,),
                     (str(IGNORED_HYPER_VALUE),),
-                    ("no such declaration",),
                     ("learning_rate",),
                     ("batch_size",),
                     ("target_update_interval",),
@@ -415,15 +423,16 @@ class RefusalTest(TrainingCase):
                 ),
             ),
             (
-                "a learning_rule naming another rule",
+                "a learning_rule the catalogue does not carry",
                 self.configuration_with(learning_rule=IGNORED_RULE),
                 (
                     (IGNORED_RULE,),
-                    (LEARNING_RULE,),
                     ("learning_rule",),
                     (INVENTED_VARIANT,),
                     (INVENTED_CUSTOM,),
-                    ("declarations.py",),
+                    (first_rule,),
+                    (second_rule,),
+                    ("agents.learners()", "catalogue"),
                 ),
             ),
             (
@@ -463,13 +472,31 @@ class RefusalTest(TrainingCase):
                 label="run with a configuration-level snapshot_every off the interval",
             )
 
+        own_rule = dict(custom_configuration())
+        own_rule["learning_rule"] = IGNORED_RULE
+        with self.subTest(declaration="a configuration-level learning_rule"):
+            self.refuse(
+                lambda: training().run(own_rule),
+                "IgnoredDeclaration",
+                groups=(
+                    (IGNORED_RULE,),
+                    ("learning_rule",),
+                    (INVENTED_CUSTOM,),
+                    (first_rule,),
+                    (second_rule,),
+                    ("agents.learners()", "catalogue"),
+                ),
+                label="run with a configuration-level learning_rule off the catalogue",
+            )
+
         accepted = as_mapping(custom_run(), "a run record of the invented configuration")
         self.assertEqual(
             as_text(accepted["rung"], "rung"),
             INVENTED_CUSTOM,
-            "a block that carries the declared `hyper` and the declared `learning_rule` "
-            "is no claim and is not refused, and the run returns its record (declarations.md "
-            "§2): %r" % (accepted["rung"],),
+            "a block that carries the declared `hyper` and a catalogued `learning_rule` is "
+            "accepted and the run returns its record, so what is refused is an uncatalogued "
+            "name and never a rule the run is not fixed to (declarations.md §2, rules.md §2, "
+            "§4, D-19): %r" % (accepted["rung"],),
         )
         bare = self.configuration_with()
         del bare["variants"][0]["hyper"]
@@ -533,8 +560,22 @@ class RefusalTest(TrainingCase):
         )
 
     def test_trn_9_16_pair_declarations_differ_names_both_values(self):
-        """TRN-9.16 a two-entry configuration whose arms declare two `samples`, two `table` or two `param_budget` values is `PairDeclarationsDiffer`, and the message names the key and both arms' declared values in declaration order; the class `fairness` raises for two `hyper` blocks is `TRN-7.8`'s in `test_fairness.py` (declarations.md §4, errors.md §2, §4, loop.md §1 step 1, §6, ASM-8, ASM-16)."""
+        """TRN-9.16 a two-entry configuration whose arms declare two `samples`, two `seeds`, two `device`, two `table` or two `param_budget` values — the five of §4's seven settings this class refuses — is `PairDeclarationsDiffer`, and the message names the key and both arms' declared values in declaration order; `hyper` and `snapshot_every` never reach this class, because each is refused earlier and per arm by `IgnoredDeclaration` (TRN-9.15), the pair class being unreachable for them, and the two `hyper` blocks `fairness` is asked to hold constant are `TRN-7.8`'s in `test_fairness.py` (declarations.md §4, errors.md §2, §4, loop.md §1 step 1, §6, ASM-7, ASM-8, ASM-16)."""
         left = with_setting(variant_entries(custom_configuration())[0], name=INVENTED_PAIR_LEFT)
+        catalogue = as_mapping(training().devices(), "the device catalogue")
+        available = [
+            as_text(name, "a device name")
+            for name in as_sequence(catalogue["available"], "'available'")
+        ]
+        shared_device = as_text(catalogue["default"], "'default'")
+        # A device name is read from the catalogue and never invented (`devices.md` §1, §3):
+        # the pair's second declaration is the first name `available` lists beside the
+        # shared one, and `available` is `['cpu']` on every platform by Rev 3 — a reachable
+        # GPU adds no name — so on this platform the second value is the battery's invented
+        # device, which names a device in no design document (`battery.md` §4).
+        second_device = next(
+            (name for name in available if name != shared_device), INVENTED_DEVICE
+        )
         shapes = (
             (
                 "two sample budgets",
@@ -545,6 +586,31 @@ class RefusalTest(TrainingCase):
                     ("%d and %d" % (TINY_BUDGET, PAIR_SAMPLES),),
                     (str(TINY_BUDGET),),
                     (str(PAIR_SAMPLES),),
+                ),
+            ),
+            (
+                "two seed sets",
+                with_setting(left, seeds=[RUN_SEED]),
+                with_setting(left, name=INVENTED_PAIR_RIGHT, seeds=[SPREAD_SEED]),
+                (
+                    ("seeds",),
+                    (
+                        "%d and %d" % (RUN_SEED, SPREAD_SEED),
+                        "[%d] and [%d]" % (RUN_SEED, SPREAD_SEED),
+                    ),
+                    (str(RUN_SEED),),
+                    (str(SPREAD_SEED),),
+                ),
+            ),
+            (
+                "two devices",
+                with_setting(left, device=shared_device),
+                with_setting(left, name=INVENTED_PAIR_RIGHT, device=second_device),
+                (
+                    ("device",),
+                    ("%r and %r" % (shared_device, second_device),),
+                    (shared_device,),
+                    (second_device,),
                 ),
             ),
             (
@@ -580,6 +646,29 @@ class RefusalTest(TrainingCase):
                     ),
                     label="run of a pair declaring %s" % (label,),
                 )
+
+    def test_trn_9_17_an_uncatalogued_rule_is_refused_before_the_pool_is_built(self):
+        """TRN-9.17 a configuration whose variant names a rule off the catalogue **and** whose pool declaration its owner would refuse is refused as `IgnoredDeclaration` naming the rule — so the declaration is judged at step 1, before the pool is frozen, before a learner is built and before the first hand is dealt — and the refusal raises no hand (declarations.md §2-§3, loop.md §1 steps 1-2, §6, errors.md §1-§2, rules.md §4, D-19)."""
+        body = custom_configuration()
+        body["variants"][0]["learning_rule"] = IGNORED_RULE
+        # A bound above the league's M = 5 is `build_pool`'s own refusal (`loop.md` §6): if
+        # the declaration were judged after the pool, this run would raise that class.
+        body["pool"] = dict(body["pool"], m=6)
+        before = random.getstate()
+        self.refuse(
+            lambda: training().run(body),
+            "IgnoredDeclaration",
+            groups=(
+                (IGNORED_RULE,),
+                ("learning_rule",),
+                (INVENTED_CUSTOM,),
+                (INVENTED_VARIANT,),
+            ),
+            label="run naming an uncatalogued rule beside a pool its owner refuses",
+        )
+        self.assert_no_hand_dealt(
+            before, "a run refused for the rule its variant declares"
+        )
 
 
 if __name__ == "__main__":

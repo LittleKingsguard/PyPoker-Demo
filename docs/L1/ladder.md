@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 rung ladder as configuration
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-08
-- **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8)
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
+- **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8), and the set of learning rules a rung declares (D-19)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
 ## 1. A rung is a configuration, not a script
@@ -29,6 +29,12 @@ residual path (`strata/records/residual-stream-research.md`, D-3). The **primary
 the next rung inherits, and it is the variant whose row the next rung's table carries (D-16). The
 single-variant rungs are R1, R2 and R3.
 
+**A rung's variants may be trained under different rules** (D-19): the six rungs declare
+`masked-q-learning` on every variant today, so the *set* of rules a rung declares is one rule and the
+ladder is unchanged. A rung declaring one variant per rule would instead train **both** variants, take
+K = 10 on its table and double the hands it plays — that is D-19's own re-baseline and L0's decision,
+not this page's (D-19, `rules.md` §7, §8).
+
 ## 3. The configuration schema
 
 One rung configuration is a mapping; `training.rung(name)` resolves it, and `training.run` accepts either a rung name or a configuration written to this same schema, which is how the blind instance of `training.run` is expressed.
@@ -42,8 +48,8 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 | variant `backend` | `numpy` for R1, `torch` from R2 on (D-7) |
 | variant `encoding` | `flat-numeric` for R1/R2, `card-tokens` for R3–R6 (D-3) |
 | variant `architecture` | the kind — naive stack, token embedding, wide, deep, sparse, residual, plain — with its width, depth, sparsity and residual settings (D-3) |
-| variant `learning_rule` | fixed for the whole ladder: masked Q-learning over the three-index vocabulary (ASM-7) |
-| variant `hyper` | learning rate, exploration schedule, batch size, target update interval — identical within a comparison pair (ASM-7) |
+| variant `learning_rule` | the rule this variant is **trained** under: one of the catalogue's members (`rules.md` §2, D-19), absent meaning the catalogue's first and declared so in `records.md` §2; two variants of one configuration may name two rules |
+| variant `hyper` | learning rate, exploration schedule, batch size, target update interval — one declaration per rule and identical within a comparison pair (ASM-7, D-19) |
 | variant `param_budget`, `samples`, `seeds`, `device` | the budgets and the seed set of §6 |
 | variant `snapshot_every` | how many hands between two snapshots that feed the rolling window (ASM-18) |
 | variant `table` | the table budget this variant's row is measured at, `live` or `full` (`league.md` §6) |
@@ -56,7 +62,7 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 - the three-index action vocabulary from `features.action_space` (D-2);
 - the readout facts of `e2e-surface.md` §2 — the information set, identical for every encoding (D-3);
 - the reward: the seat's net chip delta for the completed hand, delivered at the terminal decision, with no shaping (ASM-12);
-- the learning rule and every hyperparameter above, the optimiser family, and the exploration schedule (ASM-7);
+- the **set** of learning rules the two sides declare, with every hyperparameter above, the optimiser family, the exploration schedule and the discount — the set, not one rule, is what a rung holds constant, and a pair may differ on the rule itself when that is its declared axis (ASM-7, D-19, `rules.md` §8);
 - the sample budget, counted in hands, and the parameter budget within ±2% as measured by `agents.param_count` (ASM-8, ASM-10);
 - the frozen pool: the same pool id, the same members and the same window, recorded by both arms' run records (D-16, ASM-16);
 - the seed set, and the table budget with its hand count per cell and its seat alternation (D-16);

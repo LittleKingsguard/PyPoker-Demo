@@ -66,7 +66,7 @@ class PoolIdsDiffer(TrainingError):
 
 
 class IgnoredDeclaration(TrainingError):
-    """`run`: a declared `learning_rule`, `hyper` key or `snapshot_every` the run would not use (ASM-7, ASM-18)."""
+    """`run`: a declared `learning_rule` the catalogue does not carry, a `hyper` key, or a `snapshot_every` the run would not use (ASM-7, ASM-18, D-19)."""
 
 
 class PairDeclarationsDiffer(TrainingError):

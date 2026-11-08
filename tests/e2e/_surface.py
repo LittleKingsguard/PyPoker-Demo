@@ -71,6 +71,11 @@ EQUITY_SAMPLES = 257
 VERSION_WIDTH = 61     # the invented version's learner size
 VERSION_DEPTH = 2
 
+# One architecture, two rules: the size both learners of a rule pair are built at, so a
+# rule swap is one axis and no capacity moves with it (rules.md §3, ASM-10, D-19).
+RULE_WIDTH = 53
+RULE_DEPTH = 3
+
 # The fixed league's own numbers (league.md §2, §6; ASM-14).  A pool declaration and
 # a league assertion use these because a pool's bound and a table's cell size belong
 # to the one league of D-16 and are not the battery's to invent.
@@ -81,6 +86,14 @@ FULL_CELL_HANDS = 1500
 FLAT = "flat-numeric"
 TOKENS = "card-tokens"
 BASELINES = ("random", "always-call", "oracle")
+
+# The learning-rule catalogue `rules.md` §2 publishes: two members, the first of which is
+# the declared default of §4.  A case that needs "one architecture, two rules" reads the
+# names here; the catalogue itself is always read off `agents.learners()`, because the
+# names it publishes are its own (`rules.md` §2, D-19).
+RULE_DEFAULT = "masked-q-learning"
+RULE_SECOND = "double-q-learning"
+RULES = (RULE_DEFAULT, RULE_SECOND)
 
 # The seven evidence families of protocol.md §1, under the design's own names.
 FAMILIES = ("curves", "pool", "matrix", "rating", "baselines", "axis row", "header")
@@ -681,6 +694,100 @@ def _family_token(text):
     return "".join(ch for ch in str(text).lower() if ch.isalnum())
 
 
+def rule_catalogue(declared):
+    """The learning-rule catalogue ``agents.learners()`` publishes, as ordered pairs.
+
+    ``rules.md`` §2 makes ``learners()`` publish ``learning_rules``: exactly two rules,
+    in order, each with its **name** and the **target it aims at**, and its first member
+    is the declared default of §4.  The key's spelling is the design's; what the battery
+    asserts is that the catalogue exists, that it holds more than one member, and that
+    each member is a mapping naming its own rule — never the key order of the whole
+    ``learners()`` record, which is the implementation's own (``battery.md`` §2).
+
+    Returns ``[(name, member), ...]`` in the order the catalogue declares, so a case can
+    read the first member — the default — without spelling a name of its own.
+    """
+    if not isinstance(declared, Mapping):
+        raise AssertionError(
+            "agents.learners() must return a mapping in the sense of e2e-surface.md §3.3; "
+            "it returned %r" % (type(declared).__name__,)
+        )
+    found = None
+    for key, value in declared.items():
+        token = _family_token(key)
+        if "rule" not in token:
+            continue
+        if isinstance(value, Mapping):
+            found = value
+            break
+    if found is None:
+        raise AssertionError(
+            "agents.learners() publishes the learning-rule catalogue — the two rules of "
+            "rules.md §2, each with its name and its target, under a key naming the rules "
+            "(e2e-surface.md §3.3, §2 'Learning rule'): it publishes %r"
+            % (sorted(str(key) for key in declared),)
+        )
+    pairs = []
+    for key, value in found.items():
+        # A member that states its own name in a mapping is read as it is; a catalogue
+        # that lists only names is read as one member per name, so the *catalogue* is
+        # still asserted rather than the container's shape.
+        pairs.append((str(key), value if isinstance(value, Mapping) else {"name": str(key)}))
+    return pairs
+
+
+def rule_names(declared):
+    """The catalogue's member names, in the order it declares them (``rules.md`` §2)."""
+    return [name for name, _member in rule_catalogue(declared)]
+
+
+def member_rule(member):
+    """The rule name one catalogue member carries, or ``None``."""
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if token in ("name", "rule", "learningrule", "id") and isinstance(value, str):
+            return value
+    for key, value in member.items():
+        if "name" in _family_token(key) and isinstance(value, str):
+            return value
+    return None
+
+
+def member_target(member):
+    """The target one catalogue member aims at, under whatever key declares it.
+
+    ``rules.md`` §2 states each rule's target — the masked maximum of the target copy,
+    or the online parameters' argmax read off the target copy — and leaves the spelling
+    of the field to the implementation, so the field is read by what it names.
+    """
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if "target" in token or token in ("aim", "aims", "bootstrap", "updates", "formula"):
+            if isinstance(value, (str, Mapping, list, tuple)) and value:
+                return value
+    return None
+
+
+def family_value(record, family):
+    """The value a record carries under the design's own family name, or ``None``.
+
+    The mirror of :func:`has_family`: ``report`` copies each evidence family by value
+    under ``protocol.md`` §1's spelling, and a case that asserts *inside* one family —
+    the pool row's rules, the axis row's text — reads that family's value and not the
+    flattened whole record.
+    """
+    wanted = _family_token(family)
+    if isinstance(record, Mapping):
+        for key, value in record.items():
+            if _family_token(key) == wanted:
+                return value
+    return None
+
+
 def has_family(record, family):
     """Whether ``record`` carries an evidence family under the design's own name.
 
@@ -953,6 +1060,10 @@ def custom_membership(tags=("kestrel", "bramble")):
             "seed": spec["seed"],
             "step": spec["step"],
             "samples": spec["samples"],
+            # `records.md` §7 makes a version member's `rule` required (D-19); the tag
+            # table carries none, so the catalogue's declared default is the rule these
+            # invented versions name, which is what a record without a rule reads as.
+            "rule": spec.get("rule") or RULE_DEFAULT,
         })
     return members
 
@@ -988,12 +1099,10 @@ def custom_rung(pool_id="pool-r7", bound=None):
         "sparsity": 0.5,
         "residual": False,
     }
-    hyper = {
-        "learning_rate": 0.0005,
-        "batch_size": 32,
-        "target_update_interval": 200,
-        "exploration": "epsilon-greedy 1.00 -> 0.05",
-    }
+    # The hyperparameters a run will honour are the module's six declared ones, and a
+    # `hyper` block that names another value is a declaration the run refuses (ASM-7):
+    # this configuration therefore declares none, so the invented axis is the only thing
+    # it varies and no key of it is a value the run would ignore.
     return {
         "name": "R7",
         "axis": "depth-against-width at sparse connectivity",
@@ -1012,8 +1121,10 @@ def custom_rung(pool_id="pool-r7", bound=None):
                 "backend": "torch",
                 "encoding": TOKENS,
                 "architecture": architecture_deep,
-                "learning_rule": "masked-q",
-                "hyper": dict(hyper),
+                # `records.md` §2: a variant entry's `learning_rule` is one of the
+                # catalogue's members — the name the catalogue publishes, never a prefix
+                # of it (rules.md §2, D-19).
+                "learning_rule": RULE_DEFAULT,
                 "param_budget": 10000,
                 "samples": BUDGET,
                 "seeds": [SEED_A, SEED_B],
@@ -1024,8 +1135,7 @@ def custom_rung(pool_id="pool-r7", bound=None):
                 "backend": "torch",
                 "encoding": TOKENS,
                 "architecture": architecture_wide,
-                "learning_rule": "masked-q",
-                "hyper": dict(hyper),
+                "learning_rule": RULE_DEFAULT,
                 "param_budget": 10000,
                 "samples": BUDGET,
                 "seeds": [SEED_A, SEED_B],
@@ -1077,6 +1187,44 @@ def shared_league(case):
         "rating": rating,
     }
     _SHARED["league"] = value
+    return value
+
+
+def shared_rule_league(case):
+    """One table in which **two rules meet**, built once per process and shared.
+
+    The heterogeneous table D-19 exists for: the frozen pool a run trained against (the
+    three baselines alone, ``league.md`` §2) plus the rung's **two** variants, one trained
+    under each catalogue rule.  Its membership is the smallest one that holds two
+    policies of two rules — K = 5, so ten cells at the live 120 hands (``league.md`` §4,
+    §6) — and it is built once and shared, because the league is deterministic from its
+    membership and its table seed (ASM-2) and no second case should pay for the same
+    table (``battery.md`` §2).
+
+    The two variant policies are two learners of **one architecture** at one seed each,
+    so the only thing that differs between them is the rule they were built under — which
+    is what makes the table's `rules` and `population` evidence about estimators rather
+    than about capacity (``rules.md`` §3, §7).  The fixture holds no scratch path, so it
+    outlives the case that built it.
+    """
+    if "rule_league" in _SHARED:
+        return _SHARED["rule_league"]
+    pool = case.baselines_pool()
+    masked = case.rule_policy(RULE_DEFAULT, seed=SEED_I)
+    doubled = case.rule_policy(RULE_SECOND, seed=SEED_J)
+    matrix = case.ep("evaluation", "matrix")(pool, [masked, doubled], "live")
+    rating = case.ep("evaluation", "rating")(matrix)
+    value = {
+        "pool": pool,
+        "members": case.members(pool),
+        "masked": masked,
+        "doubled": doubled,
+        "variants": [masked, doubled],
+        "rules": [RULE_DEFAULT, RULE_SECOND],
+        "matrix": matrix,
+        "rating": rating,
+    }
+    _SHARED["rule_league"] = value
     return value
 
 
@@ -1134,7 +1282,7 @@ class SurfaceCase(unittest.TestCase):
         return names[0]
 
     def learner_spec(self, width=96, depth=3, seed=SEED_A, backend="numpy",
-                     kind=None, sparsity=0.0, residual=False):
+                     kind=None, sparsity=0.0, residual=False, learning_rule=None):
         """The battery's learner spec: the four names §3.3 gives, plus the settings.
 
         ``docs/L1/e2e-surface.md`` §3.3 declares ``backend, architecture, sizes,
@@ -1142,6 +1290,12 @@ class SurfaceCase(unittest.TestCase):
         as the architecture's settings.  How those are nested is the implementation's
         freedom, so the battery passes both the declared architecture descriptor and
         the declared ``sizes`` and asks only that a learner comes back.
+
+        ``learning_rule`` is ``records.md`` §3's optional rule: a spec that names one is
+        built under it, and a spec that names none — every caller before FAM-17 — is
+        built under the catalogue's first member, which is the declared default
+        (``rules.md`` §4).  The key is added only when a case names a rule, so a caller
+        that does not care about rules passes exactly the spec it passed before (D-19).
         """
         if kind is None:
             kind = self.architecture_kind("naive")
@@ -1152,12 +1306,15 @@ class SurfaceCase(unittest.TestCase):
             "sparsity": sparsity,
             "residual": residual,
         }
-        return {
+        spec = {
             "backend": backend,
             "architecture": architecture,
             "sizes": {"width": width, "depth": depth},
             "seed": seed,
         }
+        if learning_rule is not None:
+            spec["learning_rule"] = learning_rule
+        return spec
 
     def learner(self, **kwargs):
         return self.ep("agents", "build_learner")(self.learner_spec(**kwargs))
@@ -1195,8 +1352,83 @@ class SurfaceCase(unittest.TestCase):
                 kind=kind,
                 sparsity=sparsity,
                 residual=residual,
+                # `records.md` §2 makes a variant entry's `learning_rule` the rule its
+                # learner is trained under, so a learner built from an entry is built
+                # under that entry's rule and under no other (D-19).
+                learning_rule=variant_setting(variant, "learning_rule"),
             )
         )
+
+    def rule_learner(self, rule, seed=SEED_I, width=RULE_WIDTH, depth=RULE_DEPTH):
+        """A learner built under one catalogue rule (``rules.md`` §2, ``records.md`` §3)."""
+        return self.ep("agents", "build_learner")(
+            self.learner_spec(width=width, depth=depth, seed=seed, learning_rule=rule)
+        )
+
+    def rule_policy(self, rule, seed=SEED_I, width=RULE_WIDTH, depth=RULE_DEPTH):
+        """One learner under ``rule`` as a policy, on the encoder this battery uses."""
+        learner = self.rule_learner(rule, seed=seed, width=width, depth=depth)
+        return self.ep("agents", "as_policy")(learner, self.encoder(), seed)
+
+    def two_rule_rung(self, seeds=(SEED_A, SEED_B), members=(), bound=None,
+                      pool_id="pool-r9-dual-rule"):
+        """The battery's own two-rule configuration: one architecture, two rules.
+
+        It appears in no design document: its name, its axis, its two variant names, its
+        width and depth, its seed set, its pool id and the membership declaration it
+        carries are the battery's own (``battery.md`` §4).  What it declares is exactly
+        what D-19 makes legal and nothing else — two variant entries that agree on
+        ``backend``, ``encoding``, ``architecture``, ``param_budget``, ``samples``,
+        ``seeds`` and ``device`` and differ on ``learning_rule`` alone — so a run of it
+        must train **both** variants, one under each rule (``rules.md`` §7, D-19).
+        ``hyper`` is left undeclared and not varied: the six hyperparameters are one
+        declaration for both rules, so a rule swap moves no budget with it (§2, ASM-7).
+
+        The pool is the baselines alone — the cheapest window the surface allows, and the
+        one R1 declares — because a case that only needs the loop to train two rules pays
+        for no version it does not read (``battery.md`` §2).  ``members`` lets a case hand
+        it a real checkpoint it built, when the run's own pool record is read back.
+        """
+        if bound is None:
+            bound = LEAGUE_BOUND
+        kind = self.architecture_kind("naive")
+        architecture = {
+            "kind": kind,
+            "width": RULE_WIDTH,
+            "depth": RULE_DEPTH,
+            "sparsity": 0.0,
+            "residual": False,
+        }
+        variants = []
+        for name, rule in (("masked-arm", RULE_DEFAULT), ("double-arm", RULE_SECOND)):
+            variants.append(
+                {
+                    "name": name,
+                    "backend": "numpy",
+                    "encoding": FLAT,
+                    "architecture": dict(architecture),
+                    "learning_rule": rule,
+                    "param_budget": 10000,
+                    "samples": BUDGET_TINY,
+                    "seeds": list(seeds),
+                    "device": "cpu",
+                    "table": "live",
+                }
+            )
+        return {
+            "name": "R9-dual-rule",
+            "axis": "the learning rule at one architecture",
+            "carried_from": "residual",
+            "primary": "masked-arm",
+            "pool": {
+                "id": pool_id,
+                "lineage": "R6 residual",
+                "m": bound,
+                "frozen": True,
+                "members": [dict(member) for member in members],
+            },
+            "variants": variants,
+        }
 
     def policy(self, learner, encoder=None, seed=SEED_A):
         if encoder is None:
@@ -1330,25 +1562,32 @@ class SurfaceCase(unittest.TestCase):
         return out
 
     # -- the league (D-16) -------------------------------------------------
-    def version(self, tag, width=None, depth=None):
+    def version(self, tag, width=None, depth=None, rule=None):
         """One invented version, in the record shape ``records.md`` §7 pins.
 
         ``e2e-surface.md`` §2 makes a version "a checkpoint of a run, carrying an id,
         the lineage it came from and its path"; ``records.md`` §7 fixes the keys — id,
-        path, rung, variant, seed, step, samples and lineage.  The checkpoint is written
-        by ``agents.save`` at a minimal budget, so no case depends on a shipped artifact
-        (``battery.md`` §2); the tag, the lineage values, the samples and the file name
-        are the battery's own.  ``width``/``depth`` let a case make two versions differ
-        in capacity, which is how a cell's parameter counts become evidence that two
-        memberships were not the same pool.
+        path, rung, variant, seed, step, samples and lineage — and D-19 adds ``rule``,
+        the catalogue member the version was trained under, which the version's own
+        container must agree with.  The checkpoint is written by ``agents.save`` at a
+        minimal budget, so no case depends on a shipped artifact (``battery.md`` §2);
+        the tag, the lineage values, the samples and the file name are the battery's
+        own.  ``width``/``depth`` let a case make two versions differ in capacity, which
+        is how a cell's parameter counts become evidence that two memberships were not
+        the same pool.  ``rule`` is the rule the learner is built under *and* the rule
+        the record declares, so the pair is written consistently unless a case doctors
+        the record deliberately.
         """
         spec = VERSIONS[tag]
         if width is None:
             width = VERSION_WIDTH
         if depth is None:
             depth = VERSION_DEPTH
+        if rule is None:
+            rule = RULE_DEFAULT
         path = os.path.join(self.scratch(), "version-%s.pt" % tag)
-        learner = self.learner(width=width, depth=depth, seed=spec["seed"])
+        learner = self.learner(width=width, depth=depth, seed=spec["seed"],
+                               learning_rule=rule)
         written = self.ep("agents", "save")(learner, path)
         if written:
             path = str(written)
@@ -1361,9 +1600,11 @@ class SurfaceCase(unittest.TestCase):
             "step": spec["step"],
             "samples": spec["samples"],
             "lineage": spec["lineage"],
+            "rule": rule,
         }
 
-    def membership(self, tags=("kestrel",), frozen=True, width=None, depth=None):
+    def membership(self, tags=("kestrel",), frozen=True, width=None, depth=None,
+                   rule=None):
         """An invented pool declaration, in the shape ``records.md`` §8 pins.
 
         A declaration is ``members`` (the versions, by id and lineage), ``m`` (the
@@ -1372,7 +1613,7 @@ class SurfaceCase(unittest.TestCase):
         (``league.md`` §2).
         """
         return {
-            "members": [self.version(tag, width, depth) for tag in tags],
+            "members": [self.version(tag, width, depth, rule) for tag in tags],
             "m": LEAGUE_BOUND,
             "frozen": bool(frozen),
         }
@@ -1512,6 +1753,10 @@ class SurfaceCase(unittest.TestCase):
                 "step": spec["step"],
                 "samples": spec["samples"],
                 "lineage": spec["lineage"],
+                # `records.md` §7 marks a version member's rule required (D-19); this row
+                # declares the catalogue's default, which is the rule an invented version
+                # of the battery's own tag table is trained under (rules.md §4).
+                "rule": spec.get("rule") or RULE_DEFAULT,
             })
         members += [{"id": name, "baseline": True, "pinned": True} for name in BASELINES]
         identifier = "pool-" + ("-".join(tags) if tags else "baselines")

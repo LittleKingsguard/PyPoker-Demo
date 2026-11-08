@@ -3,9 +3,14 @@
 Drives `docs/L3/training/loop.md` §1-§7, `docs/L2/training/surface.md` §4 (Rev 2, §4.1's
 three further keys included) and `docs/L1/records.md` §12: the record's keys, the curve
 shape at `budget // 10`, the declared parameter band, the four timing key names, the
-`variants` block carrying the interval the run *used*, the one pool id a two-variant
-record carries, the defaults of §5, and the record of a configuration that is in no
-registry.
+`variants` block carrying the rule each variant was **built under** and the interval the
+run *used*, the record's `rules` set, the one pool id a two-variant record carries, the
+defaults of §5, and the record of a configuration that is in no registry.
+
+D-19's `TRN-2.15` is the shape the rule catalogue adds: a configuration whose two entries
+declare the catalogue's two rules trains both arms, and the record says which rule each was
+built under (`rules.md` §7-§8). The rules are read from `agents.learners()` and never
+restated here (`rules.md` §2, §4).
 
 The battery's budgets are 10 and 60 hands, so `budget // 10` is 1 and 6 and the ten
 points are observable at both (`loop.md` §2, `curves.md` §2). Every run is cached in
@@ -26,6 +31,7 @@ from _training_support import (
     INVENTED_PARAM_BUDGET,
     INVENTED_POOL,
     INVENTED_VARIANT,
+    LEARNING_RULE,
     PARAM_BUDGET,
     PARAM_TOLERANCE,
     PAIR_SEED,
@@ -50,10 +56,12 @@ from _training_support import (
     custom_run,
     curve_block,
     fallback_run,
+    learning_rules,
     member_ids,
     one_seed_run,
     other_seed_run,
     pair_run,
+    registry_run,
     repeated_run,
     repo_relative,
     resolved,
@@ -61,11 +69,16 @@ from _training_support import (
     seed_set,
     sixty_hand_run,
     training,
+    two_rule_configuration,
+    two_rule_run,
     two_seed_run,
+    variant_entries,
+    variant_name,
     write_root,
 )
 
-#: `records.md` §12's ten required keys (`surface.md` §4).
+#: `records.md` §12's required keys, `rules` among them since D-19 (`surface.md` §4,
+#: `loop.md` §3); this module's own `variants` is asserted beside them in TRN-2.1.
 REQUIRED_KEYS = (
     "rung",
     "curves",
@@ -77,6 +90,7 @@ REQUIRED_KEYS = (
     "params",
     "table",
     "timings",
+    "rules",
 )
 
 #: §4.1's three further keys a complete report needs (Rev 2, measured).
@@ -85,20 +99,22 @@ FURTHER_KEYS = ("header", "baselines", "axis row")
 #: `loop.md` §4's four timing facts, by the name each one names (FAM-13.5).
 TIMING_KEYS = ("hands", "wall_clock_seconds", "seconds_per_hand", "hands_per_second")
 
-#: `loop.md` §4's keys of one `variants` row.
+#: `loop.md` §4's keys of one `variants` row: the entry's declaration, the **rule that
+#: variant was built under**, and the interval the run used (D-19, `rules.md` §7).
 VARIANT_ROW_KEYS = (
     "name",
     "backend",
     "encoding",
     "architecture",
+    "learning_rule",
     "samples",
     "snapshot_every",
 )
 
 
 class RunTest(TrainingCase):
-    def test_trn_2_1_the_record_carries_the_ten_keys_and_the_three_further_ones(self):
-        """TRN-2.1 one run record carries `records.md` §12's ten keys, this module's `variants`, §4.1's `header` and `baselines`, and `axis row` for a one-variant rung (records.md §12, surface.md §4, §4.1, loop.md §3)."""
+    def test_trn_2_1_the_record_carries_the_required_keys_and_the_three_further_ones(self):
+        """TRN-2.1 one run record carries `records.md` §12's required keys — `rules` among them since D-19 — this module's `variants`, §4.1's `header` and `baselines`, and `axis row` for a one-variant rung (records.md §12, surface.md §4, §4.1, loop.md §3, rules.md §7, D-19)."""
         record = as_mapping(one_seed_run(), "a run record")
         for key in REQUIRED_KEYS + ("variants",) + FURTHER_KEYS:
             with self.subTest(key=key):
@@ -293,7 +309,7 @@ class RunTest(TrainingCase):
         )
 
     def test_trn_2_6_variants_carries_the_interval_the_run_used(self):
-        """TRN-2.6 `variants` is the list of `{name, backend, encoding, architecture, samples, snapshot_every}` with `samples` the entry's declared budget and `snapshot_every` the interval the run used — `budget // 10`, not the declared 100 (loop.md §2, §4, guardrails G4, FAM-12.1)."""
+        """TRN-2.6 `variants` is the list of `{name, backend, encoding, architecture, learning_rule, samples, snapshot_every}` with `samples` the entry's declared budget, `snapshot_every` the interval the run used — `budget // 10`, not the declared 100 — and `learning_rule` the rule that variant was actually built under, its own and not its mate's (loop.md §2, §4, declarations.md §1, §4, rules.md §7-§8, guardrails G4, FAM-12.1, D-19)."""
         record = sixty_hand_run()
         rows = as_sequence(record["variants"], "'variants'")
         self.assertEqual(
@@ -305,8 +321,9 @@ class RunTest(TrainingCase):
         self.assertEqual(
             set(row),
             set(VARIANT_ROW_KEYS),
-            "the row carries the entry's declaration and the interval used, and no "
-            "other key (loop.md §4): %r" % (sorted(row),),
+            "the row carries the entry's declaration, the rule the variant was built under "
+            "and the interval used, and no other key (loop.md §4, rules.md §7, D-19): %r"
+            % (sorted(row),),
         )
         self.assertEqual(
             as_int(row["samples"], "a row's samples"),
@@ -337,6 +354,57 @@ class RunTest(TrainingCase):
             "`architecture` is the entry's record copied verbatim, so the record shows "
             "the settings the run was built from (loop.md §4, records.md §2)",
         )
+        declared = as_text(
+            variant_entries(training().rung("R1"))[0]["learning_rule"],
+            "R1's declared learning_rule",
+        )
+        self.assertEqual(
+            as_text(row["learning_rule"], "a row's learning_rule"),
+            declared,
+            "`learning_rule` is the rule the variant was actually built under — the "
+            "entry's declaration, forwarded into agents.build_learner's spec — so a reader "
+            "rebuilds the learner the curve came from (loop.md §1 step 3, §4, "
+            "declarations.md §1, rules.md §4, D-19): %r" % (row["learning_rule"],),
+        )
+        invented = as_mapping(two_rule_run(), "a two-rule configuration's run record")
+        wanted = {
+            variant_name(entry): as_text(entry["learning_rule"], "a declared rule")
+            for entry in variant_entries(two_rule_configuration())
+        }
+        self.assertEqual(
+            len(set(wanted.values())),
+            2,
+            "the invented configuration declares agents.learners()' two rules, so the "
+            "rows below are two rules and not one rule twice (rules.md §2, §7-§8, D-19): "
+            "%r" % (wanted,),
+        )
+        invented_rows = [
+            as_mapping(invented_row, "a variants row")
+            for invented_row in as_sequence(invented["variants"], "'variants'")
+        ]
+        self.assertEqual(
+            [as_text(invented_row["name"], "a row's name") for invented_row in invented_rows],
+            list(wanted),
+            "a two-entry configuration's record carries one row per arm, in declaration "
+            "order (loop.md §4, rules.md §7)",
+        )
+        for invented_row in invented_rows:
+            name = as_text(invented_row["name"], "a row's name")
+            with self.subTest(variant=name):
+                self.assertEqual(
+                    set(invented_row),
+                    set(VARIANT_ROW_KEYS),
+                    "the seven keys are one row's keys, both arms included (loop.md §4, "
+                    "rules.md §7): %r" % (sorted(invented_row),),
+                )
+                self.assertEqual(
+                    as_text(invented_row["learning_rule"], "a row's learning_rule"),
+                    wanted[name],
+                    "each row names the rule *that* variant was built under, so a run that "
+                    "trained both arms under one rule and copied it into both rows fails "
+                    "here (loop.md §4, declarations.md §4, rules.md §7-§8, D-19): %r"
+                    % (invented_row["learning_rule"],),
+                )
 
     def test_trn_2_7_checkpoint_blocks_are_nested_by_variant_and_seed(self):
         """TRN-2.7 `checkpoints[variant][str(seed)]` is `{snapshots, final}` for every variant × seed pair the run trained, every path a file that exists and a file under the write root and never under the shipped tree, spelled repository-relative with POSIX separators when the artefact is inside the repository root and carried unchanged — absolute, exactly what `agents.save` was handed — when it is outside it (loop.md §3, §4, checkpoints.md §2, §3, docs/L2/training/write-root.md §5, FAM-12.1)."""
@@ -484,6 +552,75 @@ class RunTest(TrainingCase):
             as_text(training().rung("R1")["pool"]["id"], "the declared pool id"),
             "the declared id is the read-back id of the membership, and the run record "
             "carries it and no second one (registry.md §5, surface.md §3.1, FAM-4.7)",
+        )
+
+    def test_trn_2_16_the_pool_block_carries_the_set_its_members_declare(self):
+        """TRN-2.16 `pool` carries `rules` — the distinct rules its version members declare, read off the members `pool_members` returned — so R1's baselines-only window reports an empty set and R2's inherited window reports the shipped run's rule, each version member carrying its own (records.md §7, §8, §12, rules.md §6, §7, ASM-27, D-19)."""
+        baselines_only = as_mapping(
+            as_mapping(one_seed_run(), "a run record").get("pool"), "'pool'"
+        )
+        self.assertIn(
+            "rules",
+            baselines_only,
+            "records.md §12 makes the pool's `rules` part of the run record, so a record "
+            "says which population its opposition held (records.md §8, §12, D-19): %r"
+            % (sorted(baselines_only),),
+        )
+        self.assertEqual(
+            as_sequence(baselines_only["rules"], "'pool rules'"),
+            [],
+            "R1 inherits no lineage, so its pool holds the three pinned baselines and no "
+            "version, and a baseline declares no rule — the set is empty and no name is "
+            "invented for it (records.md §7, §8, league.md §2): %r"
+            % (baselines_only["rules"],),
+        )
+        inherited = as_mapping(
+            as_mapping(
+                registry_run("R2", (OTHER_SEED,), TINY_BUDGET), "R2's run record"
+            ).get("pool"),
+            "R2's 'pool'",
+        )
+        versions = [
+            as_mapping(member, "a version member")
+            for member in as_sequence(inherited.get("members"), "'members'")
+            if not as_mapping(member, "a pool member").get("baseline")
+        ]
+        self.assertGreaterEqual(
+            len(versions),
+            RETAINED,
+            "R2 trains against R1's retained window, so its pool carries M versions and "
+            "not the baselines alone (registry.md §3, ASM-18, FAM-12.4): %r"
+            % (versions,),
+        )
+        declared = []
+        for member in versions:
+            rule = as_text(member.get("rule"), "a version member's rule")
+            self.assertIn(
+                rule,
+                learning_rules(),
+                "each version member carries the rule its artefact was trained under, and "
+                "it is a member of the catalogue agents.learners() publishes "
+                "(records.md §7, rules.md §2, §6, D-19): %r" % (member,),
+            )
+            if rule not in declared:
+                declared.append(rule)
+        self.assertEqual(
+            [
+                as_text(rule, "a pool rule")
+                for rule in as_sequence(inherited.get("rules"), "'pool rules'")
+            ],
+            declared,
+            "the record's `pool.rules` is exactly the distinct rules its version members "
+            "declare, in membership order — read off the members `pool_members` returned "
+            "and never one name the run chose (records.md §7, §8, §12, D-19): %r"
+            % (inherited.get("rules"),),
+        )
+        self.assertEqual(
+            declared,
+            [LEARNING_RULE],
+            "the window R2 inherits is the shipped run's, whose rule is %r — the only rule "
+            "that existed when its version-1 containers were written (rules.md §6, ASM-5, "
+            "D-19): %r" % (LEARNING_RULE, declared),
         )
 
     def test_trn_2_9_one_tuple_gives_one_record_and_a_second_seed_another(self):
@@ -707,6 +844,87 @@ class RunTest(TrainingCase):
             places=9,
             msg="upper is that budget's ceiling, %r (loop.md §4)"
             % (INVENTED_PARAM_BUDGET * (1.0 + PARAM_TOLERANCE),),
+        )
+
+    def test_trn_2_15_a_two_rule_configuration_trains_and_records_both(self):
+        """TRN-2.15 a configuration whose two entries declare the catalogue's two rules runs and records them: both variants appear in `curves`, each `variants` row names the rule that variant was built under, and the record's `rules` names both, in declaration order (declarations.md §1, §4, surface.md §4, loop.md §1 step 3, §3-§4, rules.md §7, records.md §12, D-19)."""
+        configuration = two_rule_configuration()
+        entries = variant_entries(configuration)
+        names = [variant_name(entry) for entry in entries]
+        declared = [
+            as_text(entry["learning_rule"], "a declared learning_rule")
+            for entry in entries
+        ]
+        self.assertEqual(
+            len(set(declared)),
+            2,
+            "the invented configuration declares the catalogue's two rules, read from "
+            "agents.learners() and never restated (rules.md §2, §4, D-19): %r" % (declared,),
+        )
+        record = as_mapping(two_rule_run(), "a two-rule configuration's run record")
+        curves = as_mapping(record["curves"], "'curves'")
+        self.assertEqual(
+            list(curves),
+            names,
+            "a run trains every variant its configuration declares, so both arms appear in "
+            "`curves`, in declaration order (loop.md §1 step 3, §4, rules.md §7, D-19): %r"
+            % (sorted(curves),),
+        )
+        seed = as_int(as_sequence(configuration["seeds"], "the declared seed set")[0], "a seed")
+        for name in names:
+            with self.subTest(variant=name):
+                block = curve_block(record, name, seed)
+                self.assertIn(
+                    seed_key(seed),
+                    as_mapping(curves[name], "curves[%r]" % (name,)),
+                    "each arm is trained at the run's seed set, so each arm's block is "
+                    "keyed by it (loop.md §4, rules.md §7): %r"
+                    % (sorted(curves[name]),),
+                )
+                self.assertEqual(
+                    len(as_sequence(block["samples"], "'samples'")),
+                    len(as_sequence(block["td_error"], "'td_error'")),
+                    "each arm's curve carries one signal point per sample point, so a "
+                    "variant that was recorded but never trained has no curve (loop.md §4, "
+                    "records.md §12): %r" % (block,),
+                )
+        self.assertEqual(
+            set(as_mapping(record["params"], "'params'")),
+            set(names),
+            "both arms were trained, so both declared bands are recorded (loop.md §4, "
+            "rules.md §7): %r" % (sorted(as_mapping(record["params"], "'params'")),),
+        )
+        rows = [
+            as_mapping(row, "a variants row")
+            for row in as_sequence(record["variants"], "'variants'")
+        ]
+        self.assertEqual(
+            [as_text(row["name"], "a row's name") for row in rows],
+            names,
+            "one `variants` row per arm, in declaration order (loop.md §4, rules.md §7)",
+        )
+        built_under = [
+            as_text(row["learning_rule"], "a row's learning_rule") for row in rows
+        ]
+        self.assertEqual(
+            built_under,
+            declared,
+            "each row names the rule that variant was built under — its own, forwarded into "
+            "agents.build_learner's spec — and never one rule copied into both rows "
+            "(loop.md §1 step 3, §4, declarations.md §1, §4, rules.md §7-§8, D-19): %r"
+            % (built_under,),
+        )
+        rules = [
+            as_text(rule, "a rule name")
+            for rule in as_sequence(record["rules"], "'rules'")
+        ]
+        self.assertEqual(
+            rules,
+            declared,
+            "the record carries `rules`, the distinct rules the run declared and trained, "
+            "in declaration order and de-duplicated, so a two-rule configuration says so "
+            "without walking `variants` (records.md §12, loop.md §3-§4, surface.md §4, "
+            "rules.md §7, D-19): %r" % (rules,),
         )
 
 

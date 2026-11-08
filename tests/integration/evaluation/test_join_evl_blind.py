@@ -80,9 +80,9 @@ class BlindInstances(J.JoinCase):
         )
         self.assertEqual(
             str(readback["id"]),
-            J.pool_id(J.names_of(readback)),
-            "the invented pool's id is the digest of its ordered ids "
-            "(docs/L2/evaluation/pool.md §4)",
+            J.pool_id(J.members_of(readback)),
+            "the invented pool's id is the digest of its ordered member lines "
+            "(docs/L3/evaluation/families.md §4, ASM-27)",
         )
 
     def test_join_evl_12_2_pool_members_reads_an_invented_membership_back(self):
@@ -136,12 +136,13 @@ class BlindInstances(J.JoinCase):
     def test_join_evl_12_3_offer_rolls_an_invented_window(self):
         """JOIN-EVL-12.3 an invented offer extends the window and evicts one version.
 
-        `docs/L2/evaluation/surface.md` §7: a version joins the window at its head
-        and the oldest leaves when the window holds `m`, the baselines are
-        untouched, the id is recomputed and the argument pool is unchanged
-        (`docs/L2/evaluation/pool.md` §6, ASM-18).  The offered version's lineage
-        must be the window's newest member, or the offer is refused
-        (`docs/L1/league.md` §2).
+        `docs/L2/evaluation/pool.md` §3 and ASM-26: a version extends its family by
+        naming that family's **newest** member's id, or it opens a **new family** by
+        naming a label no member carries — so a second arm's first snapshot, whose
+        lineage is the rung's start label, is accepted where a member's own id that is
+        not its family's newest would fork the chain and be refused.  A full window
+        then evicts fair-share, the baselines are untouched, the id is recomputed and
+        the argument pool is unchanged (`docs/L2/evaluation/surface.md` §7, ASM-18).
         """
         pool = J.build_pool(
             {
@@ -155,14 +156,14 @@ class BlindInstances(J.JoinCase):
         message = self.assert_refusal(
             "offer",
             [("lineage",), (J.VERSION_B,)],
-            lambda: J.offer(pool, J.bare_version(J.VERSION_C, J.START_LABEL)),
-            "an offer whose lineage is not the window's newest version",
+            lambda: J.offer(pool, J.bare_version(J.VERSION_C, J.VERSION_A)),
+            "an offer whose lineage names a member that is not its family's newest",
         )
         self.assertIn(
             J.VERSION_B.lower(),
             message.lower(),
-            "the refusal names the lineage it had to extend "
-            "(docs/L2/evaluation/pool.md §6): %r" % (message,),
+            "the refusal names the family's newest, which the offer had to extend "
+            "(docs/L2/evaluation/pool.md §3): %r" % (message,),
         )
         advanced = J.pool_members(J.offer(
             pool, J.bare_version(J.VERSION_D, J.VERSION_B)
@@ -171,20 +172,32 @@ class BlindInstances(J.JoinCase):
             J.names_of(advanced),
             [str(name) for name in J.protocol()["baselines"]]
             + [J.VERSION_B, J.VERSION_D],
-            "the offered version joins at the head and the oldest leaves "
-            "(docs/L2/evaluation/surface.md §7, ASM-18)",
+            "the offered version extends the window's newest member and the oldest "
+            "leaves (docs/L2/evaluation/pool.md` §3, ASM-18)",
         )
+        with self.subTest(case="a label no member carries opens a second family"):
+            opened = J.pool_members(J.offer(
+                pool, J.bare_version(J.VERSION_E, J.START_LABEL)
+            ))
+            self.assertEqual(
+                J.names_of(opened),
+                [str(name) for name in J.protocol()["baselines"]]
+                + [J.VERSION_B, J.VERSION_E],
+                "a first snapshot naming the rung's start label opens a second family "
+                "and the fair-share eviction leaves one member of each "
+                "(docs/L2/evaluation/rules.md §3, ASM-26): %r" % (J.names_of(opened),),
+            )
         self.assertEqual(
             J.canonical(J.pool_members(pool)),
             J.canonical(before),
             "offer returns a new pool and leaves its argument unchanged "
-            "(docs/L2/evaluation/surface.md §7)",
+            "(docs/L2/evaluation/surface.md` §7)",
         )
         self.assertEqual(
             str(advanced["id"]),
-            J.pool_id(J.names_of(advanced)),
+            J.pool_id(J.members_of(advanced)),
             "the advanced pool's id is the digest of its new ordered membership "
-            "(docs/L2/evaluation/pool.md §6)",
+            "(docs/L3/evaluation/families.md §4, §5, ASM-27)",
         )
 
     def test_join_evl_12_4_opponent_draws_each_invented_member_by_position(self):

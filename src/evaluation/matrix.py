@@ -14,6 +14,10 @@ pair, a baseline's policy seed from the table seed and its position.  A version 
 built at the seed its **checkpoint** records, because one checkpoint is one player
 (`matrix.md` §3-§4, G14).  A membership is **distinct**: an id the table would carry twice
 is `MemberDuplicate` before a member policy exists (`matrix.md` §1, §7).
+
+Every member carries its rule, so the record carries `rules` -- each member's rule by its
+id, `None` for a baseline -- and `population`, the distinct rules those members declared,
+sorted: the population this table measured (`matrix.md` §5, `records.md` §10, D-19).
 """
 
 from .declarations import TABLE_SEED, TABLES, TABLE_BUDGETS
@@ -63,7 +67,9 @@ def _membership(pool, variants):
     reused for every cell it appears in, so one member is one player throughout a table --
     and then the variants, named by the slot they were handed in.  The ids are fixed
     before any policy is built, so a membership naming one id twice is refused before a
-    checkpoint is touched (`matrix.md` §1, §7).
+    checkpoint is touched (`matrix.md` §1, §7).  Each member's record carries the rule its
+    policy carries, so the table says which estimators its rows are (`matrix.md` §5,
+    `records.md` §10, D-19).
     """
     record = pool_members(pool)
     ids = [member["id"] for member in record["members"]]
@@ -89,26 +95,41 @@ def _membership(pool, variants):
                 name, name, "matrix", seed=_member_seed(TABLE_SEED, position)
             )
             member_records.append(
-                {"id": name, "baseline": True, "pinned": True, "params": 0}
+                {
+                    "id": name,
+                    "baseline": True,
+                    "pinned": True,
+                    "params": 0,
+                    "rule": side[4],
+                }
             )
         else:
             side = _side(dict(member), None, "matrix", position=position + 1)
-            member_records.append(dict(member))
+            member_records.append(dict(member, rule=side[4]))
         sides.append(side)
     for offset, variant in enumerate(variants):
         name = "variant-%d" % (offset + 1,)
         if isinstance(variant, _MemberPolicy):
-            side = (name, variant, variant.params, variant.unlabelled)
+            side = (
+                name,
+                variant,
+                variant.params,
+                variant.unlabelled,
+                variant.learning_rule,
+            )
             member_records.append(
                 {
                     "id": name,
                     "params": int(variant.params),
                     "unlabelled": bool(variant.unlabelled),
+                    "rule": variant.learning_rule,
                 }
             )
         else:
-            side = (name, variant, 0, True)
-            member_records.append({"id": name, "params": 0, "unlabelled": True})
+            side = (name, variant, 0, True, getattr(variant, "learning_rule", None))
+            member_records.append(
+                {"id": name, "params": 0, "unlabelled": True, "rule": side[4]}
+            )
         sides.append(side)
     return tuple(ids), tuple(member_records), tuple(sides)
 
@@ -153,9 +174,13 @@ def matrix(pool, variants, table):
         cells.append(_play_cell(sides[i], sides[j], hands, cell_seed))
 
     unlabelled = tuple(side[0] for side in sides if side[3])
+    rules = {side[0]: side[4] for side in sides}
+    population = tuple(sorted({rule for rule in rules.values() if rule is not None}))
     return {
         "members": tuple(ids),
         "cells": tuple(cells),
+        "rules": rules,
+        "population": population,
         "hands_per_cell": hands,
         "table_seed": TABLE_SEED,
         "table": table,

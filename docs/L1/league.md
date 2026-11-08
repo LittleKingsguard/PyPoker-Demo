@@ -1,26 +1,22 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-08
-- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13) and what they cost
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
+- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19), and what they cost
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. What the league is
 
-A bounded round-robin league: a rolling pool of the model's last M versions plus the three fixed
-baselines, used as both the training opponent and the evaluation opponent (D-16). The agent learns
-against the pool during a run, and the same pool is the table it is measured in; there is no separate
-evaluation opponent, and no cell is played against a policy that is not a named member (D-16). The pool,
-the scheduler, the matrix and the rating are `evaluation`'s, in that order of assembly (`module-map.md`
-§2, ASM-19).
+A bounded round-robin league: a rolling pool of the model's last M versions plus the three fixed baselines, used as both the training opponent and the evaluation opponent (D-16). The agent learns against the pool during a run, and the same pool is the table it is measured in; there is no separate evaluation opponent, and no cell is played against a policy that is not a named member (D-16). The pool deliberately holds models trained under **different estimators** (D-18, D-19), and the pool, the scheduler, the matrix and the rating are `evaluation`'s, in that order of assembly (`module-map.md` §2, ASM-19).
 
 ## 2. The pool
 
-- A version is a snapshot of a run: a checkpoint with an id, the rung, the variant, the seed and the training step it came from (D-16, ASM-18).
+- A version is a snapshot of a run: a checkpoint with an id, the rung, the variant, the seed, the training step it came from, and the **rule** it was trained under (D-16, D-19, ASM-18).
 - The pool holds **at most M = 5 versions** and **always the three baselines**, which are pinned and never evicted, so the pool has between 3 and 8 members (D-16, ASM-14). The bound is a declaration's own field: a configuration may declare a tighter `m` than the league's M, and no declaration may exceed it (D-16, `records.md` §8).
 - A rung's pool is the last M versions of the rung it inherits, by lineage order, plus the baselines; R1 has no lineage, so its pool is the three baselines alone and the report says so instead of inventing a version (D-16, `ladder.md` §2).
 - The pool is **frozen before a rung's variants train** and does not change while either arm of a pair trains or is tabled. That is what makes D-16's "identical frozen pool" true of R4, R5 and R6 while D-3 keeps the rung to one axis: both arms sample the same opponents, in the same window, and their run records carry the same pool id (D-16, D-3, ASM-16).
-- A rung's own snapshots are what the next rung's window is built from; `evaluation.offer` advances a pool by one version and `evaluation.pool_members` reads one back, so rolling is a declared operation on a named object rather than a side effect of training (D-16, ASM-18).
-- The pool is deterministic: the same membership declaration yields the same ordered member list, and a pool's id changes when and only when its members do (D-16, ASM-2).
+- A rung's own snapshots are what the next rung's window is built from; `evaluation.offer` advances a pool by one version and `evaluation.pool_members` reads one back, so rolling is a declared operation on a named object rather than a side effect of training (D-16, ASM-18). A window holding several estimators is grouped into **families** — one lineage chain each, every member of it trained under one rule — and `offer` extends one family at a time: the offered version's lineage must be that family's newest member, or a label no member carries, which opens a new family (D-19, ASM-26).
+- **Eviction is fair-share, not oldest-first**: when the window is full the version that leaves is the oldest member of the family that currently holds the most members — counting the version that has just joined — so no family is emptied while another holds two or more; with F families resident each keeps a member while F ≤ M, and an offer that would open the (M+1)th family is refused rather than emptying one. That is how heterogeneity survives the bound, and it is why a second family's next snapshot is accepted where the single-chain rule refused it (D-19, ASM-26, `docs/L3/evaluation/pool.md`).
+- The pool is deterministic: the same membership declaration yields the same ordered member list, and a pool's id changes when and only when its members do — a version's `rule` included, because the digest carries each version's `id` and `rule` and a bare name per baseline, so a baselines-only pool keeps the id it had (D-16, ASM-2, ASM-27).
 
 ## 3. The match scheduler
 
@@ -45,7 +41,7 @@ are what a third party needs, and neither is a per-cell number (D-16, ASM-14, `r
 
 ## 4. The matrix
 
-- Membership is the frozen pool plus the rung's variants: K = |pool| + V, with V = 1 or 2 (`ladder.md` §2). K is therefore 4 for R1, 9 for a single-variant rung with a full window and 10 for a two-variant rung with a full window (ASM-14).
+- Membership is the frozen pool plus the rung's variants: K = |pool| + V, with V = 1 or 2 (`ladder.md` §2). K is therefore 4 for R1, 9 for a single-variant rung with a full window and 10 for a two-variant rung with a full window (ASM-14). **Every member carries its rule**, and the matrix records each member's rule beside the distinct set it measured, its `population`, so a table says which estimators it fitted over — the pool's versions from their records and the variants from the policies they were passed as (D-19, `records.md` §9, §10, `e2e-surface.md` §2).
 - Cells = K(K−1)/2 unordered pairs, each played at the table budget's hand count: 6 cells for R1, 36 for K = 9 and 45 for K = 10 (D-16, ASM-14).
 - The three baselines are rows *and* columns at that same hand count, and their three mutual cells are in the table, so the matrix carries cells no model influences (D-16, `protocol.md` §3).
 - The matrix is reported raw — both directions of every cell, its counts, chip deltas and seat split — and is never reduced to a ranking in the report. A summary statistic that assumes a transitive order is exactly what a poker payoff need not have (D-16).

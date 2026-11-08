@@ -12,10 +12,9 @@ Both are `fixed` rows: neither takes an argument, so neither has an instance tha
 `league()`'s `cell_count`, which is a callable (`surface.md` §1, §4). Neither plays a hand, reads a file or
 draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-21).
 
-The two records are the module's own declaration of itself, so every other document quotes them instead of
-restating a number: `M` is `league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the
-family names are `protocol()["families"]`'s keys, and the refusal word for an absent family is that family's
-`refusal` value.
+The two records are the module's own declaration of itself, so every other document quotes them instead of restating a
+number: `M` is `league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the family names are
+`protocol()["families"]`'s keys, and the refusal word for an absent family is that family's `refusal` value.
 
 ## 2. `protocol()` — the evidence contract
 
@@ -46,10 +45,9 @@ re-run a table (`protocol.md` §1, `records.md` §12):
     checkpoints         the checkpoint paths the run retained (records.md §12)
 
 `report` reads a header family by these names (`report.md` §3, item 5). **The presence rule, exactly:** let
-`token(text)` be `text` lowercased with every character outside `[a-z0-9]` removed; an item is present when some
-header key's `token` is equal to the item's `token`, or contains it, or is contained by it. So `game configuration`
-satisfies `game`, `checkpoints` satisfies `checkpoints`, and `checkpoint paths` satisfies it too (their tokens are
-`checkpointpaths` and `checkpoints`, and the shorter is a prefix of the longer). No other leniency exists.
+`token(text)` be `text` lowercased with every character outside `[a-z0-9]` removed; an item is present when some header
+key's `token` equals the item's, or contains it, or is contained by it — so `checkpoint paths` satisfies `checkpoints`,
+their tokens being `checkpointpaths` and `checkpoints`. No other leniency exists.
 
 ### 2.2 The rating row
 
@@ -57,10 +55,9 @@ satisfies `game`, `checkpoints` satisfies `checkpoints`, and `checkpoint paths` 
 
     {"method": "Bradley-Terry", "confidence": 0.95, "anchor": "the three baselines' mean fixed at 0"}
 
-`method` is the one `str` `Bradley-Terry`, which is also `rating()["method"]`; `confidence` is `0.95`, the interval's
-level; `anchor` is **this section's sentence**, the one home of a value whose tokens are fixed rather than whose spelling
-is: it names the three baselines, their mean and its zero — `the three baselines' mean fixed at 0` here — and
-`rating()` carries it unchanged (`rating.md` §5, ASM-17, `docs/L1/league.md` §5, `records.md` §11).
+`method` is the one `str` `Bradley-Terry`, which is also `rating()["method"]`; `confidence` is `0.95`, the interval's level;
+`anchor` is **this section's sentence**, the one home of a value whose tokens are fixed rather than whose spelling is: it
+names the three baselines, their mean and its zero, and `rating()` carries it unchanged (`rating.md` §5, ASM-17, `records.md` §11).
 
 ## 3. The seven families
 
@@ -83,6 +80,13 @@ the unit battery) promises to carry; it is *not* a list of keys inside a value. 
 `("rows",)` and `axis row` is `("value",)`: a single-variant rung's axis row *is* the string `n/a, single variant`
 — its value — and `report` copies it through verbatim, never wrapping it into a record to satisfy a key name
 (`report.md` §1–§2, §4). `report` checks a family's **presence**, and its key name's spelling, and nothing deeper.
+
+**D-19 adds no family and no required item, and `league()` gains no key.** The rules a run held ride inside two things
+that already exist: the `pool` family's value, which is `records.md` §8's record and carries `rules` (the distinct rules
+its version members declare), and the `header`, which the run record already fills (`records.md` §8, §12, D-19). So
+`protocol()`'s `families` keeps its seven names with their `required` tuples unchanged, `HEADER_ITEMS` keeps its nine
+items, and `league()`'s six keys stay six — a new required item would refuse a record another battery hand-builds, which
+is over-refusal (`rules.md` §4, `errors.md` §5, D-19).
 
 ## 4. `league()` — the league's parameters
 
@@ -116,11 +120,9 @@ record's `timings` and in the shipped artefact's cost block (`records.md` §12, 
 ## 5. `cell_count` — the one callable
 
 `league()["cell_count"]` is a callable returning `K(K−1)/2`, so a talk sizes its table before it plays one
-(`surface.md` §4, D-16). It accepts three shapes and refuses the rest:
-
-- an integer `K` — `cell_count(9)` is `36`, `cell_count(10)` is `45`, `cell_count(4)` is `6`;
-- a membership sequence — `cell_count(members)` is `len(members) × (len(members) − 1) // 2`;
-- a mapping carrying `members` — the same, of `len(value["members"])`.
+(`surface.md` §4, D-16). It accepts three shapes and refuses the rest: an integer `K` — `cell_count(9)` is `36`,
+`cell_count(10)` is `45`, `cell_count(4)` is `6`; a membership sequence, where it is `len(members) × (len(members) − 1) // 2`;
+and a mapping carrying `members`, where it is the same of `len(value["members"])`.
 
 It refuses a `K` below `2` (a membership of fewer than two members has no unordered pair), a `bool`, a `str`, and any
 value that is none of the three shapes, raising `InvalidMembership` (errors.md §2). It is the only callable `league()`
@@ -130,20 +132,19 @@ calls it as a mapping key, so its identity is free (§8).
 ## 6. The table seed
 
 `table_seed` is the league's one integer and the value every matrix record carries as its `table_seed`
-(`surface.md` §10, `records.md` §10). This design fixes it at **`20261105`** — the design revision's own date,
-so the number is recognisable as the league's and is no battery instance. Three consequences: `matrix` takes no
-seed argument and reads this one from `declarations.py` (`matrix.md` §3); `rating` seeds its bootstrap from the
-matrix's own `table_seed` (`rating.md` §4); and the shipped artefact records it beside its membership
-(`tables.md` §3). A different table seed is a different experiment and never a parameter of any entry point
-(`surface.md` §4).
+(`surface.md` §10, `records.md` §10). This design fixes it at **`20261105`** — the design revision's own date, so the
+number is recognisable as the league's and is no battery instance. Three consequences: `matrix` takes no seed argument and
+reads this one from `declarations.py` (`matrix.md` §3); `rating` seeds its bootstrap from the matrix's own `table_seed`
+(`rating.md` §4); and the shipped artefact records it beside its membership (`tables.md` §3). A different table seed is a
+different experiment and never a parameter of any entry point (`surface.md` §4).
 
 ## 7. Refusals
 
 Neither entry point refuses anything: both have no argument (`surface.md` §3–§4). The one error either can raise
-is `InvalidMembership` from the `cell_count` callable (§5), which is a refusal of an argument the callable was
-handed and not of a declaration.
+is `InvalidMembership` from the `cell_count` callable (§5), a refusal of an argument the callable was handed and not of
+a declaration.
 
 ## 8. What is deliberately free
 
 - the container of `seeds`, `table_budgets`, `baselines` and `header`: a tuple or a list — a reader compares values and order, never a type; this design builds tuples;
-- the identity of the `cell_count` callable, and whether it is a closure, a `functools.partial` or a method: only that `league()` returns a callable with §5's behaviour — so `surface.md` §4's "two calls return equal records" reads as equal value for value, with the one callable equal in behaviour and never by identity;
+- the identity of the `cell_count` callable — a closure, a `functools.partial` or a method: only that it has §5's behaviour, so `surface.md` §4's "equal records" is equal value for value, with the callable equal in behaviour and never by identity.
