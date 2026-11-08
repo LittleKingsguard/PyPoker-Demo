@@ -305,6 +305,16 @@ def fairness(left, right):
                 "%r and %r, and both arms train against one frozen pool (ASM-16)"
                 % (left_id, right_id)
             )
+    difference = declarations.pair_difference(
+        left_entry, right_entry, keys=("learning_rule", "hyper")
+    )
+    if difference is not None:
+        key, declared_left, declared_right = difference
+        raise errors.PairDeclarationsDiffer(
+            "training.fairness refused the pair: its two sides declare two %r values, "
+            "%r and %r, and a held constant is not one side's declaration (ASM-7)"
+            % (key, declared_left, declared_right)
+        )
     report = _pool_report(left_value, right_value)
     return {
         "pair": pair,

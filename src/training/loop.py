@@ -165,6 +165,23 @@ def _table(configuration):
     return str(table)
 
 
+def _param_budget(configuration, entry):
+    """The parameter budget the record reports: the entry's, else the configuration's.
+
+    A declaration and not a capacity: `surface.md` §4 says the `params` block reports the
+    declared budget, so the order is the entry's own `param_budget`, then the
+    configuration's, then `declarations.PARAM_BUDGET` — and no capacity is measured
+    (`agents.param_count` is not among the four granted `agents` calls, `module-map.md`
+    §2, ASM-10, docs/L2/training/declarations.md §2).
+    """
+    declared = entry.get("param_budget")
+    if declared is None:
+        declared = configuration.get("param_budget")
+    if declared is None:
+        declared = declarations.PARAM_BUDGET
+    return int(declared)
+
+
 def _pool(configuration):
     """Step 2: freeze the pool before the first hand, and read it back.
 
@@ -305,7 +322,7 @@ def _header(configuration, table, hands, seed_set, device, checkpoints, interval
                 break
     counts = {baseline: 0 for baseline in declarations.BASELINES}
     for position, entry in enumerate(configuration["variants"], start=1):
-        budget = int(entry.get("param_budget", declarations.PARAM_BUDGET))
+        budget = _param_budget(configuration, entry)
         counts[str(entry.get("name"))] = budget
         counts["variant-%d" % (position,)] = budget
     return {
@@ -359,6 +376,14 @@ def _record(
     interval,
 ):
     """Step 9: `records.md` §12's record and this module's own three evidence keys."""
+    params = {}
+    for entry in configuration["variants"]:
+        budget = _param_budget(configuration, entry)
+        params[str(entry.get("name"))] = {
+            "budget": budget,
+            "lower": budget * (1.0 - declarations.PARAM_TOLERANCE),
+            "upper": budget * (1.0 + declarations.PARAM_TOLERANCE),
+        }
     record = {
         "rung": configuration.get("name"),
         "curves": curve_block,
@@ -373,14 +398,7 @@ def _record(
         "seeds": list(seed_set),
         "budget": int(hands),
         "device": device,
-        "params": {
-            str(entry.get("name")): {
-                "budget": int(entry.get("param_budget", declarations.PARAM_BUDGET)),
-                "lower": declarations.PARAM_BUDGET * (1.0 - declarations.PARAM_TOLERANCE),
-                "upper": declarations.PARAM_BUDGET * (1.0 + declarations.PARAM_TOLERANCE),
-            }
-            for entry in configuration["variants"]
-        },
+        "params": params,
         "table": table,
         "timings": timings_block,
         "variants": variant_block,
@@ -415,6 +433,7 @@ def run(rung, seeds=None, budget=None, device=None):
     table = _table(configuration)
     for entry in configuration["variants"]:
         declarations.check_variant(entry, str(configuration.get("name")))
+    declarations.check_declarations(configuration)
     pool, pool_id, pool_record = _pool(configuration)
     interval = max(1, hands // declarations.SNAPSHOTS)
 

@@ -4,7 +4,9 @@ Drives `docs/L3/training/fairness.md` §1-§7 and `docs/L2/training/surface.md` 
 §5.1's axis rule included): the eight reportable pairs and their one axis each, the
 `{of, differs, declared}` reading for two configurations and for two variant entries, the
 thirteen `constants` keys — the game and the pool among them — the pool report's six keys
-with `same` and the intersection for an adjacent pair, and the five refusals.
+with `same` and the intersection for an adjacent pair, the five refusals, and Rev 2's
+sixth: two arms declaring two `hyper` blocks are `PairDeclarationsDiffer`, because a pair
+that declares two blocks holds no constant there (`TRN-7.8`, `declarations.md` §4).
 
 Reportability is `§2`'s correction and not a restatement: `architecture` is compared only
 where the two sides agree on the representation family and on `sparsity`, so R5's `sparse`
@@ -19,6 +21,8 @@ from _training_support import (
     ADJACENT_PAIRS,
     CONSTANT_KEYS,
     ENTRY_PAIRS,
+    HELD_RATE_LEFT,
+    HELD_RATE_RIGHT,
     HYPER,
     INVENTED_POOL_A,
     INVENTED_POOL_B,
@@ -425,6 +429,45 @@ class FairnessTest(TrainingCase):
             "construction, so this is the assertion that could still fail (fairness.md "
             "§7, guardrails G19, docs/L2/training/write-root.md §1, §3): %r"
             % ([path for path in write_tree() if path not in before_write],),
+        )
+
+    def test_trn_7_8_two_hyper_blocks_are_a_pair_difference(self):
+        """TRN-7.8 two variant entries declaring two `hyper` blocks are `PairDeclarationsDiffer` and both blocks are named, because a pair that declares two blocks holds no constant there and reporting one of them as held would be the same defect in a report instead of a run (declarations.md §3-§4, errors.md §2, §4, surface.md §5, ASM-7).
+
+        `PairDeclarationsDiffer` is the one class two entry points raise — `run` for a configuration's two arms (`TRN-9.16`) and `fairness` here — and the support's refusal reader maps a class to an entry point once, defaulting to `run`. This case therefore passes `entry="fairness"` explicitly instead of relaxing the assertion: the message it accepts is the one `training.fairness` writes.
+        """
+        held_left = with_setting(
+            self.entry("R6", "residual"), hyper=dict(HYPER, learning_rate=HELD_RATE_LEFT)
+        )
+        held_right = with_setting(
+            self.entry("R6", "plain"), hyper=dict(HYPER, learning_rate=HELD_RATE_RIGHT)
+        )
+        self.refuse(
+            lambda: training().fairness(held_left, held_right),
+            "PairDeclarationsDiffer",
+            groups=(
+                ("hyper",),
+                (str(HELD_RATE_LEFT),),
+                (str(HELD_RATE_RIGHT),),
+                ("held constant",),
+            ),
+            label="fairness of two variants declaring two hyper blocks",
+            entry="fairness",
+        )
+        accepted = as_mapping(
+            training().fairness(
+                with_setting(self.entry("R6", "residual"), hyper=dict(HYPER)),
+                with_setting(self.entry("R6", "plain"), hyper=dict(HYPER)),
+            ),
+            "a fairness record of two equal hyper blocks",
+        )
+        self.assertIn(
+            "constants",
+            accepted,
+            "two sides declaring the declared `hyper` block are accepted and their "
+            "constants are reported, so the refusal above is about the difference and not "
+            "about `hyper` being named at all (declarations.md §4, fairness.md §4): %r"
+            % (sorted(accepted),),
         )
 
 

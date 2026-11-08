@@ -1,8 +1,9 @@
 # training — the one loop
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
 - **Owner:** `run()` — the nine steps every rung is a configuration of (§1), the per-pair pass (§2), the run record key by key
-  (§3), the sub-records it carries (§4), the arguments and their defaults (§5), the refusals (§6), determinism (§7)
+  (§3), the sub-records it carries (§4), the arguments and their defaults (§5), the refusals (§6), determinism (§7); Rev 2 refuses
+  the declarations the run would not use, at §1 step 1, and reports the configuration's declared `param_budget` (§3–§4)
 - **Ceiling:** 190 lines. At the ceiling, split by owner — never append
 - **Read with:** `registry.md` §1–§3, `seeds.md` §2–§4, `episode.md` §1–§5, `curves.md` §5, `checkpoints.md` §3–§4,
   `devices.md` §3, `errors.md` §4
@@ -12,9 +13,13 @@
 One pass of `run`, in this order, for any configuration — a registry rung or one written to `ladder.md` §3 and in no design
 document (`loop.md` §3, FAM-15.1). Steps 3–8 repeat per variant and per seed; steps 1, 2 and 9 happen once.
 
-1. **Resolve.** A string goes through `rung(name)` (`registry.md` §5). A mapping is a configuration and is used as it stands,
-   after §5's shape checks: it reads `name`, `variants`, `pool`, `seeds`, `samples`, `device`, `snapshot_every` and `table`, and
-   a missing one is `ConfigurationInvalid` naming the key (`surface.md` §4). The `name` is what the record's `rung` carries.
+1. **Resolve, refusing what the run would discard.** A string goes through `rung(name)` (`registry.md` §5). A mapping is a
+   configuration and is used as it stands, refused in this order and always naming the key or the value it saw: the shape and the
+   keys it reads (`name`, `variants`, `pool`, `seeds`, `samples`, `device`, `table`) and then the seed set's and budget's values
+   (§5, `surface.md` §4); then each entry's declared `backend`, `encoding` and `architecture` (`check_variant`); then the three
+   declarations a run would not use — each entry's `hyper` keys, its `learning_rule`, and the `snapshot_every` declared at either
+   level (§2) — and, for a two-entry configuration, the eight settings both arms must share; then the pool, at step 2. The `name`
+   is what the record's `rung` carries, and no step after this one sees a configuration this one refused.
 2. **Freeze the pool before the first hand.** The declaration is `{"members": <config["pool"]["members"] filtered to versions
    whose `path` names a readable file>, "m": config["pool"]["m"], "frozen": config["pool"]["frozen"]}`; it goes to
    `evaluation.build_pool` and `evaluation.pool_members` reads the membership back. The pool is frozen for the whole run: no
@@ -62,6 +67,21 @@ returns three plain records; it is the only place a learner exists (`loop.py`, `
 - **The timing is measured, not asserted**: `_timings(start, hands)` reads `time.perf_counter()` around the pair's hands and
   returns §4's four facts; a run never claims a wall clock was beaten (`records.md` §12, ASM-15, FAM-13.5).
 
+**The declaration the run would discard is refused, and nothing else changes (Rev 2).** At §1 step 1, and after the shape checks
+above, the resolve step refuses an entry's `learning_rule` that is not `declarations.LEARNING_RULE`, a `hyper` key whose value is
+not that key's `declarations.HYPER` value — or a key `HYPER` does not carry — and a `snapshot_every` at either level that is not
+the **declared** samples ÷ 10, all as `IgnoredDeclaration`; and two arms declaring two values for one of the eight settings the
+pair must share as `PairDeclarationsDiffer`, naming the key and both values. The `snapshot_every` check is skipped when no `samples`
+is declared anywhere, because the run refuses that absence on its own (§5), and it is never measured against the `budget` argument:
+a caller overriding `budget` trips nothing. A setting an entry leaves absent — or spells `None`, the way `_declared` already
+reads one — is no claim and is accepted, and a `hyper` that is not a mapping names no key and is no claim either. The learner is
+still built from `declarations.HYPER`, the interval is still `budget // 10`, and the seeds, the pool and the order of the loop are
+untouched (`declarations.md` §2–§4, `errors.md` §4, ASM-7).
+**The comparison is by declaration, not by shape.** `seeds` compares as a sequence (a list and a tuple of the same integers are one
+declaration), and two `hyper` blocks differ when a key **both** of them name carries two values — a key only one side names is no
+claim, the way the `hyper` check above reads one. The checks above already fix `learning_rule`, `hyper` and `snapshot_every`, so the
+pair check does the work for the settings §2 leaves open: `samples`, `seeds`, `device`, `table` and `param_budget` (`declarations.md` §4).
+
 Every write in the pass goes through `os.makedirs(parent, exist_ok=True)` before `agents.save`, because `save` invents no
 directory and refuses a path whose parent is missing (`agents/surface.md` §8, `checkpoints.md` §2). The parent is made
 **under the write root**, `layout._write_root()` — `CHECKPOINT_ROOT` unless the ambient `PYPOKER_CHECKPOINT_ROOT` names
@@ -81,7 +101,7 @@ tree and the shipped one is untouched (`write-root.md` §1, §3, §4, §6).
 | `seeds` | the seed set the run used, after §5's default |
 | `budget` | the hands per variant per seed the run used, after §5's default |
 | `device` | the device the run used, after §5's default (`protocol.md` §6, D-8) |
-| `params` | variant → `{budget: 10000, lower: 9800.0, upper: 10200.0}` — the declared parameter budget and its ±2% bound; a run measures no capacity (`surface.md` §4, ASM-10) |
+| `params` | variant → `{budget: 10000, lower: 9800.0, upper: 10200.0}` — the declared parameter budget and its ±2% bound: the entry's own `param_budget`, else the configuration's, else `declarations.PARAM_BUDGET`, and the band is that number ±2%; a run measures no capacity (`surface.md` §4, ASM-10, `declarations.md` §2) |
 | `table` | the declared table budget, `live` or `full`; a configuration declaring none is recorded at `live` (`league.md` §6, `loop.md` §2) |
 | `timings` | variant → seed → `{hands, wall_clock_seconds, seconds_per_hand, hands_per_second}` (§4, `records.md` §12) |
 | `variants` | the list of `{name, backend, encoding, architecture, samples, snapshot_every}` — the entry's declaration and the interval the run actually used (§4) |
@@ -102,8 +122,11 @@ two-variant record showing two ids fails FAM-3.18 (`loop.md` §2, ASM-16).
   unchanged when it is outside, which is why `layout._resolve` reads an inside path back from the repository root and an
   outside one as it stands (`checkpoints.md` §2, `write-root.md` §5). `tests/e2e/_records.py`'s `checkpoint_paths_of` reads
   this key on its own, so a pool member's `path` is never counted here.
-- `params[V] = {"budget": 10000, "lower": 9800.0, "upper": 10200.0}` — declared, never measured (`agents.param_count` is not
-  among the four `agents` calls this module may make, `module-map.md` §2).
+- `params[V] = {"budget": 10000, "lower": 9800.0, "upper": 10200.0}` — declared, never measured: `budget` is the entry's
+  `param_budget`, else the configuration's, else 10,000, and `lower`/`upper` are that number ∓2%, so a caller declaring 12,000 reads
+  11760.0 and 12240.0; what the record reports and what `agents.build_learner` is built with are two things, and no capacity is
+  measured here (`agents.param_count` is not among the four `agents` calls this module may make, `module-map.md` §2, `surface.md`
+  §4, `declarations.md` §2).
 - `timings[V][str(seed)] = {"hands": budget, "wall_clock_seconds": ..., "seconds_per_hand": ..., "hands_per_second": ...}` —
   the facts `harness.timings` reports, measured here because no `harness` edge reaches this module (`e2e-surface.md` §3.6,
   ASM-15). The four key names are deliberate: the battery's `timing_facts` classifies a key by what it names, so `hands`,
@@ -142,6 +165,8 @@ The two rows marked *the owner's class* and *the pool's own class* are the calle
 | `InvalidSeeds` | the seed set is empty, repeats a seed, or holds a non-integer (ASM-2, `surface.md` §4) |
 | `InvalidBudget` | `budget` is not a positive integer, or is below ten hands — ten equally spaced snapshots need ten hands (`surface.md` §4, ASM-18) |
 | `UnknownDevice` | a named `device` that `devices()["available"]` does not list, named (D-8, `devices.md` §1) |
+| `IgnoredDeclaration` | a declaration the run would not use, raised after every shape check above and before the pool: an entry's `learning_rule` that is not `declarations.LEARNING_RULE`, a `hyper` key whose value is not that key's `declarations.HYPER` value (an unknown key included), or a `snapshot_every` at either level that is not the **declared** samples ÷ 10 — naming the entry, the configuration, the key, the value declared and the value in force (`declarations.md` §2–§3, ASM-7, ASM-18) |
+| `PairDeclarationsDiffer` | a two-entry configuration whose arms declare two values for one of `learning_rule`, `hyper`, `samples`, `seeds`, `device`, `snapshot_every`, `table` or `param_budget` — a key only one arm declares is no claim, and the message names the key and both values (`declarations.md` §4, ASM-8, ASM-16) |
 | *(the pool's own class)* | `build_pool`'s or `pool_members`' refusal — an `m` above the league's M, a member lacking `id` or `lineage`, a bad chain — propagates unchanged in `evaluation`'s class and is **never repaired** (`surface.md` §4, `evaluation/surface.md` §5) |
 
 ## 7. Determinism
@@ -155,7 +180,8 @@ field that differs between two runs of one tuple, which is why FAM-4.7 compares 
 
 ## 8. What is left to L4
 
-The loop's control structure, whether the per-pair pass is a generator or a list, how the snapshot count is tracked, and every
-private name other than `_train_variant_seed`, `_timings` and `_record`, whose signatures are contract for `tests/training/`
-(`README.md` §4). Not L4's: §1's order, the nine steps' content, the `budget // 10` interval, the record's eleven keys and
-their nesting, the one-id rule, and the four timing key names (`guardrails.md` G4–G8).
+The loop's control structure, whether the per-pair pass is a generator or a list, how the snapshot count is tracked, the name and
+shape of the resolve step's declaration checks — one reader per declaration, or one per pass — and every private name other than
+`_train_variant_seed`, `_timings` and `_record`, whose signatures are contract for `tests/training/` (`README.md` §4). Not L4's:
+§1's order, the nine steps' content, the `budget // 10` interval, the record's eleven keys and their nesting, the one-id rule, the
+four timing key names, the order §1 step 1 refuses in and the four message texts (`guardrails.md` G4–G8, G21, `errors.md` §4).

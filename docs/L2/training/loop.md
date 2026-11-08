@@ -1,10 +1,11 @@
 # training — the rung registry as data, the one loop, and the edges
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-08
 - **Owner of this file:** the registry as data (§1, §2), the one loop (§3), what a comparison holds constant and
   the R1/R2 parity rung (§4), budgets and devices (§5), the notebooks this module owns (§6), the checkpoints that
   ship (§7), the contracts at this edge (§8) and the battery invariants it carries (§9)
   (D-3, D-5, D-7, D-8, D-16, ASM-8, ASM-16, ASM-18, `battery.md` §3)
+- **Rev 3:** §1's step 1 and §2 refuse a declaration the run would not honour — `declarations.md` §1–§4 owns it (ASM-7)
 - **Ceiling:** 220 lines. At the ceiling, split by owner — never append
 
 ## 1. The registry is data (D-3)
@@ -40,19 +41,23 @@ here, and each is what a battery can assert:
   `sparsity` 0. So the kind enters a comparison only through the representation family it consumes, and the
   *settings* — width, depth, sparsity, residual — are the axis (`agents/surface.md` §3, D-3, `surface.md` §5).
 - **A pair is matched before it is trained.** Two entries of one rung declare one `learning_rule`, one `hyper`
-  set, one sample budget, one parameter budget, one seed set, one device, one `snapshot_every` and one `table`;
-  their widths, depths, sparsity and residual are chosen so `agents.param_count` of the two learners agrees
-  within ±2% of 10,000 (ASM-7, ASM-8, ASM-10, `ladder.md` §4, §6). The literals are the registry's data, fixed
-  with `src/training/`; the property is this document's, and FAM-3 measures it (ASM-10).
+  set, one sample budget, one parameter budget, one seed set, one device, one `snapshot_every` and one `table`, and
+  a pair declaring two values for any of the eight is refused rather than silently read from its first entry
+  (`declarations.md` §4). Their widths, depths, sparsity and residual are chosen so `agents.param_count` of the two
+  learners agrees within ±2% of 10,000 (ASM-7, ASM-8, ASM-10, `ladder.md` §4, §6). The literals are the registry's
+  data, fixed with `src/training/`; the property is this document's, and FAM-3 measures it (ASM-10).
 
-`snapshot_every` is budget ÷ 10 hands and a configuration omitting it is recorded at that interval; one omitting
-`table` is recorded at `live`, the budget a talk produces (`ladder.md` §6, ASM-18, `league.md` §6).
+`snapshot_every` is the declared budget ÷ 10 hands and a configuration omitting it is recorded at that interval; one
+declaring another number, like a `hyper` block or a `learning_rule` that is not ASM-7's, is refused (`declarations.md`
+§2, ASM-18); one omitting `table` is recorded at `live`, the budget a talk produces (`league.md` §6).
 
 ## 3. The one loop every rung is a configuration of (D-3, D-16)
 
 One pass of `run`, in this order, for any configuration:
 
-1. **Resolve.** A name goes through `rung`; a configuration is used as it stands (§2, `ladder.md` §3).
+1. **Resolve, refusing what the run would discard.** A name goes through `rung`; a configuration is used as it stands
+   once `declarations.md` §2's declarations are read — one it declares and the run would not honour is refused here,
+   before the first hand and before anything is written (§2, ASM-7, ASM-18, `e2e-surface.md` §2).
 2. **Freeze the pool before the first hand.** The `pool` declaration goes to `evaluation.build_pool` and
    `evaluation.pool_members` reads back the id, the bound, the `frozen` flag and the ordered members. A declared
    version whose checkpoint the repository does not carry is not a member: the pool holds what is present and the
@@ -130,15 +135,13 @@ row showing a large skill difference is a defect, not a finding (D-16, `ladder.m
 
 The comparison is matched in **samples, not wall clock**: every rung trains the same number of hands, so a slow
 engine costs the clock and never the comparison's fairness (ASM-8, ASM-15, C-C2). The live budget keeps a rung at a
-few minutes in a talk and the shipped checkpoints show that training time matters; both use one protocol and one table
-membership, so what separates them is the sample count and the cell size and nothing else (D-8, `ladder.md` §6, D-6).
+few minutes in a talk and the shipped checkpoints show that training time matters; both use one protocol and one
+membership, so the sample count and the cell size are what separate them (D-8, `ladder.md` §6, D-6).
 
 `devices()` reports what the platform offers and the device a run uses by default (`surface.md` §6, `devices.md` §1). A
 run started by this workflow is CPU-bound: the sandbox denies the read-write opens a driver performs, so no delegated
 layer reaches the GPU, and a GPU run is the user's, started outside the sandbox, whose record says so (D-8,
-`strata/platform.md`, `protocol.md` §6). No part of the protocol needs a GPU — every rung and both table budgets run on
-CPU — which is also why the live table's cost is bounded by hands played and not by a device (D-8, ASM-15); a run
-records the device it used, so a GPU run and a CPU run are never confused (D-6, `protocol.md` §6).
+`strata/platform.md`, `protocol.md` §6); a run records the device it used, so the two are never confused (D-6, §6).
 
 ## 6. The notebooks this module owns (D-5)
 
@@ -146,9 +149,8 @@ records the device it used, so a GPU run and a CPU run are never confused (D-6, 
   `r3-card-embeddings.ipynb`, `r4-wide-and-deep.ipynb`, `r5-dense-and-sparse.ipynb`, `r6-residual.ipynb` — the
   path `training` owns (`ladder.md` §7, `module-map.md` §5).
 - A notebook is the talk's narrative: markdown for the story, and cells that call the **declared entry points of
-  `training` and `evaluation` only** — the rung, a run, the pool it trained against, the device in use, the shipped
-  checkpoints, the league table at the `live` budget, the rating, the shipped `full` table, the report, and a plot of
-  the curves the run's record already contains (D-5, D-16, `ladder.md` §7).
+  `training` and `evaluation` only** — the rung, a run, the pool, the device, the shipped checkpoints, the `live` table,
+  the rating, the shipped `full` table, the report and a plot of the run's curves (D-5, D-16, `ladder.md` §7).
 - It may import `training`, `evaluation`, `matplotlib`, `json` and the standard library. It may not import
   `engine`, `features`, `agents` or `harness`, may not import below a package's declared entry points, and may not
   carry a loop over hands, a model, an encoder, a metric, a match, or a copy of any module's code (D-5, `ladder.md` §7).
@@ -159,9 +161,9 @@ records the device it used, so a GPU run and a CPU run are never confused (D-6, 
 
 ## 7. The checkpoints that ship, and the window they are (D-16, ASM-18)
 
-- `checkpoints/` is the tree a run writes its ten snapshots and its final model per variant × seed under, and the one whose
-  **shipped** set the repository carries: the retained window's last five per seed plus each seed's final, six per pair, 18
-  for R1's three seeds against the 33 such a run writes, and the pool is a view over that shipped window (`module-map.md` §5, D-16, ASM-18, `protocol.md` §5, `records.md` §12).
+- `checkpoints/` is the tree a run writes its ten snapshots and its final model per variant × seed under, and the one
+  whose **shipped** set the repository carries: the window's last five per seed plus each seed's final, 18 for R1's three
+  seeds against the 33 a run writes, the pool being a view over that shipped window (ASM-18, D-16, `protocol.md` §5, `records.md` §12, `module-map.md` §5).
 - **A run writes under the write root and reads under the declared root.** With `PYPOKER_CHECKPOINT_ROOT` unset the two
   are `<repo>/checkpoints` and nothing changes; set, a run writes the same layout elsewhere while the index, the declared
   windows and `layout._resolve` still read from the repository root (`write-root.md` §1–§3, §6, `protocol.md` §5).
@@ -169,15 +171,13 @@ records the device it used, so a GPU run and a CPU run are never confused (D-6, 
   `protocol.md` §5): the nine variants of §1 across three seeds' finals, and for each of R2–R6 the five-version
   window its successor inherits. Nothing else ships and each artefact ships once (`battery.md` §3 FAM-12).
 - **A window is a declaration of `records.md` §7 versions in lineage order.** Within a run snapshot *k+1* descends
-  from *k*; a seed's first snapshot descends from the last version the run wrote before it and the run's first from
-  its rung's own start; the three seeds' windows lie end to end in the recorded seed set's order, so a rung's
-  retained versions are one chain (`records.md` §7).
+  from *k*; a seed's first descends from the last version the run wrote before it and the run's first from its rung's
+  own start; the three seeds' windows lie end to end in the recorded seed set's order, so they are one chain (§7).
 - **A declaration richer than the bound is windowed, not refused**: a rung's declaration may name more versions than
   M and the frozen pool holds the newest M of them, which is how a run's ten snapshots become a five-version window
   (`league.md` §2, `records.md` §8, `evaluation/surface.md` §5).
 - **A loaded checkpoint chooses the action its learner chose** on the same readout — which is what makes a shipped
-  version a league member — and it is played in evaluation mode and never updated
-  (ASM-5, `protocol.md` §5, `evaluation/surface.md` §12).
+  version a league member — and it is played in evaluation mode and never updated (ASM-5, `protocol.md` §5, `evaluation/surface.md` §12).
 - **A lineage checkpoint the repository does not carry leaves the pool at the baselines and whatever versions are
   present**, and the record states the membership it used; the index lists no artefact twice and never scans a
   scratch directory (`protocol.md` §5, `surface.md` §7, FAM-12).
@@ -215,6 +215,6 @@ what this module requires of a module it calls, or grants to the one that calls 
 | FAM-15 | `run`, `fairness`, `rung` | a configuration and a membership in no design document run through the same loop and report their own axis; `rung` refuses a name the registry does not carry (D-3, D-16) |
 | FAM-16 | `rung`, `run`, `fairness`, `checkpoints` | the four `general` rows, one invented instance apiece — a rung name, a budget and seed, a variant pair, an artefact set — from this surface alone (D-15, `battery.md` §4) |
 
-FAM-3's matched capacity sits at this module's edge: a pair's parameter counts are measured through `agents.param_count`
-by the battery, never by a run record, because a run measures no capacity (ASM-10, `surface.md` §4). No invariant here
-asserts a result: a version outranking a baseline is what a run measures and what `evaluation` reports, never a promise of this surface (D-6, `battery.md` §5).
+FAM-3's matched capacity sits at this module's edge: a pair's parameter counts are measured through `agents.param_count` by the battery,
+never by a run record, because a run measures no capacity (ASM-10, `surface.md` §4). No invariant here asserts a result: a version
+outranking a baseline is what `evaluation` reports, never a promise of this surface (D-6, `battery.md` §5).

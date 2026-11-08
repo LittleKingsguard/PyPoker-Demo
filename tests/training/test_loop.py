@@ -20,6 +20,10 @@ from _training_support import (
     CHECKPOINT_ROOT,
     CUSTOM_SEED,
     FALLBACK_SEED,
+    INVENTED_BUDGET_POOL,
+    INVENTED_BUDGET_RUNG,
+    INVENTED_BUDGET_VARIANT,
+    INVENTED_PARAM_BUDGET,
     INVENTED_POOL,
     INVENTED_VARIANT,
     PARAM_BUDGET,
@@ -642,6 +646,67 @@ class RunTest(TrainingCase):
             TINY_BUDGET,
             "the custom run trained at the budget the configuration declares (loop.md "
             "§5)",
+        )
+
+    def test_trn_2_14_a_configuration_level_param_budget_is_reported(self):
+        """TRN-2.14 an entry declaring no `param_budget` of its own takes the configuration's, and the record's `params` block reports that number and its ±2% bound — the configuration-level declaration is honoured rather than dropped (loop.md §3-§4, §1 step 9, declarations.md §2, surface.md §4, ASM-10)."""
+        configuration = custom_configuration(
+            name=INVENTED_BUDGET_RUNG,
+            variant=INVENTED_BUDGET_VARIANT,
+            pool_id=INVENTED_BUDGET_POOL,
+        )
+        configuration["param_budget"] = INVENTED_PARAM_BUDGET
+        for entry in configuration["variants"]:
+            del entry["param_budget"]
+        record = as_mapping(
+            training().run(configuration),
+            "a run record of a configuration declaring the budget at its own level",
+        )
+        params = as_mapping(record["params"], "'params'")
+        self.assertEqual(
+            set(params),
+            {INVENTED_BUDGET_VARIANT},
+            "the band is per variant, so it is keyed by the entry's name (loop.md §4): %r"
+            % (sorted(params),),
+        )
+        band = as_mapping(
+            params[INVENTED_BUDGET_VARIANT], "params[%r]" % (INVENTED_BUDGET_VARIANT,)
+        )
+        self.assertEqual(
+            set(band),
+            {"budget", "lower", "upper"},
+            "the band carries the declared budget and its ±2%% bound (loop.md §4, "
+            "ASM-10): %r" % (sorted(band),),
+        )
+        declared = as_int(band["budget"], "params['budget']")
+        self.assertEqual(
+            declared,
+            INVENTED_PARAM_BUDGET,
+            "an entry declaring no `param_budget` takes the configuration's, and the "
+            "record reports it: the declared 10,000 is the fallback and not a substitute "
+            "for a configuration that declares its own number (declarations.md §2, "
+            "loop.md §4): %r" % (declared,),
+        )
+        self.assertNotEqual(
+            declared,
+            PARAM_BUDGET,
+            "the configuration's own declaration is not replaced by the module's "
+            "default, which is what a dropped configuration-level key would look like "
+            "(declarations.md §2, surface.md §4): %r" % (declared,),
+        )
+        self.assertAlmostEqual(
+            as_float(band["lower"], "params['lower']"),
+            INVENTED_PARAM_BUDGET * (1.0 - PARAM_TOLERANCE),
+            places=9,
+            msg="lower is that budget's floor, %r (loop.md §4)"
+            % (INVENTED_PARAM_BUDGET * (1.0 - PARAM_TOLERANCE),),
+        )
+        self.assertAlmostEqual(
+            as_float(band["upper"], "params['upper']"),
+            INVENTED_PARAM_BUDGET * (1.0 + PARAM_TOLERANCE),
+            places=9,
+            msg="upper is that budget's ceiling, %r (loop.md §4)"
+            % (INVENTED_PARAM_BUDGET * (1.0 + PARAM_TOLERANCE),),
         )
 
 

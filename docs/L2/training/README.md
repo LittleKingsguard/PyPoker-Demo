@@ -1,6 +1,6 @@
 # training — L2 integration interface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.5 — the rung registry and the one training loop every
   rung is a configuration of (D-3, D-16) — plus the two paths this module owns: `notebooks/`, one thin notebook per rung
   (D-5), and `checkpoints/`, the shipped models and intra-run snapshots the pool is a view over (`module-map.md` §5, ASM-18)
@@ -20,11 +20,12 @@ rating and never chooses the pool's membership (`module-map.md` §3, D-16, ASM-1
 is a row of data, a rung-to-rung difference is attributable to the configuration and to nothing else, and a seventh
 configuration runs without new code (D-3, `ladder.md` §1, `battery.md` §3 FAM-15).
 
-## 2. The five documents
+## 2. The six documents
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
-| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further keys a report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force); **Rev 3** states in §4 where a run writes and how it spells a path; **Rev 4** moves §6's probe rule out to `devices.md` |
+| `surface.md` | the callable surface | for each of the six entry points: its signature, its argument contract, the record `records.md` §12 pins, its refusals and its determinism (`e2e-surface.md` §3.5, D-12). **Rev 2** adds §3.1 (a pool's id, read once), §4.1 (the three further keys a report needs), §4.2 (the vocabulary a run refuses against) and §5.1 (the axis rule the matched capacities force); **Rev 3** states in §4 where a run writes and how it spells a path; **Rev 4** moves §6's probe rule out to `devices.md`; **Rev 5** points §4's and §5's refusals at `declarations.md` |
+| `declarations.md` | what a configuration may declare | every key of `ladder.md` §3 read against the loop (§1), the rule that a declaration the run would discard is refused (§2), the two classes and what each message names (§3), the eight declarations a matched pair shares (§4) and why a `hyper` block is refused rather than honoured (§5) (ASM-7, ASM-8, ASM-18, D-3) |
 | `devices.md` | the device record | `devices()`'s three keys (§1), the **read-write** open the probe measures and the four situations its `reason` tells apart (§2), and the one thing a run does with the device it records (§3) (D-8, `protocol.md` §6, `docs/L1/gpu.md` §2) |
 | `loop.md` | the ladder and its edges | the registry as data (§1); the configuration schema and the matched pair (§2); the one loop, step by step (§3); what a comparison holds constant and the R1/R2 parity rung (§4); budgets and devices (§5); the notebooks (§6); the checkpoints that ship (§7); the contracts at this edge (§8) and the battery invariants this module carries (§9) (D-3, D-7, D-8, D-16, ASM-8, ASM-18) |
 | `write-root.md` | where a run writes | the declared root and the write root (§1), the reads that never move (§2), the one ambient override `PYPOKER_CHECKPOINT_ROOT` and why it is not an entry point (§3), who points it where — the battery session and the reader's one command (§4), the spelling a record gives a written path (§5), what the redirection does not change (§6) and the battery cases that carry it (§7) (D-12, D-13, `battery.md` §2, `protocol.md` §5) |
@@ -37,8 +38,7 @@ Each of the following is a boundary and not a preference (`module-map.md` §3, D
 - never trains a second loop, a second variant or a second rung: every rung is a configuration of one driver (D-3, `ladder.md` §1);
 - never chooses the pool's membership and never rolls the window: it declares the lineage it inherits and freezes what it yields, and `evaluation.offer` is the only roller (D-16, ASM-16, `module-map.md` §3);
 - never measures a cell, fits a rating, assembles a report or reduces a table to a ranking (D-16, `module-map.md` §3);
-- never claims a result: it reports curves, a pool, seeds, budgets, devices and costs, and a version's worth is a table
-  position `evaluation` measures (D-6, `league.md` §8, `records.md` §13);
+- never claims a result: it reports curves, a pool, seeds, budgets, devices and costs, and a version's worth is a table position `evaluation` measures (D-6, `league.md` §8, `records.md` §13);
 - never seeds, reads or advances the global `random` stream except through `engine.new_hand`, because one stream deals
   every hand and sequential play is the contract (ASM-2, `protocol.md` §4);
 - never calls a module the map does not grant it: five `evaluation`, four `agents`, five `features` and four `engine`
@@ -50,8 +50,8 @@ Each of the following is a boundary and not a preference (`module-map.md` §3, D
 Six entry points, and L2 adds, removes and renames none of them: needing a seventh is a defect that returns as an
 adjudication to L1 and is never invented here (D-12, `e2e-surface.md` §1). The harness files that drive this module are
 capped at `50 + 10 × 6 = 110` lines, computed by `strata-lint` and never asserted by a harness author (brief §5,
-`module-map.md` §4). Two rows are `fixed` — `rungs`, `devices` — and four are `general` — `rung`, `run`, `fairness`,
-`checkpoints` — so the battery carries four instances invented from this surface alone (`e2e-surface.md` §5, D-15).
+`module-map.md` §4). Two rows are `fixed` — `rungs`, `devices` — and four are `general`, so the battery carries four
+instances invented from this surface alone (`e2e-surface.md` §5, D-15).
 
 ## 5. What is left to L3
 

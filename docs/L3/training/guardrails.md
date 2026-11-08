@@ -1,8 +1,8 @@
 # training — L4 guardrails
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-06
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the test that
-  catches it
+  catches it — Rev 4 adds G21, the two declaration refusals (`docs/L2/training/declarations.md` §2–§4)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Read with:** all of `README.md`, `registry.md`, `loop.md`, `seeds.md`, `episode.md`, `curves.md`, `checkpoints.md`,
   `fairness.md`, `devices.md`, `errors.md`
@@ -101,20 +101,18 @@ same node, separating the sandbox's read-write split from a permissions fault. E
 while read-write is denied `EACCES`, so a read-only probe named the wrong cause; no `torch` import before the open or at scope.
 Caught by: `test_devices.py::TRN-8.2`, `TRN-8.4`–`TRN-8.10`, FAM-1.42.
 ## G19 — `rung()` and `fairness()` are pure
-Resolving builds a pool and reads it back; it deals no hand, builds no learner, writes no file and moves no stream. A cached
-build that writes a scratch pool file, or a `fairness` that imports a learner to compare capacities, breaks D-3 and FAM-3.17's
-repeated resolution.
+Resolving builds a pool and reads it back; it deals no hand, builds no learner, writes no file and moves no stream. A cached build that writes a scratch pool file, or a `fairness` that imports a learner to compare capacities, breaks D-3 and FAM-3.17's repeated resolution.
 Caught by: `test_registry.py::TRN-1.5`, `test_fairness.py::TRN-7.5`.
 ## G20 — A run writes under the write root; determinism is one build's, under the pin
 `run` writes its ten snapshots and its final model under `layout._write_root()` — `checkpoints/` unless
-`PYPOKER_CHECKPOINT_ROOT` names another root — so a reader's default run still writes the shipped layout while a battery,
-whose battery hooks point that variable at a private `mkdtemp`, writes a temporary tree and never the shipped set
-(`write-root.md` §1, §3, §4, `checkpoints.md` §5). A battery-started run adds no path under `<repo>/checkpoints` and changes
-no byte there: its snapshots and its final model exist under the write root and are named in the record. What a re-run
-guarantees is **one build's and one pinned interpreter's**: with `PYTHONHASHSEED=0` a re-run at the declared budget and
-seed set reproduces the curves and the table, as measured; unpinned, it does not, because `engine.equity`'s sampled estimate
-follows the per-process hash seed (`protocol.md` §4, `evidence.md` §6). **Nothing crosses a build**: a later build rewrites
-different curves for the same seeds, and `provenance` now names the build the bundle came from — source digest, commit,
-versions and the pin — so drift is attributable rather than silent; the eighteen shipped artefacts stay evidence of the run
-that wrote them, and what is forbidden is the index listing an artefact the design does not declare (G11, G13).
+`PYPOKER_CHECKPOINT_ROOT` names another — so a battery's private `mkdtemp` gains every artefact and `<repo>/checkpoints` gains
+none (`write-root.md` §1, §3, §4, `checkpoints.md` §5). A re-run guarantees **one build's, one pinned interpreter's** result: with
+`PYTHONHASHSEED=0` the curves and the table reproduce as measured, unpinned they do not, `engine.equity`'s sampled estimate
+following the per-process hash seed (`protocol.md` §4, `evidence.md` §6). `provenance` names the build a bundle came from, so drift
+is attributable; the eighteen shipped artefacts stay evidence of the run that wrote them, and what is forbidden is the index
+listing an artefact the design does not declare (G11, G13).
 Caught by: `test_loop.py::TRN-2.7`, `test_checkpoints.py::TRN-6.5`, `test_checkpoints.py::TRN-6.9`, `test_run_record.py::TRNJ-8.1`, FAM-16.31.
+## G21 — A declaration the run would discard is refused at resolve, never kept in silence
+A variant's `learning_rule`, each `hyper` key it names and a `snapshot_every` at either level are `IgnoredDeclaration` unless they equal `declarations.LEARNING_RULE`, that key's `HYPER` value and the **declared** samples ÷ 10; two arms declaring two values for one of the eight shared settings are `PairDeclarationsDiffer`, naming the key and both values.
+Silence is the plateau defect — four sweeps of one model looked like four results (`strata/records/r2-plateau-diagnosis.md`, ASM-7, ASM-18).
+Caught by: `test_errors.py::TRN-9.15`–`TRN-9.16`, `test_loop.py::TRN-2.14`, `test_fairness.py::TRN-7.8` — the contract's test writer adds them; today's battery ends at `TRN-9.14`, `TRN-2.13`, `TRN-7.7`.

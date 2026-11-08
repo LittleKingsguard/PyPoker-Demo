@@ -63,3 +63,11 @@ class MultipleAxes(TrainingError):
 
 class PoolIdsDiffer(TrainingError):
     """`fairness`: two variants of one configuration declare two pool ids (ASM-16)."""
+
+
+class IgnoredDeclaration(TrainingError):
+    """`run`: a declared `learning_rule`, `hyper` key or `snapshot_every` the run would not use (ASM-7, ASM-18)."""
+
+
+class PairDeclarationsDiffer(TrainingError):
+    """`run` / `fairness`: two arms of a pair declare two values for one setting they share."""

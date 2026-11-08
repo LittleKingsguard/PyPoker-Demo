@@ -1,9 +1,9 @@
 # training — what a comparison holds constant
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
 - **Owner:** `fairness()` — the two argument shapes (§1), the five axes and the one rule that is L2's correction (§2), the eight
   reportable pairs (§3), the `constants` list (§4), the pool report and the R1/R2 parity reading (§5), refusals (§6), determinism
-  (§7)
+  (§7); Rev 2 refuses a pair whose two sides declare two `hyper` blocks or two learning rules (§6)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Read with:** `registry.md` §1–§3, `loop.md` §1 step 2, §3, `checkpoints.md` §5, `errors.md` §4
 
@@ -85,7 +85,7 @@ that owns it (`surface.md` §5, FAM-3.14, FAM-13.3):
 | `readout facts` | the ten fact names of `e2e-surface.md` §2, declared here for the same reason, and identical for every encoding (D-3) |
 | `reward` | the seat's net chip delta at its terminal decision, unshaped (ASM-12) |
 | `learning rule` | `"masked-q-learning"` (ASM-7) |
-| `hyper` | `declarations.HYPER` — learning rate, batch size, target interval, optimiser, exploration schedule, discount (`rule.md` §6) |
+| `hyper` | the block a side declares, else `declarations.HYPER` — learning rate, batch size, target interval, optimiser, exploration schedule, discount (`rule.md` §6); a pair declaring two differing blocks is refused, because a constant one side only declares is no constant (§6) |
 | `sample budget` | the hands per variant per seed the pair is trained at (ASM-8) |
 | `param budget` | 10,000 ± 2%, declared (`registry.md` §4, ASM-10) |
 | `seed set` | the seeds the pair is trained at (`protocol.md` §2) |
@@ -96,8 +96,9 @@ that owns it (`surface.md` §5, FAM-3.14, FAM-13.3):
 
 The two declared-as-data rows are deliberate: the ladder never changes the game, the vocabulary or the readout facts, so a
 constant that names them is a *report*, and reading a catalogue this module is not granted would be a sixth `features` call
-(`module-map.md` §2, D-13). The sample and parameter budgets and the seed set are read from the two sides and must agree; a pair
-whose budgets disagree is a configuration this module did not build and the report says so by naming both values.
+(`module-map.md` §2, D-13). The sample and parameter budgets and the seed set are read from the two sides, and a pair that declares
+two `hyper` blocks or two `learning_rule` values is **refused** rather than reported with one side's value as the constant held
+(`declarations.md` §3–§4, ASM-7).
 
 ## 5. The pool report, and the R1/R2 parity reading
 
@@ -128,6 +129,7 @@ returned (`surface.md` §5, `e2e-surface.md` §2):
 | `ComparisonKeyMissing` | a configuration or entry missing a key the comparison reads — `variants`, `architecture`, `backend`, `encoding`, `pool` — the key is named |
 | `MultipleAxes` | the differences fall in more than one axis — **every** axis is named, in §2's table order (D-3, D-6) |
 | `PoolIdsDiffer` | two entries of one configuration declare two pool ids — both are named, because both arms of a pair train against one frozen pool (ASM-16) |
+| `PairDeclarationsDiffer` | the two sides (configurations on their `primary` entries, §1) declare two `hyper` blocks or two `learning_rule` values — the key and **both** values are named, and only both-declared-and-different is a refusal, so one side declaring neither is no claim (`declarations.md` §3–§4, ASM-7) |
 
 An **unregistered** configuration is not refused for being unregistered: it declares its own axis and its own pool, and `fairness`
 reports them like any rung's (`ladder.md` §3, FAM-15.3, FAM-16.30).
@@ -143,5 +145,5 @@ mappings give equal records, and the eight pairs of §3 give the eight results t
 
 Whether a side is classified by its keys or by a tag, whether `differs` is a list or a tuple, and the private helpers below the
 four names of §1. Not L4's: the five axes and their compared values, §2's matching rule, §3's eight results, the thirteen
-`constants` keys and the two declared-as-data rows, the pool report's six keys, the `same`-and-intersection reading, and §6's five
-refusals (`guardrails.md` G14, G15). The four signatures of §1 are contract for `tests/training/`.
+`constants` keys and the two declared-as-data rows, the pool report's six keys, the `same`-and-intersection reading, and §6's six
+refusals (`guardrails.md` G14, G15, G21). The four signatures of §1 are contract for `tests/training/`.

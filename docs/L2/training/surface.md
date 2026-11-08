@@ -1,11 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-06
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-08
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
 - **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path (`write-root.md`, split out
-  because this file reached its ceiling). **Rev 4:** §6's probe rule is the sibling `devices.md`, because the open it
-  measures is the **read-write** one a driver performs. Rev 2's items (§3.1, §4.1, §4.2, §5.1, §6's GPU rule) stand
+  because this file reached its ceiling). **Rev 4:** §6's probe rule is the sibling `devices.md`. **Rev 5:** §4's and §5's
+  refusals include the declarations a run would discard, which the sibling `declarations.md` §1–§4 owns. Rev 2 stands
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -66,10 +66,9 @@ Its one job is the registry plus the one loop every rung configures (`module-map
 ### 3.1 A pool's id is read once (Rev 2, measured)
 
 Resolving reads the window the repository carries — an absent checkpoint is not a member (`loop.md` §3) — and takes
-the id from `pool_members`' read-back, so a registry rung's declared id *is* the digest and its record carries one
-id, not two: two would make "both arms trained against one pool" unreadable (FAM-3.18). A configuration in no
-registry that declares its own `id` has that id carried, with the digest of what it froze not listed beside it
-(FAM-15.2).
+the id from `pool_members`' read-back, so a registry rung's declared id *is* the digest and its record carries one id,
+not two (two would make "both arms trained against one pool" unreadable, FAM-3.18); a configuration in no registry
+that declares its own `id` has that id carried, with the digest of what it froze not listed beside it (FAM-15.2).
 
 ## 4. `run` — the one loop's record (`general` row)
 
@@ -87,14 +86,14 @@ registry that declares its own `id` has that id carried, with the digest of what
 - **Behaviour:** it runs the one loop of `loop.md` §3 — freeze the pool, then per variant and per seed train,
   snapshot and save — and returns what happened; it measures no cell, fits no rating and states no table
   position (D-3, D-16, `module-map.md` §3).
-- **Refusals:** an unknown rung name, naming it; a configuration missing one of `ladder.md` §3's keys the run
-  reads, naming the key; a variant count other than one or two, naming it (D-3, `ladder.md` §2); a `backend`,
-  `encoding` or `architecture.kind` that `agents.learners()` and `features.encodings()` do not declare, naming
-  it (D-3, `agents/surface.md` §3, `features/surface.md` §3); a seed set that is empty, repeats a seed or holds
-  a non-integer (ASM-2); a budget that is not a positive integer, or one below ten hands, because ten equally
-  spaced snapshots need ten hands (ASM-18, `ladder.md` §6); a device `devices()` does not list, naming it
-  (D-8); a `pool` declaration `evaluation.build_pool` refuses, surfaced by name and never repaired
-  (`e2e-surface.md` §2, `module-map.md` §2).
+- **Refusals:** an unknown rung name; a configuration missing a key the run reads from `ladder.md` §3; a variant
+  count other than one or two (D-3, `ladder.md` §2); a `backend`, `encoding` or `architecture.kind` that
+  `agents.learners()` and `features.encodings()` do not declare (D-3, `agents/surface.md` §3,
+  `features/surface.md` §3); a seed set that is empty, repeats a seed or holds a non-integer (ASM-2); a budget
+  that is not a positive integer or is below ten hands (ASM-18, `ladder.md` §6); a device `devices()` does not
+  list (D-8); a `pool` declaration `evaluation.build_pool` refuses, surfaced and never repaired
+  (`e2e-surface.md` §2); and — `declarations.md` §2–§4 — a `hyper`, `learning_rule` or `snapshot_every` the run
+  would discard, and a pair declaring two values for one held setting, naming the key and both values (ASM-7).
 - **Determinism:** one `(configuration, seed set, budget, pool membership)` gives one record twice — the same
   curves, the same pool id and the same checkpoint paths — because the deal seeds are a function of the run
   seed and the hand index, the learner's generator is seeded from the run seed, and the pool is frozen before
@@ -188,9 +187,10 @@ report (`docs/L3/agents/architecture.md` §5). With this rule the eight reportab
 R1–R2 `backend`; R2–R3 `encoding`; R3–R4 and R4–R5 on nothing, the later rung's declared axis still being the axis it is
 for; R5–R6 `residual`; R4's, R5's and R6's own pairs `architecture`, `connectivity`, `residual`.
 
-- **Refusals:** a side that is neither a configuration nor a variant entry, naming it; two sides of different kinds; a
-  configuration missing a key the comparison reads, naming it; more than one differing axis, naming them; two variants
-  of one configuration declaring different pool ids (D-3, ASM-16).
+- **Refusals:** a side that is neither a configuration nor a variant entry; two sides of different kinds; a
+  configuration missing a key the comparison reads; more than one differing axis, naming them; two variants of one
+  configuration declaring different pool ids (D-3, ASM-16), or declaring different `hyper` blocks or learning rules,
+  because a constant one side only declares is no constant (`declarations.md` §3–§4, ASM-7).
 - **Determinism:** one pair gives one record, and `fairness` plays no hand, builds no learner, writes nothing
   and moves no stream (D-3, ASM-2, `battery.md` §3 FAM-3, FAM-15). It reports what it holds and what differs;
   it never asserts that a pair is fair, because a non-reportable pair never gets that far (D-3, D-6).

@@ -1,14 +1,20 @@
-"""TRN-9 — refusals: the fourteen classes, one message each.
+"""TRN-9 — refusals: the fifteen classes, one message each.
 
 Drives `docs/L3/training/errors.md` §1-§4, `docs/L2/training/surface.md` §1-§5 and
 `docs/L3/training/loop.md` §6: every row of `errors.md` §4's canonical-message table, the
 class `§2` names for it, the base `TrainingError` a caller catches, and — `§3`'s first
-rule — the offending value in the message. A refused call has no observable effect: the
-last case asserts a refused `run` deals no hand and writes no file (`errors.md` §1,
-`e2e-surface.md` §2).
+rule — the offending value in the message. A refused call has no observable effect:
+`TRN-9.14` asserts a refused `run` deals no hand and writes no file (`errors.md`
+§1, `e2e-surface.md` §2).
+
+Rev 2 adds this module's two declaration refusals (`docs/L2/training/declarations.md`
+§2-§4): `TRN-9.15` drives `IgnoredDeclaration`'s six shapes and the two blocks that are no
+claim, and `TRN-9.16` the `run` half of `PairDeclarationsDiffer` — a pair `fairness` is
+asked to hold constant is `TRN-7.8`'s, in `test_fairness.py`, because `fairness` owns that
+message.
 
 The instances are the battery's: an invented rung name, an invented device, an invented
-backend, encoding and kind, and a seed and a budget no design document carries
+backend, encoding and kind, a seed and a budget no design document carries
 (`battery.md` §4). The three refusals that are not this module's — an unknown encoding, an
 unknown backend or kind and a pool declaration its owner refuses — are exercised here as
 `VariantSettingInvalid`, because `surface.md` §4.2 (Rev 2) makes a run refuse them
@@ -20,20 +26,44 @@ import random
 import unittest
 
 from _training_support import (
+    CONFIGURATION_INTERVAL,
+    HYPER,
+    IGNORED_HYPER_KEY,
+    IGNORED_HYPER_VALUE,
+    IGNORED_INTERVAL,
+    IGNORED_RATE,
+    IGNORED_RULE,
+    IGNORED_SCHEDULE,
+    INVENTED_CUSTOM,
     INVENTED_DEVICE,
+    INVENTED_PAIR_LEFT,
+    INVENTED_PAIR_RIGHT,
+    INVENTED_PAIR_RUNG,
     INVENTED_POOL_A,
     INVENTED_POOL_B,
     INVENTED_RUNG,
+    INVENTED_SECOND_BUDGET,
+    INVENTED_VARIANT,
+    LEARNING_RULE,
+    PAIR_SAMPLES,
+    PARAM_BUDGET,
     REFUSED_SEED,
     RUN_SEED,
     RUNG_NAMES,
+    SNAPSHOTS,
     TINY_BUDGET,
     TrainingCase,
+    as_mapping,
     as_sequence,
+    as_text,
     checkpoint_tree,
     custom_configuration,
+    custom_run,
+    error_class,
+    error_root,
     paths_mentioning,
     training,
+    variant_entries,
     with_architecture,
     with_pool,
     with_setting,
@@ -321,6 +351,235 @@ class RefusalTest(TrainingCase):
             "docs/L2/training/write-root.md §1, §3): %r"
             % (paths_mentioning("seed-%d" % (REFUSED_SEED,), write_tree()),),
         )
+
+    def configuration_with(self, **settings):
+        """The invented configuration with its one entry's settings replaced."""
+        body = dict(custom_configuration())
+        body["variants"] = [with_setting(variant_entries(body)[0], **settings)]
+        return body
+
+    def test_trn_9_15_ignored_declaration_names_the_declared_and_the_used_value(self):
+        """TRN-9.15 a `learning_rate` the declaration does not carry, an `exploration` written as a sentence, an unknown `hyper` key, another `learning_rule` and a `snapshot_every` off the declared budget ÷ 10 at either level are each `IgnoredDeclaration`, naming the entry, the configuration, the key, the value declared **and** the value the run uses; a block that equals the declaration and one that names neither key at all are no claim and are not refused (declarations.md §2-§3, errors.md §2, §4, loop.md §1 step 1, §2, ASM-7, ASM-18)."""
+        interval = "the interval the declared %d samples fix, %d" % (
+            TINY_BUDGET,
+            TINY_BUDGET // SNAPSHOTS,
+        )
+        shapes = (
+            (
+                "a learning_rate the declaration does not carry",
+                self.configuration_with(
+                    hyper=dict(HYPER, learning_rate=IGNORED_RATE)
+                ),
+                (
+                    (str(IGNORED_RATE),),
+                    (str(HYPER["learning_rate"]),),
+                    ("learning_rate",),
+                    (INVENTED_VARIANT,),
+                    (INVENTED_CUSTOM,),
+                    ("declarations.py",),
+                ),
+            ),
+            (
+                "an exploration written where the schedule record is declared",
+                self.configuration_with(
+                    hyper=dict(HYPER, exploration=IGNORED_SCHEDULE)
+                ),
+                (
+                    (IGNORED_SCHEDULE,),
+                    ("'start': 1.0",),
+                    ("2000",),
+                    ("exploration",),
+                    (INVENTED_VARIANT,),
+                    (INVENTED_CUSTOM,),
+                    ("declarations.py",),
+                ),
+            ),
+            (
+                "a hyper key the declaration does not carry",
+                self.configuration_with(
+                    hyper=dict(HYPER, **{IGNORED_HYPER_KEY: IGNORED_HYPER_VALUE})
+                ),
+                (
+                    (IGNORED_HYPER_KEY,),
+                    (str(IGNORED_HYPER_VALUE),),
+                    ("no such declaration",),
+                    ("learning_rate",),
+                    ("batch_size",),
+                    ("target_update_interval",),
+                    ("optimiser",),
+                    ("exploration",),
+                    ("discount",),
+                    (INVENTED_VARIANT,),
+                    (INVENTED_CUSTOM,),
+                    ("declarations.py",),
+                ),
+            ),
+            (
+                "a learning_rule naming another rule",
+                self.configuration_with(learning_rule=IGNORED_RULE),
+                (
+                    (IGNORED_RULE,),
+                    (LEARNING_RULE,),
+                    ("learning_rule",),
+                    (INVENTED_VARIANT,),
+                    (INVENTED_CUSTOM,),
+                    ("declarations.py",),
+                ),
+            ),
+            (
+                "an entry-level snapshot_every off the declared interval",
+                self.configuration_with(snapshot_every=IGNORED_INTERVAL),
+                (
+                    (str(IGNORED_INTERVAL),),
+                    (interval,),
+                    ("snapshot_every",),
+                    (INVENTED_VARIANT,),
+                    (INVENTED_CUSTOM,),
+                    ("declarations.py",),
+                ),
+            ),
+        )
+        for label, configuration, groups in shapes:
+            with self.subTest(declaration=label):
+                self.refuse(
+                    lambda: training().run(configuration),
+                    "IgnoredDeclaration",
+                    groups=groups,
+                    label="run with %s" % (label,),
+                )
+        overridden = self.configuration_with()
+        overridden["snapshot_every"] = CONFIGURATION_INTERVAL
+        with self.subTest(declaration="a configuration-level snapshot_every"):
+            self.refuse(
+                lambda: training().run(overridden),
+                "IgnoredDeclaration",
+                groups=(
+                    (str(CONFIGURATION_INTERVAL),),
+                    (interval,),
+                    ("snapshot_every",),
+                    (INVENTED_CUSTOM,),
+                    ("declarations.py",),
+                ),
+                label="run with a configuration-level snapshot_every off the interval",
+            )
+
+        accepted = as_mapping(custom_run(), "a run record of the invented configuration")
+        self.assertEqual(
+            as_text(accepted["rung"], "rung"),
+            INVENTED_CUSTOM,
+            "a block that carries the declared `hyper` and the declared `learning_rule` "
+            "is no claim and is not refused, and the run returns its record (declarations.md "
+            "§2): %r" % (accepted["rung"],),
+        )
+        bare = self.configuration_with()
+        del bare["variants"][0]["hyper"]
+        del bare["variants"][0]["learning_rule"]
+        with self.subTest(declaration="no hyper and no learning_rule at all"):
+            self._reaches_the_pool(bare, "a configuration naming neither key")
+        partial = self.configuration_with(
+            hyper={key: HYPER[key] for key in ("learning_rate",)}
+        )
+        with self.subTest(declaration="a hyper naming one key at its declared value"):
+            self._reaches_the_pool(
+                partial, "a configuration whose hyper names one declared key"
+            )
+        disagreeing = dict(bare)
+        disagreeing["variants"] = [
+            with_setting(bare["variants"][0], hyper=dict(HYPER, learning_rate=IGNORED_RATE))
+        ]
+        with self.subTest(declaration="the same shape with one disagreeing key"):
+            self.refuse(
+                lambda: training().run(disagreeing),
+                "IgnoredDeclaration",
+                groups=((str(IGNORED_RATE),), ("learning_rate",)),
+                label="run of the same configuration with a disagreeing learning_rate",
+            )
+
+    def _reaches_the_pool(self, configuration, label):
+        """Assert a run gets past step 1's declaration checks to the pool's refusal.
+
+        The case injects one defect: a membership bound above the league's M, which
+        `docs/L3/training/loop.md` §6 has the pool's owner refuse in its **own** class at
+        step 2 — after step 1 has refused everything it would refuse, and therefore only
+        once this configuration's absent `hyper` and `learning_rule` were accepted as no
+        claim. That is what keeps the negative half off a real run without making it
+        vacuous: were the block refused, the refusal would be this module's, and the
+        assertions below would see it (declarations.md §2, loop.md §1 step 1-2, §2).
+        """
+        body = dict(configuration)
+        body["pool"] = dict(configuration["pool"], m=6)
+        try:
+            value = training().run(body)
+        except Exception as exc:
+            self.assertNotIsInstance(
+                exc,
+                error_class("IgnoredDeclaration"),
+                "%s names no `hyper` key and no `learning_rule` the run would discard, so "
+                "it is no claim and is not refused as an ignored declaration "
+                "(declarations.md §2, loop.md §2): %r" % (label, exc),
+            )
+            self.assertNotIsInstance(
+                exc,
+                error_root(),
+                "%s must reach the pool and be refused there, and the pool's refusal "
+                "propagates in its owner's class rather than this module's (loop.md §1 "
+                "step 2, §6): %r" % (label, exc),
+            )
+            return exc
+        self.fail(
+            "%s was accepted, and the injected membership bound above the league's M is "
+            "refused at step 2, so the run cannot have returned a record (loop.md §6): %r"
+            % (label, value)
+        )
+
+    def test_trn_9_16_pair_declarations_differ_names_both_values(self):
+        """TRN-9.16 a two-entry configuration whose arms declare two `samples`, two `table` or two `param_budget` values is `PairDeclarationsDiffer`, and the message names the key and both arms' declared values in declaration order; the class `fairness` raises for two `hyper` blocks is `TRN-7.8`'s in `test_fairness.py` (declarations.md §4, errors.md §2, §4, loop.md §1 step 1, §6, ASM-8, ASM-16)."""
+        left = with_setting(variant_entries(custom_configuration())[0], name=INVENTED_PAIR_LEFT)
+        shapes = (
+            (
+                "two sample budgets",
+                with_setting(left, samples=TINY_BUDGET),
+                with_setting(left, name=INVENTED_PAIR_RIGHT, samples=PAIR_SAMPLES),
+                (
+                    ("samples",),
+                    ("%d and %d" % (TINY_BUDGET, PAIR_SAMPLES),),
+                    (str(TINY_BUDGET),),
+                    (str(PAIR_SAMPLES),),
+                ),
+            ),
+            (
+                "two table budgets",
+                with_setting(left, table="live"),
+                with_setting(left, name=INVENTED_PAIR_RIGHT, table="full"),
+                (("table",), ("'live' and 'full'",)),
+            ),
+            (
+                "two parameter budgets",
+                with_setting(left, param_budget=PARAM_BUDGET),
+                with_setting(
+                    left, name=INVENTED_PAIR_RIGHT, param_budget=INVENTED_SECOND_BUDGET
+                ),
+                (
+                    ("param_budget",),
+                    ("%d and %d" % (PARAM_BUDGET, INVENTED_SECOND_BUDGET),),
+                ),
+            ),
+        )
+        for label, first, second, groups in shapes:
+            with self.subTest(declaration=label):
+                configuration = custom_configuration(name=INVENTED_PAIR_RUNG)
+                configuration["variants"] = [first, second]
+                self.refuse(
+                    lambda: training().run(configuration),
+                    "PairDeclarationsDiffer",
+                    groups=groups
+                    + (
+                        (INVENTED_PAIR_LEFT,),
+                        (INVENTED_PAIR_RIGHT,),
+                        (INVENTED_PAIR_RUNG,),
+                    ),
+                    label="run of a pair declaring %s" % (label,),
+                )
 
 
 if __name__ == "__main__":

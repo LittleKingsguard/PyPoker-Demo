@@ -6,6 +6,8 @@ and a seventh configuration runs without new code (ladder.md §1, FAM-15). Nothi
 computes: it is data a resolver reads and a fairness report quotes.
 """
 
+from collections.abc import Mapping
+
 from . import errors
 
 #: The seed set of protocol.md §2, fixed at `0, 1, 2` and recorded in every run record.
@@ -83,6 +85,18 @@ AXES = ("backend", "encoding", "architecture", "connectivity", "residual")
 
 #: The three pinned baselines, in `agents.baselines()`'s order (D-6, ASM-16).
 BASELINES = ("random", "always-call", "oracle")
+
+#: The eight settings both arms of one pair declare one value for (declarations.md §4).
+PAIR_SETTINGS = (
+    "learning_rule",
+    "hyper",
+    "samples",
+    "seeds",
+    "device",
+    "snapshot_every",
+    "table",
+    "param_budget",
+)
 
 
 def _architecture(kind, width, depth, sparsity=0.0, residual=False):
@@ -276,3 +290,188 @@ def check_variant(entry, where):
             "training.run refused the variant %r: 'architecture.sparsity' is %r, which is "
             "outside [0, 1]" % (entry.get("name"), sparsity)
         )
+
+
+def _text(value):
+    """One declared value as a refusal names it (docs/L3/training/errors.md §3)."""
+    return repr(value)
+
+
+def _declaration(key, value):
+    """One declared value in the shape §4's comparison reads it in.
+
+    `seeds` is a set, so a list `[0, 1, 2]` and a tuple `(0, 1, 2)` are one declaration;
+    every other setting is compared as it stands (docs/L2/training/declarations.md §4).
+    """
+    if (
+        key == "seeds"
+        and not isinstance(value, (str, bytes))
+        and hasattr(value, "__iter__")
+    ):
+        return tuple(value)
+    return value
+
+
+def _same_declaration(key, left, right):
+    """Whether two arms declare one value for one setting both of them declare (§4).
+
+    A `hyper` pair differs when a key both blocks name carries two values: a key only one
+    block names is no claim, and the nested `exploration` schedule is compared by mapping
+    equality, so a sentence written where the schedule is declared is a disagreement and
+    not a tolerance (docs/L2/training/declarations.md §2, §4, `agents/surface.md` §3).
+    """
+    if key == "hyper" and isinstance(left, Mapping) and isinstance(right, Mapping):
+        for name, value in left.items():
+            if name in right and right[name] != value:
+                return False
+        return True
+    return _declaration(key, left) == _declaration(key, right)
+
+
+def pair_difference(left, right, keys=PAIR_SETTINGS):
+    """The first setting two arms both declare and declare differently, with both values.
+
+    `None` when every setting one arm declares carries the value the other declares too: a
+    setting one side leaves absent — or declares as `None` — is no claim and is skipped, so
+    only both-declared-and-different is a difference (docs/L2/training/declarations.md §4).
+    """
+    for key in keys:
+        first = left.get(key) if isinstance(left, Mapping) else None
+        second = right.get(key) if isinstance(right, Mapping) else None
+        if first is None or second is None:
+            continue
+        if not _same_declaration(key, first, second):
+            return key, first, second
+    return None
+
+
+def _declared_samples(configuration, entries):
+    """The budget a configuration declares: its own, else its first entry's (§2)."""
+    if configuration.get("samples") is not None:
+        return configuration["samples"]
+    for entry in entries:
+        declared = entry.get("samples") if isinstance(entry, Mapping) else None
+        if declared is not None:
+            return declared
+    return None
+
+
+def _check_hyper(where, entries):
+    """Refuse a `hyper` key a run would not use: one `HYPER` does not carry, or another value.
+
+    The module's declared hyper is the ladder's one set of hyperparameters, so a block that
+    names another value names something the learner is not built from (ASM-7, D-13,
+    docs/L2/training/declarations.md §2).
+    """
+    for entry in entries:
+        block = entry.get("hyper") if isinstance(entry, Mapping) else None
+        if not isinstance(block, Mapping):
+            continue
+        for key, value in block.items():
+            if key not in HYPER:
+                raise errors.IgnoredDeclaration(
+                    "training.run refused the variant %r of the configuration %r: 'hyper' "
+                    "names %r %r and the run uses no such declaration, because the "
+                    "module's declared hyper is fixed for the whole ladder and carries "
+                    "%s — vary it in src/training/declarations.py (ASM-7)"
+                    % (entry.get("name"), where, key, value, ", ".join(HYPER))
+                )
+            if value != HYPER[key]:
+                raise errors.IgnoredDeclaration(
+                    "training.run refused the variant %r of the configuration %r: 'hyper' "
+                    "names %r %r and the run uses %r, because the module's declared hyper "
+                    "is fixed for the whole ladder — vary it in src/training/declarations.py "
+                    "(ASM-7)" % (entry.get("name"), where, key, value, HYPER[key])
+                )
+
+
+def _check_learning_rule(where, entries):
+    """Refuse a `learning_rule` that is not the ladder's one rule (ASM-7).
+
+    One rule is fixed for the whole ladder, so a configuration cannot hold a second one;
+    an entry that names none is no claim and is accepted (docs/L2/training/declarations.md
+    §2, `ladder.md` §4).
+    """
+    for entry in entries:
+        rule = entry.get("learning_rule") if isinstance(entry, Mapping) else None
+        if rule is None or rule == LEARNING_RULE:
+            continue
+        raise errors.IgnoredDeclaration(
+            "training.run refused the variant %r of the configuration %r: "
+            "'learning_rule' is %r and the run uses %r, because one learning rule is "
+            "fixed for the whole ladder — vary it in src/training/declarations.py "
+            "(ASM-7)" % (entry.get("name"), where, rule, LEARNING_RULE)
+        )
+
+
+def _check_snapshot_every(configuration, where, entries):
+    """Refuse a `snapshot_every`, at either level, that is not the declared samples ÷ 10.
+
+    ASM-18 holds ten equally spaced snapshots at the declared budget, so an interval that
+    is not `max(1, samples // SNAPSHOTS)` would write fewer than ten. The check is judged
+    against the **declared** samples and never against the budget a caller passed, so a
+    caller overriding `budget` trips nothing; a configuration declaring no samples at all
+    is left to the budget's own refusal (docs/L2/training/declarations.md §2,
+    docs/L3/training/loop.md §2, ASM-18).
+    """
+    declared = _declared_samples(configuration, entries)
+    if declared is None:
+        return
+    if isinstance(declared, bool) or not isinstance(declared, int) or declared < 1:
+        return
+    expected = max(1, declared // SNAPSHOTS)
+    own = configuration.get("snapshot_every")
+    if own is not None and own != expected:
+        raise errors.IgnoredDeclaration(
+            "training.run refused the configuration %r: 'snapshot_every' is %r, and the "
+            "run uses the interval the declared %d samples fix, %d, because ASM-18 holds "
+            "ten equally spaced snapshots — vary it in src/training/declarations.py "
+            "(ASM-18)" % (where, own, declared, expected)
+        )
+    for entry in entries:
+        own = entry.get("snapshot_every") if isinstance(entry, Mapping) else None
+        if own is None or own == expected:
+            continue
+        raise errors.IgnoredDeclaration(
+            "training.run refused the variant %r of the configuration %r: "
+            "'snapshot_every' is %r, and the run uses the interval the declared %d "
+            "samples fix, %d, because ASM-18 holds ten equally spaced snapshots — "
+            "vary it in src/training/declarations.py (ASM-18)"
+            % (entry.get("name"), where, own, declared, expected)
+        )
+
+
+def check_declarations(configuration):
+    """Refuse every declaration a run would not use, before the pool is built.
+
+    One place for the rule `docs/L2/training/declarations.md` §2–§4 states: an entry's
+    `hyper` key that is unknown or disagrees with `HYPER`, a `learning_rule` that is not
+    `LEARNING_RULE`, a `snapshot_every` at either level that is not the declared samples ÷
+    10, and — for a two-entry configuration — the eight settings both arms must share.
+    Every refusal is raised before the first hand is dealt and before anything is written
+    (ASM-7, ASM-8, ASM-18, docs/L3/training/loop.md §1 step 1).
+    """
+    where = configuration.get("name")
+    entries = list(configuration["variants"])
+    _check_hyper(where, entries)
+    _check_learning_rule(where, entries)
+    _check_snapshot_every(configuration, where, entries)
+    if len(entries) != 2:
+        return
+    difference = pair_difference(entries[0], entries[1])
+    if difference is None:
+        return
+    key, first, second = difference
+    raise errors.PairDeclarationsDiffer(
+        "training.run refused the configuration %r: its two variants %r and %r declare "
+        "two %r values, %s and %s, and both arms of a pair are trained at one value "
+        "(ASM-8)"
+        % (
+            where,
+            entries[0].get("name"),
+            entries[1].get("name"),
+            key,
+            _text(first),
+            _text(second),
+        )
+    )

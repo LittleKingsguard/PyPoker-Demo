@@ -228,6 +228,32 @@ EPISODE_SEED = 7721
 FOLD_SEED = 7722
 BASELINE_SEED = 7714
 
+#: The declarations a run would refuse (`docs/L2/training/declarations.md` §2-§4,
+#: `docs/L3/training/errors.md` §4). Each is the battery's own and names a value in force
+#: nowhere: a `learning_rate` the declaration does not carry, a sentence where the
+#: `exploration` schedule record is declared, a `hyper` key `HYPER` does not carry, a
+#: second learning rule, two intervals off the declared budget ÷ 10, two more rates for a
+#: pair `fairness` is asked to hold constant, and a second arm's sample budget. The
+#: configuration-level parameter budgets are §2's other honoured declaration.
+IGNORED_RATE = 0.00025
+IGNORED_SCHEDULE = "linear-decay-5517"
+IGNORED_HYPER_KEY = "entropy_decay"
+IGNORED_HYPER_VALUE = 0.025
+IGNORED_RULE = "masked-q-5517"
+IGNORED_INTERVAL = 27
+CONFIGURATION_INTERVAL = 34
+HELD_RATE_LEFT = 0.00075
+HELD_RATE_RIGHT = 0.00125
+PAIR_SAMPLES = 60
+INVENTED_PARAM_BUDGET = 13400
+INVENTED_SECOND_BUDGET = 13500
+INVENTED_BUDGET_RUNG = "rung-invented-5519"
+INVENTED_BUDGET_VARIANT = "variant-invented-5519"
+INVENTED_BUDGET_POOL = "pool-invented-5519"
+INVENTED_PAIR_RUNG = "rung-invented-5521"
+INVENTED_PAIR_LEFT = "variant-invented-5521-a"
+INVENTED_PAIR_RIGHT = "variant-invented-5521-b"
+
 
 class SurfaceAbsent(AssertionError):
     """`src/training/`, one of the six entry points, or a declared internal is missing.
@@ -350,7 +376,8 @@ def error_root():
     return root
 
 
-#: The fourteen classes `errors.md` §2 fixes, in its order.
+#: The fifteen refusal classes `errors.md` §2 fixes, in its order (Rev 2's
+#: `IgnoredDeclaration` and `PairDeclarationsDiffer` included).
 ERROR_CLASSES = (
     "UnknownRung",
     "ConfigurationInvalid",
@@ -365,6 +392,8 @@ ERROR_CLASSES = (
     "ComparisonKeyMissing",
     "MultipleAxes",
     "PoolIdsDiffer",
+    "IgnoredDeclaration",
+    "PairDeclarationsDiffer",
 )
 
 
@@ -375,7 +404,7 @@ def error_class(name):
     if not isinstance(klass, type) or not issubclass(klass, error_root()):
         raise SurfaceAbsent(
             "training.errors.%s is missing or does not descend from TrainingError, and "
-            "errors.md §2 declares the fourteen classes as design" % (name,)
+            "errors.md §2 declares the fifteen classes as design" % (name,)
         )
     return klass
 
@@ -966,14 +995,23 @@ class TrainingCase(unittest.TestCase):
     def internal(self, module_name, attribute):
         return internal(module_name, attribute)
 
-    def refuse(self, thunk, error_name, groups=(), label=""):
+    def refuse(self, thunk, error_name, groups=(), label="", entry=None):
         """Assert a refusal of the class `errors.md` §2 names, naming the value.
 
         `thunk` is called with no argument. The class is asserted exactly, because
-        `errors.md` §2 names the fourteen classes as design and a subclass would be an
+        `errors.md` §2 names the fifteen classes as design and a subclass would be an
         invention; the message must name the entry point that refused (`errors.md` §3)
         and every token of `groups` — one alternative per tuple — which is how a case
         says "the offending value is named" (§3 rule 1, §4).
+
+        `entry` names the entry point the message must mention when the class itself does
+        not fix one: `entry_name` maps a class to the entry point `errors.md` §2's comment
+        gives it once, and `PairDeclarationsDiffer` is the one class **two** entry points
+        raise — `run` for a configuration's two arms and `fairness` for a pair it is asked
+        to hold constant. Left unset, the table's answer stands; a `fairness`-raised case
+        passes `entry="fairness"` rather than weakening the assertion, so no case reads a
+        message it did not pin (`docs/L2/training/declarations.md` §3-§4, `docs/L3/
+        training/errors.md` §2, §4).
         """
         klass = error_class(error_name)
         where = label or error_name
@@ -999,11 +1037,12 @@ class TrainingCase(unittest.TestCase):
                 message.strip(), "%s was refused with an empty message" % (where,)
             )
             lowered = message.lower()
+            named = self.entry_name(klass) if entry is None else str(entry)
             self.assertIn(
-                "training." + self.entry_name(klass).lower(),
+                "training." + named.lower(),
                 lowered,
-                "%s's message must name the entry point that refused (errors.md §3): %r"
-                % (where, message),
+                "%s's message must name the entry point that refused, training.%s "
+                "(errors.md §3): %r" % (where, named, message),
             )
             for group in groups:
                 if not any(str(token).lower() in lowered for token in group):

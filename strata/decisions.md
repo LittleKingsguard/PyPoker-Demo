@@ -284,3 +284,65 @@ assumption either way.
 Rejected: assuming CPU-only and never offering the GPU path, which would waste hardware the user
 has confirmed is present; and assuming the agent can reach the GPU, which measurement has already
 contradicted.
+
+---
+
+## D-18 — The pool holds models trained under different estimators
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Change pool to include multiple training models using different
+estimators" — following the diagnosis that a pool of one estimator's own descendants produces a
+raise-maniac which loses to `always-call` (`strata/records/r2-plateau-diagnosis.md`).
+
+**Decision:** This supersedes D-16's pool-composition clause. The league pool is deliberately
+**heterogeneous**: it holds models trained under different estimators, not only the rung's own
+lineage and the three pinned baselines.
+
+- The **learner** of a rung keeps that rung's declared rule, so ASM-7's one-rule-for-the-ladder
+  fairness still holds for the thing being measured (D-3).
+- The **opponents** vary in estimator on purpose. A population descended from one estimator is a
+  monoculture: it rewards whatever that estimator's bias favours — measured, always-raise — and a
+  policy optimal inside it is weak against a calling station.
+- Alternative estimators therefore have to exist as trainable pool members (Monte-Carlo or n-step
+  returns and Double Q-learning are the named candidates; the set is not fixed here).
+- The pool record carries each member's estimator, so a table can say which population a rating was
+  fitted over, and so a member is never confused with one from a different rule.
+- Cost grows with membership under the existing arithmetic: K rises, cells rise as K(K−1)/2, and the
+  live-table budget of D-16 is the cap that decides how many members may be admitted (ASM-14).
+
+**Gate (D-10):** this changes an existing decision row, so it goes to `role_l0_validity` and
+`role_l0_critique` before any design work. Their findings are dispositioned here or in a following
+row — the pool's size, the estimator set and the cost share are the questions they will be asked.
+
+---
+
+## D-19 — The estimator is a parameter, and every estimator trains
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Fix the learning rule constant so that multiple estimators work. With
+the multiple estimators in play, all of them are training targets, not just opponents for one
+training"
+
+**Decision:** This extends D-18 and supersedes the single-rule clause of the ladder's fairness rule.
+
+- `LEARNING_RULE` stops being a module constant and becomes a catalogue with more than one member,
+  and the learner spec carries the rule it learns under.
+- A configuration may declare its variants with **different** rules, and **every variant it declares
+  is trained** — each produces its own curves, snapshots, final checkpoint and pool membership. A
+  model trained under one rule is not merely borrowed opposition for another's run.
+- A pool member therefore carries its rule, and the pool id must be able to certify it, so a table
+  can say which population a rating was fitted over.
+- The ladder's fairness rule is restated accordingly: what a rung holds constant is the **set** of
+  rules and their declarations, not a single rule. Two arms of a pair still train against one frozen
+  pool, and two rungs are still compared on one game and one seed set (D-3, D-16).
+- This re-baselines the shipped artifacts: R1's live evidence, R2's deep run and the full table were
+  all measured under the old single-rule arrangement.
+
+**Gate (D-10):** D-18's intake review already names the blockers this decision must clear — no
+second estimator exists to train (V-F1), `learning_rule` is carried but never honoured (V-F2), the
+member record has no rule field and the pool id digests ids alone (V-F3), one lineage chain is
+extendable so a multi-family pool cannot roll (V-F4), and M bounds total versions (V-F5) — plus the
+critique's questions of cost, eviction and who decides membership. A design that departs from those
+findings needs its own gate; one that follows them needs only the findings cited.
