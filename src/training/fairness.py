@@ -4,18 +4,20 @@
 more than one axis is refused and never gets that far. It plays no hand, builds no learner,
 writes nothing and moves no stream (`docs/L2/training/surface.md` §5).
 
-**The one rule that is this design's own.** The six axes are `backend`, `encoding`,
-`architecture` (width and depth), `connectivity` (sparsity), `residual` and `rule` — the rule
-a variant is trained under. A pair compares `architecture` only when its two sides agree on
-the representation family *and* on `sparsity`: where they differ, the width is the capacity
-match's compensation — ASM-10 requires a `sparse` arm to be declared wider than its dense
-mate, and a token encoding to sit at a different width than a dense one — so it belongs to
-the `encoding` or the `connectivity` axis and is never counted a second time
-(`docs/L3/training/fairness.md` §2).
+**The one rule that is this design's own.** The seven axes are `backend`, `encoding`,
+`architecture` (width and depth), `connectivity` (sparsity), `residual`, `rule` (the rule a
+variant is trained under) and `utility` (the reward its training target carries). A pair
+compares `architecture` only when its two sides agree on the representation family *and* on
+`sparsity`: where they differ, the width is the capacity match's compensation — ASM-10
+requires a `sparse` arm to be declared wider than its dense mate, and a token encoding to
+sit at a different width than a dense one — so it belongs to the `encoding` or the
+`connectivity` axis and is never counted a second time (`docs/L3/training/fairness.md`
+§2, `utilities.md` §8, D-20).
 """
 
 from collections.abc import Mapping
 
+import agents
 import engine
 import features
 
@@ -146,6 +148,23 @@ def _rule(entry, configuration=None):
     return declarations.learning_rules()[0]
 
 
+def _utility(entry, configuration=None):
+    """The utility a side is trained on: its own, else its configuration's, else the first.
+
+    The utility side of :func:`_rule`, on the same terms: a side that declares no
+    `utility` is trained on the catalogue's **first** member's reward, the declared default
+    of `utilities.md` §5, so it is resolved through `declarations.utilities()` and a side
+    spelling the default out and a side leaving it unsaid are one utility and never a
+    phantom difference (`utilities.md` §5, §8, D-20, `fairness.md` §2, §7).
+    """
+    declared = entry.get("utility") if isinstance(entry, Mapping) else None
+    if declared is None and isinstance(configuration, Mapping):
+        declared = configuration.get("utility")
+    if declared is not None:
+        return declared
+    return declarations.utilities()[0]
+
+
 def _rule_set(rules):
     """The **set** of rules two sides are trained under, in declaration order, left first.
 
@@ -160,10 +179,27 @@ def _rule_set(rules):
     return distinct
 
 
-def _differences(left, right, rules=None):
+def _utility_set(utilities):
+    """The **set** of utilities two sides are trained on, in declaration order, left first.
+
+    The utility side of :func:`_rule_set`, and never one side's value: what a rung holds
+    constant is the set of utilities its variants declare, and two utilities are the pair's
+    `utility` axis rather than a constant one arm imposed (`utilities.md` §8, D-20,
+    `fairness.md` §4).
+    """
+    distinct = []
+    for utility in utilities:
+        if utility not in distinct:
+            distinct.append(utility)
+    return distinct
+
+
+def _differences(left, right, rules=None, utilities=None):
     """The axes two variant entries differ on, and the field names that differ."""
     if rules is None:
         rules = (_rule(left), _rule(right))
+    if utilities is None:
+        utilities = (_utility(left), _utility(right))
     axes = []
     fields = []
     if left.get("backend") != right.get("backend"):
@@ -190,12 +226,17 @@ def _differences(left, right, rules=None):
     if rules[0] != rules[1]:
         axes.append("rule")
         fields.append("learning_rule")
+    # D-20's axis: the token and the field are one word, unlike the rule's pairing of the
+    # token `rule` with the field `learning_rule` (`utilities.md` §8, D-20).
+    if utilities[0] != utilities[1]:
+        axes.append("utility")
+        fields.append("utility")
     return axes, fields
 
 
-def _axis(left, right, later=None, rules=None):
+def _axis(left, right, later=None, rules=None, utilities=None):
     """`{of, differs, declared}` for two entries, or for two primaries and their rung."""
-    axes, fields = _differences(left, right, rules)
+    axes, fields = _differences(left, right, rules, utilities)
     if len(axes) > 1:
         raise errors.MultipleAxes(
             "training.fairness refused the pair: it differs on %d axes, %s, and a reportable "
@@ -265,13 +306,15 @@ def _pool_report(left, right):
     }
 
 
-def _constants(left, right, pool_report=None, rules=None):
-    """The thirteen declarations `ladder.md` §4 makes a comparison hold constant.
+def _constants(left, right, pool_report=None, rules=None, utilities=None):
+    """The fourteen declarations `ladder.md` §4 makes a comparison hold constant.
 
-    `rules` is the **set** of rules the two sides are trained under — each side's
-    `learning_rule`, else its configuration's copy, else the catalogue's first — so the row
-    never reports one side's value as the constant held (`fairness.md` §4, `rules.md` §8,
-    D-19).
+    `rules` and `utilities` are the **sets** the two sides are trained under — each side's
+    own member, else its configuration's copy, else the catalogue's first — so a row never
+    reports one side's value as the constant held (`fairness.md` §4, `rules.md` §8,
+    `utilities.md` §8, D-19, D-20).  The `reward` row states the reward each side's utility
+    delivers, read off the catalogue's own tokens, so a pair of two objectives says so
+    there and a pair of one says one (`utilities.md` §2, §8, ASM-12, D-20).
     """
     left_entry = _primary(left) if "variants" in left else left
     right_entry = _primary(right) if "variants" in right else right
@@ -280,14 +323,20 @@ def _constants(left, right, pool_report=None, rules=None):
             _rule(left_entry, left if "variants" in left else None),
             _rule(right_entry, right if "variants" in right else None),
         )
+    if utilities is None:
+        utilities = (
+            _utility(left_entry, left if "variants" in left else None),
+            _utility(right_entry, right if "variants" in right else None),
+        )
     if pool_report is None:
         pool_report = _pool_report(left, right)
     return {
         "game": engine.game_config(),
         "action vocabulary": {index: features.decode_action(index) for index in (0, 1, 2)},
         "readout facts": list(READOUT_FACTS),
-        "reward": "the seat's net chip delta at its terminal decision, unshaped (ASM-12)",
+        "reward": _reward_row(_utility_set(utilities)),
         "rules": _rule_set(rules),
+        "utilities": _utility_set(utilities),
         "hyper": left_entry.get("hyper")
         or right_entry.get("hyper")
         or dict(declarations.HYPER),
@@ -310,6 +359,27 @@ def _constants(left, right, pool_report=None, rules=None):
     }
 
 
+def _reward_row(utilities):
+    """The `reward` constant as the catalogue states it for each utility the pair names.
+
+    A pair trained on one reward states that one; a pair whose arms name two states both,
+    because the row is a constant of the comparison and a comparison of two objectives
+    holds the *set* of rewards constant and never one side's (`utilities.md` §2, §8,
+    ASM-12, D-20).  The tokens are the catalogue's, read through `agents.learners()`, and
+    never a sentence this module wrote about them.
+    """
+    catalogue = agents.learners().get("utilities") or {}
+    stated = []
+    for utility in utilities:
+        entry = catalogue.get(utility) if isinstance(catalogue, dict) else None
+        token = entry.get("reward") if isinstance(entry, dict) else None
+        if not isinstance(token, str):
+            token = "an undeclared reward"
+        stated.append("%s's terminal reward at the seat's terminal decision: %s (ASM-12)"
+                      % (utility, token))
+    return "; ".join(stated)
+
+
 def fairness(left, right):
     """What a pair holds constant and the one axis it differs on (`surface.md` §5)."""
     kind, left_value, right_value = _sides(left, right)
@@ -330,11 +400,16 @@ def fairness(left, right):
             _rule(left_entry, left_value),
             _rule(right_entry, right_value),
         )
+        utilities = (
+            _utility(left_entry, left_value),
+            _utility(right_entry, right_value),
+        )
     else:
         left_entry = left_value
         right_entry = right_value
         pair = [str(left_entry.get("name")), str(right_entry.get("name"))]
         rules = (_rule(left_entry), _rule(right_entry))
+        utilities = (_utility(left_entry), _utility(right_entry))
     for position, entry in enumerate((left_entry, right_entry)):
         _require(
             entry,
@@ -344,9 +419,10 @@ def fairness(left, right):
             ),
         )
     if kind == "configuration":
-        axis = _axis(left_entry, right_entry, later=right_value, rules=rules)
+        axis = _axis(left_entry, right_entry, later=right_value, rules=rules,
+                     utilities=utilities)
     else:
-        axis = _axis(left_entry, right_entry, rules=rules)
+        axis = _axis(left_entry, right_entry, rules=rules, utilities=utilities)
     left_id = _declared_pool(left_value)
     right_id = _declared_pool(right_value)
     if kind == "entry" and left_id is not None and right_id is not None:
@@ -368,6 +444,8 @@ def fairness(left, right):
     return {
         "pair": pair,
         "axis": axis,
-        "constants": _constants(left_value, right_value, report, rules=rules),
+        "constants": _constants(
+            left_value, right_value, report, rules=rules, utilities=utilities
+        ),
         "pool": report,
     }

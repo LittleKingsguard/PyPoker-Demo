@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
-- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19), and what they cost
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-09
+- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19) and several objectives (D-20), and what they cost
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. What the league is
@@ -81,22 +81,27 @@ demonstration, and the full table with the fitted intervals is what a claim rest
 
 ## 8. Where a table can and cannot be read
 
-The **matrix is the evidence; the rating is a summary of it.** A Bradley-Terry rating is one global fit over
-every cell at once, so a rank says where a member stands in that fit and **never** asserts a head-to-head win
-over any other member: the cell is the head-to-head, and both directions of it are reported beside the rating
-(D-16, `protocol.md` §1, §2). The shipped live table for R1 shows why the distinction is not pedantry — `variant-1`
-carries the table's highest rating, its interval clear of all three baselines', while **losing** its cell to
-`always-call` and **splitting** the one it plays against `oracle`, because the fit is carried by its near-sweep of
-`random`, where it takes all but a handful of the cell's hands; a reader given the ranking alone would be told the
-opposite of one of its six cells and half of another (the live table in `checkpoints/evidence/r1-live.json`, D-16, ASM-23).
+The **matrix is the evidence; the rating is a summary of it.** A Bradley-Terry rating is one global fit over every
+cell at once, so a rank says where a member stands in that fit and **never** asserts a head-to-head win over any
+other member: the cell is the head-to-head, and both directions of it are reported beside the rating (D-16,
+`protocol.md` §1, §2). The shipped live table for R1 shows why the distinction is not pedantry — `variant-1` carries
+the table's highest rating, its interval clear of all three baselines', while **losing** its cell to `always-call`
+and **splitting** the one it plays against `oracle`, because the fit is carried by its near-sweep of `random`; a
+reader given the ranking alone would be told the opposite of one of its six cells and half of another (D-16, ASM-23).
 
-So a version that **outranks** a baseline has shown only that the fitted order over the whole matrix places it
-there; a version that **beats** a baseline has shown that it wins more hands than it loses against that fixed
-rule at this cell size on this game, and that is said of a cell and never of a rank (D-16). Neither is a claim
-of poker skill, and the table says nothing about a member it does not name (D-16, brief §8). A rung's learning
-claim is a curve plus its cells against the baselines — never a rank among versions alone, because self-play in
-a bounded pool can reward beating one's own earlier selves (D-16, D-6). §9 names the two artifacts that ship and
-the one member id that is two players, which is the other way a row can be read as measuring something it did not.
+So a version that **outranks** a baseline has shown only that the fitted order over the whole matrix places it there;
+one that **beats** a baseline has shown that it wins more hands than it loses against that fixed rule at this cell
+size on this game, and that is said of a cell and never of a rank (D-16). Neither is a claim of poker skill, and the
+table says nothing about a member it does not name (D-16, brief §8). A rung's learning claim is a curve plus its cells
+against the baselines — never a rank among versions alone, because self-play in a bounded pool can reward beating
+one's own earlier selves (D-16, D-6), and §9 names the other way a row can be read as measuring what it did not.
+
+**And a member was trained on an objective.** The cell is measured in chips and the rating over hands, whatever
+utility its members were trained under, because chips are what the game pays (D-20). A member trained on
+`stack-shortfall` was asked a different question from one trained on `net-chips`, so the matrix's
+`utility_population` and each cell's `utilities` are read before any comparison across them, and **a
+differently-motivated model is neither better nor worse by this table** — a lower chip delta is the preference
+D-20 chose, not the objective failing, and a higher one is no verdict on the objective it replaced (D-20, ASM-29).
 
 ## 9. The two artifacts that ship, and the one member id that is two players
 

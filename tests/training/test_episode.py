@@ -1,4 +1,4 @@
-"""TRN-4 — one episode into transitions: `_seat(index)`, `_transitions(episode, seat, encoder)`.
+"""TRN-4 — one episode into transitions: `_seat(index)`, `_transitions(episode, seat, encoder, utility)`.
 
 Drives `docs/L3/training/episode.md` §1-§5 from a **real** episode: `engine.play_hand` at
 one invented seed with the three pinned baselines as policies, driven through the two
@@ -10,19 +10,37 @@ the terminal mask are `§4`'s four bullets, one case each.
 `_transitions` takes an episode record and a seat, so no learner is built and no policy
 is assembled here — `episode.md` §2's point that a unit case can build the transitions
 without one (`tests/training/test_episode.py::TRN-4.1`).
+
+D-20's arithmetic is `docs/L3/training/reward.md` §1-§5 and `docs/L1/utilities.md` §2, §4,
+which `reward.md` §6 makes contract for this battery: `TRN-4.9` derives the four scores from
+the implementation's own formula and holds them against the numbers D-20 states, `TRN-4.10`
+the `0.0` every non-terminal decision keeps under either utility, `TRN-4.11` the
+`net-chips` delta, `TRN-4.12` the chips-in-play guard's refusal, and `TRN-4.13` the
+catalogue's **reward token** as the selector. The four hands are the battery's own invented
+seeds, and each case asserts the payoff the seed actually produced before it asserts the
+reward that payoff scores (`battery.md` §4, §5, D-20).
 """
 
+import copy
 import unittest
 
 from _training_support import (
+    ALL_IN_LOSE_SEED,
+    ALL_IN_WIN_SEED,
+    IGNORED_UTILITY,
+    LOSE_TWO_SEED,
     TrainingCase,
+    WIN_TWO_SEED,
+    all_in_episode,
     as_float,
     as_int,
     as_mapping,
     as_sequence,
+    as_text,
     decision_seat,
     decisions_of,
     encoder,
+    engine,
     episode,
     features,
     fold_episode,
@@ -30,7 +48,18 @@ from _training_support import (
     payoff_of,
     same_observation,
     seat_decisions,
+    two_utility_names,
+    utility_catalogue,
+    utility_names,
+    utility_reward,
 )
+
+#: D-20's four numbers, read off a payoff of the fixed game and stated by that decision
+#: itself ("a ±2-chip pair scores **+0.190 / −0.210**, and an all-in scores **+1.000 /
+#: −3.000**", D-20, `utilities.md` §2, `reward.md` §3). They are the case's expectation and
+#: never its derivation: TRN-4.9 computes the same value from `T`, `s0` and the payoff the
+#: seed produced, and holds the two together.
+D_20_NUMBERS = {2.0: 0.190, -2.0: -0.210, 20.0: 1.000, -20.0: -3.000}
 
 #: `records.md` §4's seven required keys of one transition record.
 TRANSITION_KEYS = {
@@ -45,14 +74,41 @@ TRANSITION_KEYS = {
 
 
 class EpisodeTest(TrainingCase):
-    def transitions(self, record, seat, encoder_name="flat-numeric"):
+    def transitions(self, record, seat, encoder_name="flat-numeric", utility=None):
         return [
             as_mapping(record_of_transition, "one transition record")
             for record_of_transition in as_sequence(
-                internal("episode", "_transitions")(record, seat, encoder(encoder_name)),
+                internal("episode", "_transitions")(
+                    record, seat, encoder(encoder_name), utility
+                ),
                 "a transition list",
             )
         ]
+
+    def rewards(self, record, seat, utility=None):
+        """One seat's reward per decision, in decision order (`reward.md` §1, §5)."""
+        return [
+            as_float(transition["reward"], "a reward")
+            for transition in self.transitions(record, seat, utility=utility)
+        ]
+
+    def chip_counts(self, record, seat):
+        """`T`, `s_0` and the seat's terminal payoff, read off the hand (`utilities.md` §4).
+
+        `T` is `sum(readout['stacks']) + readout['pot']` at the seat's terminal decision and
+        `s_0` is `engine.game_config()['starting_stack']`; the payoff is the episode's own
+        net chip delta for that seat (`reward.md` §3, `records.md` §5, ASM-6).
+        """
+        game = as_mapping(engine().game_config(), "the game's configuration")
+        starting_stack = as_float(game["starting_stack"], "the game's starting stack")
+        readout = as_mapping(
+            seat_decisions(record, seat)[-1]["readout"], "a terminal decision's readout"
+        )
+        total = sum(
+            as_float(stack, "a seat's stack")
+            for stack in as_sequence(readout["stacks"], "a readout's 'stacks'")
+        ) + as_float(readout["pot"], "a readout's 'pot'")
+        return float(total), starting_stack, payoff_of(record, seat)
 
     def test_trn_4_1_the_seat_alternates_by_the_hand_index(self):
         """TRN-4.1 `_seat(index)` is the hand index modulo two, a plain `0` or `1`, so half a run's hands are on the button and half in the big blind (episode.md §1, engine/surface.md §4, D-16)."""
@@ -287,6 +343,351 @@ class EpisodeTest(TrainingCase):
             1,
             "the episode's first decision is the button's, which is seat 0 in every "
             "hand (engine/surface.md §4)",
+        )
+
+    # -- D-20: the terminal reward a utility delivers ----------------------
+    def hands(self):
+        """The battery's four invented hands, as `(what it is, record, seat, delta)`.
+
+        Two are played with both seats calling, so the fixed game's 40 chips split ±2 with
+        no bet beyond the blinds; two are played with both seats raising whenever they may,
+        so one seat commits all twenty chips and the hand splits ±20 (`utilities.md` §2,
+        §4, `reward.md` §3, ASM-6). The seat is the one whose terminal decision is read and
+        the delta is the payoff the seed is asserted to produce before any reward is
+        asserted.
+        """
+        return (
+            (
+                "a hand that wins 2 chips",
+                episode(WIN_TWO_SEED),
+                0,
+                2.0,
+            ),
+            (
+                "a hand that loses 2 chips",
+                episode(LOSE_TWO_SEED),
+                0,
+                -2.0,
+            ),
+            (
+                "an all-in that wins 20 chips",
+                all_in_episode(ALL_IN_WIN_SEED),
+                0,
+                20.0,
+            ),
+            (
+                "an all-in that loses 20 chips",
+                all_in_episode(ALL_IN_LOSE_SEED),
+                0,
+                -20.0,
+            ),
+        )
+
+    def test_trn_4_9_the_shortfall_reward_is_d_20_s_four_numbers(self):
+        """TRN-4.9 under `stack-shortfall` the terminal reward is `((T − s0)² − (T − (s0 + delta))²) / (T − s0)²` — derived in the case from the hand's own `T` and the game's `s0`, not from a memorised float — and the four hands score D-20's +0.190, −0.210, +1.000 and −3.000 (utilities.md §2, §4, reward.md §3, D-20, FAM-18)."""
+        _, shortfall = two_utility_names()
+        for label, record, seat, delta in self.hands():
+            with self.subTest(hand=label):
+                total, starting_stack, payoff = self.chip_counts(record, seat)
+                self.assertEqual(
+                    payoff,
+                    delta,
+                    "the invented hand at seed %r must be one whose seat %r terminal "
+                    "payoff is %r before any reward is read from it, and this seed "
+                    "produces %r (records.md §5, ASM-12): %r"
+                    % (record["seed"], seat, delta, payoff, label),
+                )
+                self.assertEqual(
+                    total,
+                    2.0 * starting_stack,
+                    "`T` is every chip the hand holds — sum(readout['stacks']) + "
+                    "readout['pot'] — and the fixed game deals two seats of %r, so it is "
+                    "%r at every decision (utilities.md §4, ASM-6): %r"
+                    % (starting_stack, 2.0 * starting_stack, total),
+                )
+                before = (total - starting_stack) ** 2
+                after = (total - (starting_stack + delta)) ** 2
+                expected = (before - after) / before
+                observed = self.rewards(record, seat, utility=shortfall)[-1]
+                self.assertAlmostEqual(
+                    observed,
+                    expected,
+                    places=12,
+                    msg="the terminal reward is the shortfall delta normalised by the "
+                    "shortfall a hand begins with, and this case derives it from the "
+                    "hand's own `T` = %r and the game's `s0` = %r with delta = %r "
+                    "(utilities.md §2, §4, reward.md §3, D-20): %r against %r"
+                    % (total, starting_stack, delta, observed, expected),
+                )
+                self.assertAlmostEqual(
+                    round(observed, 3),
+                    D_20_NUMBERS[delta],
+                    places=3,
+                    msg="D-20 states the four numbers this fixed game scores — "
+                    "+0.190 / −0.210 for ±2 chips and +1.000 / −3.000 all-in — so a "
+                    "loss of a given size costs more than a win of the same size pays "
+                    "and all-in aggression is penalised threefold (D-20, utilities.md "
+                    "§2, reward.md §3): %r for %r" % (observed, label),
+                )
+        numbers = [
+            self.rewards(record, seat, utility=shortfall)[-1]
+            for _label, record, seat, _delta in self.hands()
+        ]
+        self.assertLess(
+            numbers[1],
+            -numbers[0],
+            "a loss of a given size is always penalised more than a win of the same "
+            "size pays — the asymmetry D-20 chose this utility for — so the −2 hand's "
+            "reward is strictly below the negation of the +2 hand's (D-20, "
+            "utilities.md §2, reward.md §3): %r against %r"
+            % (numbers[1], numbers[0]),
+        )
+        self.assertLess(
+            numbers[3],
+            -numbers[2],
+            "the same asymmetry at the all-in stake, threefold: −3.000 against +1.000 "
+            "(D-20, utilities.md §2, reward.md §3): %r against %r"
+            % (numbers[3], numbers[2]),
+        )
+
+    def test_trn_4_10_every_non_terminal_decision_keeps_the_episode_s_zero(self):
+        """TRN-4.10 under **both** catalogue utilities every transition but the seat's terminal one carries exactly `0.0`, so the utility adds no intermediate term and no shaping on top of ASM-12's delivery rule (utilities.md §2, §3, §4, reward.md §5, records.md §4, ASM-12, D-20)."""
+        first, second = two_utility_names()
+        for utility in (first, second):
+            for label, record, seat, delta in self.hands():
+                with self.subTest(utility=utility, hand=label):
+                    rewards = self.rewards(record, seat, utility=utility)
+                    self.assertEqual(
+                        rewards[:-1],
+                        [0.0] * (len(rewards) - 1),
+                        "the reward is terminal only: every decision but the seat's "
+                        "last carries `0.0`, which is the value the episode placed and "
+                        "the utility leaves alone (utilities.md §2, §3, reward.md §5, "
+                        "records.md §4, ASM-12): %r under %r"
+                        % (rewards, utility),
+                    )
+                    self.assertEqual(
+                        [reward for reward in rewards if reward != 0.0],
+                        [rewards[-1]],
+                        "exactly one transition of a hand carries a reward, whatever "
+                        "utility scored it, so no second term was introduced (ASM-12, "
+                        "reward.md §5): %r under %r" % (rewards, utility),
+                    )
+                    self.assertNotEqual(
+                        rewards[-1],
+                        0.0,
+                        "the invented hand pays its seat %r chips, so its terminal "
+                        "transition is non-zero under either arithmetic and a `0.0` "
+                        "there would be a missed decision rather than a split pot "
+                        "(reward.md §5, records.md §5): %r under %r"
+                        % (delta, rewards, utility),
+                    )
+
+    def test_trn_4_11_net_chips_is_the_delta_unshaped(self):
+        """TRN-4.11 under `net-chips` — and under no utility name at all, which is that same catalogue first member — the terminal reward is the decision's own `reward`, the seat's net chip delta for the completed hand, unnormalised and unshaped (utilities.md §2, §5, reward.md §3, records.md §4, §5, ASM-12, D-20)."""
+        first, _ = two_utility_names()
+        self.assertEqual(
+            utility_names()[0],
+            first,
+            "the catalogue's first member is the declared default of utilities.md §5, so "
+            "a call naming no utility is that member's arithmetic: %r"
+            % (utility_names(),),
+        )
+        for utility in (first, None):
+            for label, record, seat, delta in self.hands():
+                decisions = seat_decisions(record, seat)
+                _total, _starting_stack, payoff = self.chip_counts(record, seat)
+                with self.subTest(utility=utility, hand=label):
+                    terminal = self.transitions(record, seat, utility=utility)[-1]
+                    observed = as_float(terminal["reward"], "the terminal reward")
+                    self.assertAlmostEqual(
+                        observed,
+                        as_float(
+                            decisions[-1]["reward"], "the terminal decision's reward"
+                        ),
+                        places=12,
+                        msg="under net-chips the terminal reward is the decision's own "
+                        "`reward` and nothing is added, clipped or normalised "
+                        "(utilities.md §2, reward.md §3, ASM-12): %r under %r"
+                        % (observed, utility),
+                    )
+                    self.assertAlmostEqual(
+                        observed,
+                        payoff,
+                        places=12,
+                        msg="the terminal reward is the seat's net chip delta for the "
+                        "completed hand, which is the engine's own payoff for that seat "
+                        "(records.md §5, ASM-12, reward.md §3): %r under %r"
+                        % (observed, utility),
+                    )
+                    self.assertAlmostEqual(
+                        observed,
+                        delta,
+                        places=12,
+                        msg="the delta is unnormalised, so a ±20 hand scores ±20 and not "
+                        "the shortfall's ±1.000/±3.000 (utilities.md §2, §4, reward.md "
+                        "§3): %r under %r" % (observed, utility),
+                    )
+
+    def test_trn_4_12_a_hand_whose_totals_disagree_is_refused_naming_the_seed_and_both_totals(self):
+        """TRN-4.12 a hand whose terminal readout's `sum(stacks) + pot` is not the chips the game declares is refused with `training`'s `ChipConservationBroken`, naming the hand's seed and both totals — while `net-chips`, which never reads the readout, still scores that hand (utilities.md §4, reward.md §4, errors.md §2, ASM-6, ASM-28, D-20)."""
+        first, second = two_utility_names()
+        game = as_mapping(engine().game_config(), "the game's configuration")
+        starting_stack = as_float(game["starting_stack"], "the starting stack")
+        declared = as_float(game["seats"], "the seat count") * starting_stack
+        record = copy.deepcopy(episode())
+        seat = 0
+        readout = as_mapping(
+            seat_decisions(record, seat)[-1]["readout"], "a terminal decision's readout"
+        )
+        # The doctor keeps the readout encodable — `features.encode` reads the pot as a
+        # non-negative integer — so the hand is refused by the chips-in-play guard and
+        # not by the encoder (`features/surface.md` §6, reward.md §4).
+        readout["pot"] = as_int(readout["pot"], "a readout's 'pot'") + 1
+        total = sum(
+            as_float(stack, "a seat's stack")
+            for stack in as_sequence(readout["stacks"], "a readout's 'stacks'")
+        ) + as_float(readout["pot"], "a readout's 'pot'")
+        self.assertNotEqual(
+            total,
+            declared,
+            "the invented episode must be one whose chips in play disagree with the game "
+            "before its refusal is read: it totals %r against %r (reward.md §4)"
+            % (total, declared),
+        )
+        refused = self.refuse(
+            lambda: internal("episode", "_transitions")(
+                record, seat, encoder(), second
+            ),
+            "ChipConservationBroken",
+            groups=(
+                (str(record["seed"]),),
+                (repr(float(total)),),
+                (repr(float(declared)),),
+                ("chips in play", "total", "stack"),
+            ),
+            label="a hand whose chips in play disagree with the game",
+        )
+        message = str(refused)
+        self.assertIn(
+            str(record["seed"]),
+            message,
+            "the refusal names the hand's seed, so a run can say which hand broke the "
+            "guard rather than which hand index (reward.md §4, utilities.md §4): %r"
+            % (message,),
+        )
+        for label, value in (("the readout's total", total),
+                             ("the game's declared total", declared)):
+            self.assertIn(
+                repr(float(value)),
+                message,
+                "the refusal names both totals — %s is %r — because a normaliser that is "
+                "not the game's own would make one reward incommensurable with the next "
+                "(utilities.md §4, reward.md §4, ASM-28): %r"
+                % (label, float(value), message),
+            )
+        accepted = self.transitions(episode(), seat, utility=second)
+        self.assertTrue(
+            accepted,
+            "the same hand before it was doctored is scored, so the refusal above is "
+            "about the total and not about the hand (reward.md §4): %r" % (accepted,),
+        )
+        self.assertAlmostEqual(
+            self.rewards(record, seat, utility=first)[-1],
+            payoff_of(record, seat),
+            places=12,
+            msg="the guard is reached only by the arithmetic that needs the readout: "
+            "`net-chips` reads the decision's own reward and nothing else, so a hand it "
+            "scores is never measured for conservation (reward.md §4, utilities.md §2, "
+            "§4): %r" % (record["payoffs"],),
+        )
+
+    def test_trn_4_13_the_arithmetic_is_selected_by_the_catalogue_s_reward_token(self):
+        """TRN-4.13 `REWARDS` is keyed by the **reward tokens** the catalogue states and by nothing else, `_reward_function` resolves a member to its token's arithmetic (`None` meaning the catalogue's first), and a utility name outside the catalogue is refused by name rather than defaulted to the net chip delta (utilities.md §2, §4, §5, reward.md §2, D-20)."""
+        catalogue = utility_catalogue()
+        self.assertEqual(
+            len(catalogue),
+            2,
+            "the catalogue publishes exactly two members — `net-chips` and the utility "
+            "D-20 adds — so a token selects one of two arithmetics (utilities.md §2, "
+            "D-20): %r" % (sorted(catalogue),),
+        )
+        tokens = {
+            as_text(name, "a utility name"): utility_reward(name) for name in catalogue
+        }
+        self.assertEqual(
+            len(set(tokens.values())),
+            len(tokens),
+            "two catalogue members state two distinct reward tokens, which is what makes "
+            "the token — and not the member's name — the selector (utilities.md §2, "
+            "reward.md §2): %r" % (tokens,),
+        )
+        rewards = as_mapping(internal("episode", "REWARDS"), "the reward table")
+        self.assertEqual(
+            set(rewards),
+            set(tokens.values()),
+            "REWARDS is keyed by the tokens the catalogue states and carries no name of "
+            "its own, so the arithmetic is read from the catalogue's own description of "
+            "what a member delivers (utilities.md §2, reward.md §2, D-20): %r against %r"
+            % (sorted(rewards), sorted(tokens.values())),
+        )
+        reward_function = internal("episode", "_reward_function")
+        for name in catalogue:
+            with self.subTest(utility=name):
+                resolved, arithmetic = reward_function(name)
+                self.assertEqual(
+                    as_text(resolved, "a resolved utility"),
+                    name,
+                    "the member's own name is what is resolved and discarded, the token "
+                    "being what the step reads (reward.md §2): %r" % (resolved,),
+                )
+                self.assertIs(
+                    arithmetic,
+                    rewards[tokens[name]],
+                    "a catalogued member resolves to the callable its reward token names "
+                    "(utilities.md §2, reward.md §2): %r under %r"
+                    % (arithmetic, name),
+                )
+        default, default_arithmetic = reward_function(None)
+        self.assertEqual(
+            as_text(default, "the default utility"),
+            utility_names()[0],
+            "a call naming no utility is the catalogue's first member, the declared "
+            "default of utilities.md §5 (records.md §3, D-20): %r" % (default,),
+        )
+        self.assertIs(
+            default_arithmetic,
+            rewards[tokens[utility_names()[0]]],
+            "and it is that member's arithmetic, resolved through the same token "
+            "(utilities.md §5, reward.md §2): %r" % (default_arithmetic,),
+        )
+        refused = self.refuse(
+            lambda: reward_function(IGNORED_UTILITY),
+            "ConfigurationInvalid",
+            groups=((IGNORED_UTILITY,), ("catalogue",)),
+            label="a utility name outside the catalogue",
+        )
+        for name in catalogue:
+            self.assertIn(
+                name,
+                str(refused),
+                "the refusal names every member the catalogue does carry, so a reader "
+                "sees the whole vocabulary it may name instead (utilities.md §5, "
+                "reward.md §2): %r" % (str(refused),),
+            )
+        self.refuse(
+            lambda: internal("episode", "_transitions")(
+                episode(), 0, encoder(), IGNORED_UTILITY
+            ),
+            "ConfigurationInvalid",
+            groups=((IGNORED_UTILITY,),),
+            label="a transition step asked for an uncatalogued utility",
+        )
+        self.assertTrue(
+            self.transitions(episode(), 0, utility=utility_names()[1]),
+            "the control: the same call naming a catalogued member is accepted, so the "
+            "refusal is about the name and not about the argument (utilities.md §5, "
+            "reward.md §2): %r" % (utility_names(),),
         )
 
 

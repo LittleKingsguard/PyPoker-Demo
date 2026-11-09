@@ -589,6 +589,115 @@ class AgentsJoin(J.JoinCase):
             "(docs/L2/agents/surface.md §10, docs/L1/ladder.md §5)",
         )
 
+    def test_trnj_3_4_two_utilities_are_two_models_and_two_recorded_objectives(self):
+        """TRNJ-3.4 a two-utility run writes two models whose containers record two utilities.
+
+        D-20 makes the terminal reward selectable per variant, and the reward is applied
+        where the transition record is built (`utilities.md` §2, §4, §7), so a
+        configuration declaring two catalogue utilities trains **both** arms: each has its
+        own curve, its own final checkpoint per seed and its own place in the pool the
+        league measures.  A checkpoint records the utility its learner was trained under in
+        a required `utility` field (`utilities.md` §6), and `evaluation.policy_from`
+        reports the utility the file records, which is the container a table names -- so
+        two arms trained on two rewards are two artefacts with two objectives and never one
+        model under two names (`utilities.md` §5, §6, §7, `records.md` §12,
+        `docs/L1/battery.md` §5, D-20).
+        """
+        configuration = J.two_utility_configuration()
+        catalogue = J.utility_names()
+        self.assertEqual(
+            len(catalogue),
+            2,
+            "the catalogue publishes the two utilities the ladder may train on, so a run "
+            "of two arms is two objectives and not one twice (utilities.md §2, D-20): %r"
+            % (catalogue,),
+        )
+        declared = [str(entry["utility"]) for entry in configuration["variants"]]
+        self.assertEqual(
+            declared,
+            catalogue,
+            "the invented configuration declares one catalogued utility per arm, read from "
+            "agents.learners() and never restated (utilities.md §2, §5, D-20): %r"
+            % (declared,),
+        )
+        record = J.two_utility_run()
+        seeds = tuple(int(seed) for seed in record["seeds"])
+        self.assertEqual(
+            seeds,
+            (J.UTILITY_SEED, J.UTILITY_SEED_OTHER),
+            "the run states the two seeds it trained at, so each seed's artefacts are "
+            "named (records.md §12, protocol.md §2): %r" % (seeds,),
+        )
+        finals = {}
+        for name, utility in zip(
+            (str(entry["name"]) for entry in configuration["variants"]), declared
+        ):
+            for seed in seeds:
+                block = J.checkpoints_of(record, name, seed)
+                final = str(block["final"])
+                self.assertTrue(
+                    os.path.exists(J.resolve(final)),
+                    "each variant × seed pair writes its own final model, so the path the "
+                    "record names is a file `agents.save` wrote (records.md §12, "
+                    "utilities.md §7, ASM-18): variant %r, seed %r -> %r"
+                    % (name, seed, final),
+                )
+                container = J.policy_utility(J.policy_from(final))
+                self.assertEqual(
+                    container,
+                    utility,
+                    "the container records the utility its learner was trained under, and "
+                    "`evaluation.policy_from` reports the utility the file records, so a "
+                    "model trained on one reward never reports the other (utilities.md §6, "
+                    "§5, `e2e-surface.md` §2, D-20): variant %r, seed %r reports %r"
+                    % (name, seed, container),
+                )
+                finals[(name, seed)] = final
+        for seed in seeds:
+            per_seed = [finals[(name, seed)] for name in
+                        (str(entry["name"]) for entry in configuration["variants"])]
+            self.assertEqual(
+                len(set(per_seed)),
+                2,
+                "one seed of a two-utility run is two distinct final checkpoints, because "
+                "two arms trained on two rewards are two trained models "
+                "(utilities.md §7, records.md §12, D-20): seed %r names %r"
+                % (seed, per_seed),
+            )
+            self.assertEqual(
+                {
+                    J.policy_utility(J.policy_from(path))
+                    for path in per_seed
+                },
+                set(catalogue),
+                "and those two containers record two **different** utilities — the "
+                "catalogue's two members — so the utilities a run trained on are readable "
+                "from its artefacts alone (utilities.md §6, §7, D-20): seed %r" % (seed,),
+            )
+        self.assertEqual(
+            sorted(str(utility) for utility in record["utilities"]),
+            sorted(catalogue),
+            "the run record's `utilities` names both members the run declared and "
+            "trained, so a table can say which objectives produced its members "
+            "(records.md §12, utilities.md §7, D-20): %r" % (record["utilities"],),
+        )
+        self.assertEqual(
+            [str(entry["utility"]) for entry in record["variants"]],
+            declared,
+            "and each `variants` row names the utility *that* arm was trained on, so the "
+            "record says which objective produced which curve (records.md §12, "
+            "utilities.md §7, D-20): %r"
+            % ([entry.get("utility") for entry in record["variants"]],),
+        )
+        self.assertEqual(
+            list(record["pool"]["utilities"]),
+            [],
+            "the invented configuration declares an empty window, so the pool the two "
+            "arms trained against holds the three baselines and no version, and its "
+            "utility set is empty -- one pool for both arms (records.md §8, §12, "
+            "league.md §2, D-20): %r" % (record["pool"]["utilities"],),
+        )
+
     def test_trnj_3_3_another_seed_decides_differently_and_the_same_seed_again(self):
         """TRNJ-3.3 the learner's seed is a decision input, and one seed is one arm.
 

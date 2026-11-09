@@ -114,16 +114,17 @@ def version_one_metadata(source, target):
     """Copy one container to `target` in the **version-1** form of `checkpoint.md` §3.
 
     Both members are the file's own bytes and every metadata field `save` wrote is
-    kept, except that `format_version` reads `1` and `learning_rule` — a field no
-    version-1 writer wrote — is gone.  That is the reading rule D-19 requires of
-    the 18 shipped containers, built here from a file this module wrote so the
-    version-1 path is driven without touching `checkpoints/`.
+    kept, except that `format_version` reads `1` and `learning_rule` and `utility` —
+    fields no version-1 writer wrote — are gone.  That is the reading rule D-19 and
+    D-20 require of the 18 shipped containers, built here from a file this module wrote
+    so the version-1 path is driven without touching `checkpoints/`.
     """
     with zipfile.ZipFile(source) as container:
         metadata = json.loads(container.read("metadata.json").decode("utf-8"))
         parameters = container.read("parameters.npy")
     metadata["format_version"] = 1
     metadata.pop("learning_rule", None)
+    metadata.pop("utility", None)
     with open(target, "wb") as handle:
         with zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_STORED) as container:
             container.writestr("metadata.json", json.dumps(metadata).encode("utf-8"))
@@ -555,15 +556,15 @@ class CheckpointTest(AgentsCase):
 
 
     def test_agt7_14_the_container_records_the_rule(self):
-        """AGT-7.14 `save` writes format version 2 and records the learner's `learning_rule`, and a double-Q member round-trips and loads under a spec naming that rule (`checkpoint.md` §2.1, §3, `surface.md` §8-§9, `rules.md` §6, `rule.md` §8, D-19).
+        """AGT-7.14 `save` writes format version 3 and records the learner's `learning_rule` and `utility`, and a double-Q member round-trips and loads under a spec naming that rule (`checkpoint.md` §2.1, §3, `surface.md` §8-§9, `rules.md` §6, `utilities.md` §6, `rule.md` §8, D-19, D-20).
 
-        The field is required of a version-2 container and is read back through
-        `checkpoint._read_metadata(path)`, the sixth internal `rule.md` §8 declares
-        for exactly this, and through the public attribute
-        `as_policy(...).learning_rule` (`e2e-surface.md` §2).  A spec naming the
-        file's own rule is a compared key that agrees, so it loads.  The container
-        side is the half `guardrails.md` G12 names beside the version-1 reading,
-        which is AGT-7.15.
+        The two fields are required of a version-3 container and are read back through
+        `checkpoint._read_metadata(path)`, the internal `rule.md` §8 declares for
+        exactly this, and through the public attributes
+        `as_policy(...).learning_rule` and `as_policy(...).utility`
+        (`e2e-surface.md` §2).  A spec naming the file's own rule is a compared key
+        that agrees, so it loads.  The container side is the half `guardrails.md` G12
+        names beside the version-1 reading, which is AGT-7.15.
         """
         package = self.agents()
         read_metadata = declared_internal("checkpoint", "_read_metadata")
@@ -595,14 +596,14 @@ class CheckpointTest(AgentsCase):
                 metadata = read_metadata(path)
                 self.assertEqual(
                     plain_int(metadata["format_version"], "format_version"),
-                    2,
-                    "a container this module writes is format version 2 "
-                    "(checkpoint.md §2.1, §3, D-19)",
+                    3,
+                    "a container this module writes is format version 3 "
+                    "(checkpoint.md §2.1, §3, utilities.md §6, D-19, D-20)",
                 )
                 self.assertEqual(
                     metadata["learning_rule"],
                     rule,
-                    "a version 2 container records, in `learning_rule`, the catalogue "
+                    "a version 3 container records, in `learning_rule`, the catalogue "
                     "member its learner was trained under (checkpoint.md §2.1, §3)",
                 )
                 paths[rule] = path

@@ -1,17 +1,18 @@
 # evaluation — L2 integration interface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09
+- **Ceiling:** 62 lines. At the ceiling, split by owner — never append
 - **Covers:** the eleven entry points of `docs/L1/e2e-surface.md` §3.4 — the bounded pool, the match
   scheduler, the pairwise matrix, the fitted rating, the two tables and the per-rung report (D-16) — the
-  learning rule each of them carries since D-19 (ASM-26, ASM-27), and `tables/`, where the precomputed
-  offline table ships (`module-map.md` §5, D-8); **Rev 3:** a member declares `rule`, a window holds several
-  families and evicts fair-share, the id digests each version's rule, and five records name it (`rules.md` §1–§6)
+  learning rule and the terminal-reward utility each of them carries since D-19 and D-20 (ASM-26, ASM-27,
+  `utilities.md` §7), and `tables/`, where the precomputed
+  offline table ships (`module-map.md` §5, D-8); **Rev 4:** a member declares `utility` beside `rule`, a window holds several
+  families under one rule and one utility, the id digests both, and five records name the utility (`utilities.md` §5–§9)
 - **Reads:** `docs/L1/module-map.md` §1–§6, `e2e-surface.md` §1, §2, §3.4–§3.5 and §5, `records.md` §1,
   §7–§13, `rules.md` §1–§8, `league.md` §1–§8, `protocol.md` §1–§6, `ladder.md` §1–§6, `battery.md` §2–§5,
   `assumptions.md` (ASM-2, ASM-5, ASM-10, ASM-14–ASM-21, ASM-26, ASM-27); and at the consumed edge
   `docs/L2/engine/surface.md` §1–§11, `docs/L2/features/surface.md` §3–§9, `docs/L2/agents/surface.md`
   §1–§12 and `docs/L2/agents/learner.md` §4–§5, §8
-- **Ceiling:** 62 lines. At the ceiling, split by owner — never append
 
 ## 1. The one job
 
@@ -21,15 +22,15 @@ Bradley-Terry rating fitted over that matrix, the two tables and the complete pe
 (`module-map.md` §1, D-16). The same pool is the training opposition and the evaluation opposition, so
 there is no separate evaluation opponent and one owner holds both (`module-map.md` §6, ASM-19, D-16). It
 measures; it never trains, never edits a curve and never chooses a pool's membership, and the pool is
-deliberately heterogeneous: each member carries its rule and the id certifies it (`module-map.md` §3, ASM-16).
+deliberately heterogeneous: each member carries its rule and its utility and the id certifies both (`module-map.md` §3, ASM-16, D-20).
 
 ## 2. The documents, one per owner
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
 | `surface.md` | the callable surface | for each of the eleven entry points: its arguments, its returned record, its refusals and its determinism — with §5–§8 redirected to `pool.md`; the six shared rules and the policy and the member at this edge (`e2e-surface.md` §3.4) |
-| `pool.md` | the four pool entry points | `build_pool`, `pool_members`, `offer`, `opponent` — the declaration, the families and the fair-share window, the read-back's `rules`, the rolling, the draw (`records.md` §8, ASM-26) |
-| `rules.md` | the estimator axis | the catalogue read through the arrow; the `rule` a member declares; the families and the id that certifies it; the records that name it; `policy_from`'s rule and `RuleMismatch`; the population a report states (D-19, ASM-26, ASM-27) |
+| `pool.md` | the four pool entry points | `build_pool`, `pool_members`, `offer`, `opponent` — the declaration, the families and the fair-share window, the read-back's `rules` and `utilities`, the rolling, the draw (`records.md` §8, ASM-26, `utilities.md` §5–§7, D-20) |
+| `rules.md` | the estimator axis | the catalogue read through the arrow; the `rule` a member declares; the families and the id that certifies it; the records that name it; `policy_from`'s rule and `RuleMismatch`; the population a report states (D-19, ASM-26, ASM-27); its sibling for D-20's axis is `docs/L3/evaluation/utility.md` |
 | `league.md` | the league, the edge and the battery | the pool and its rolling window (§1); the scheduler (§2); the matrix (§3); the rating (§4); the two tables and the shipped `full` table (§5); the seven families and what a report refuses (§6); the edge's contracts (§7); the battery invariants (§8) (D-16, ASM-14, ASM-17) |
 
 ## 3. Boundaries
@@ -58,5 +59,4 @@ asserted by a harness author (brief §5, `module-map.md` §4). Two rows are `fix
 
 This document stops at the entry point and at the records they exchange. `role_l3_designer` owns the module
 design: the pool's type, the family grouping and the id's digest, the fair-share eviction, the seed
-derivations, the rating's solver and bound, the layout of `src/evaluation/` and of `tables/`, and the
-error classes the refusals raise (D-1, `module-map.md` §5, D-12, ASM-26).
+derivations, the rating's solver and bound, the layout of `src/evaluation/` and `tables/`, and the error classes the refusals raise (D-1, `module-map.md` §5, D-12, ASM-26, D-20).

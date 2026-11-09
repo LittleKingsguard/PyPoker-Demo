@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 end-to-end battery
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
-- **Covers:** what `tests/e2e/` must drive, what "green" means before code exists (D-11), and the rule-catalogue cases D-19 adds
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
+- **Covers:** what `tests/e2e/` must drive, what "green" means before code exists (D-11), and the catalogue cases D-19 and D-20 add
 - **Ceiling:** 100 lines. At the ceiling, split by owner — never append
 
 ## 1. What green means here
@@ -23,7 +23,7 @@ The examiner validates the battery before the code (D-11, `strata/examiner.md` �
 
 ## 3. The case families
 
-Seventeen families. FAM-6..FAM-10 are the league's own machinery, FAM-11 assembles them into the report, FAM-12..FAM-16 carry the ladder, the harness and the blind instances (D-16), and FAM-17 is D-19's: the rule catalogue and a configuration that trains two rules.
+Eighteen families. FAM-6..FAM-10 are the league's own machinery, FAM-11 assembles them into the report, FAM-12..FAM-16 carry the ladder, the harness and the blind instances (D-16), FAM-17 is D-19's — the rule catalogue and a configuration that trains two rules — and FAM-18 is D-20's: the utility catalogue and a configuration that trains two utilities.
 
 | Family | What it drives | What it asserts |
 |---|---|---|
@@ -44,6 +44,7 @@ Seventeen families. FAM-6..FAM-10 are the league's own machinery, FAM-11 assembl
 | FAM-15 | a rung configuration and a pool membership that are in no design document | `training.run`, `evaluation.fairness` and `evaluation.build_pool` take them as data and the report covers them too, so a rung is a configuration and a league is not a script (D-3, D-16) |
 | FAM-16 | the blind instances of §4 | one per `general` row of `e2e-surface.md` §5, with an instance invented by the test writer (D-15) |
 | FAM-17 | `agents.learners`, `build_learner`, `act`, `learn`, `save`, `load`, `as_policy`, `training.run`, `training.fairness` | the catalogue carries more than one rule and each is stated with its target; two learners under two rules built from one spec agree on `param_count` and on the state a checkpoint carries; both train, act and round-trip through `save`/`load`; a spec naming no rule builds the catalogue's first and a name outside the catalogue is refused by name; a configuration declaring two rules trains **both** variants — distinct final checkpoints, a curve per variant, two seed sets of artefacts — names each variant's rule in its run record, and is reported on the `rule` axis, and a rule the run would not honour is still `IgnoredDeclaration` (D-19, `rules.md` §2–§8) |
+| FAM-18 | `agents.learners`, `build_learner`, `learn`, `save`, `load`, `as_policy`, `evaluation.build_pool`, `pool_members`, `match`, `matrix`, `policy_from`, `training.run`, `fairness`, `checkpoints` | the utility catalogue carries more than one member and each is stated with the reward and normaliser it delivers, its first being `net-chips` and the declared default; a spec naming no utility builds that first and a name outside the catalogue is refused by name in a spec, in a variant entry, in a pool member and in a `load` spec; a checkpoint records the utility it was trained under and a `load` spec that contradicts it is refused naming both, and every entry of the shipped checkpoint index names its utility and a shipped version-1 container loads as `net-chips` through `policy_from`; two learners under two utilities agree on `param_count` and on the decision boundary a saved checkpoint restores; a configuration declaring two utilities trains **both** variants, whose curves differ on the same hands and the same initial draw — the observable the changed reward must produce — with distinct final checkpoints, a run record naming each variant's utility and the run's utility set, and a `fairness` report of the `utility` axis and the set it read; a pair differing on utility *and* on another axis is refused; two utilities meet in a cell and a table that name each member's utility and the `utility_population` (D-20, `utilities.md` §2–§8) |
 
 ## 4. The blind instances
 
@@ -55,4 +56,4 @@ The twelve `fixed` rows are exempt: their one instance is the project's own — 
 
 Module-internal behaviour belongs to `tests/<module>/`, and the harness line ceiling belongs to `strata-lint` with the counts of `modules.json` (brief §5). The battery judges the map's joins — the invariants a single module cannot check about itself (D-3, D-16): that the pool the loop samples is the pool the table measures, that both arms of a pair held one pool, and that a table's rows are comparable because its cells were played at one hand count (D-16, ASM-16).
 
-It also does not assert a table's *values*: no case requires a member to outrank a baseline, because that is what the run measures and not what the surface promises (D-6, D-16). Nor does it assert that a rule trains *better*: the catalogue's two rules are asserted to be one contract and two arithmetics, and which of them escapes a raise habit is a measurement recorded in a record, never a case (D-19, `rules.md` §2–§3).
+It also does not assert a table's *values*: no case requires a member to outrank a baseline, because that is what the run measures and not what the surface promises (D-6, D-16). Nor does it assert that a rule trains *better*: the catalogue's two rules are asserted to be one contract and two arithmetics, and which of them escapes a raise habit is a measurement recorded in a record, never a case (D-19, `rules.md` §2–§3). Nor that a utility plays *better*: the two utilities are asserted to be one contract, one capacity and two rewards, the changed reward is observed through the two arms' curves and through every record that must name it, and whether a risk-averse objective lowers the raise share is the measurement `utilities.md` §10 records and never a case (D-20, ASM-29). The utility's arithmetic has no entry point of its own — the transform is applied where the transition record is built — so the reward's exact value is asserted at module level rather than here, which is the boundary `e2e-surface.md` §1 draws (D-13, `utilities.md` §4).

@@ -20,7 +20,7 @@ rating and never chooses the pool's membership (`module-map.md` §3, D-16, ASM-1
 is a row of data, a rung-to-rung difference is attributable to the configuration and to nothing else, and a seventh
 configuration runs without new code (D-3, `ladder.md` §1, `battery.md` §3 FAM-15).
 
-## 2. The six documents
+## 2. The seven documents
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
@@ -30,6 +30,7 @@ configuration runs without new code (D-3, `ladder.md` §1, `battery.md` §3 FAM-
 | `loop.md` | the ladder and its edges | the registry as data (§1); the configuration schema and the matched pair (§2); the one loop, step by step (§3); what a comparison holds constant and the R1/R2 parity rung (§4); budgets and devices (§5); the notebooks (§6); the checkpoints that ship (§7); the contracts at this edge (§8) and the battery invariants this module carries (§9) (D-3, D-7, D-8, D-16, ASM-8, ASM-18) |
 | `write-root.md` | where a run writes | the declared root and the write root (§1), the reads that never move (§2), the one ambient override `PYPOKER_CHECKPOINT_ROOT` and why it is not an entry point (§3), who points it where — the battery session and the reader's one command (§4), the spelling a record gives a written path (§5), what the redirection does not change (§6) and the battery cases that carry it (§7) (D-12, D-13, `battery.md` §2, `protocol.md` §5) |
 | `evidence.md` | the one shipped evidence file | `checkpoints/evidence/r1-live.json` as an integration fact: it is evidence and not a surface (§1), which of its blocks are this module's record (§2), the repository-relative spelling of its paths (§3), the two curve layouts (§4) and what no caller may do with it (§5) (D-8, D-12, `protocol.md` §5) |
+| `utility.md` | the terminal-reward utility at this edge | what a configuration declares and a run honours (§1), **the one place the reward is transformed** (§2), what the loop records (§3), the shipped index's field (§4), the seventh fairness axis (§5) and the four numbers this layer asserts (§6) (`utilities.md` §2–§8, D-20, `battery.md` §5) |
 
 ## 3. Boundaries
 
@@ -57,6 +58,5 @@ instances invented from this surface alone (`e2e-surface.md` §5, D-15).
 
 This document stops at the entry point, the record it returns and the data that is the registry. `role_l3_designer`
 owns the module design: the widths, depths and sparsity that make a pair match within ±2% (ASM-10), the derivation of a
-hand's deal and opponent seeds from the run seed and the hand index, the transition batch, the snapshot naming and the
-layout under the write root (`write-root.md` §1, §5 — the root is L2's), the index's own nesting, the error classes the
-refusals raise, and the layout of `src/training/` (D-1, ASM-18, `module-map.md` §5, D-12, D-13).
+hand's deal and opponent seeds from the run seed and the hand index, the transition batch and the reward transform it
+applies, the snapshot naming and the layout under the write root (`write-root.md` §1, §5), the index's own nesting, the error classes, and the layout of `src/training/` (D-1, ASM-18, `module-map.md` §5, D-12, D-13, D-20).

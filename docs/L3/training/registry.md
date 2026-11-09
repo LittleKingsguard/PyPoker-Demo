@@ -46,6 +46,7 @@ text: R1 names `encoding`, R2 `backend`, R3 `tokenisation`, R4 `width`/`depth`, 
 **The declarations every variant entry of the six rows carries** (`records.md` §2, `ladder.md` §3), written once in `declarations.py`:
 
     LEARNING_RULE = "masked-q-learning"   # the catalogue's first member (rules.md §2, §4, D-19); a row may name another
+    UTILITY       = "net-chips"           # the utility catalogue's first member (utilities.md §2, §5, D-20); a row may name another
     HYPER = {"learning_rate": 0.001, "batch_size": 32, "target_update_interval": 200, "optimiser": "sgd",
              "exploration": {"start": 1.0, "end": 0.05, "samples": 2000}, "discount": 0.99}
     PARAM_BUDGET = 10000          # ASM-10; the ±2% bound is 9,800 … 10,200
@@ -56,10 +57,11 @@ text: R1 names `encoding`, R2 `backend`, R3 `tokenisation`, R4 `width`/`depth`, 
     RETAINED, SNAPSHOTS = 5, 10   # M and the ten snapshot points (ASM-18)
 
 `HYPER` is the record `agents.learners()["hyper"]` publishes, copied here as the run record's data and never compared against
-it (`agents/surface.md` §3, `rule.md` §6); `param_budget` is **declared** and no run measures it (`surface.md` §4). `LEARNING_RULE` is
-not a rule the run is fixed to: it is what these six rows declare, and a run refuses a rule only when the catalogue
-`declarations.learning_rules()` reads from `agents.learners()` does not carry it (`loop.md` §1 step 1, `rules.md` §4, D-19). Each rung's
-`snapshot_every` is 100 — its declared budget's interval, 1000 ÷ 10 — and `loop.md` §3 fixes what a run does with it.
+it (`agents/surface.md` §3, `rule.md` §6); `param_budget` is **declared** and no run measures it (`surface.md` §4). Neither
+`LEARNING_RULE` nor `UTILITY` is a member the run is fixed to: they are what these six rows declare, and a run refuses one only when the
+catalogue `declarations.learning_rules()` or `declarations.utilities()` reads from `agents.learners()` does not carry it
+(`loop.md` §1 step 1, `rules.md` §4, `utilities.md` §5, D-19, D-20). Each rung's `snapshot_every` is 100 — its declared budget's
+interval, 1000 ÷ 10 — and `loop.md` §3 fixes what a run does with it.
 
 ## 2. The resolved configuration, key by key (D2)
 
@@ -71,16 +73,16 @@ not a rule the run is fixed to: it is what these six rows declare, and a run ref
 | `axis` | §1's sentence for that rung |
 | `carried_from` | `None` for R1, else the previous rung's primary variant name |
 | `primary` | this rung's primary variant name |
-| `variants` | one or two `records.md` §2 entries in §1's order, each carrying `name`, `backend`, `encoding`, `architecture` (`kind`, `width`, `depth`, `sparsity`, `residual`), `learning_rule`, `hyper`, `param_budget`, `samples`, `seeds`, `device`, `snapshot_every`, `table` |
+| `variants` | one or two `records.md` §2 entries in §1's order, each carrying `name`, `backend`, `encoding`, `architecture` (`kind`, `width`, `depth`, `sparsity`, `residual`), `learning_rule`, `utility`, `hyper`, `param_budget`, `samples`, `seeds`, `device`, `snapshot_every`, `table` |
 | `pool` | §3's pool entry |
 | `seeds`, `samples`, `param_budget` | `(0, 1, 2)`, `1000`, `10000` |
 | `table`, `device`, `snapshot_every` | `"live"`, `"cpu"`, `100` |
 
-The last three rows are this module's own keys and duplicate the entries' values deliberately: `run` reads the configuration's
-values when an argument is omitted (`loop.md` §5), and a reader sees the budgets without walking the variants. Every value is
-plain data (`e2e-surface.md` §1, D-1). **Resolving is not training**: `rung` plays no hand, builds no encoder or learner,
-writes no file and moves no stream (D-3, `surface.md` §3); it reads the index's declared windows and calls
-`evaluation.build_pool`/`pool_members`, both pure (`evaluation/surface.md` §5, §6).
+The last three rows are this module's own keys and duplicate the entries' values deliberately: `run` reads the configuration's values
+when an argument is omitted (`loop.md` §5), and a reader sees the budgets without walking the variants. Every value is plain data
+(`e2e-surface.md` §1, D-1). **Resolving is not training**: `rung` plays no hand, builds no encoder or learner, writes no file and moves
+no stream (D-3, `surface.md` §3); it reads the index's declared windows and calls `evaluation.build_pool`/`pool_members`, both pure
+(`evaluation/surface.md` §5, §6).
 
 ## 3. The pool entry, and the id it carries (D2)
 
@@ -90,18 +92,18 @@ writes no file and moves no stream (D-3, `surface.md` §3); it reads the index's
 `_pool_entry(name, carried_from)` builds it in four steps and no others:
 
 1. `_window(carried_from)` reads the declared window of the rung this one inherits — `index.SHIPPED_WINDOWS[carried_from]`, version
-   records in lineage order, each carrying its `rule` — and **drops every version whose `path` names no readable file**, so a declared
-   but absent lineage checkpoint leaves the window short and the record states the membership it used (`protocol.md` §5, `loop.md` §3).
-   R1 has no `carried_from`, so its window is empty and its pool is the three baselines alone (FAM-3.17).
-2. The declaration is `{"members": <that filtered window>, "m": 5, "frozen": True}` — `records.md` §8's shape, with no
-   baselines in it, because `build_pool` adds and pins them itself.
+   records in lineage order, each carrying its `rule` and `utility` — and **drops every version whose `path` names no readable file**, so a
+   declared but absent lineage checkpoint leaves the window short and the record states the membership it used (`protocol.md` §5, `loop.md` §3);
+   R1 has no `carried_from`, so its window is empty and its pool is the three baselines alone (FAM-3.17, D-20).
+2. The declaration is `{"members": <that filtered window>, "m": 5, "frozen": True}` — `records.md` §8's shape, with no baselines in it,
+   because `build_pool` adds and pins them itself.
 3. `evaluation.build_pool(declaration)`, then `evaluation.pool_members(pool)`; a refusal from either **propagates unrepaired**
    (`surface.md` §4, `e2e-surface.md` §2).
-4. `id` is the read-back's `id` and `members` is the filtered window as declared; the read-back's own member list (baselines
-   first, then the window) is **not** copied into the configuration, because it belongs to the run record (`loop.md` §4).
+4. `id` is the read-back's `id` and `members` is the filtered window as declared; the read-back's own member list is **not** copied into
+   the configuration, because it belongs to the run record (`loop.md` §4).
 
-So **the declared `id` is the read-back id of the membership the repository actually carries** — never a fabricated one and never
-two (D2, `records.md` §8; ASM-27, which makes the digest cover each version's `rule`). Two arms of one rung name one pool entry, hence one id (FAM-3.17, FAM-3.18, ASM-16).
+So **the declared `id` is the read-back id of the membership the repository actually carries** — never a fabricated one and never two
+(D2, `records.md` §8; ASM-27, whose digest covers each version's `rule` and its `utility`). Two arms of one rung name one entry, hence one id (FAM-3.17, FAM-3.18, ASM-16).
 
 **A configuration in no registry** carries the same entry and supplies its own `members` and `id`, which is how a custom league
 reaches the loop as data (`ladder.md` §3, FAM-15.4). Its members may carry no `path`: they are filtered out by step 1's
@@ -121,30 +123,28 @@ trunk, then `3·W + 3`. `sparse`'s trunk term is `D·(k + W)` with `k = round((1
 | `deep`, `dense`, `residual`, `plain` | 96·50 = 4,800 | 2·(2,500 + 50) = 5,100 | 3·50 + 3 = 153 | **10,053** | yes |
 | `sparse` | 96·62 = 5,952 | 2·(1,922 + 62) = 3,968 | 3·62 + 3 = 189 | **10,109** | yes |
 
-The four comparison pairs the battery measures through `agents.param_count` (FAM-3.15, FAM-13.3): R1–R2 **0** apart on
-10,119; R4 `wide`–`deep` **6** apart against a tolerance of 201; R5 `dense`–`sparse` **56** apart, tolerance 202; R6
-`residual`–`plain` **0** apart. All nine variants and all four pairs land inside ASM-10's ±2%, which is what the literals are
-for: a pair differs on its axis and on nothing else, capacity included (`ladder.md` §4, §6). `sparse`'s trunk shrinks with
-`s`, so it matches its dense mate by being declared **wider** (`architecture.md` §5). R4's `wide` declares `depth` 1 so the
-declared depth and the kind's single trunk layer agree; the kind does not read the setting (`architecture.md` §3).
+The four comparison pairs the battery measures through `agents.param_count` (FAM-3.15, FAM-13.3): R1–R2 **0** apart on 10,119; R4
+`wide`–`deep` **6** apart against a tolerance of 201; R5 `dense`–`sparse` **56** apart, tolerance 202; R6 `residual`–`plain` **0** apart.
+All nine variants and all four pairs land inside ASM-10's ±2%, which is what the literals are for: a pair differs on its axis and on
+nothing else, capacity included (`ladder.md` §4, §6). `sparse`'s trunk shrinks with `s`, so it matches its dense mate by being declared
+**wider** (`architecture.md` §5); R4's `wide` declares `depth` 1 so the declared depth and the kind's single trunk layer agree (§3).
 
 ## 5. `rungs()`, `rung()`, and the determinism of resolution
 
-- `rungs()` returns `{name: rung(name)}` for `RUNG_NAMES`'s six names in order, so the registry is read one way and not two
-  (FAM-3.1, FAM-3.2); two calls return equal records in that order (`surface.md` §2).
-- `rung(name)` returns `_configuration(name)`, whose `pool` is `_pool_entry(name, carried_from)`. **A rung name that is a
-  configuration is still not a configuration**: `rung("R7")` refuses, and a configuration reaches the loop through `run` and
-  no other entry point (`surface.md` §3, FAM-15.5, FAM-16.28).
-- One name resolves one configuration whose `pool.id` is the id the run record will carry, both being the read-back id of one
-  declaration (`surface.md` §3, FAM-4.7); a changed membership changes the id and nothing else (`records.md` §8).
+- `rungs()` returns `{name: rung(name)}` for `RUNG_NAMES`'s six names in order, so the registry is read one way and not two (FAM-3.1, FAM-3.2); two calls return equal records in that order (`surface.md` §2).
+- `rung(name)` returns `_configuration(name)`, whose `pool` is `_pool_entry(name, carried_from)`. **A rung name that is a configuration is
+  still not a configuration**: `rung("R7")` refuses, and a configuration reaches the loop through `run` and no other entry point
+  (`surface.md` §3, FAM-15.5, FAM-16.28).
+- One name resolves one configuration whose `pool.id` is the id the run record will carry, both being the read-back id of one declaration
+  (`surface.md` §3, FAM-4.7); a changed membership changes the id and nothing else (`records.md` §8).
 
-**The one refusal of this document** is `UnknownRung`, raised by `rung` for a name `RUNG_NAMES` does not carry, with the name in
-the message — `training.rung refused the rung name 'R7-bottleneck': the registry carries R1, R2, R3, R4, R5, R6` (`errors.md`
-§4). A value that is not a string is the same refusal with that value named (`errors.md` §2), and `rungs()` refuses nothing.
+**The one refusal of this document** is `UnknownRung`, raised by `rung` for a name `RUNG_NAMES` does not carry, with the name in the
+message — `training.rung refused the rung name 'R7-bottleneck': the registry carries R1, R2, R3, R4, R5, R6` (`errors.md` §4). A value
+that is not a string is the same refusal with that value named (`errors.md` §2), and `rungs()` refuses nothing.
 
 ## 6. What is left to L4
 
-Whether `RUNGS` is a tuple of mappings or a dict of them, a mapping's key order, whether `_configuration` caches, and every
-private name other than `_configuration`, `_pool_entry`, `_window` and `RUNG_NAMES`, whose spellings and signatures are
-contract for `tests/training/` (`README.md` §4). Not L4's: the nine literals, the shared declarations, the six axis sentences,
-the schema's keys, the pool entry's five keys, the readability filter and the read-back id, and §4's arithmetic.
+Whether `RUNGS` is a tuple of mappings or a dict of them, a mapping's key order, whether `_configuration` caches, and every private name other
+than `_configuration`, `_pool_entry`, `_window` and `RUNG_NAMES`, whose spellings and signatures are contract for `tests/training/` (`README.md` §4).
+Not L4's: the nine literals, the shared declarations, the six axis sentences, the schema's keys, the pool entry's five keys, the readability
+filter and the read-back id, and §4's arithmetic.

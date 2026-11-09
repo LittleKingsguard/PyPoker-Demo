@@ -53,8 +53,9 @@ from _training_support import (
     write_tree,
 )
 
-#: `checkpoints.md` §4's ten keys of one entry: `records.md` §7's nine — `rule` among them
-#: since D-19 — plus the index's own `kind` (`records.md` §7, `checkpoints.md` §4, D-19).
+#: `checkpoints.md` §4's eleven keys of one entry: `records.md` §7's ten — `rule` among
+#: them since D-19 and `utility` since D-20 — plus the index's own `kind`
+#: (`records.md` §7, `checkpoints.md` §4, D-19, D-20).
 ENTRY_KEYS = {
     "id",
     "path",
@@ -65,6 +66,7 @@ ENTRY_KEYS = {
     "samples",
     "lineage",
     "rule",
+    "utility",
     "kind",
 }
 

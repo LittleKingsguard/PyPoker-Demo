@@ -1,6 +1,6 @@
 """The refusal hierarchy of `agents` (`docs/L3/agents/errors.md` §2).
 
-One base and seventeen subclasses, one per refusal family of
+One base and eighteen subclasses, one per refusal family of
 `docs/L2/agents/surface.md` §4-§12: a caller catches `AgentsError` when it wants to
 know that *this* module refused it, and never has to catch a `KeyError` from a
 mistyped record key, a `numpy` `ValueError` or a `torch` error that escaped.
@@ -35,6 +35,10 @@ class UnknownArchitecture(AgentsError):
 
 class UnknownRule(AgentsError):
     """`build_learner`, `load`: a rule `learners()['learning_rules']` does not declare."""
+
+
+class UnknownUtility(AgentsError):
+    """`build_learner`, `load`: a utility `learners()['utilities']` does not declare."""
 
 
 class InvalidSetting(AgentsError):

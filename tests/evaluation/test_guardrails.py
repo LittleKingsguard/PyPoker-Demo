@@ -325,16 +325,16 @@ class GuardrailsTest(EvaluationCase):
         )
 
     def test_evl_11_g7_pool_members_returns_the_record_and_the_version_records_verbatim(self):
-        """EVL-11.G7 `pool_members` is `{id, m, frozen, members, rules}` freshly built per call, each version the `records.md` §7 record the declaration carried, untouched (`pool.md` §5, `records.md` §8)."""
+        """EVL-11.G7 `pool_members` is `{id, m, frozen, members, rules, utilities}` freshly built per call, each version the `records.md` §7 record the declaration carried, untouched (`pool.md` §5, `records.md` §8, D-19, D-20)."""
         package = self.evaluation()
         declared = version_chain(VERSION_IDS[:2])
         pool = package.build_pool(declaration(members=declared, m=POOL_M, frozen=True))
         first = package.pool_members(pool)
         self.assertEqual(
             set(first),
-            {"id", "m", "frozen", "members", "rules"},
-            "a pool record is records.md §8's five required keys, `rules` included "
-            "(pool.md §5, records.md §8, D-19): %r" % (tuple(first),),
+            {"id", "m", "frozen", "members", "rules", "utilities"},
+            "a pool record is records.md §8's six required keys, `rules` and `utilities` "
+            "included (pool.md §5, records.md §8, D-19, D-20): %r" % (tuple(first),),
         )
         first["members"] = ()
         first["id"] = "pool-0000000000000000"
@@ -542,7 +542,7 @@ class GuardrailsTest(EvaluationCase):
                     )
 
     def test_evl_11_g14_the_matrix_record_s_carries_its_keys_and_a_table_seed_no_argument_supplies(self):
-        """EVL-11.G14 `members`, `cells`, `rules`, `population`, `hands_per_cell`, `table_seed`, `table`, then `pool`, `member_records`, `unlabelled`, `cell_count`; `table_seed` is the league's, a second seed argument does not exist, and `table` is the label as a value (`matrix.md` §5, §7, `records.md` §10, G14)."""
+        """EVL-11.G14 `members`, `cells`, `rules`, `population`, `utilities`, `utility_population`, `hands_per_cell`, `table_seed`, `table`, then `pool`, `member_records`, `unlabelled`, `cell_count`; `table_seed` is the league's, a second seed argument does not exist, and `table` is the label as a value (`matrix.md` §5, §7, `records.md` §10, G14, D-19, D-20)."""
         package = self.evaluation()
         matrix = self.shared_matrix("k4")
         self.assertEqual(
@@ -552,6 +552,8 @@ class GuardrailsTest(EvaluationCase):
                 "cells",
                 "rules",
                 "population",
+                "utilities",
+                "utility_population",
                 "hands_per_cell",
                 "table_seed",
                 "table",

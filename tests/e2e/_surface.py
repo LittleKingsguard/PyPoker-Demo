@@ -95,6 +95,27 @@ RULE_DEFAULT = "masked-q-learning"
 RULE_SECOND = "double-q-learning"
 RULES = (RULE_DEFAULT, RULE_SECOND)
 
+# The utility catalogue `utilities.md` §2 publishes: two members, the first of which is
+# the declared default of §5.  A case that needs "one architecture, two utilities" reads
+# the names here; the catalogue itself is always read off `agents.learners()`, because the
+# names it publishes are its own (`utilities.md` §2, D-20).
+UTILITY_DEFAULT = "net-chips"
+UTILITY_SECOND = "stack-shortfall"
+UTILITIES = (UTILITY_DEFAULT, UTILITY_SECOND)
+
+# Two invented utility names the catalogue does not carry: the battery's own, one for a
+# learner spec and a `load` spec, one for a variant entry (`utilities.md` §5: a name
+# outside the catalogue is refused where it is declared, by name, and never mapped onto
+# the default).
+UNKNOWN_UTILITY = "tournament-payout-battery"
+UNKNOWN_ENTRY_UTILITY = "chips-per-hour-battery"
+
+# One architecture, two utilities: the size both learners of a utility pair are built at,
+# so a utility swap is one axis and no capacity moves with it (`utilities.md` §3, ASM-10,
+# D-20).
+UTILITY_WIDTH = 47
+UTILITY_DEPTH = 3
+
 # The seven evidence families of protocol.md §1, under the design's own names.
 FAMILIES = ("curves", "pool", "matrix", "rating", "baselines", "axis row", "header")
 
@@ -651,6 +672,38 @@ def checkpoint_paths_of(record):
     return []
 
 
+def index_entries(index):
+    """The per-artefact entries of the shipped checkpoint index.
+
+    ``training.checkpoints()`` is the index over the shipped set — each artefact with the
+    rung variant that produced it and the rule and the utility it was trained under
+    (``protocol.md`` §5, ``e2e-surface.md`` §3.5) — and the container of its entries is the
+    implementation's freedom: a sequence of entries or a mapping keyed by the artefact.
+    Returns ``[]`` when the index names none, so a case that needs entries fails with its
+    own message and never inside this reader (``battery.md`` §2).
+
+    The reader is what a case needs to make a claim about **one entry at a time**:
+    :func:`find_values` over the whole record answers "does the index name a rule
+    anywhere", which the index's own ``windows`` block answers whether or not any entry
+    carries one.  This one yields the entries themselves, in the order the index lists
+    them, so an entry that dropped a required key is the entry the assertion is about.
+    """
+    container = None
+    if isinstance(index, Mapping):
+        for key, value in index.items():
+            if _family_token(key) in ("entries", "entry", "artefacts", "artifacts"):
+                container = value
+                break
+    if container is None:
+        found = find_values(index, "entries")
+        container = found[0] if found else None
+    if container is None:
+        return []
+    if isinstance(container, Mapping):
+        container = list(container.values())
+    return [entry for entry in (container or ()) if isinstance(entry, Mapping)]
+
+
 def action_vocabulary(space):
     """The indices a declared action vocabulary names, read from its keys as well as values.
 
@@ -770,6 +823,348 @@ def member_target(member):
             if isinstance(value, (str, Mapping, list, tuple)) and value:
                 return value
     return None
+
+
+def utility_catalogue(declared):
+    """The utility catalogue ``agents.learners()`` publishes, as ordered pairs.
+
+    ``utilities.md`` §2 makes ``learners()`` publish the utility catalogue: more than one
+    member, in order, each with its **name** and the **reward it delivers**, and its first
+    member is the declared default of §5.  The key's spelling is the design's; what the
+    battery asserts is that the catalogue exists, that it holds more than one member, and
+    that each member is a mapping naming its own utility — never the key order of the
+    whole ``learners()`` record, which is the implementation's own (``battery.md`` §2).
+
+    The mirror of :func:`rule_catalogue`, and read under the same rule: the catalogue is
+    the value published under a key whose letters contain ``util``.  Returns
+    ``[(name, member), ...]`` in the order the catalogue declares, so a case can read the
+    first member — the default — without spelling a name of its own.
+    """
+    if not isinstance(declared, Mapping):
+        raise AssertionError(
+            "agents.learners() must return a mapping in the sense of e2e-surface.md §3.3; "
+            "it returned %r" % (type(declared).__name__,)
+        )
+    found = None
+    for key, value in declared.items():
+        if "util" not in _family_token(key):
+            continue
+        if isinstance(value, Mapping):
+            found = value
+            break
+        if isinstance(value, (list, tuple)) and value:
+            # A catalogue written as a sequence of members is the same catalogue: each
+            # member states its own name, so the pairs are read off the members.
+            found = list(value)
+            break
+    if found is None:
+        raise AssertionError(
+            "agents.learners() publishes the utility catalogue — the members of "
+            "utilities.md §2, each with its name and the reward it delivers, under a key "
+            "naming the utilities (e2e-surface.md §3.3, §2 'Utility', D-20): it publishes "
+            "%r" % (sorted(str(key) for key in declared),)
+        )
+    pairs = []
+    keyed = isinstance(found, Mapping)
+    for key, value in (found.items() if keyed else enumerate(found)):
+        if isinstance(value, Mapping):
+            pairs.append((str(key), value))
+            continue
+        # A catalogue that lists only names is read as one member per name, so the
+        # *catalogue* is still asserted rather than the container's shape: a mapping keyed
+        # by name says the name in its key, a sequence says it in the entry.
+        name = str(key) if keyed else str(value)
+        pairs.append((str(name), {"name": str(name)}))
+    return pairs
+
+
+def utility_names(declared):
+    """The catalogue's member names, in the order it declares them (``utilities.md`` §2)."""
+    return [name for name, _member in utility_catalogue(declared)]
+
+
+def member_utility(member):
+    """The utility name one catalogue member carries, or ``None``."""
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if token in ("name", "utility", "id") and isinstance(value, str):
+            return value
+    for key, value in member.items():
+        if "name" in _family_token(key) and isinstance(value, str):
+            return value
+    return None
+
+
+def member_reward(member):
+    """The reward one catalogue member states, under whatever key declares it.
+
+    ``utilities.md`` §2 states each utility's reward — ``net-chip-delta`` for
+    ``net-chips``, ``squared-stack-shortfall-delta`` for ``stack-shortfall`` — as a stable
+    token, and leaves the spelling of the field to the implementation, so the field is
+    read by what it names.
+    """
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if "reward" in token or token in ("payoff", "payment", "terminal", "score"):
+            if isinstance(value, (str, Mapping, list, tuple)) and value:
+                return value
+    return None
+
+
+def member_normaliser(member):
+    """The normaliser one catalogue member states, under whatever key declares it.
+
+    ``utilities.md`` §2 makes every member carry ``name``, the ``reward`` it delivers and
+    the ``normaliser`` that reward is divided by, and leaves the spelling of the field to
+    the implementation — a token such as ``U(s_0)`` or the number itself — so the field is
+    read by what it names and never by one word this battery made up.
+    """
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if "normalis" in token or "normaliz" in token or token in ("divisor",
+                                                                  "denominator"):
+            if isinstance(value, (str, Mapping, list, tuple)) and value:
+                return value
+            if value and _is_number(value):
+                return value
+    return None
+
+
+# --------------------------------------------------------------------------
+# The utility a record names (records.md §7, §8, §9, §10, §12; utilities.md §6, §7)
+#
+# D-20 puts one fact in five records, exactly as D-19 does for the rule: a version carries
+# `utility`, a pool record the `utilities` its version members declare, a cell one utility
+# per member, a matrix one per member plus the `utility_population` they make up, and a run
+# record each variant's utility plus the run's `utilities` set.  The readers below are the
+# utility side of the rule readers in `_records.py`, kept here because this module may not
+# change that one: the fact is the catalogue name, or `None` for a baseline that declares
+# none.
+# --------------------------------------------------------------------------
+def declared_field(record, what, *names):
+    """One required field of a record, under whichever of ``names`` spells it."""
+    if not isinstance(record, Mapping):
+        raise AssertionError(
+            "%s must be a mapping in the sense of records.md §1; it is a %r"
+            % (what, type(record).__name__)
+        )
+    wanted = {_family_token(name) for name in names}
+    for key, value in record.items():
+        if _family_token(key) in wanted:
+            return value
+    raise AssertionError(
+        "%s carries the required key %r — records.md §1 makes a required key part of the "
+        "surface — and it carries %r"
+        % (what, names[0], sorted(str(key) for key in record))
+    )
+
+
+def utilities_of(value):
+    """Every ``(member id, utility)`` pair a utilities-shaped container states, in order.
+
+    A container may be keyed by member — a cell's and a matrix's ``utilities`` — or be the
+    list of names a pool record or a run record states — the distinct utilities, no member
+    attached.  Both shapes are read here, and a member whose utility is a baseline's
+    ``None`` keeps its place, because "which objectives met" is an answer a cell gives and
+    "one of them declares none" is part of it (``records.md`` §9, §10, D-20).
+    """
+    out = []
+    if isinstance(value, Mapping):
+        for key, inner in value.items():
+            if isinstance(inner, Mapping):
+                name = None
+                for field in ("utility", "name", "id", "member"):
+                    candidate = inner.get(field)
+                    if isinstance(candidate, str):
+                        name = candidate
+                        break
+                out.append((str(key), name))
+            elif inner is None or isinstance(inner, (str, bytes)):
+                out.append((str(key), None if inner is None else str(inner)))
+            else:
+                out.append((str(key), None))
+        return out
+    if isinstance(value, (list, tuple, set, frozenset)):
+        for item in value:
+            if isinstance(item, Mapping):
+                name = None
+                for field in ("utility", "name", "value"):
+                    candidate = item.get(field)
+                    if isinstance(candidate, str):
+                        name = candidate
+                        break
+                member = None
+                for field in ("member", "id", "variant"):
+                    candidate = item.get(field)
+                    if isinstance(candidate, str):
+                        member = candidate
+                        break
+                out.append((member, name))
+            elif item is None or isinstance(item, (str, bytes)):
+                out.append((None, None if item is None else str(item)))
+            else:
+                out.append((None, None))
+        return out
+    if isinstance(value, (str, bytes)):
+        return [(None, str(value))]
+    return out
+
+
+def utility_names_of(value):
+    """The distinct utility names a utilities-shaped container states, in first-seen order."""
+    seen = []
+    for _member, utility in utilities_of(value):
+        if utility is not None and utility not in seen:
+            seen.append(utility)
+    return seen
+
+
+def version_utility(member):
+    """The ``utility`` a version member declares — a **required** key of ``records.md`` §7."""
+    return declared_field(member, "a version member of the pool (records.md §7)", "utility")
+
+
+def index_entry_rule(entry):
+    """The ``rule`` one entry of the shipped checkpoint index names — **required** by §7.
+
+    ``records.md`` §1 makes a key marked **required** one the e2e battery asserts, and §7
+    marks a version record's ``rule`` so; ``training.checkpoints()``'s ``entries`` are
+    version records, extended with ``kind`` (``e2e-surface.md`` §3.5, ``protocol.md`` §5).
+    The rule is therefore read **on each entry** and never off the index's separate
+    ``windows`` block, which names the same rule whether or not any entry carries one.
+
+    The counterpart, on the same entries, of the ``utility`` field FAM-18.6 reads
+    (``utilities.md`` §6, D-19, D-20).
+    """
+    return declared_field(
+        entry,
+        "an entry of the shipped checkpoint index (protocol.md §5, e2e-surface.md §3.5)",
+        "rule",
+    )
+
+
+def pool_utilities(row):
+    """The ``utilities`` a pool record declares — a **required** key of ``records.md`` §8.
+
+    The key is the plural ``utilities`` and nothing else: §8 requires the *set* a pool's
+    version members declare, so a record carrying a singular ``utility`` has declared no
+    such key at all and a case fails with its own message rather than reading one member's
+    name where the population belongs (``records.md`` §8, ``utilities.md`` §7).
+    """
+    return declared_field(row, "a pool record (records.md §8)", "utilities")
+
+
+def cell_utilities(cell):
+    """The ``utilities`` a cell declares — a **required** key of ``records.md`` §9.
+
+    §9 requires each member's utility **by id** under the plural key; a singular ``utility``
+    is a different declaration and is not read here (``records.md`` §9, ``utilities.md``
+    §9).
+    """
+    return declared_field(cell, "a cell record (records.md §9)", "utilities")
+
+
+def matrix_utilities(matrix):
+    """The ``utilities`` a matrix declares — a **required** key of ``records.md`` §10.
+
+    The plural key, as for a cell: §10 requires each member's utility by id, beside the
+    ``utility_population`` they make up (``records.md`` §10, ``utilities.md`` §9).
+    """
+    return declared_field(matrix, "a matrix record (records.md §10)", "utilities")
+
+
+def matrix_utility_population(matrix):
+    """The ``utility_population`` a matrix declares — a **required** key of §10."""
+    return declared_field(
+        matrix,
+        "a matrix record (records.md §10)",
+        "utility_population",
+    )
+
+
+def run_utilities(record):
+    """The ``utilities`` set a run record declares — a **required** key of §12.
+
+    The plural key, as for a pool record: §12 requires the *set* of utilities the run
+    declared and trained, and a singular ``utility`` is not that key (``records.md`` §12,
+    ``utilities.md`` §7).
+    """
+    return declared_field(record, "a run record (records.md §12)", "utilities")
+
+
+def variant_utility(entry):
+    """The ``utility`` one variant entry of a run record names (§12, D-20)."""
+    return declared_field(
+        entry, "a variant entry of a run record (records.md §12)", "utility"
+    )
+
+
+def variant_curves(curves, name):
+    """The curve body one variant's own name reaches in a curves family, or ``None``.
+
+    ``records.md`` §12 makes the curves family *per variant per seed*, so a curve belongs
+    to a variant and the family says which: as a mapping keyed by the variant's name, as
+    an entry carrying its own name, or as a one-key mapping keyed by that name.  A reader
+    that cannot attribute a curve to a variant cannot compare two arms' curves at all, and
+    the case that needs the comparison says so rather than comparing two arbitrary halves
+    (`battery.md` §1: a case that cannot fail is a defect).
+    """
+    wanted = _family_token(name)
+    name_tokens = {"name", "variant", "arm", "member", "model", "label", "id"}
+
+    def own_name(entry):
+        for key, value in entry.items():
+            if _family_token(key) in name_tokens and isinstance(value, str):
+                return value
+        return None
+
+    def matched(entry):
+        if not isinstance(entry, Mapping):
+            return False
+        stated = own_name(entry)
+        if stated is not None:
+            return _family_token(stated) == wanted
+        if len(entry) == 1:
+            key = next(iter(entry))
+            return (_family_token(key) == wanted
+                    and isinstance(entry[key], (Mapping, list, tuple)))
+        return False
+
+    def body(entry):
+        if own_name(entry) is None and len(entry) == 1:
+            return next(iter(entry.values()))
+        return entry
+
+    def walk(value, depth):
+        if depth > 12:
+            return None
+        if isinstance(value, Mapping):
+            for key, inner in value.items():
+                if _family_token(key) == wanted and isinstance(inner, (Mapping, list, tuple)):
+                    return inner
+            if matched(value):
+                return body(value)
+            for inner in value.values():
+                found = walk(inner, depth + 1)
+                if found is not None:
+                    return found
+        elif isinstance(value, (list, tuple)):
+            for inner in value:
+                if matched(inner):
+                    return body(inner)
+            for inner in value:
+                found = walk(inner, depth + 1)
+                if found is not None:
+                    return found
+        return None
+
+    return walk(curves, 0)
 
 
 def family_value(record, family):
@@ -1064,6 +1459,8 @@ def custom_membership(tags=("kestrel", "bramble")):
             # table carries none, so the catalogue's declared default is the rule these
             # invented versions name, which is what a record without a rule reads as.
             "rule": spec.get("rule") or RULE_DEFAULT,
+            # And its `utility`, required on the same terms (records.md §7, D-20).
+            "utility": spec.get("utility") or UTILITY_DEFAULT,
         })
     return members
 
@@ -1228,6 +1625,44 @@ def shared_rule_league(case):
     return value
 
 
+def shared_utility_league(case):
+    """One table in which **two utilities meet**, built once per process and shared.
+
+    The heterogeneous table D-20 exists for: the frozen pool a run trained against (the
+    three baselines alone, ``league.md`` §2) plus the rung's **two** variants, one trained
+    under each catalogue utility.  Its membership is the smallest one that holds two
+    policies of two utilities — K = 5, so ten cells at the live 120 hands (``league.md``
+    §4, §6) — and it is built once and shared, because the league is deterministic from
+    its membership and its table seed (ASM-2) and no second case should pay for the same
+    table (``battery.md`` §2).
+
+    The two variant policies are two learners of **one architecture**, so the only thing
+    that differs between them is the utility their model's reward was defined by — which
+    is what makes the table's `utilities` and `utility_population` evidence about
+    objectives rather than about capacity (``utilities.md`` §3, §7, ASM-10).  The fixture
+    holds no scratch path, so it outlives the case that built it.
+    """
+    if "utility_league" in _SHARED:
+        return _SHARED["utility_league"]
+    pool = case.baselines_pool()
+    chips = case.utility_policy(UTILITY_DEFAULT, seed=SEED_I)
+    shortfall = case.utility_policy(UTILITY_SECOND, seed=SEED_J)
+    matrix = case.ep("evaluation", "matrix")(pool, [chips, shortfall], "live")
+    rating = case.ep("evaluation", "rating")(matrix)
+    value = {
+        "pool": pool,
+        "members": case.members(pool),
+        "chips": chips,
+        "shortfall": shortfall,
+        "variants": [chips, shortfall],
+        "utilities": [UTILITY_DEFAULT, UTILITY_SECOND],
+        "matrix": matrix,
+        "rating": rating,
+    }
+    _SHARED["utility_league"] = value
+    return value
+
+
 # --------------------------------------------------------------------------
 # The base case the battery is written on
 # --------------------------------------------------------------------------
@@ -1282,7 +1717,8 @@ class SurfaceCase(unittest.TestCase):
         return names[0]
 
     def learner_spec(self, width=96, depth=3, seed=SEED_A, backend="numpy",
-                     kind=None, sparsity=0.0, residual=False, learning_rule=None):
+                     kind=None, sparsity=0.0, residual=False, learning_rule=None,
+                     utility=None):
         """The battery's learner spec: the four names §3.3 gives, plus the settings.
 
         ``docs/L1/e2e-surface.md`` §3.3 declares ``backend, architecture, sizes,
@@ -1296,6 +1732,11 @@ class SurfaceCase(unittest.TestCase):
         built under the catalogue's first member, which is the declared default
         (``rules.md`` §4).  The key is added only when a case names a rule, so a caller
         that does not care about rules passes exactly the spec it passed before (D-19).
+
+        ``utility`` is the same optional selection on D-20's axis: a spec that names one
+        is built under it, and a spec that names none is built under the catalogue's
+        first member, ``net-chips`` (``utilities.md`` §5, ``records.md`` §3).  The key is
+        added only when a case names a utility, for the same reason.
         """
         if kind is None:
             kind = self.architecture_kind("naive")
@@ -1314,6 +1755,8 @@ class SurfaceCase(unittest.TestCase):
         }
         if learning_rule is not None:
             spec["learning_rule"] = learning_rule
+        if utility is not None:
+            spec["utility"] = utility
         return spec
 
     def learner(self, **kwargs):
@@ -1356,6 +1799,9 @@ class SurfaceCase(unittest.TestCase):
                 # learner is trained under, so a learner built from an entry is built
                 # under that entry's rule and under no other (D-19).
                 learning_rule=variant_setting(variant, "learning_rule"),
+                # ... and D-20's `utility` is the second axis of the same entry: a variant
+                # that names one is trained on that utility's reward (utilities.md §5, §7).
+                utility=variant_setting(variant, "utility"),
             )
         )
 
@@ -1368,6 +1814,19 @@ class SurfaceCase(unittest.TestCase):
     def rule_policy(self, rule, seed=SEED_I, width=RULE_WIDTH, depth=RULE_DEPTH):
         """One learner under ``rule`` as a policy, on the encoder this battery uses."""
         learner = self.rule_learner(rule, seed=seed, width=width, depth=depth)
+        return self.ep("agents", "as_policy")(learner, self.encoder(), seed)
+
+    def utility_learner(self, utility, seed=SEED_I, width=UTILITY_WIDTH,
+                        depth=UTILITY_DEPTH):
+        """A learner built under one catalogue utility (``utilities.md`` §2, §5)."""
+        return self.ep("agents", "build_learner")(
+            self.learner_spec(width=width, depth=depth, seed=seed, utility=utility)
+        )
+
+    def utility_policy(self, utility, seed=SEED_I, width=UTILITY_WIDTH,
+                       depth=UTILITY_DEPTH):
+        """One learner under ``utility`` as a policy, on the encoder this battery uses."""
+        learner = self.utility_learner(utility, seed=seed, width=width, depth=depth)
         return self.ep("agents", "as_policy")(learner, self.encoder(), seed)
 
     def two_rule_rung(self, seeds=(SEED_A, SEED_B), members=(), bound=None,
@@ -1420,6 +1879,67 @@ class SurfaceCase(unittest.TestCase):
             "axis": "the learning rule at one architecture",
             "carried_from": "residual",
             "primary": "masked-arm",
+            "pool": {
+                "id": pool_id,
+                "lineage": "R6 residual",
+                "m": bound,
+                "frozen": True,
+                "members": [dict(member) for member in members],
+            },
+            "variants": variants,
+        }
+
+    def two_utility_rung(self, seeds=(SEED_A, SEED_B), members=(), bound=None,
+                         pool_id="pool-r11-dual-utility"):
+        """The battery's own two-utility configuration: one architecture, two utilities.
+
+        The sibling of :meth:`two_rule_rung` on D-20's axis.  It appears in no design
+        document: its name, its two variant names, its width and depth, its seed set, its
+        pool id and the membership declaration it carries are the battery's own
+        (``battery.md`` §4).  What it declares is exactly what D-20 makes legal and nothing
+        else — two variant entries that agree on ``backend``, ``encoding``,
+        ``architecture``, ``learning_rule``, ``hyper``, ``param_budget``, ``samples``,
+        ``seeds`` and ``device`` and differ on ``utility`` alone — so a run of it must
+        train **both** variants, one on each catalogue utility's reward
+        (``utilities.md`` §3, §7, D-20).
+
+        The pool is the baselines alone, as in the two-rule rung: a case that only needs
+        the loop to train two utilities pays for no version it does not read
+        (``battery.md`` §2).  ``members`` lets a case hand it a real checkpoint it built.
+        """
+        if bound is None:
+            bound = LEAGUE_BOUND
+        kind = self.architecture_kind("naive")
+        architecture = {
+            "kind": kind,
+            "width": UTILITY_WIDTH,
+            "depth": UTILITY_DEPTH,
+            "sparsity": 0.0,
+            "residual": False,
+        }
+        variants = []
+        for name, utility in (("chips-arm", UTILITY_DEFAULT),
+                              ("shortfall-arm", UTILITY_SECOND)):
+            variants.append(
+                {
+                    "name": name,
+                    "backend": "numpy",
+                    "encoding": FLAT,
+                    "architecture": dict(architecture),
+                    "learning_rule": RULE_DEFAULT,
+                    "utility": utility,
+                    "param_budget": 10000,
+                    "samples": BUDGET_TINY,
+                    "seeds": list(seeds),
+                    "device": "cpu",
+                    "table": "live",
+                }
+            )
+        return {
+            "name": "R11-dual-utility",
+            "axis": "the utility at one architecture",
+            "carried_from": "residual",
+            "primary": "chips-arm",
             "pool": {
                 "id": pool_id,
                 "lineage": "R6 residual",
@@ -1562,7 +2082,7 @@ class SurfaceCase(unittest.TestCase):
         return out
 
     # -- the league (D-16) -------------------------------------------------
-    def version(self, tag, width=None, depth=None, rule=None):
+    def version(self, tag, width=None, depth=None, rule=None, utility=None):
         """One invented version, in the record shape ``records.md`` §7 pins.
 
         ``e2e-surface.md`` §2 makes a version "a checkpoint of a run, carrying an id,
@@ -1577,6 +2097,12 @@ class SurfaceCase(unittest.TestCase):
         the same pool.  ``rule`` is the rule the learner is built under *and* the rule
         the record declares, so the pair is written consistently unless a case doctors
         the record deliberately.
+
+        ``utility`` is D-20's second required member field on the same terms: the learner
+        is built under ``utility`` — so the container records it — and the record declares
+        it, defaulting to the catalogue's first member as ``rule`` does, so every caller
+        that predates the catalogue keeps the version it built before
+        (``utilities.md`` §5, §6, §7).
         """
         spec = VERSIONS[tag]
         if width is None:
@@ -1585,9 +2111,11 @@ class SurfaceCase(unittest.TestCase):
             depth = VERSION_DEPTH
         if rule is None:
             rule = RULE_DEFAULT
+        if utility is None:
+            utility = UTILITY_DEFAULT
         path = os.path.join(self.scratch(), "version-%s.pt" % tag)
         learner = self.learner(width=width, depth=depth, seed=spec["seed"],
-                               learning_rule=rule)
+                               learning_rule=rule, utility=utility)
         written = self.ep("agents", "save")(learner, path)
         if written:
             path = str(written)
@@ -1601,24 +2129,27 @@ class SurfaceCase(unittest.TestCase):
             "samples": spec["samples"],
             "lineage": spec["lineage"],
             "rule": rule,
+            "utility": utility,
         }
 
     def membership(self, tags=("kestrel",), frozen=True, width=None, depth=None,
-                   rule=None):
+                   rule=None, utility=None):
         """An invented pool declaration, in the shape ``records.md`` §8 pins.
 
         A declaration is ``members`` (the versions, by id and lineage), ``m`` (the
         bound) and ``frozen``; the bound is the league's fixed M, because a pool's bound
         belongs to the one league of D-16 and is not the battery's to choose
-        (``league.md`` §2).
+        (``league.md`` §2).  ``utility`` is handed to each version, so a membership can
+        declare a family trained on one utility's reward (``records.md`` §7, D-20).
         """
         return {
-            "members": [self.version(tag, width, depth, rule) for tag in tags],
+            "members": [self.version(tag, width, depth, rule, utility) for tag in tags],
             "m": LEAGUE_BOUND,
             "frozen": bool(frozen),
         }
 
-    def pool(self, tags=("kestrel",), frozen=True, width=None, depth=None):
+    def pool(self, tags=("kestrel",), frozen=True, width=None, depth=None, rule=None,
+             utility=None):
         """A pool through ``evaluation.build_pool`` (``e2e-surface.md`` §3.4).
 
         ``tags`` is either the invented version tags to declare, or a ready declaration
@@ -1628,7 +2159,8 @@ class SurfaceCase(unittest.TestCase):
         declaration and never with a tag list read back out of one.
         """
         declaration = (
-            tags if is_mapping(tags) else self.membership(tags, frozen, width, depth)
+            tags if is_mapping(tags)
+            else self.membership(tags, frozen, width, depth, rule, utility)
         )
         return self.ep("evaluation", "build_pool")(declaration)
 
@@ -1757,6 +2289,9 @@ class SurfaceCase(unittest.TestCase):
                 # declares the catalogue's default, which is the rule an invented version
                 # of the battery's own tag table is trained under (rules.md §4).
                 "rule": spec.get("rule") or RULE_DEFAULT,
+                # D-20's second required member field, declared on the same terms
+                # (records.md §7, §8; utilities.md §5).
+                "utility": spec.get("utility") or UTILITY_DEFAULT,
             })
         members += [{"id": name, "baseline": True, "pinned": True} for name in BASELINES]
         identifier = "pool-" + ("-".join(tags) if tags else "baselines")

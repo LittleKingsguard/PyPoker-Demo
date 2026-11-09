@@ -7,12 +7,11 @@
 ## 1. Why a hierarchy
 
 `docs/L2/agents/surface.md` §1: *an invalid argument is refused by raising an error that names the violated
-contract; no entry point coerces a value, substitutes a default, swallows an error or returns part of a
-record*. The error is therefore the only reporting channel: nothing comes back as a failure record, nothing is
-logged and continued, and no refused call has an observable effect — `learn` validates the whole batch before
-its first step, `save` validates before it opens a handle, and `act` validates before it computes a value
-(`rule.md` §3, `checkpoint.md` §3). A hierarchy exists so a caller can catch "this module refused me" without
-catching a `TypeError` from a bug in it.
+contract; no entry point coerces a value, substitutes a default, swallows an error or returns part of a record*.
+The error is therefore the only reporting channel: nothing comes back as a failure record, nothing is logged and
+continued, and no refused call has an observable effect — `learn` validates the batch before its first step, `save`
+before it opens a handle, `act` before it computes a value (`rule.md` §3, `checkpoint.md` §3). A hierarchy lets a
+caller catch "this module refused me" without catching a `TypeError` from a bug in it.
 
 ## 2. The classes — `src/agents/errors.py`
 
@@ -23,6 +22,7 @@ catching a `TypeError` from a bug in it.
     class UnknownBackend(AgentsError)        # build_learner: not one of learners()['backends']
     class UnknownArchitecture(AgentsError)   # build_learner: not one of learners()['architectures']
     class UnknownRule(AgentsError)           # build_learner, load: not one of learners()['learning_rules']
+    class UnknownUtility(AgentsError)        # build_learner, load: not one of learners()['utilities']
     class InvalidSetting(AgentsError)        # build_learner: width/depth not a positive integer, sparsity
                                              #   outside [0, 1]
     class InvalidSeed(AgentsError)           # build_learner, as_policy, build_baseline: not an integer
@@ -41,7 +41,7 @@ catching a `TypeError` from a bug in it.
     class CheckpointUnreadable(AgentsError)  # load: missing, unreadable, or a form this module does not read
     class CheckpointMismatch(AgentsError)    # load: the spec disagrees with the file on a compared key
 
-Seventeen subclasses, one per refusal family of `surface.md` §4–§12. They are **not** module-level names of the
+Eighteen subclasses, one per refusal family of `surface.md` §4–§12. They are **not** module-level names of the
 `agents` package — below an entry point is not surface (`README.md` §3, `e2e-surface.md` §1) — and a battery asserts
 the *behaviour*, never the class, which is this module's freedom (`docs/L3/features/errors.md` §2).
 
@@ -63,6 +63,7 @@ spellings, and the unit battery matches them tolerantly (the entry point's name,
 | `build_learner` backend | `build_learner(spec): the backend must be one of ('numpy', 'torch'), got 'jax'` |
 | `build_learner` kind | `build_learner(spec): the kind must be one of ('naive-stack', 'token-embedding', 'wide', 'deep', 'sparse', 'residual', 'plain'), got 'naivestack'` |
 | `build_learner` learning rule | `build_learner(spec): 'learning_rule' must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'` |
+| `build_learner` utility | `build_learner(spec): 'utility' must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'` |
 | `build_learner` seed | `build_learner(spec): the seed must be an integer, got '6174'` |
 | `build_learner` width or depth | `build_learner(spec): 'width' must be a positive integer, got 0` |
 | `build_learner` sparsity | `build_learner(spec): 'sparsity' must be in [0, 1], got 1.5` |
@@ -78,11 +79,11 @@ spellings, and the unit battery matches them tolerantly (the entry point's name,
 | `param_count` baseline | `param_count(learner): a baseline is not a learner, and its parameter count is the 0 baselines() declares` |
 | `save` path | `save(path): the path '/ckpt/missing/x.pt' is not a writable file location` |
 | `load` path | `load(path): '/ckpt/x.pt' cannot be read: No such file or directory` |
-| `load` form | `load(path): '/ckpt/x.pt' is not a pypoker-agents-checkpoint of format version 1 or 2` |
-| `load` version | `load(path): '/ckpt/x.pt' records the field 'format_version', which must be 1 or 2, got 4242` |
-| `load` rule | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; and `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'` |
+| `load` form | `load(path): '/ckpt/x.pt' is not a pypoker-agents-checkpoint of format version 1, 2 or 3` |
+| `load` version | `load(path): '/ckpt/x.pt' records the field 'format_version', which must be 1, 2 or 3, got 4242` |
+| `load` rule and utility | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'`; and for the utility: `… has a metadata.json without the field 'utility'`, `… which must be absent from a format version 2 container, got 'net-chips'`, and `… which must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'` |
 | `load` field value | `load(path): '/ckpt/x.pt' records the field 'backend', which must be one of ('numpy', 'torch'), got 'jax'` |
-| `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174`; a rule: `load(spec): the spec's learning_rule 'masked-q-learning' is not the checkpoint's learning_rule 'double-q-learning'` |
+| `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174`; a rule: `load(spec): the spec's learning_rule 'masked-q-learning' is not the checkpoint's learning_rule 'double-q-learning'`; a utility: `load(spec): the spec's utility 'net-chips' is not the checkpoint's utility 'stack-shortfall'` |
 | `as_policy` seed | `as_policy(seed): the seed must be an integer, got None` |
 | `as_policy` encoder | `as_policy(encoder): the encoder declares vocabulary 96 and the learner is dense-numeric at 203` |
 | a policy's readout | `policy(readout): the readout is missing 'to_call', which the rule needs` |
@@ -102,14 +103,14 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 - an **extra key in a learner spec**, `hyper`, `param_budget`, `samples`, `seeds`, `device` and `name` included:
   those are a run record's data and not a per-learner argument (`surface.md` §4, `records.md` §2).
   `variant_learner` in `tests/e2e/_surface.py` hands exactly such an entry over;
-- an **absent `learning_rule`**: a spec naming no rule is built under the catalogue's first member, the declared
-  default of `rules.md` §4 and never an inference from the caller's silence (`records.md` §3, D-19);
+- an **absent `learning_rule`**, and an **absent `utility`**: a spec naming none of either is built under that
+  catalogue's first member — `masked-q-learning` or `net-chips`, the declared defaults of `rules.md` §4 and
+  `utility.md` §3, never an inference from the caller's silence (`records.md` §3, D-19, D-20);
 - **`sizes` when `architecture` is present**: redundant — `architecture` is authoritative (`records.md` §3);
 - a **`sparsity` or `residual` a kind does not read** — `sparsity: 0.5` on a `deep` kind is accepted and ignored
   (`architecture.md` §3, `surface.md` §4);
-- a **`numpy` integer for a seed**, for a width, for a depth and for an action index: `numpy.int64` is an
-  `Integral` and an index is an index whatever its class. A **`bool`** is refused in every one of those places,
-  because a flag is not a count (`docs/L3/features/errors.md` §4, `docs/L3/features/README.md` §4);
+- a **`numpy` integer for a seed**, a width, a depth or an index: `numpy.int64` is an `Integral`, and a **`bool`**
+  is refused in every one of those places because a flag is not a count (`docs/L3/features/errors.md` §4);
 - a **policy's readout carrying extra facts**: the ten facts of `README.md` §7 are inspected, so an extra one is
   ignored but a malformed one is refused rather than defaulted (`baselines.md` §1);
 - a **batch longer or shorter than `batch_size`**, a batch of one, and a transition whose `terminal` is true and
@@ -118,13 +119,11 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 - two learners from one spec, a learner saved twice, a checkpoint loaded twice, and a policy kept for a long
   time: the module keeps no cache and no registry (`surface.md` §4, §8).
 
-The only shapes refused on a record are the ones that are not that record at all: not a mapping, missing a key
-the contract requires, or carrying a value the contract forbids — a check on well-formedness, not a caller's
-convenience.
+The only shapes refused on a record are the ones that are not that record at all: not a mapping, a missing required
+key, or a value the contract forbids (`surface.md` §1).
 
 ## 5. Where the messages are asserted
 
-FAM-1.17–1.26 assert only that each name is callable with a valid instance; the refusals are asserted by the
-blind instances and by this design's unit battery (`battery.md` §3–§4). The rule L4 holds is therefore stronger
-than what the L1 battery can see: a message that omits the entry point's name, the key at fault or the offending
-value passes the L1 battery and fails the unit battery, which is why the table of §3 exists (`guardrails.md`).
+FAM-1.17–1.26 assert only that each name is callable with a valid instance; the refusals are asserted by the blind
+instances and by this design's unit battery (`battery.md` §3–§4). A message that omits the entry point, the key at
+fault or the offending value passes the L1 battery and fails the unit battery, so §3 exists (`guardrails.md`).

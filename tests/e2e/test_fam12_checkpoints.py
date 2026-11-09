@@ -265,6 +265,32 @@ class FAM12Checkpoints(S.SurfaceCase):
             "regenerated (rules.md §6, ASM-5): the index reports %r"
             % (S.RULE_DEFAULT, sorted(names)),
         )
+        # Beside that whole-index reading — which the index's own `windows` block answers
+        # whether or not any entry carries a rule — the same fact is asserted **per entry**.
+        # `records.md` §7 marks a version record's `rule` **required**, §1 makes a required
+        # key one this battery asserts, and `training.checkpoints()`'s entries are version
+        # records extended with `kind` (e2e-surface.md §3.5, protocol.md §5), so an index
+        # whose entries all name no rule has not recorded each artefact's rule at all.  The
+        # strength is the one FAM-18.6 gives the same entries' `utility`.
+        entries = S.index_entries(index)
+        self.assertTrue(
+            entries,
+            "training.checkpoints() indexes the shipped set entry by entry — each artefact "
+            "with the rule and the utility it was trained under — so there are entries for "
+            "this case to read (protocol.md §5, e2e-surface.md §3.5): it returned %r"
+            % (index,),
+        )
+        for entry in entries:
+            rule = S.index_entry_rule(entry)
+            self.assertIn(
+                rule,
+                declared,
+                "every entry names the rule its artefact was trained under, and it is a name "
+                "the catalogue carries, because `rule` is a required key of the version "
+                "record an index entry is, and a name outside the catalogue is refused "
+                "where it is declared (records.md §1, §7, rules.md §2, §4, D-19): the entry "
+                "%r names %r, and the catalogue carries %r" % (entry, rule, declared),
+            )
 
 
 if __name__ == "__main__":

@@ -346,3 +346,37 @@ member record has no rule field and the pool id digests ids alone (V-F3), one li
 extendable so a multi-family pool cannot roll (V-F4), and M bounds total versions (V-F5) — plus the
 critique's questions of cost, eviction and who decides membership. A design that departs from those
 findings needs its own gate; one that follows them needs only the findings cited.
+
+---
+
+## D-20 — A utility axis: reward progress in the squared stack shortfall
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Add a new model with a changed loss function so that it measures net
+progress towards winning nonlinearly, ex. delta of (total of stacks - current stack)^2. This will
+make the loss asymmetric between losses and wins of the same magnitude, discouraging aggressive
+play."
+
+**Decision:** The terminal reward becomes selectable per variant, as the learning rule already is
+(D-19). The existing `net-chips` utility stays (ASM-12); a second utility scores progress in the
+square of the stack's shortfall from all the chips in play:
+
+- `U(s) = (T − s)²`, where `T` is the total chips in play and `s` the seat's stack;
+- reward `r = (U(s_before) − U(s_after)) / U(s_0)`, delivered at the terminal decision only, with no
+  intermediate term and no shaping — the same delivery rule as ASM-12;
+- normalising by `U(s_0)` keeps the objective on the scale the learner was tuned for: a ±2-chip pair
+  scores **+0.190 / −0.210**, and an all-in scores **+1.000 / −3.000**, so a loss of a given size is
+  always penalised more than a win of the same size and all-in aggression is penalised threefold.
+
+**What it is, and is not.** It changes what the learner optimises, not the game (D-2). It cannot
+create EV where the game has none: the measured coin-flip (`r2-plateau-diagnosis.md`) means call and
+raise are equally good, so this utility does not make play "better" — it makes the equal-EV choice
+*prefer the cheaper variance*, which is exactly the pathology it was proposed for (always-raise at
+±20 over always-call at ±2).
+
+**Constraint that binds the evidence.** The league keeps measuring the game in its own currency —
+hands won and chips per hand — so a variant trained on one utility and judged beside one trained on
+another is not a like-for-like comparison. Every record, member and table must name the utility a
+model was trained under, and a report must state both, or the ladder would silently compare models
+that were asked different questions (D-6, D-16).

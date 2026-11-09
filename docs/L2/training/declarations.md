@@ -26,7 +26,7 @@ named as refused in §2.
 | variant `param_budget`, `samples`, `seeds`, `device`, `table` | read: the declared budget the `params` block reports, and the defaults `surface.md` §4 names |
 | `axis`, `primary` | quoted by `fairness` — the axis a pair is reported on, and the variant the next rung inherits — and read by `run` nowhere (`surface.md` §5, `ladder.md` §2) |
 | `carried_from` | read by `registry.rung` when it builds a rung's window; for a configuration in no registry nothing reads it, because the window a run freezes is `pool.members` (`loop.md` §3 step 2) |
-| variant `learning_rule` | read: forwarded into `agents.build_learner`'s spec, so a variant trains under the rule it names — a member of the catalogue (`rules.md` §2, D-19) — and a name the catalogue does not carry is **refused** (§2) |
+| variant `learning_rule`, variant `utility` | read: forwarded into `agents.build_learner`'s spec, so a variant trains under the rule it names and on the reward of the utility it names — each a member of its catalogue (`rules.md` §2, `utilities.md` §2, D-19, D-20) — and a name either catalogue does not carry is **refused** (§2) |
 | variant `hyper` | **refused** when it declares another value: one hyper declaration serves every rule, so a run holds ASM-7's six declarations (§2, `rules.md` §2) |
 | `snapshot_every`, at either level | **refused** when it declares another interval: ASM-18 fixes ten, so the interval is the declared budget ÷ 10 (§2) |
 | `param_budget` at the configuration | read as the declaration the `params` block reports for an entry that declares none — honoured, never dropped (§2) |
@@ -48,9 +48,9 @@ honour rather than replacing it — four of them, before the first hand and befo
   no claim and is accepted; a key it names must carry the value the run will use, in the shape the run will use
   (`agents/surface.md` §3). A differently typed `exploration` — a sentence where the schedule record is declared — is a
   disagreement, not a tolerance.
-- **a `learning_rule` the catalogue does not carry**, at either level: the rule is read and forwarded (§1), so what is
-  refused is a name no learner can be built under — not a second rule, because a configuration may declare two and train
-  two (`rules.md` §2, §7, D-19).
+- **a `learning_rule` or a `utility` a catalogue does not carry**, at either level: each is read and forwarded (§1), so
+  what is refused is a name no learner can be built under — not a second rule or a second utility, because a configuration
+  may declare two of either and train two (`rules.md` §2, §7, `utilities.md` §5, §8, D-19, D-20).
 - **a `snapshot_every` that is not the declared budget ÷ 10**, naming both numbers: honouring it would write fewer than
   ten snapshots and leave ASM-18's retained window unobservable (`loop.md` §3 step 7, guardrails G4). The declared budget
   is resolved as the run resolves the budget itself — the configuration's, else its first entry's — so the number the
@@ -88,14 +88,15 @@ Two entries of one configuration are the two arms of one comparison, so they dec
 settings, and a second value for any of them is refused, because both arms train against one frozen pool at one budget
 (`surface.md` §4, ASM-16). Five are refused by `PairDeclarationsDiffer` naming both arms; `hyper` and `snapshot_every` are
 refused earlier and per arm by `IgnoredDeclaration` (§2), the pair class being unreachable for them by construction.
-`learning_rule` is deliberately not one of the seven: it is an axis a pair may differ on, and `fairness` reports the set
-it read, not one side's (`rules.md` §8, D-19).
+`learning_rule` and `utility` are deliberately not among the seven: each is an axis a pair may differ on, and
+`fairness` reports the sets it read, not one side's (`rules.md` §8, `utilities.md` §8, `utility.md` §5, D-19, D-20).
 
-## 5. Why the rule is forwarded and the hyper refused
+## 5. Why the rule and the utility are forwarded and the hyper refused
 
-The two answers differ because the register does. D-19 makes the estimator a parameter a variant names, so the run reads
-`learning_rule` and hands it to `agents.build_learner`, which builds that rule and refuses an uncatalogued name itself
-(`rules.md` §2, §4). The hyper declaration is not per rule — both rules consume the same six values — so honouring a
+The two answers differ because the register does. D-19 makes the estimator a parameter a variant names and D-20 makes the
+objective one, so the run reads `learning_rule` and `utility` and hands both to `agents.build_learner`, which builds them
+and refuses an uncatalogued name itself (`rules.md` §2, §4, `utilities.md` §5, D-20). The hyper declaration is not per rule
+— both rules consume the same six values — so honouring a
 per-configuration `hyper` would make "every hyperparameter held fixed across the ladder" a convention nothing enforces,
 and a rung-to-rung difference no longer attributable to the representation it is named for (`rules.md` §2, D-3, ASM-7);
 it would also mean another module's learner reading it, designed there and not here (D-13, `module-map.md` §2). The
@@ -105,6 +106,5 @@ caller's sweep is not lost by refusing it: it moves to the one auditable place �
 ## 6. What is left to L3
 
 The class names' definitions and their docstrings, the message texts and their order, where each check sits inside the
-resolve step, and the shape of the comparison — value by value, or a normalised copy of the declaration
-(`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not L3's: that these declarations are refused, that a
-`hyper` key the block omits is no claim, that a message names both values, and the pair's seven settings (§1–§4, G16).
+resolve step, and the shape of the comparison (`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not L3's: that these declarations are refused, that a
+`hyper` key the block omits is no claim, that a message names both values, the pair's seven settings and the two axis exceptions (§1–§4, G16, D-20).

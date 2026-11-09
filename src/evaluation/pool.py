@@ -14,13 +14,14 @@ to newest, the families in the order they entered the window (`families.md` §1-
 ASM-26).  The window is bounded by `m`, and a full window evicts fair-share: the member
 that leaves is the oldest of the family that currently holds the most (`families.md` §3).
 
-Every version member declares its `rule`, the catalogue member it was trained under, read
-from `agents.learners()`'s catalogue through the granted arrow and never from a copy of
-the names (`rules.md` §2, §4, D-19).  The id is
+Every version member declares its `rule` and its `utility`, the catalogue members it was
+trained under, read from `agents.learners()`'s two catalogues through the granted arrow
+and never from a copy of the names (`rules.md` §2, §4, `utilities.md` §2, §5, D-19,
+D-20).  The id is
 ``"pool-" + sha256(payload).hexdigest()[:16]`` where the payload is one line per member --
-a baseline's id alone, a version's `id`, ``\\x1f``, then its `rule` -- so a baselines-only
-pool keeps the id it had and two pools of one membership under two estimators do not
-wear one id (`families.md` §4, ASM-27).
+a baseline's id alone, a version's `id`, ``\\x1f``, then its `rule`, ``\\x1f``, then its
+`utility` -- so a baselines-only pool keeps the id it had and two pools of one membership
+under two estimators or two objectives do not wear one id (`families.md` §4, ASM-27).
 """
 
 import hashlib
@@ -45,10 +46,12 @@ from .errors import (
     LineageNotExtended,
     RuleMismatch,
     UnknownRule,
+    UnknownUtility,
+    UtilityMismatch,
 )
 
-#: The digest's field separator: a version's line carries its id, this, then its rule, and
-#: no field may contain it (`families.md` §4, ASM-27).
+#: The digest's field separator: a version's line carries its id, this, its rule, this,
+#: then its utility, and no field may contain it (`families.md` §4, ASM-27).
 SEPARATOR = "\x1f"
 
 
@@ -77,7 +80,7 @@ class Pool:
 
 
 # ---------------------------------------------------------------------------
-# The learning-rule catalogue, through the granted arrow (`rules.md` §2, D-19)
+# The two catalogues, through the granted arrow (`rules.md` §2, `utilities.md` §2)
 # ---------------------------------------------------------------------------
 def _catalogue():
     """`agents.learners()`'s learning-rule catalogue, its member names in declared order.
@@ -93,24 +96,46 @@ def _catalogue():
     return ()
 
 
+def _utility_catalogue():
+    """`agents.learners()`'s utility catalogue, its member names in declared order.
+
+    The utility side of :func:`_catalogue`, on the same terms: read through the granted
+    arrow on every call and never restated here, so a name this module accepts is a
+    name `agents.build_learner` accepts (`utilities.md` §2, §5, `module-map.md` §2,
+    D-20).
+    """
+    declared = agents.learners()
+    catalogue = declared.get("utilities") if isinstance(declared, Mapping) else None
+    if isinstance(catalogue, Mapping):
+        return tuple(str(name) for name in catalogue)
+    return ()
+
+
 # ---------------------------------------------------------------------------
 # The id digest (`families.md` §4, ASM-27)
 # ---------------------------------------------------------------------------
 def _member_line(member):
-    """One member's line of the digest payload: a baseline's id alone, a version's and its rule."""
+    """One member's line of the digest payload: a baseline's id alone, a version's, its rule and its utility."""
     if member.get("baseline"):
         return member["id"]
-    return "%s%s%s" % (member["id"], SEPARATOR, member["rule"])
+    return "%s%s%s%s%s" % (
+        member["id"],
+        SEPARATOR,
+        member["rule"],
+        SEPARATOR,
+        member["utility"],
+    )
 
 
 def _pool_id(members):
     """`"pool-" + sha256(payload).hexdigest()[:16]` over the ordered member lines.
 
     One line per member, in the pool's order: a baseline contributes its id alone and a
-    version contributes its id, ``\\x1f``, then its `rule`; lines joined by one ``"\\n"``
-    with no trailing separator.  `m`, `frozen` and every other member field stay outside
-    it, so a corrected seed or step does not rename the pool, and a baselines-only pool
-    digests exactly as it did before the catalogue existed (`families.md` §4, ASM-27).
+    version contributes its id, ``\\x1f``, then its `rule`, ``\\x1f``, then its
+    `utility`; lines joined by one ``"\\n"`` with no trailing separator.  `m`, `frozen`
+    and every other member field stay outside it, so a corrected seed or step does not
+    rename the pool, and a baselines-only pool digests exactly as it did before either
+    catalogue existed (`families.md` §4, ASM-27, D-19, D-20).
     """
     payload = "\n".join(_member_line(member) for member in members).encode("utf-8")
     return "pool-" + hashlib.sha256(payload).hexdigest()[:16]
@@ -123,12 +148,14 @@ def _families(members):
     """The declaration's versions grouped into families, oldest first, in entry order.
 
     A family is one lineage chain: its label is the start its first member names, and all
-    its members declare one rule (§1).  Two records carrying one id are refused
-    (`MemberDuplicate`), two members descending from one are refused (`LineageConflict`),
-    a chain that reaches no start is refused (`LineageCycle`), and a chain whose members
-    declare two rules is refused naming the member and both rules (`RuleMismatch`).  The
-    families are ordered by the position of each one's start in the declaration, which is
-    what makes "the order they entered the window" a declared fact (§2).
+    its members declare one rule **and one utility** (§1).  Two records carrying one id are
+    refused (`MemberDuplicate`), two members descending from one are refused
+    (`LineageConflict`), a chain that reaches no start is refused (`LineageCycle`), a chain
+    whose members declare two rules is refused naming the member and both rules
+    (`RuleMismatch`), and a chain whose members declare two utilities is refused on the
+    same terms (`UtilityMismatch`, D-20).  The families are ordered by the position of
+    each one's start in the declaration, which is what makes "the order they entered the
+    window" a declared fact (§2).
     """
     index = {}
     for position, member in enumerate(members):
@@ -176,7 +203,12 @@ def _families(members):
             chain.append(dict(member))
             position = successors.get(member["id"])
         families.append(
-            {"label": chain[0]["lineage"], "rule": chain[0]["rule"], "members": chain}
+            {
+                "label": chain[0]["lineage"],
+                "rule": chain[0]["rule"],
+                "utility": chain[0]["utility"],
+                "members": chain,
+            }
         )
 
     if len(visited) != len(members):
@@ -198,6 +230,17 @@ def _families(members):
                         member["id"],
                         member["rule"],
                         family["rule"],
+                        family["label"],
+                    )
+                )
+            if member["utility"] != family["utility"]:
+                raise UtilityMismatch(
+                    "build_pool(member %r): the utility %r is not the utility %r of the "
+                    "family it extends, whose start is %r"
+                    % (
+                        member["id"],
+                        member["utility"],
+                        family["utility"],
                         family["label"],
                     )
                 )
@@ -316,6 +359,46 @@ def _rule(record, where, entry, required=True):
     return value
 
 
+def _utility(record, where, entry, required=True):
+    """A version member's `utility`, checked against the catalogue (`utilities.md` §5, D-20).
+
+    A record that declares none is refused as a missing key when ``required`` -- the
+    version declaration of a membership (`build_pool`) and of an offered version
+    (`offer`), where the pool must certify what its member was trained under and is the
+    only witness of it -- and read as declaring none otherwise, which is what a bare §7
+    record handed to an entry point sees (`policy.py`'s `_member_policy`), the checkpoint
+    being the witness there.  The declared default speaks for a variant entry and a
+    learner spec only, never for a pool member (`utilities.md` §5, `records.md` §7,
+    D-20).  A name the catalogue does not carry is refused by name, and never mapped onto
+    the declared default (`utilities.md` §5, ASM-26).
+    """
+    if "utility" not in record:
+        if not required:
+            return None
+        raise MemberInvalid(
+            "%s(%s): the member is missing the required key 'utility'" % (entry, where)
+        )
+    value = record["utility"]
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\n" in value
+        or "\r" in value
+        or SEPARATOR in value
+    ):
+        raise MemberInvalid(
+            "%s(%s): the utility must be a non-empty string without a newline or the "
+            "digest's separator, got %r" % (entry, where, value)
+        )
+    catalogue = _utility_catalogue()
+    if value not in catalogue:
+        raise UnknownUtility(
+            "%s(%s): the utility %r is not one of the catalogue's %r"
+            % (entry, where, value, catalogue)
+        )
+    return value
+
+
 def _check_member(record, position):
     """Validate one declared member's shape and return a copy of it (§2, §8)."""
     if not isinstance(record, Mapping):
@@ -357,8 +440,10 @@ def build_pool(declaration):
     """One pool from one `records.md` §8 declaration (§5, `pool.md` §2).
 
     The declaration's three keys are all required; `m` may be tighter than the league's
-    M and never wider; every version member declares its `rule`, refused by name when the
-    catalogue does not carry it; the versions are grouped into families and ordered by
+    M and never wider; every version member declares its `rule` and its `utility`, each
+    refused by name when the catalogue does not carry it and the `utility` refused by name
+    when it is absent too, the pool being the only witness of the objective a member was
+    trained under; the versions are grouped into families and ordered by
     their lineage links; the window is bounded to `m` by the fair-share eviction rule;
     the three baselines are added first, pinned, and the id is computed.  A declaration
     richer than the bound is windowed, never refused, unless it holds more families than
@@ -419,6 +504,13 @@ def build_pool(declaration):
         _check_path(member)
     for member in records:
         member["rule"] = _rule(member, "member %r" % (member["id"],), "build_pool")
+    # Every version member declares the `utility` it was trained under, and one that names
+    # none is refused by name, never read as the declared default: the pool is the
+    # container that must certify it (`records.md` §7, §8, `utilities.md` §5, D-20).
+    for member in records:
+        member["utility"] = _utility(
+            member, "member %r" % (member["id"],), "build_pool"
+        )
 
     families = _families(records)
     window = _window(families, bound, "build_pool")
@@ -461,11 +553,29 @@ def _pool_rules(members):
     return tuple(seen)
 
 
+def _pool_utilities(members):
+    """The distinct utilities the version members declare, in the window's order (§5).
+
+    The utility side of :func:`_pool_rules`: a baseline declares none, so an empty tuple
+    is R1's answer and the pool record's `utilities` is the objective population a table
+    over it measured (`records.md` §8, `utilities.md` §7, ASM-27, D-20).
+    """
+    seen = []
+    for member in members:
+        if member.get("baseline"):
+            continue
+        utility = member.get("utility")
+        if isinstance(utility, str) and utility not in seen:
+            seen.append(utility)
+    return tuple(seen)
+
+
 def pool_members(pool):
     """`records.md` §8's pool record, freshly built on every call (§6, `pool.md` §5).
 
     A caller that edits the returned record changes nothing, and a frozen pool's
     read-back does not change while it is used -- which is how a pair's parity is read.
+    `rules` and `utilities` are the two populations its version members declare.
     """
     _require_pool(pool, "pool_members")
     return {
@@ -474,6 +584,7 @@ def pool_members(pool):
         "frozen": bool(pool.frozen),
         "members": tuple(dict(member) for member in pool.members),
         "rules": _pool_rules(pool.members),
+        "utilities": _pool_utilities(pool.members),
     }
 
 
@@ -486,10 +597,12 @@ def offer(pool, version):
     The offered version extends exactly one family -- its lineage must be that family's
     **newest member**, or a label no member carries, which opens a new family
     (`families.md` §5, ASM-26).  A lineage naming a member that is not its family's newest
-    would fork the chain and is refused; a version whose rule differs from the rule of the
-    family it extends is refused; and a full window evicts fair-share, so no family is
-    emptied while another holds two or more.  Opening the (m+1)th family is refused by
-    name rather than emptying one.  The argument pool is unchanged (`pool.md` §6).
+    would fork the chain and is refused; a version whose rule or whose utility differs from
+    the family it extends is refused; a version that names no `utility` is refused as a
+    missing required key, as a declared member's is; and a full window evicts fair-share, so
+    no family is emptied while another holds two or more.  Opening the (m+1)th family is
+    refused by name rather than emptying one.  The argument pool is unchanged (`pool.md`
+    §6).
     """
     _require_pool(pool, "offer")
     if pool.frozen:
@@ -516,6 +629,13 @@ def offer(pool, version):
             % (offered["id"], offered["id"])
         )
     offered["rule"] = _rule(
+        offered, "version %r" % (offered["id"],), "offer"
+    )
+    # An offered version declares the `utility` it was trained under, as a declared member
+    # does: one that names none is refused by name, never read as the declared default, so
+    # every member of a pool carries the objective it was trained on and the id can certify
+    # it (`utilities.md` §5, §6, ASM-27, D-20).
+    offered["utility"] = _utility(
         offered, "version %r" % (offered["id"],), "offer"
     )
 
@@ -552,6 +672,18 @@ def offer(pool, version):
                     offered["id"],
                     offered["rule"],
                     family_rule,
+                    chains[target][-1]["id"],
+                )
+            )
+        family_utility = chains[target][0].get("utility")
+        if family_utility is not None and family_utility != offered["utility"]:
+            raise UtilityMismatch(
+                "offer(version %r): the utility %r is not the utility %r of the family "
+                "it extends, whose newest member is %r"
+                % (
+                    offered["id"],
+                    offered["utility"],
+                    family_utility,
                     chains[target][-1]["id"],
                 )
             )

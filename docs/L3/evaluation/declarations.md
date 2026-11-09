@@ -68,7 +68,7 @@ same word `protocol.md` §1 spells, `axis row`'s space included (D-6, `records.m
 | Family | `required` | `refusal` | What the value is |
 |---|---|---|---|
 | `curves` | `("samples", "signal", "spread")` | `curves` | per variant, per seed: the sample axis, at least one learning signal from `agents.learn`, and the spread across seeds (D-6) |
-| `pool` | `("id", "m", "frozen", "members")` | `pool` | `records.md` §8's pool record, i.e. the shape `pool_members` returns (D-16, ASM-16) |
+| `pool` | `("id", "m", "frozen", "members")` | `pool` | `records.md` §8's pool record, i.e. the shape `pool_members` returns, its `rules` and `utilities` included (D-16, ASM-16, D-20) |
 | `matrix` | `("members", "cells", "hands_per_cell", "table_seed", "table")` | `matrix` | `records.md` §10's matrix record at one budget (§4) |
 | `rating` | `("values", "method", "anchor", "bound_applied", "bootstrap_seed", "converged")` | `rating` | `records.md` §11's rating record (`rating.md` §5) |
 | `baselines` | `("rows",)` | `baselines` | the three baseline rows inside that matrix, each at the table's one hand count (`protocol.md` §3) |
@@ -81,12 +81,12 @@ the unit battery) promises to carry; it is *not* a list of keys inside a value. 
 — its value — and `report` copies it through verbatim, never wrapping it into a record to satisfy a key name
 (`report.md` §1–§2, §4). `report` checks a family's **presence**, and its key name's spelling, and nothing deeper.
 
-**D-19 adds no family and no required item, and `league()` gains no key.** The rules a run held ride inside two things
-that already exist: the `pool` family's value, which is `records.md` §8's record and carries `rules` (the distinct rules
-its version members declare), and the `header`, which the run record already fills (`records.md` §8, §12, D-19). So
-`protocol()`'s `families` keeps its seven names with their `required` tuples unchanged, `HEADER_ITEMS` keeps its nine
-items, and `league()`'s six keys stay six — a new required item would refuse a record another battery hand-builds, which
-is over-refusal (`rules.md` §4, `errors.md` §5, D-19).
+**D-19 adds no family and no required item, and D-20 adds neither on the utility axis; `league()` gains no key.** The
+rules and the utilities a run held ride inside two things that already exist: the `pool` family's value, which is
+`records.md` §8's record and carries `rules` and `utilities`, and the `header`, which the run record already fills
+(`records.md` §8, §12, D-19, D-20). So `protocol()`'s `families` keeps its seven names with their `required` tuples
+unchanged, `HEADER_ITEMS` keeps its nine items, and `league()`'s six keys stay six — a new required item would refuse a
+record another battery hand-builds, which is over-refusal (`rules.md` §4, `utility.md` §3, `errors.md` §5, D-19, D-20).
 
 ## 4. `league()` — the league's parameters
 

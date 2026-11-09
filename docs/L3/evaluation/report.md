@@ -4,7 +4,7 @@
   grammar and its order (§3), the membership rule (§3), and what a report never does (§4) (`surface.md` §13,
   `records.md` §13, `protocol.md` §1)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** `declarations.md` §2–§3, `matrix.md` §1, `rating.md` §6, `errors.md` §2–§4
+- **Read with:** `declarations.md` §2–§3, `matrix.md` §1, §5, `utility.md` §3, `rating.md` §6, `errors.md` §2–§4
 
 ## 1. The seven families, in this order
 
@@ -15,7 +15,7 @@ attached (`records.md` §12–§13) — against `protocol()`'s declaration, and 
 | # | Family | What the report carries | The word its absence is refused with |
 |---|---|---|---|
 | 1 | `curves` | per variant, per seed: the sample axis and at least one learning signal from `agents.learn`, with the spread across seeds | `curves` |
-| 2 | `pool` | `records.md` §8's pool record — id, M, the ordered members with lineage, and `rules`: the **population the report's table was measured over** — i.e. the shape `pool_members` returns, completed where it must be (`rules.md` §4, D-19) | `pool` |
+| 2 | `pool` | `records.md` §8's pool record — id, M, the ordered members with lineage, and `rules` **and** `utilities`: the two **populations the report's table was measured over** — i.e. the shape `pool_members` returns, completed where it must be (`rules.md` §4, `utility.md` §3, D-19, D-20) | `pool` |
 | 3 | `matrix` | the matrix record the report is about (§2) | `matrix` |
 | 4 | `rating` | the rating record fitted to it | `rating` |
 | 5 | `baselines` | the three baseline rows inside that matrix, each at the table's one hand count | `baselines` |
@@ -26,10 +26,11 @@ The names are `protocol()["families"]`'s keys, `axis row`'s space included, and 
 the report's own keys: a report is machine-readable evidence and a reader finds a family by the name the protocol
 spells (`surface.md` §13, `battery.md` §3 FAM-4, FAM-11).
 
-**D-19 adds no eighth family and no new required item.** The rules a run held ride inside two keys that already exist: the
-`pool` family, which is `records.md` §8's record and carries `rules`, and the `header`, which the run record already fills
-with the facts a third party needs (`records.md` §8, §12, `protocol.md` §1, D-19). A new *required* item would refuse a
-record another battery hand-builds, which is over-refusal and therefore a defect of its own (`errors.md` §5, D-19).
+**D-19 adds no eighth family and no new required item, and D-20 adds neither on its own axis.** The rules and the
+utilities a run held ride inside two keys that already exist: the `pool` family, which is `records.md` §8's record and
+carries `rules` and `utilities`, and the `header`, which the run record already fills with the facts a third party needs
+(`records.md` §8, §12, `protocol.md` §1, D-19, D-20). A new *required* item would refuse a record another battery
+hand-builds, which is over-refusal and therefore a defect of its own (`errors.md` §5, `report.md` §4, D-19).
 
 ## 2. The record
 
@@ -51,13 +52,17 @@ family is a copy of the record's value, unchanged — a `curves` list stays that
 that record, and `axis row` stays the string `n/a, single variant` when that is what the run wrote (FAM-11.10). The
 report copies and never merges, so no family is reshaped into a second spelling of itself.
 
-**The one fact a report completes is the pool family's `rules`** (`rules.md` §4, D-19). The population the report's table
-was measured over is the pool's own version members' rules plus the rung's variants' — the members a table holds outside
-the pool — and that is exactly the matrix's `population` (`matrix.md` §5, `records.md` §10). When the pool block already
-names it, the family is copied as it stands; when it declares fewer, the report states the population on its own copy of
-that family, adding the names the pool's block lacks in `population`'s order and nothing else (§4). The record
-handed in — the run record, and the pool block inside it — is never edited, so a caller keeps what `training` gave it and a
-second call on the same arguments gives an equal report (`surface.md` §13, `records.md` §13).
+**The facts a report completes are the pool family's `rules` and its `utilities`** (`rules.md` §4, `utility.md` §3,
+D-19, D-20). The population the report's table was measured over is the pool's own version members' rules plus the rung's
+variants' — the members a table holds outside the pool — and that is exactly the matrix's `population`; its utilities are
+the same sum and exactly the matrix's `utility_population` (`matrix.md` §5, `records.md` §10). So a report states both
+labels of the population it fitted over, and **the same rule completes `utilities` as completes `rules`**: when the pool
+block already names a population, that label is copied as it stands; when it declares fewer, the report states the
+population on its own copy of that family, adding the names the pool's block lacks in `population`'s order (and, for
+`utilities`, in `utility_population`'s) and nothing else (§4). A pool block that states neither gains both keys, which is
+a completion of a copy and not a new required item (§1, §4). The record handed in — the run record, and the pool block
+inside it — is never edited, so a caller keeps what `training` gave it and a second call on the same arguments gives an
+equal report (`surface.md` §13, `records.md` §13, D-20).
 
 ## 3. The refusals, and the membership rule
 
@@ -95,8 +100,9 @@ raising the same way rather than returning a partial report.
 - **It never invents a version.** R1 has no lineage, so its `pool` family is the three baselines and nothing else:
   the report carries the pool record it was handed and adds no member to it (`league.md` §2, FAM-11.9).
 - **It never *requires* a new content item, and never edits an argument to make one fit.** D-19's population is carried
-  inside the `pool` family's own `rules` key (§1–§2) and no family's `required` tuple grows, so a record another battery
-  hand-builds is still a reportable record (`declarations.md` §3, `errors.md` §5, D-19).
+  inside the `pool` family's own `rules` key, and D-20's inside its `utilities` (§1–§2), and no family's `required` tuple
+  grows, so a record another battery hand-builds is still a reportable record (`declarations.md` §3, `errors.md` §5,
+  D-19, D-20).
 - **It never reduces the matrix to a ranking**, and it never sorts members by rating: the matrix is carried raw, both
   directions of every cell, and the rating travels beside it because a fit assumes a transitive order that poker
   payoffs need not have (`league.md` §3, `protocol.md` §2, D-16).
@@ -106,14 +112,17 @@ raising the same way rather than returning a partial report.
   members on this game at this cell size, and nothing in the report upgrades it into a claim of poker skill
   (`league.md` §8, D-16).
 - **It never edits the run record it is handed**: the argument is read, not mutated, so a caller keeps what
-  `training` gave it, and the completed `rules` is written onto the report's own copy of the pool family (`records.md`
-  §13, `rules.md` §4).
+  `training` gave it, and the completed `rules` and `utilities` are written onto the report's own copy of the pool family
+  (`records.md` §13, `rules.md` §4, `utility.md` §3).
 
 ## 5. What is deliberately free
 
 - the container of `seeds` (a tuple or a list) and whether the report's copies are shallow or deep, as long as a
   caller cannot reach back into the run record through the report;
 - the identity of each copied family's value — the report may copy or share, but it never reshapes;
+- how a **hand-built** matrix's utilities are read — from its `utility_population`, else its per-member `utilities`, else
+  its `member_records`: the report takes what the record states, in that order, and infers nothing a record does not say
+  (`matrix.md` §5, `errors.md` §5);
 - the wording of a `MembershipMismatch` message beyond naming the member or the baseline at fault, and whether the
   three baseline checks report the first missing one or the first *in `agents.baselines()`'s order* — both are
   conforming (`errors.md` §3 fixes the grammar, not that order).

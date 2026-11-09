@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 learning rules: the estimator catalogue
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-09
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
 - **Covers:** D-19's estimator axis — the catalogue, each rule's target, the one contract they share, what a checkpoint records, how a configuration declares several, and the fairness rule that replaces ASM-7's single-rule clause
 - **Ceiling:** 70 lines. At the ceiling, split by owner — never append
 
@@ -21,7 +21,7 @@ Double Q-learning is the direct remedy for the diagnosis's measured bias: it **d
 
 ## 3. The one contract every rule answers
 
-Whatever its rule, a learner is one object built by `agents.build_learner`, and it answers the same five calls with the same shapes: `act` returns one index of the legal mask; `learn` returns `td_error` and `transitions`; `save` and `load` are loss-free at the decision boundary; `param_count` returns one integer; `as_policy` returns a policy. **The two rules are one capacity**: a rule changes the arithmetic of a target and nothing of the state layout — the online parameters plus their target copy — so `param_count`, the checkpoint's `2·P + M` array and the ±2% budget match of ASM-10 are identical under either. `act` is rule-free: the exploration schedule, the keyed draw, the tie-break and the masked maximum run over three values the rule never changes. `training` and `evaluation` therefore never branch on the rule (D-19, `e2e-surface.md` §2, ASM-10).
+Whatever its rule, a learner is one object built by `agents.build_learner`, and it answers the same five calls with the same shapes: `act` returns one index of the legal mask; `learn` returns `td_error` and `transitions`; `save` and `load` are loss-free at the decision boundary; `param_count` returns one integer; `as_policy` returns a policy. **The two rules are one capacity**: a rule changes the arithmetic of a target and nothing of the state layout — the online parameters plus their target copy — so `param_count`, the checkpoint's `2·P + M` array and the ±2% budget match of ASM-10 are identical under either. `act` is rule-free: the exploration schedule, the keyed draw, the tie-break and the masked maximum run over three values the rule never changes. `training` and `evaluation` therefore never branch on the rule (D-19, `e2e-surface.md` §2, ASM-10). A rule owns the **bootstrap** and nothing else: what a terminal transition is worth is the learner's utility's business, `learn`'s terminal target stays `target = reward`, and the two axes compose without either reading the other (D-20, `utilities.md` §3).
 
 ## 4. The declared default, and where a rule is named
 
@@ -33,7 +33,7 @@ A third rule — Monte-Carlo or n-step returns, D-18's other named candidate —
 
 ## 6. What a checkpoint records, and what a restore checks
 
-A checkpoint records the rule its learner was trained under, in a required `learning_rule` field of a **format version 2** container, and `agents.load` restores the learner under that rule. The 18 checkpoints the repository ships were written before the catalogue existed, so a **version 1** container — which carries no `learning_rule` — is read as `masked-q-learning`, the only rule its writer could have used, and it loads unchanged: the shipped set is not regenerated (D-19, ASM-5, `protocol.md` §5). A `load` spec that carries a `learning_rule` is compared with the file's, and a disagreement is refused naming both as a spec's `seed` is; a rule the catalogue does not carry is refused naming it. `evaluation.policy_from` needs nothing new — playback is rule-free — and the rule it reports is the one the file records (ASM-20).
+A checkpoint records the rule its learner was trained under, in a required `learning_rule` field of a **format version 3** container — the version `utilities.md` §6 fixes, where the same container also carries the utility — and `agents.load` restores the learner under that rule. The 18 checkpoints the repository ships were written before the catalogue existed, so a **version 1** container — which carries no `learning_rule` — is read as `masked-q-learning`, the only rule its writer could have used, and it loads unchanged: the shipped set is not regenerated (D-19, D-20, ASM-5, `protocol.md` §5). A version-2 container is read as the rule it records and as `net-chips`, because it predates the utility (`utilities.md` §6). A `load` spec that carries a `learning_rule` is compared with the file's, and a disagreement is refused naming both as a spec's `seed` is; a rule the catalogue does not carry is refused naming it. `evaluation.policy_from` needs nothing new — playback is rule-free — and the rule it reports is the one the file records (ASM-20).
 
 ## 7. Several rules in one configuration, and what the records say
 

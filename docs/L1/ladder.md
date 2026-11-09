@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 rung ladder as configuration
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
-- **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8), and the set of learning rules a rung declares (D-19)
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
+- **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8), the set of learning rules a rung declares (D-19), and the utility its arms are trained under (D-20)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
 ## 1. A rung is a configuration, not a script
@@ -49,6 +49,7 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 | variant `encoding` | `flat-numeric` for R1/R2, `card-tokens` for R3–R6 (D-3) |
 | variant `architecture` | the kind — naive stack, token embedding, wide, deep, sparse, residual, plain — with its width, depth, sparsity and residual settings (D-3) |
 | variant `learning_rule` | the rule this variant is **trained** under: one of the catalogue's members (`rules.md` §2, D-19), absent meaning the catalogue's first and declared so in `records.md` §2; two variants of one configuration may name two rules |
+| variant `utility` | the utility this variant is **trained** under: one of the reward catalogue's members (`utilities.md` §2, D-20), absent meaning the catalogue's first, `net-chips`, and declared so in `records.md` §2; the six rows of §2 declare one utility for both arms of a pair |
 | variant `hyper` | learning rate, exploration schedule, batch size, target update interval — one declaration per rule and identical within a comparison pair (ASM-7, D-19) |
 | variant `param_budget`, `samples`, `seeds`, `device` | the budgets and the seed set of §6 |
 | variant `snapshot_every` | how many hands between two snapshots that feed the rolling window (ASM-18) |
@@ -61,7 +62,7 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 - the game configuration from `engine.game_config` — identical for every rung (D-2);
 - the three-index action vocabulary from `features.action_space` (D-2);
 - the readout facts of `e2e-surface.md` §2 — the information set, identical for every encoding (D-3);
-- the reward: the seat's net chip delta for the completed hand, delivered at the terminal decision, with no shaping (ASM-12);
+- the reward: the seat's net chip delta for the completed hand, delivered at the terminal decision, with no shaping (ASM-12), re-expressed by the utility both sides are trained under — the **set** of utilities the two sides declare, one utility for every rung of §2 (`utilities.md` §2, §8, D-20);
 - the **set** of learning rules the two sides declare, with every hyperparameter above, the optimiser family, the exploration schedule and the discount — the set, not one rule, is what a rung holds constant, and a pair may differ on the rule itself when that is its declared axis (ASM-7, D-19, `rules.md` §8);
 - the sample budget, counted in hands, and the parameter budget within ±2% as measured by `agents.param_count` (ASM-8, ASM-10);
 - the frozen pool: the same pool id, the same members and the same window, recorded by both arms' run records (D-16, ASM-16);

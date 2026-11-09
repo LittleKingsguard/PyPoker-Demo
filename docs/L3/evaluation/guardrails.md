@@ -3,8 +3,8 @@
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the
   test that catches it
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** all of `README.md`, `declarations.md`, `pool.md`, `families.md`, `scheduler.md`, `matrix.md`, `rating.md`,
-  `tables.md`, `report.md`, `errors.md`
+- **Read with:** all of `README.md`, `declarations.md`, `pool.md`, `families.md`, `utility.md`, `scheduler.md`, `matrix.md`,
+  `rating.md`, `tables.md`, `report.md`, `errors.md`
 
 The unit battery's files and case ids are contract — one file per document, `test_declarations.py` (`EVL-1.k`) through
 `test_guardrails.py` (`EVL-11.k`), the prefixes fixed and **not** contiguous (8 and 10 are unused, and `README.md` has no
@@ -15,8 +15,8 @@ case drives.
 `src/evaluation/__init__.py` exports exactly the eleven names of `README.md` §3 in that order and no twelfth — not `Pool`, not `EvaluationError`, not `TABLE_SEED` (`e2e-surface.md` §1, D-12).
 Caught by: `test_declarations.py::EVL-1.1`, `test_guardrails.py::EVL-11.g1`, FAM-1.27–1.37.
 ## G2 — The pool id is that digest and no other, one line per member
-`"pool-" + sha256(payload).hexdigest()[:16]`, one line per member in `pool_members`'s order joined by a single `"\n"` with no trailing separator: a **baseline** contributes its `id` alone, a **version** its `id`, `"\x1f"`, then its `rule` (`families.md` §4, ASM-27). A digest over the member records, over ids alone, a `repr` of a tuple, or `hash()` (process-salted) is red.
-Caught by: `test_pool.py::EVL-2.4` (the exact string, recomputed in the case), `::EVL-2.5`, FAM-6.8, FAM-6.9.
+`"pool-" + sha256(payload).hexdigest()[:16]`, one line per member in `pool_members`'s order joined by a single `"\n"` with no trailing separator: a **baseline** contributes its `id` alone, a **version** its `id`, `"\x1f"`, its `rule`, `"\x1f"` and its `utility` (`families.md` §4, `utility.md` §3, ASM-27, D-20). A digest over the member records, over ids alone, over ids and rules without the utility, a `repr` of a tuple, or `hash()` (process-salted) is red.
+Caught by: `test_pool.py::EVL-2.4` (the exact string, recomputed in the case), `::EVL-2.5`, FAM-6.8, FAM-6.9, FAM-18.11.
 ## G3 — The baselines come first, pinned, with the id that is their name
 `build_pool` prepends `random`, `always-call`, `oracle` in `agents.baselines()`'s order, each `{"id": <name>, "baseline": True, "pinned": True, "params": 0}`, and `offer` never evicts one (`pool.md` §2, §6). A baseline id of `baseline:random` breaks `rating`'s anchor lookup, which compares ids (`rating.md` §2). A version declared **under one of those three names** is `MemberDuplicate` (`pool.md` §2, `errors.md` §4).
 Caught by: `test_pool.py::EVL-2.2`, `::EVL-2.9`, `::EVL-2.10`, FAM-6.2, FAM-6.5, FAM-6.7.
@@ -29,9 +29,9 @@ Caught by: `test_pool.py::EVL-2.3`, `::EVL-2.10`, FAM-6.3, FAM-6.11.
 ## G6 — `offer` extends one family, evicts fair-share, and returns a new pool
 The offered version joins the family whose **newest** member it names, or opens a new family on a label no member carries; a full window evicts the oldest member of the family that holds the most, ties to the earlier family (`families.md` §3, §5); the baselines stay, the argument pool is unchanged and the id is recomputed (`pool.md` §1, `families.md` §4). Mutating the argument, evicting by `samples` instead of by window position, or evicting oldest-first across the concatenation, is red.
 Caught by: `test_pool.py::EVL-2.11`, `::EVL-2.12`, FAM-6.6, FAM-16.21.
-## G7 — `pool_members` returns §8's record, with `rules`, and the version records verbatim
-`{"id", "m", "frozen", "members", "rules"}`, freshly built per call (`pool.md` §5): `members` is the baselines then the window, each version the `records.md` §7 record the declaration carried with its `rule` untouched, and `rules` the **distinct** rules those versions declare **in the window's order** — the empty tuple for R1's pool, never `(None,)`. A read-back that is the internal tuple itself, or one whose `rules` is a set or a sorted list, is red: `EVL-2.13` edits the record and asks again.
-Caught by: `test_pool.py::EVL-2.13`, `::EVL-2.14`, FAM-6.10, FAM-6.11.
+## G7 — `pool_members` returns §8's record, with `rules` and `utilities`, and the version records verbatim
+`{"id", "m", "frozen", "members", "rules", "utilities"}`, freshly built per call (`pool.md` §5, `utility.md` §3): `members` is the baselines then the window, each version the `records.md` §7 record the declaration carried with its `rule` and its `utility` untouched — both fields the declaration's own, nothing filled in — `rules` the **distinct** rules those versions declare **in the window's order**, and `utilities` their counterpart; both are the empty tuple for R1's pool, never `(None,)`. A read-back that is the internal tuple itself, or one whose `rules` is a set or a sorted list, is red: `EVL-2.13` edits the record and asks again.
+Caught by: `test_pool.py::EVL-2.13`, `::EVL-2.14`, FAM-6.10, FAM-6.11, FAM-18.11.
 ## G8 — Every seed is a derivation, and it is `scheduler.md` §3's
 Four tagged functions, `int.from_bytes(sha256(...).digest()[:8], "big") % (2 ** 31)`, the parts joined by `\x1f` after the tag, and a fifth derivation that is a modulo (`_draw_index`). `seed + i`, `random.Random(seed)`, a module-level counter, a digest of a checkpoint path, or a call to `random.seed` anywhere in `src/evaluation/` is red — and the last is red twice, because the global stream belongs to `engine.new_hand` (ASM-2).
 Caught by: `test_scheduler.py::EVL-3.1`, `::EVL-3.2`, `test_rating.py::EVL-5.7`, `test_matrix.py::EVL-4.10`, `test_guardrails.py::EVL-11.g8` (a clean interpreter: the nine entry points that play nothing leave `random.random()` unchanged), FAM-7.5.
@@ -57,8 +57,8 @@ Caught by: `test_matrix.py::EVL-4.5`, `::EVL-4.6`, FAM-8.5, FAM-16.24.
 The shift of `rating.md` §3 step 4 runs inside the loop, not once at the end; the likelihood is shift-invariant, so a missing re-centring costs nothing in likelihood and everything in meaning. A mean of `0.04` is red. The one exception is `rating.md` §3's pinned anchoring baseline, where the pin is taken last and so displaces the mean it was applied after.
 Caught by: `test_rating.py::EVL-5.2`, FAM-9.4, FAM-16.25. **Unverified**: that pinned-baseline table, which no case drives.
 ## G16 — Refuse exactly what the contract refuses, with §3's grammar
-Every refusal of `errors.md` §2–§4 and no other, raised before the first cell is played, the first checkpoint loaded or the first value fitted (`errors.md` §1, §5) — `UnknownRule`, `RuleMismatch` and `FamilyBoundExceeded` included, and `RuleMismatch` the one that must come **after** its load (`families.md` §6). Both directions fail: too few, where a `KeyError` escapes instead of `PoolDeclarationInvalid`; too many, where a valid instance — a rich declaration, a `path`-less member, a record declaring no rule — is refused.
-Caught by: `test_errors.py::EVL-9.1`–`EVL-9.11`, `test_pool.py::EVL-2.16`, `test_scheduler.py::EVL-3.9`, `test_matrix.py::EVL-4.8`, `::EVL-4.9`, `test_rating.py::EVL-5.8`, `test_report.py::EVL-7.4`, FAM-8.7–8.9, FAM-11.2–11.8.
+Every refusal of `errors.md` §2–§4 and no other, raised before the first cell is played, the first checkpoint loaded or the first value fitted (`errors.md` §1, §5) — `UnknownRule`, `UnknownUtility`, `RuleMismatch`, `UtilityMismatch` and `FamilyBoundExceeded` included, and the two mismatches the ones that must come **after** their load (`families.md` §6, `utility.md` §4). Both directions fail: too few, where a `KeyError` escapes instead of `PoolDeclarationInvalid`; too many, where a valid instance — a rich declaration, a `path`-less member, a **bare §7 record** declaring no rule or no utility handed to `match`/`matrix`/`opponent` — is refused.
+Caught by: `test_errors.py::EVL-9.1`–`EVL-9.11`, `test_pool.py::EVL-2.16`, `test_scheduler.py::EVL-3.9`, `test_matrix.py::EVL-4.8`, `::EVL-4.9`, `test_rating.py::EVL-5.8`, `test_report.py::EVL-7.4`, FAM-8.7–8.9, FAM-11.2–11.8, FAM-18.11.
 ## G17 — The bound is ±10, and it never breaks the interval open
 A member that won everything has no finite maximum-likelihood value; step 4 pins it at `BOUND = 10.0` (a member that lost everything at `−BOUND`), `bound_applied` and that member's `bounded` are `True`, and the widened interval still contains the value (`rating.md` §3–§4; `bound` is written **after** `bound_applied`). Returning `inf`, clipping the interval instead of widening it, or pinning a member before the anchor's shift, is red.
 Caught by: `test_rating.py::EVL-5.5`, `::EVL-5.6`, FAM-9.6.
@@ -72,8 +72,8 @@ Caught by: `test_tables.py::EVL-6.1`–`EVL-6.6`, `test_guardrails.py::EVL-11.g1
 The seed and the encoding name come from the checkpoint's own container (`scheduler.md` §5.1), and nothing else is read: the learner, its parameters and its **rule** stay `agents.load`'s — the rule reported is the `learning_rule` attribute of the policy `agents.as_policy` built, which is what the file records (`rules.md` §6, ASM-20). Member and bare path are built alike. A path digest, a table-derived seed, a **catalogue read**, or a rule parsed out of `metadata.json` instead of taken from the policy, is red.
 Caught by: `test_scheduler.py::EVL-3.8`, `::EVL-3.15`, `test_guardrails.py::EVL-11.g20`, FAM-12.3 and FAM-16.26.
 ## G21 — `report` copies and never invents
-Each of the seven families is copied by value from the record under the name `protocol()` spells — `axis row` included — and the report adds none, filling an absent family, wrapping `n/a` into a record, or sorting members by rating being red (`report.md` §2, §4). The pool family's `rules` is the one completed key, written on the report's own copy and never into the argument (`report.md` §1–§2).
-Caught by: `test_report.py::EVL-7.1`–`EVL-7.3`, FAM-11.1, FAM-11.9–11.11, FAM-16.27.
+Each of the seven families is copied by value from the record under the name `protocol()` spells — `axis row` included — and the report adds none, filling an absent family, wrapping `n/a` into a record, or sorting members by rating being red (`report.md` §2, §4). The pool family's `rules` **and** `utilities` are the two completed keys, written on the report's own copy and never into the argument (`report.md` §1–§2, `utility.md` §3, D-20).
+Caught by: `test_report.py::EVL-7.1`–`EVL-7.3`, FAM-11.1, FAM-11.9–11.11, FAM-16.27, FAM-18.11.
 ## G22 — Run every battery
 The census needs no guard: `tests/e2e/__init__.py` points the write root at a private temporary directory before any case, as `tests/conftest.py` does (`docs/L3/harness/layout.md` §5, `battery.md` §2).
 
@@ -83,7 +83,7 @@ The census needs no guard: `tests/e2e/__init__.py` points the write root at a pr
     .venv/bin/python -m unittest discover -s tests/e2e -t .                          # the L1 census; safe unguarded only in this -t . form
 `tests/e2e/` is read-only here: a case that disagrees with this design is a finding against the design or the case, never a file to edit (`battery.md` §2, `strata/examiner.md` §5).
 ## G23 — The digest carries each version's rule, not ids alone
-A payload of ids alone lets **one member's rule contradict its neighbour's under one id**: `{A: masked-q, B: double-q}` and `{A: double-q, B: masked-q}` would digest alike, so a table could not say which population a rating was fitted over, and R1's pool and a two-estimator pool of the same ids would wear one id (`families.md` §4, ASM-27). It bites silently — the ids are right and only the certification is missing.
+A payload of ids alone lets **one member's rule contradict its neighbour's under one id**: `{A: masked-q, B: double-q}` and `{A: double-q, B: masked-q}` would digest alike, so a table could not say which population a rating was fitted over, and R1's pool and a two-estimator pool of the same ids would wear one id (`families.md` §4, ASM-27); leaving the utility out repeats the defect for the objective, which is D-20's amendment to the same rule (`utility.md` §3, D-20). It bites silently — the ids are right and only the certification is missing.
 Caught by: `test_pool.py::EVL-2.4` (a pool's id recomputed from the rule-bearing payload), `::EVL-2.5` (two memberships differing only in a rule digest differently), FAM-6.8, FAM-6.9.
 ## G24 — Eviction is fair-share, so no family is emptied while another holds two
 Oldest-first over the concatenated window (the rule before D-19) evicts the last member of a family whose chain is short, so the population the table claims to have measured loses an estimator it still names (`families.md` §3, ASM-26). It bites only when a second family exists, so a single-chain battery case passes it.
@@ -100,3 +100,12 @@ Caught by: `test_report.py::EVL-7.1`–`EVL-7.4`, `test_declarations.py` (the se
 ## G28 — `build_pool` refuses an uncatalogued rule; it never maps it onto the default
 Mapping an unknown name onto the catalogue's first member — the tempting convenience, since a spec naming none is built under it — reports a member as trained under an estimator it was not, and the pool's `rules`, the matrix's `population` and the id would all certify the wrong population (`families.md` §6, `rules.md` §4, ASM-26). It bites for a typo, which is exactly the case a reader would want refused by name.
 Caught by: `test_pool.py` (an uncatalogued `rule` raises `UnknownRule` naming the catalogue), `test_errors.py::EVL-9.4`, FAM-8.7.
+## G29 — A version declaration that names no utility is refused by name, never read as the catalogue's first member
+`build_pool` and `offer` refuse an omitted `utility` as a missing required key (`MemberInvalid`, naming the member and the key), because defaulting one reports a member as trained under an objective nobody declared — and the pool id, the record's `utilities` and the matrix's `utility_population` would all certify the wrong objective (`utility.md` §2, §4, `pool.md` §2, `records.md` §7, ASM-27, D-20). The reading that **stays** admitted is the bare §7 record handed to `match`, `matrix` or `opponent`, where the container is the witness (`utility.md` §2, `scheduler.md` §5). Mapping a *declared but uncatalogued* name onto the default stays red too (`utility.md` §4, `errors.md` §5).
+Caught by: `test_utility.py::EVL-14.3` (the absent key is refused by name), `::EVL-14.6` (an offered version that names none is refused), `::EVL-14.13` (the bare record stays admitted), FAM-18.11.
+## G30 — The side tuple is six elements, and every reader unpacks six
+`_side` returns `(id, policy, params, unlabelled, rule, utility)`; `_play_cell` unpacks all six and `_membership` reads
+`side[4]` and `side[5]` for its records' `rule` and `utility`, so a five-element side — or a cell whose `utilities` maps
+positionally instead of by member id — leaves one member's utility on another (`scheduler.md` §4–§5, `matrix.md` §5,
+`utility.md` §3, D-20).
+Caught by: `test_scheduler.py::EVL-3.7`, `test_matrix.py::EVL-4.5`, FAM-7.6, FAM-18.10.

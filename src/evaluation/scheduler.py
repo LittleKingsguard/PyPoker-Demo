@@ -22,8 +22,8 @@ def match(left, right, hands, seed):
 
     Its `members` are the two ids in argument order, its `directions` are position-aligned
     with them, its `params` carries one integer per member with the unmeasured zeros named
-    in `unlabelled`, and its `rules` names each member's rule (`surface.md` §9,
-    `scheduler.md` §4-§5).
+    in `unlabelled`, and its `rules` and `utilities` name each member's rule and utility
+    (`surface.md` §9, `scheduler.md` §4-§5).
     """
     if not _is_int(hands) or int(hands) < 1:
         raise InvalidHandCount(
@@ -47,12 +47,14 @@ def _play_cell(left, right, hands, seed):
     A hand's class is the sign of the member's own net chip delta -- positive is a win,
     negative a loss, zero a tie -- and the two means are exact negations because the hand
     was zero-sum and both are divided by the same `hands` (`scheduler.md` §4, G10).  The
-    cell's `rules` names each member's rule by its id, `None` for a baseline or an opaque
-    policy that carries none, so a cell says which estimators met (`records.md` §9,
-    `scheduler.md` §4, D-19).
+    cell's `rules` and `utilities` name each member's rule and utility by its id, `None`
+    for a baseline or an opaque policy that carries neither, so a cell says which
+    estimators and which objectives met (`records.md` §9, `scheduler.md` §4, D-19, D-20).
     """
-    left_id, left_policy, left_params, left_unlabelled, left_rule = left
-    right_id, right_policy, right_params, right_unlabelled, right_rule = right
+    left_id, left_policy, left_params, left_unlabelled, left_rule, left_utility = left
+    right_id, right_policy, right_params, right_unlabelled, right_rule, right_utility = (
+        right
+    )
 
     left_wins = left_ties = left_losses = 0
     right_wins = right_ties = right_losses = 0
@@ -115,6 +117,7 @@ def _play_cell(left, right, hands, seed):
         ),
         "params": [int(left_params), int(right_params)],
         "rules": {left_id: left_rule, right_id: right_rule},
+        "utilities": {left_id: left_utility, right_id: right_utility},
         "seed": seed,
         "unlabelled": unlabelled,
     }

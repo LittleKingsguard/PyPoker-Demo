@@ -13,10 +13,11 @@ contributes no entry at all, because the index is not filtered to what happens t
 disk and it never invents a path it cannot point at (protocol.md §5).
 
 An entry is a `records.md` §7 version record and therefore carries the **rule** its
-artefact was trained under (D-19): the rule is declared per rung beside the rung and the
-variant — `SHIPPED_RULES` — because it is a fact about the run, and a pool built from this
-window has to be able to certify each member's estimator (records.md §7, §8, rules.md §6,
-ASM-27).
+artefact was trained under and the **utility** whose reward it was trained on (D-19,
+D-20): both are declared per rung beside the rung and the variant — `SHIPPED_RULES` and
+`SHIPPED_UTILITIES` — because each is a fact about the run, and a pool built from this
+window has to be able to certify each member's estimator and its objective (records.md
+§7, §8, rules.md §6, utilities.md §6, ASM-27).
 """
 
 from . import declarations, layout
@@ -31,6 +32,15 @@ SHIPPED = {"R1": "naive-numeric"}
 #: no `learning_rule` and `agents` reads them as `masked-q-learning` — the only rule its
 #: writer could have used — and the shipped set is not regenerated (rules.md §6, ASM-5).
 SHIPPED_RULES = {"R1": "masked-q-learning"}
+
+#: The utility each shipped run trained on, declared per rung beside `SHIPPED_RULES` and
+#: keyed by the same rung (`records.md` §7, `utilities.md` §6, §7, D-20): a version
+#: record's `utility` is required and no default stands in for one, so a rung added to
+#: `SHIPPED` declares its utility here in the same edit.  R1's live run was written before
+#: the catalogue existed, so its version-1 containers carry no `utility` and `agents` reads
+#: them as `net-chips` — the only utility its writer could have used — and the shipped set
+#: is not regenerated (`utilities.md` §6, ASM-5, D-20).
+SHIPPED_UTILITIES = {"R1": "net-chips"}
 
 #: Which rung inherits each rung's retained window (ladder.md §2, ASM-16).
 SUCCESSOR = {"R1": "R2", "R2": "R3", "R3": "R4", "R4": "R5", "R5": "R6", "R6": None}
@@ -67,9 +77,10 @@ def _snapshot_entry(rung, variant, seed, step, lineage):
     The path is `layout._relative`'s spelling even here, where the entry is a window member
     handed to a pool rather than a line of the index: a version record is the same record
     wherever it is read, and one artefact has one spelling (checkpoints.md §2, records.md §7).
-    `rule` is the rule that run trained under — the one fact D-19 adds to the record — so a
-    pool built from this window certifies each member's estimator and its id covers it
-    (records.md §7, §8, rules.md §6, ASM-27).
+    `rule` and `utility` are the catalogue members that run trained under — the two facts
+    D-19 and D-20 add to the record — so a pool built from this window certifies each
+    member's estimator and its objective and its id covers both (records.md §7, §8,
+    rules.md §6, utilities.md §6, ASM-27).
     """
     return {
         "id": layout._version_id(rung, variant, seed, step),
@@ -81,6 +92,7 @@ def _snapshot_entry(rung, variant, seed, step, lineage):
         "samples": int(step),
         "lineage": lineage,
         "rule": SHIPPED_RULES[rung],
+        "utility": SHIPPED_UTILITIES[rung],
         "kind": "snapshot",
     }
 
@@ -97,6 +109,7 @@ def _final_entry(rung, variant, seed):
         "samples": int(declarations.LIVE_BUDGET),
         "lineage": layout._version_id(rung, variant, seed, declarations.LIVE_BUDGET),
         "rule": SHIPPED_RULES[rung],
+        "utility": SHIPPED_UTILITIES[rung],
         "kind": "final",
     }
 
@@ -146,6 +159,7 @@ def checkpoints():
                 "retained": declarations.RETAINED,
                 "seeds": list(declarations.SEEDS),
                 "rule": SHIPPED_RULES[rung],
+                "utility": SHIPPED_UTILITIES[rung],
                 "inherited_by": SUCCESSOR.get(rung),
             }
             for rung, variant in SHIPPED.items()

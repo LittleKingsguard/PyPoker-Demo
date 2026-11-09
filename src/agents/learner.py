@@ -33,6 +33,7 @@ from .errors import (
     UnknownArchitecture,
     UnknownBackend,
     UnknownRule,
+    UnknownUtility,
 )
 
 TRANSITION_KEYS = (
@@ -252,6 +253,23 @@ def learning_rule(value, entry):
     return value
 
 
+def utility(value, entry):
+    """One utility catalogue member's name, or the refusal (`utilities.md` §2, §5, D-20).
+
+    A learner is trained on the reward of one of `learners()['utilities']`'s members,
+    named by the catalogue's own spelling: a value that is not a string, or a string no
+    member carries, is refused naming the value and the catalogue's names, and is never
+    mapped onto the declared default — a silent substitution would train a model on a
+    reward its spec does not name (`surface.md` §4, §9; `errors.md` §3).
+    """
+    if not isinstance(value, str) or value not in declarations.UTILITIES:
+        raise UnknownUtility(
+            "%s(spec): 'utility' must be one of %r, got %r"
+            % (entry, tuple(declarations.UTILITIES), value)
+        )
+    return value
+
+
 def _backend(name):
     """The one module that performs this backend's arithmetic (`backends.md` §4).
 
@@ -284,10 +302,13 @@ class Learner:
     It holds the backend's state — the online parameters, their target copy and the
     sparse masks — the sizing record a caller's arguments are checked against, the
     seed its exploration is keyed by, the catalogue member it learns under, the
-    schedule position `learn` advances and the target copy's consumed-transition
-    counter (`rule.md` §2-§4, `checkpoint.md` §1).  `rule` is the only field a
-    learner's arithmetic reads and nothing else does: `act`, `param_count`, `as_policy`
-    and the two checkpoints' members are rule-free (`surface.md` §4-§7, D-19).
+    catalogue member whose reward its training target carries, the schedule position
+    `learn` advances and the target copy's consumed-transition counter (`rule.md` §2-§4,
+    `checkpoint.md` §1, D-19, D-20).  `rule` is the only field a learner's arithmetic
+    reads and nothing else does: `act`, `param_count`, `as_policy` and the two
+    checkpoints' members are rule-free; `utility` is read by no arithmetic here at all,
+    because the reward is the caller's and the transform is `training`'s
+    (`utilities.md` §4, `surface.md` §4-§7, D-19, D-20).
     """
 
     __slots__ = (
@@ -307,6 +328,7 @@ class Learner:
         "shape",
         "dtype",
         "rule",
+        "utility",
         "position",
         "counter",
     )
@@ -328,6 +350,7 @@ class Learner:
         shape,
         dtype,
         rule,
+        utility,
         position=0,
         counter=0,
     ):
@@ -347,16 +370,18 @@ class Learner:
         self.shape = shape
         self.dtype = dtype
         self.rule = rule
+        self.utility = utility
         self.position = position
         self.counter = counter
 
     def __repr__(self):
-        return "Learner(%s, %r, width %d, depth %d, %s)" % (
+        return "Learner(%s, %r, width %d, depth %d, %s, %s)" % (
             self.backend_name,
             self.kind,
             self.width,
             self.depth,
             self.rule,
+            self.utility,
         )
 
 
@@ -382,11 +407,12 @@ def _resolve_kind(architecture, sizes):
 
 
 def build_learner(spec):
-    """One learner from one spec, under the rule the spec names (`surface.md` §4).
+    """One learner from one spec, under the rule and utility the spec names (`surface.md` §4).
 
-    `learning_rule` is optional: absent, the learner is built under the catalogue's
-    **first** member, the declared default of `rules.md` §4.  A named rule the
-    catalogue does not carry is refused before anything is built (`errors.md` §4).
+    `learning_rule` and `utility` are optional: absent, the learner is built under the
+    catalogue's **first** member of each, the declared defaults of `rules.md` §4 and
+    `utilities.md` §5.  A named member the catalogue does not carry is refused before
+    anything is built (`errors.md` §4, D-19, D-20).
     """
     if not isinstance(spec, Mapping):
         raise InvalidSpec(
@@ -415,14 +441,19 @@ def build_learner(spec):
             % (declarations.KINDS, kind)
         )
 
-    # The rule is read here, before any setting is resolved and before a parameter is
-    # drawn, so a refused name leaves nothing built (`errors.md` §1).  Absent, it is
-    # the declared default and not a value inferred from the caller's silence
-    # (`rules.md` §4, `records.md` §3).
+    # The catalogue members are read here, before any setting is resolved and before a
+    # parameter is drawn, so a refused name leaves nothing built (`errors.md` §1).
+    # Absent, each is the declared default and not a value inferred from the caller's
+    # silence (`rules.md` §4, `utilities.md` §5, `records.md` §3).
     under = (
         learning_rule(spec["learning_rule"], "build_learner")
         if "learning_rule" in spec
         else declarations.DEFAULT_LEARNING_RULE
+    )
+    trained_on = (
+        utility(spec["utility"], "build_learner")
+        if "utility" in spec
+        else declarations.DEFAULT_UTILITY
     )
     fallback = sizes if isinstance(sizes, Mapping) else {}
     width = _integer(settings.get("width", fallback.get("width")), "width", "build_learner")
@@ -494,6 +525,10 @@ def build_learner(spec):
         # The catalogue member this learner learns under: the spec's or the declared
         # default, recorded by every checkpoint it writes (`rules.md` §4, §6).
         under,
+        # The catalogue member whose reward its training target carries: the spec's or
+        # the declared default `net-chips`, recorded by every checkpoint it writes and
+        # reported by every policy `as_policy` builds (`utilities.md` §5, §6, D-20).
+        trained_on,
     )
 
 

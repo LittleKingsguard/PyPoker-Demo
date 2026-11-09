@@ -17,7 +17,7 @@ order, and nothing else in the project branches on them (`surface.md` §3, D-7).
 | The swap may change | The swap may **not** change |
 |---|---|
 | which library performs the arithmetic, and so its cost (D-7, D-8) | the kind, its four settings, or the sizing record — one model shape and one declared family (`learner.md` §2, D-3) |
-| the checkpoint's own bytes, provided `save`/`load` stay loss-free at the decision boundary (`checkpoint.md` §4) | the rule, the reward, the hyper-declarations or the sample order (`rule.md` §2–§6, `ladder.md` §5) |
+| the checkpoint's own bytes, provided `save`/`load` stay loss-free at the decision boundary (`restore.md` §1) | the rule, the utility, the hyper-declarations or the sample order (`rule.md` §2–§6, `utility.md` §4, `ladder.md` §5) |
 | — | the initialisation the seed defines, the exploration schedule and the keyed draws, and the tie-break (`rule.md` §4–§5) |
 | — | the decision: one observation and one mask give one index, and a policy at the learner's own seed decides as `act` does (`surface.md` §6, §10) |
 | — | the capacity: one shape is one model, so both counts coincide (§3, ASM-10) |

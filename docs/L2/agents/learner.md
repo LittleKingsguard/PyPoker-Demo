@@ -28,9 +28,11 @@ value of an index outside the mask is never read, never a target and never updat
   the online parameters plus their target copy are the same under either — so `param_count`, the checkpoint's array
   and ASM-10's ±2% match are identical, and `act`, `save`, `load` and `as_policy` never read the rule (`rules.md`
   §3, ASM-10, ASM-25, D-19). `training` and `evaluation` therefore never branch on it (`module-map.md` §3, D-19).
-- **The reward.** The seat's net chip delta for the completed hand, delivered at that seat's terminal decision and
-  zero at every other one, with no shaped term and no intermediate reward — this module adds none (ASM-12,
-  `engine/environment.md` §3). Neither rule normalises or clips it (ASM-25).
+- **The reward, and the utility that re-expresses it.** `learn` aims at the terminal transition's `reward` as the
+  caller wrote it; that number is the reward of the catalogue member the learner's spec names (`utility.md` §1–§2,
+  `utilities.md` §2). `net-chips` is the seat's net chip delta at its terminal decision, zero elsewhere, with no shaped
+  term and no intermediate reward — this module adds none (ASM-12, `engine/environment.md` §3); `stack-shortfall`
+  re-expresses that same delta in `training`'s transition step, and neither arithmetic normalises or clips it here (ASM-25).
 - **The exploration.** An ε-greedy draw governed by the schedule `learners()` declares, from the learner's own
   seeded generator and **keyed by the decision**, a decision being the observation and the legal mask — so one
   learner state and one decision give one index, nothing depends on how many decisions came before, and a policy at
@@ -104,25 +106,24 @@ boundary**, a function of state and decision rather than a stream position (`sur
 
 - **What a restore must recover,** from the file alone, is everything a decision reads: the backend, the kind and
   its settings, the representation — the family, the size and the encoding name (`surface.md` §3, §4, §9,
-  `encodings.md` §1) — the learner's seed, its parameter values, its schedule's position, and **the rule it was
-  trained under**, so a member is read under the rule its own file records (D-19, `rules.md` §6, §7).
-- **A version-1 file is read as one rule, not refused.** The repository ships 18 checkpoints written before the
-  catalogue existed; a format version 1 container carries no rule and is read as `masked-q-learning`, the only rule
-  its writer could have used, and a version-2 container carries a required field naming the rule. Nothing is
-  regenerated and no shipped member is refused (`rules.md` §6, ASM-5, D-19).
-- **The record's own form is not contract:** what the file is called inside, how it is laid out, which identifiers
-  it uses and which version number it writes are L3's (§10 below). What binds is the recovery above and
-  `surface.md` §9's refusals: an unreadable path, a form this module does not read, and a spec that disagrees with
-  the file on a key it carries — `backend`, kind, `seed`, `learning_rule`, or the representation an encoder it
-  carries declares (`sizes` never disagrees, `architecture` being authoritative, `records.md` §3).
+  `encodings.md` §1) — the learner's seed, its parameter values, its schedule's position, **the rule it was trained
+  under** and **the utility whose reward it was trained on**, so a member is read under the members its file records (D-19, D-20, `utility.md` §4).
+- **A version-1 or version-2 file is read by defaults, not refused.** The repository ships 18 version-1 checkpoints
+  written before either catalogue existed: they carry neither field and are read as `masked-q-learning` and
+  `net-chips`; a version-2 container carries the rule and is read as `net-chips`, and either older version
+  carrying a field its writer never wrote is refused by name. Nothing is regenerated (`utility.md` §4, `rules.md` §6, ASM-5).
+- **The record's own form is not contract:** what the file is called inside, how it is laid out and which version
+  number it writes are L3's (§10). What binds is the recovery above and `surface.md` §9's refusals: an unreadable
+  path, a form this module does not read, and a spec that disagrees with the file on a key it carries — `backend`,
+  kind, `seed`, `learning_rule`, `utility`, or the representation an encoder it carries declares (`records.md` §3).
 - **A shipped member's policy is built at the checkpoint's recorded seed,** which is why a checkpoint records it: at
-  that seed the policy decides as `act` does, the loss-free equality `protocol.md` §5 states (ASM-5). The rule a
-  member reports is the one its file records; `evaluation.policy_from` needs nothing new, playback being rule-free.
+  that seed the policy decides as `act` does, the loss-free equality `protocol.md` §5 states (ASM-5). The rule and the
+  utility a member reports are the ones its file records; `evaluation.policy_from` needs nothing new, playback being
+  free of both (`utility.md` §3, D-20).
 - **What this module contributes to a version record.** `records.md` §7 requires `id`, `path`, `rung`, `variant`,
-  `seed`, `step`, `samples`, `lineage` and `rule`; this module supplies the `path` `save` returns, the learner's
-  `seed` and the `rule` its container records, and nothing else — `rung` and `variant` are labels a learner never
-  learns (D-3, `module-map.md` §3), `lineage` is the pool's (`league.md` §2), and `samples` counts hands
-  (`records.md` §7, `surface.md` §7).
+  `seed`, `step`, `samples`, `lineage`, `rule` and `utility`; this module supplies the `path` `save` returns and the
+  learner's `seed`, `rule` and `utility`, and nothing else — `rung` and `variant` are labels a learner never learns
+  (D-3, `module-map.md` §3), `lineage` is the pool's (`league.md` §2), and `samples` counts hands (`records.md` §7).
 - **Retention is not this module's.** Ten equally spaced snapshots plus a final model, the last M kept in the
   window, is the run's and the pool's rule (ASM-18, `protocol.md` §5, `league.md` §2); `save` writes the one file it
   was asked for (`surface.md` §8).
@@ -246,5 +247,4 @@ design (D-1, `module-map.md` §5):
   file's reading, and the error classes the refusals raise, the rule's refusal included (`protocol.md` §5, ASM-5,
   `rules.md` §6).
 
-Each is free here and designed there; none may change a record key `surface.md` marks **required**, a refusal that
-document names, or the one contract of §1 (`records.md` §1, `battery.md` §3, `rules.md` §3, D-19).
+Each is free here and designed there; none may change a record key `surface.md` marks **required**, a refusal that document names, or the one contract of §1 (`records.md` §1, `battery.md` §3, `rules.md` §3, D-19, D-20).

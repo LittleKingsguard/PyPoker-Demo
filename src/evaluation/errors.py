@@ -1,6 +1,6 @@
 """The refusals of the `evaluation` module (`docs/L3/evaluation/errors.md` §2).
 
-One `EvaluationError` base and thirty-six subclasses, one per refusal family the L2
+One `EvaluationError` base and thirty-eight subclasses, one per refusal family the L2
 surface declares (`docs/L2/evaluation/surface.md` §5-§13).  A caller catches
 `EvaluationError` to know that *this* module refused it, so a mistyped record key or a
 `TypeError` from a helper never masquerades as a refusal (`errors.md` §1).
@@ -60,10 +60,21 @@ class UnknownRule(EvaluationError):
     """A member's `rule` is not one of the catalogue's members (`rules.md` §4, D-19)."""
 
 
+class UnknownUtility(EvaluationError):
+    """A member's `utility` is not one of the catalogue's members (`utilities.md` §5,
+    D-20)."""
+
+
 class RuleMismatch(EvaluationError):
     """Two declarations of one rule disagree: a member's record against its checkpoint's,
     or a version's `rule` against the rule of the family it extends (`records.md` §7,
     ASM-26, D-19)."""
+
+
+class UtilityMismatch(EvaluationError):
+    """Two declarations of one utility disagree: a member's record against its
+    checkpoint's, or a version's `utility` against the family it extends
+    (`records.md` §7, `utilities.md` §6, ASM-26, D-20)."""
 
 
 class FamilyBoundExceeded(EvaluationError):

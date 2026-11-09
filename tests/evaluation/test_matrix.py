@@ -186,7 +186,7 @@ class MatrixTest(EvaluationCase):
                         )
 
     def test_evl_4_5_the_record_carries_its_keys_and_the_cell_count(self):
-        """EVL-4.5 the record's seven required keys come first in `records.md` §10's order, then `pool`, `member_records`, `unlabelled` and `cell_count`; `unlabelled` names the opaque variant's unmeasured zero and a variant record is its four-key record (`matrix.md` §5, §7, `records.md` §10, G11, G14)."""
+        """EVL-4.5 the record's nine required keys come first in `records.md` §10's order, then `pool`, `member_records`, `unlabelled` and `cell_count`; `unlabelled` names the opaque variant's unmeasured zero and a variant record is its five-key record (`matrix.md` §5, §7, `records.md` §10, G11, G14, D-19, D-20)."""
         package = self.evaluation()
         matrix = self.shared_matrix("k5")
         self.assertEqual(
@@ -196,6 +196,8 @@ class MatrixTest(EvaluationCase):
                 "cells",
                 "rules",
                 "population",
+                "utilities",
+                "utility_population",
                 "hands_per_cell",
                 "table_seed",
                 "table",
@@ -204,7 +206,7 @@ class MatrixTest(EvaluationCase):
                 "unlabelled",
                 "cell_count",
             ),
-            "matrix returns exactly matrix.md §5's keys, in its order, the seven "
+            "matrix returns exactly matrix.md §5's keys, in its order, the nine "
             "records.md §10 keys first (matrix.md §5, G14): %r" % (tuple(matrix),),
         )
         members = matrix_member_ids(matrix)

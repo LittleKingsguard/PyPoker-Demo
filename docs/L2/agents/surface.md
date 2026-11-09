@@ -1,9 +1,9 @@
 # agents — the callable surface
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
 - **Owner of this file:** the surface — the ten module-level names of `src/agents/`, each with its argument
   contract, its return, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.3)
-- **Rev 7:** D-19 reaches this surface in five places and nowhere else: §3's `learning_rule` is the catalogue `learning_rules` (two members, each with its target), §4 reads the spec's optional `learning_rule` and refuses a name outside the catalogue, §7 states the two target arithmetics and what they share, §8/§9's container is format version 2 with a required `learning_rule` field and a version-1 file is read as `masked-q-learning`, and §10's policy carries `learning_rule`; `learners`, `build_learner`, `param_count`, `act`, `learn`, `save`, `load`, `as_policy`, `baselines` and `build_baseline` keep their signatures and return shapes, so `training` and `evaluation` never branch on the rule (`rules.md` §2-§8, D-19)
+- **Rev 8:** D-20 reaches this surface beside D-19 and in the same five places: §3's `learners` publishes a second catalogue, `utilities` (two members, each with its reward, `utilities.md` §2), §4 reads the spec's optional `utility` and refuses a name outside it, §8/§9's container is format version 3 with a required `utility` field while a version-1 or version-2 file is read as `net-chips`, and §10's policy carries `utility` beside `learning_rule`; the ten names keep their signatures and return shapes, so neither caller branches on a rule or a utility (`utility.md` §1–§6, `rules.md` §2–§8, D-19, D-20)
 - **Rev 6:** §1's seeding rule restated as *leaves the stream as found*, because `engine.equity` reseeds and restores the global stream inside its own call, so *never touches it* was unsatisfiable (ASM-2, `engine/surface.md` §11)
 - **Ceiling:** 275 lines. At the ceiling, split by owner — never append
 
@@ -46,11 +46,11 @@ This module's decisions are indices of the game's three-index vocabulary, and th
 - nothing here invents an index outside the mask; a value outside it is a contract violation and never a fold on
   the caller's behalf (D-2, `e2e-surface.md` §2).
 
-## 3. `learners` — the declared backends, kinds and rule catalogue (`fixed` row)
+## 3. `learners` — the declared backends, kinds, rule and utility catalogues (`fixed` row)
 
 - **Signature:** `learners()`.
-- **Arguments:** none: the catalogue is the ladder's and is published for a report to quote, while the rule *a
-  learner* learns under is its spec's own key (§4) and never an argument here (`e2e-surface.md` §3.3, D-19).
+- **Arguments:** none: the catalogue is the ladder's and is published for a report to quote, while the rule and the
+  utility a learner learns under are its spec's own keys (§4) and never arguments here (`e2e-surface.md` §3.3, D-19, D-20).
 - **Returns:** one mapping, read under these keys:
 
 | Key | Content |
@@ -58,13 +58,14 @@ This module's decisions are indices of the game's three-index vocabulary, and th
 | `backends` | keyed by the two backend names — `numpy` and `torch` — each value a record whose only string is that name, so a caller reading names out of this catalogue cannot mistake a sentence for one (D-7, §4) |
 | `architectures` | keyed by the seven architecture kinds, each value a record carrying `name`, `observation` (the representation family it consumes) and `observation_size` (the input width a dense kind is built for, or the token vocabulary a token kind is built for) — the size a learner with no encoder is built for (`e2e-surface.md` §3.3, `encodings.md` §1, §4) |
 | `learning_rules` | keyed by the two catalogue members in this order — `masked-q-learning`, then `double-q-learning` — each value a record carrying its `name` and its `target` as a stable token and never a sentence: `max-of-target-copy-over-next-legal` and `target-copy-at-online-argmax-over-next-legal`, the arithmetics §7 states (`rules.md` §2, D-19) |
+| `utilities` | keyed by the two terminal-reward members in `utilities.md` §2's order — `net-chips`, then `stack-shortfall` — each value a record carrying its `name`, its `reward` as a stable token (`net-chip-delta`, `squared-stack-shortfall-delta`) and the `normaliser` that reward is divided by (`none`, then `U(s_0)`): the objective a learner's terminal target carries (`utility.md` §1, `utilities.md` §2, D-20) |
 | `hyper` | the fixed declarations, one value each and **not a per-rule block**: `learning_rate`, `batch_size`, `target_update_interval`, the optimiser family, the exploration schedule and the `discount` — named by no L1 declaration, since `ladder.md` §3 lists the other four and ASM-7 the optimiser family, and no bootstrap target can be computed without it; **both rules consume these same six**, so a rule swap is one axis and no budget moves with it (ASM-7, `rules.md` §2, `ladder.md` §3, §4) |
 
-- **The first member is the declared default.** A spec that names no `learning_rule` is built under
-  `learning_rules`'s first key, `masked-q-learning`; the catalogue and not a module constant is what exists, so its
-  order is contract and a name outside it — in a spec, a variant entry, a pool member or a `load` spec — is refused
-  by name, the default being declared here and in `rules.md` §4 rather than inferred from a caller's silence
-  (§4, §9, `records.md` §3, D-19).
+- **The first member of each catalogue is that axis's declared default.** A spec naming no
+  `learning_rule` is built under `masked-q-learning`, and one naming no `utility` is trained on the
+  reward of `net-chips`; each catalogue and not a module constant is what exists, so each order is
+  contract and a name outside it — in a spec, a variant entry, a pool member or a `load` spec — is
+  refused by name, the defaults declared in `rules.md` §4 and `utilities.md` §5 (§4, §9, `utility.md` §1, D-19, D-20).
 
 The exploration schedule is a record of its own — the rate a learner starts at (`start`), the rate it anneals
 to (`end`) and the samples over which it anneals (`samples`) — so a reader can quote it and two arms can be
@@ -85,10 +86,9 @@ built for are declared here, because a learner is sized and refused against this
   document (`e2e-surface.md` §3.3, `encodings.md` §1, §6, `features/surface.md` §5, D-3).
 - **Refusals:** none; it has no argument and nothing to vary (`e2e-surface.md` §3.3, ASM-7, D-19).
 - **Determinism and ordering:** two calls return equal records, the backends in `numpy` then `torch` order
-  and the kinds in the order of the table; the catalogue is plain data a report may quote (D-7,
-  `protocol.md` §1). Its `learning_rules` and `hyper` are this module's own keys (`records.md` §1): the
-  rules the ladder declares and their declarations, published so a report can name them, and never a second copy
-  that a fairness check compares — the copy a pair is audited on is its variant entries' (`ladder.md` §3, §4, D-19).
+  and the kinds in the order of the table; the catalogue is plain data a report may quote (D-7, `protocol.md` §1).
+  Its `learning_rules`, `utilities` and `hyper` are this module's own keys (`records.md` §1), published so a report
+  can name them and never a second copy a fairness check compares — the copy audited is the variant entries' (`ladder.md` §3, §4, D-19, D-20).
 
 ## 4. `build_learner` — one learner from one spec (`general` row)
 
@@ -102,26 +102,26 @@ built for are declared here, because a learner is sized and refused against this
 | `backend` | **required** — `numpy` or `torch`, one of `learners()`'s backends (D-7, `records.md` §3) |
 | `architecture` | **required** — a mapping with `kind`, a kind name §3 declares, plus that kind's settings from `width`, `depth`, `sparsity` and `residual`, **or** a bare kind name, in which case `sizes` must carry the width and depth because the name alone sources no size; a setting the kind does not read is ignored (`records.md` §2, §3, `ladder.md` §3) |
 | `seed` | **required** — the seed of the learner's own generator, an integer, recorded by the run that builds it (ASM-2, `protocol.md` §4) |
-| `learning_rule` | optional — the catalogue member the learner learns under: one of §3's `learning_rules`, **absent meaning its first**, the default this document declares and never infers from a caller's silence, and the key a two-rule pair differs on (`records.md` §2, §3, `rules.md` §2, §4, D-19) |
+| `learning_rule`, `utility` | optional — the catalogue members the learner learns under and whose reward its training target carries: one of §3's `learning_rules` and one of §3's `utilities`, **each absent meaning its own first**, the defaults this document declares and never infers from a caller's silence, and the keys a two-rule or a two-utility pair differs on (`records.md` §2, §3, `rules.md` §2, §4, `utilities.md` §2, §5, `utility.md` §2, D-19, D-20) |
 | `sizes` | optional and redundant: width and depth, with `architecture` authoritative when both are present — but the only source of width and depth under a bare kind name (`records.md` §3) |
 | `encoder` | optional — *the encoder when the caller has one*: an encoder from `features.build_encoder`, supplied by the caller because building one is not among the five calls `module-map.md` §2 grants this module. The learner is built for it and checked against it; absent, its kind's `observation_size` is the size it is built for (`e2e-surface.md` §3.3, `module-map.md` §2, §3 of this file) |
 
 - **Returns:** a learner, **complete at construction** in either case above — sized from the encoder's
   `observation_spec` or, with no encoder, from the `observation_size` its kind declares (§3, `e2e-surface.md`
-  §3.3) — under the rule its spec names, the catalogue's first when it names none, and the only way to obtain one,
-  so every learner the ladder trains came from a declared backend, kind and rule (`e2e-surface.md` §1, D-7, D-19).
-  Completion draws from the learner's own seeded generator, so two learners from one spec are one learner in
-  capacity, in rule and in every decision (§1, ASM-2).
+  §3.3) — under the rule its spec names and on the reward of the utility it names, each catalogue's first when it
+  names none, and the only way to obtain one, so every learner came from a declared backend, kind, rule and
+  utility (`e2e-surface.md` §1, D-7, `utility.md` §2, D-19, D-20). Completion draws from the learner's own seeded
+  generator, so two learners from one spec are one learner in capacity, in rule and utility, and in every decision (§1, ASM-2).
 - **Refusals:** a missing required key, with that key in the error (`records.md` §3); a bare kind name with no
   `sizes`, because its width and depth then have no source and no default is substituted (D-12, `records.md` §3); a
-  backend or a kind §3 does not declare, or a `learning_rule` §3 does not carry — a non-string and an uncarried
-  name alike — with that value and the catalogue's names in the error (D-7, D-19, `e2e-surface.md` §2); a seed that
-  is not an integer (ASM-2); a width or depth that is not a positive integer, or a `sparsity` outside `[0, 1]`
+  backend or a kind §3 does not declare, or a `learning_rule` or a `utility` §3 does not carry — a non-string and an
+  uncarried name alike — with that value and the catalogue's names in the error (D-7, D-19, D-20, `e2e-surface.md` §2);
+  a seed that is not an integer (ASM-2); a width or depth that is not a positive integer, or a `sparsity` outside `[0, 1]`
   (`ladder.md` §3, `records.md` §2); a value that is not an encoder; and an `encoder` whose `observation_spec` kind
   or size contradicts the kind's own row, naming both (`e2e-surface.md` §3.3, D-3, `encodings.md` §1, §6).
-- **Determinism:** one spec builds one learner: two learners from one spec carry one parameter count and one
-  rule, and make one decision on one observation, because the initialisation draws from the learner's own
-  seeded generator and from nothing else (ASM-2, `protocol.md` §4, ASM-10).
+- **Determinism:** one spec builds one learner: two learners from one spec carry one parameter count, one
+  rule and one utility, and make one decision on one observation, because the initialisation draws from the
+  learner's own seeded generator and from nothing else (ASM-2, `protocol.md` §4, ASM-10, `utility.md` §3).
 
 ## 5. `param_count` — the capacity measurement (`general` row)
 
@@ -136,8 +136,7 @@ built for are declared here, because a learner is sized and refused against this
   parameter count is the `0` that `baselines()` declares — the count `records.md` §9 records for a baseline cell
   member, that record asking `agents.param_count` for a version and this declared zero for a baseline (ASM-10,
   `records.md` §9, §11 of this file).
-- **Determinism:** one learner reports one count; a learner built twice from one spec reports the same one,
-  and a restored learner reports the saved one (`protocol.md` §5, ASM-5).
+- **Determinism:** one learner reports one count; a learner built twice from one spec reports the same one, and a restored learner reports the saved one (`protocol.md` §5, ASM-5).
 
 ## 6. `act` — one training-time decision (`general` row)
 
@@ -189,8 +188,8 @@ built for are declared here, because a learner is sized and refused against this
 - **Arguments:** a learner, and a file path to write, which the caller owns: `checkpoints/` belongs to
   `training` and this module writes only where it is told (`module-map.md` §5, `e2e-surface.md` §3.3).
 - **Returns:** the path it wrote, so a run record names the artefact it produced (`records.md` §12). The container
-  is **format version 2** and records the learner's `learning_rule` beside its seed and its representation, so a
-  member is read under the rule it was trained under (§9, `rules.md` §6, D-19).
+  is **format version 3** and records the learner's `learning_rule` and its `utility` beside its seed and its
+  representation, so a member is read under the rule and on the objective it was trained under (§9, `utility.md` §4, D-19, D-20).
 - **Refusals:** a value that is not a learner; a path that is not a writable file location, with that path
   named — no entry point invents a directory, substitutes a default or writes part of a checkpoint
   (`e2e-surface.md` §2).
@@ -204,16 +203,17 @@ built for are declared here, because a learner is sized and refused against this
   (`e2e-surface.md` §3.3). A checkpoint recovers everything from the file itself, so a member is loadable
   from its path alone (`records.md` §7, `learner.md` §4).
 - **Returns:** the restored learner, at the state that was saved: same backend, kind and settings, same
-  representation and size, same parameter values, same decision boundary and **the rule its container records** —
-  the equality `protocol.md` §5 requires of `save`/`load` (ASM-5, D-19). A **format version 1** container carries no
-  `learning_rule` and is read as `masked-q-learning`, the only rule its writer could have used, so the shipped
-  version-1 files load unchanged, and one that *carries* the field is refused by name (`rules.md` §6, D-19).
+  representation and size, same parameter values, same decision boundary, **the rule its container records** and
+  **the utility it records** — the equality `protocol.md` §5 requires of `save`/`load` (ASM-5, D-19, D-20). A
+  **version-1** container carries neither field and is read as `masked-q-learning` and `net-chips`; a **version-2**
+  container carries the rule and is read as `net-chips`; one of either older version carrying a field its writer
+  never wrote is refused by name (`utility.md` §4, `rules.md` §6, D-20).
 - **Refusals:** a missing or unreadable path, with that path named; a checkpoint whose recorded form this module
-  does not read, a `learning_rule` outside the catalogue included; **and a `spec` that disagrees with the
-  checkpoint on a key the spec carries** — its `backend`, its kind, its `seed`, its `learning_rule`, or the
-  representation and size an encoder it carries declares — naming that key and both values, never coercing the spec
-  onto the parameters (`e2e-surface.md` §2, ASM-5, `rules.md` §6). `sizes` never disagrees, `architecture` being
-  authoritative, and with no encoder the representation comes from the file (`records.md` §3, §7, `learner.md` §4).
+  does not read, a `learning_rule` or a `utility` outside the catalogue included; **and a `spec` that disagrees with
+  the checkpoint on a key the spec carries** — its `backend`, its kind, its `seed`, its `learning_rule`, its
+  `utility`, or the representation and size an encoder it carries declares — naming that key and both values, never
+  coercing the spec onto the parameters (`e2e-surface.md` §2, ASM-5, `utility.md` §4, §5). `sizes` never disagrees,
+  `architecture` being authoritative, and with no encoder the representation comes from the file (`records.md` §3, §7).
 - **Determinism:** one checkpoint restored twice gives two learners that decide alike, and a restored
   learner's next decision is the saved learner's next decision, because §1 makes a decision a function of
   state and decision rather than of call order (`protocol.md` §5, ASM-5).
@@ -228,14 +228,14 @@ built for are declared here, because a learner is sized and refused against this
   the checkpoint's recorded seed, read beside the `path` from the version record (`records.md` §7, `learner.md` §4).
 - **Returns:** a policy in the sense of `e2e-surface.md` §2 — a callable taking the readout and the legal
   descriptors and returning one of them (`e2e-surface.md` §2, `engine/environment.md` §6) — and carrying
-  `learning_rule`, the catalogue member its learner was built under: the attribute §2 declares, the **only** thing
-  a policy gains here, and the label `evaluation` reads to name a table's population. The callable, its seeding and
-  its decision are unchanged by it, and a baseline's policy carries none (`rules.md` §7, D-19). The policy applies
-  the learner's own decision rule to the decision its arguments name — the observation `encode` produces and the
-  mask `legal_indices` gives — so at the learner's own seed it decides exactly as `act` does on that decision, and
-  at another seed it applies the same rule with an independent exploration key; and it holds the learner's state as
-  it was at build time, so a later `learn` does not change a policy already built (§1, ASM-5, `protocol.md` §5,
-  `learner.md` §1, D-16). What `e2e-surface.md` §3.4 calls "evaluation mode" is `evaluation.policy_from`'s.
+  `learning_rule` and `utility`, the catalogue members its learner was built under and trained on: the two
+  attributes §2 declares, the **only** things a policy gains here, and the labels `evaluation` reads to name a
+  table's population and its objectives. The callable, its seeding and its decision are unchanged by them, and a
+  baseline's policy carries neither (`rules.md` §7, `utility.md` §3, D-19, D-20). The policy applies the learner's
+  own decision rule to the decision its arguments name — the observation `encode` produces and the mask
+  `legal_indices` gives — so at the learner's own seed it decides exactly as `act` does on that decision, and at
+  another seed it applies the same rule with an independent exploration key; and it holds the state as it was at
+  build time, so a later `learn` does not change a policy already built (§1, ASM-5, `protocol.md` §5, `learner.md` §1).
 - **Refusals:** a value that is not a learner or not an encoder, naming that contract; a seed that is not an
   integer (ASM-2); an encoder whose `observation_spec` kind or size contradicts the learner's kind, naming
   both (§4, D-3). It never returns a descriptor outside `legal_actions` (D-2).
@@ -271,5 +271,5 @@ built for are declared here, because a learner is sized and refused against this
 - **Determinism:** one decision gives one descriptor, because no baseline advances any state; for `random` one seed
   repeats its choices and two seeds differ (`protocol.md` §3), while `always-call` and `oracle` are functions of the
   decision alone. The draw is keyed by the decision as a learner's exploration is, since a uniform draw over a
-  decision's legal indices cannot come from a stream position (§1, `protocol.md` §3, §4, ASM-4). A baseline never
-  learns, and its policy carries no `learning_rule` — none learned one (D-6, `e2e-surface.md` §2, D-19).
+  decision's legal indices cannot come from a stream position (§1, `protocol.md` §3, §4, ASM-4). A baseline
+  never learns, and its policy carries no `learning_rule` and no `utility` (D-6, `e2e-surface.md` §2, D-19, D-20).

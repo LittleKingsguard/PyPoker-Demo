@@ -1,11 +1,11 @@
 # training — L4 guardrails
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09 · **Rev 8:** G21 counts the five shared settings that reach `PairDeclarationsDiffer`
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09 · **Rev 9:** G23/G24 carry the utility axis, and G25 states where the reward is applied (D-20)
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the test that
-  catches it — Rev 4 adds G21 (the declaration refusals), Rev 5 G22 (the declared budget), Rev 6 G21's catalogued-rule reading and
-  G23 (the rule forwarded, and the record's `rules` set)
+  catches it — Rev 4 adds G21 (the declaration refusals), Rev 5 G22 (the declared budget), Rev 6 G23 (the member forwarded and the
+  record's sets) and Rev 9 G25 (the one place a utility is applied, with no member name copied into the module)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
-- **Read with:** all of `README.md`, `registry.md`, `loop.md`, `seeds.md`, `episode.md`, `curves.md`, `checkpoints.md`,
+- **Read with:** all of `README.md`, `registry.md`, `loop.md`, `seeds.md`, `episode.md`, `reward.md`, `curves.md`, `checkpoints.md`,
   `fairness.md`, `devices.md`, `errors.md`
 
 The unit battery's files are contract: `tests/training/test_registry.py` (`TRN-1.k`), `test_loop.py` (`TRN-2.k`),
@@ -29,10 +29,9 @@ Caught by: `test_curves.py::TRN-5.1`, `test_loop.py::TRN-2.1` (a 250-hand run wr
 The record names the last M = 5 snapshots plus `final.ckpt`. `tests/e2e/_records.py`'s `checkpoint_span` allows at most `pairs × (M + 1)`, which is exactly 6 for one pair and 12 for the custom two-variant rung: naming the ten plus the final is 11 and fails both families (`checkpoints.md` §3).
 Caught by: `test_checkpoints.py::TRN-6.1`, FAM-12.1, FAM-15.1, FAM-16.29.
 ## G6 — The record's keys, and the nesting each reader assumes
-`curves` is variant → seed → `{samples, td_error, spread}`; `checkpoints` is variant → seed → `{snapshots, final}`; `timings` is
-variant → seed → `{hands, wall_clock_seconds, seconds_per_hand, hands_per_second}`. The four timing keys are read by what they
-name — `hands` as the hands, `seconds_per_hand` as the per-hand cost, `hands_per_second` as the throughput — so renaming them to
-`perf`, `t` or `rate` loses the D-7 evidence reader (`loop.md` §4, `records.md` §12).
+`curves` is variant → seed → `{samples, td_error, spread}`; `checkpoints` is variant → seed → `{snapshots, final}`; `timings` is variant →
+seed → `{hands, wall_clock_seconds, seconds_per_hand, hands_per_second}`. The four timing keys are read by what they name — `hands` as the
+hands, `seconds_per_hand` as the cost, `hands_per_second` as the throughput — so renaming them loses the D-7 reader (`records.md` §12).
 Caught by: `test_loop.py::TRN-2.2`–`TRN-2.4`, FAM-13.5.
 ## G7 — A transition's `action` is an index, and a terminal transition carries its own mask
 `legal_indices` is position-aligned, so the index is the descriptor's position in `legal`; passing the descriptor itself, or the raw episode `action` field, is refused by `agents.learn` on its first call. The terminal transition repeats its own `next_observation`/`next_legal`, because it has no successor and an empty mask is illegal (`episode.md` §3–§4).
@@ -59,24 +58,23 @@ Caught by: `test_checkpoints.py::TRN-6.2`, FAM-12.6.
 Fabricating an R4 path to look complete fails the existence check; filtering the index by what is on disk instead is a scan (G11).
 Caught by: `test_checkpoints.py::TRN-6.3`, FAM-12.5, FAM-16.31.
 ## G14 — `fairness` compares `architecture` only when family and `sparsity` agree
-R5's `dense` (width 50, sparsity 0) against its `sparse` (width 62, sparsity 0.5) differs on `sparsity` alone; a rule that also
-compares width finds two axes, refuses the rung's own control, and fails FAM-3.12. R4's own pair is the converse: one family, one
-sparsity, so `width` *and* `depth` differ and the axis is `architecture` (`fairness.md` §2–§3).
+R5's `dense` (width 50, sparsity 0) against its `sparse` (width 62, sparsity 0.5) differs on `sparsity` alone; a rule that also compares width
+finds two axes, refuses the rung's own control, and fails FAM-3.12. R4's own pair is the converse: one family, one sparsity, so `width` *and*
+`depth` differ and the axis is `architecture` (`fairness.md` §2–§3).
 Caught by: `test_fairness.py::TRN-7.1`–`TRN-7.3`, FAM-3.11, FAM-3.12, FAM-15.3.
-## G15 — `constants` carries thirteen keys, two of them declared here
-The game from `engine.game_config`; the action vocabulary and the readout facts as data, because `features.action_space` and
-`features.encodings` are not this module's to call. The rule row is `rules`, the **set** the two sides declare, and never a single
-value one side carries: dropping the vocabulary or the facts fails FAM-3.14's token scan, and reading `action_space()` breaks D-13's
-boundary (`fairness.md` §4, `rules.md` §8, D-19).
+## G15 — `constants` carries fourteen keys, two of them declared here
+The game from `engine.game_config`; the action vocabulary and the readout facts as data, because `features.action_space` and `features.encodings`
+are not this module's to call. The rule and utility rows are `rules` and `utilities`, the **sets** the two sides declare, never a single value one
+side carries: dropping the vocabulary fails FAM-3.14 and reading `action_space()` breaks D-13's boundary (`rules.md` §8, `utilities.md` §8, D-20).
 Caught by: `test_fairness.py::TRN-7.4`, FAM-3.14, FAM-13.3, FAM-3.19.
 ## G16 — A refusal names the offending value, and nothing is wrapped
 Every message has the four parts of `errors.md` §3 and the value in it: FAM-15.5 and FAM-16.28 compare the unknown rung's token to the message.
 `features`', `agents`' and `evaluation`'s refusals propagate unchanged — a `try/except` re-raising one in a `TrainingError` hides the catalogue's owner.
 Caught by: `test_errors.py::TRN-9.1`–`TRN-9.3`, FAM-15.5, FAM-16.28.
 ## G17 — Seats alternate by swapping the two policies
-`play_hand(seed, seat0, seat1)` gives seat 0 the button in every hand, so the learner's seat is `i % 2` and the arms swap. Giving
-the learner seat 0 in every hand makes half of each curve positional and R1's and R2's deals unequal — the parity pair's two arms
-would then differ on something that is not the backend (`episode.md` §1, FAM-13.4).
+`play_hand(seed, seat0, seat1)` gives seat 0 the button in every hand, so the learner's seat is `i % 2` and the arms swap. Giving the learner
+seat 0 in every hand makes half of each curve positional and R1's and R2's deals unequal — the parity pair's two arms would then differ on
+something that is not the backend (`episode.md` §1, FAM-13.4).
 Caught by: `test_episode.py::TRN-4.5`, FAM-13.4.
 ## G18 — `devices()` measures the **read-write** open, and asks a backend only after one succeeds (Rev 3)
 `os.open(node, os.O_RDWR)` on `/dev/kfd` then `/dev/dri/renderD128`; a denial is followed by a control `O_RDONLY` open of the same node, separating
@@ -90,31 +88,33 @@ Caught by: `test_registry.py::TRN-1.5`, `test_fairness.py::TRN-7.5`.
 `run` writes its ten snapshots and its final model under `layout._write_root()` — `checkpoints/` unless `PYPOKER_CHECKPOINT_ROOT` names another — so a
 battery's private `mkdtemp` gains every artefact and `<repo>/checkpoints` gains none (`write-root.md` §1, §3, §4, `checkpoints.md` §5). A re-run guarantees
 **one build's, one pinned interpreter's** result: with `PYTHONHASHSEED=0` the curves and the table reproduce as measured, unpinned they do not,
-`engine.equity`'s sampled estimate following the per-process hash seed (`protocol.md` §4, `evidence.md` §6). `provenance` names the build a bundle came
-from, so drift is attributable; what is forbidden is the index listing an artefact the design does not declare (G11, G13).
+`engine.equity`'s sampled estimate following the per-process hash seed (`protocol.md` §4, `evidence.md` §6); what is forbidden is the index
+listing an artefact the design does not declare (G11, G13).
 Caught by: `test_loop.py::TRN-2.7`, `test_checkpoints.py::TRN-6.5`, `test_checkpoints.py::TRN-6.9`, `test_run_record.py::TRNJ-8.1`, FAM-16.31.
 ## G21 — A declaration the run would discard is refused at resolve, never kept in silence
-A `hyper` key and a `snapshot_every` — **at the configuration and at each entry** — are `IgnoredDeclaration` unless they equal that key's
-`HYPER` value and the **declared** samples ÷ 10, and a `learning_rule` only when the catalogue `agents.learners()` publishes does not carry
-it; two arms declaring two values for one of the **five** shared settings that reach the pair check are `PairDeclarationsDiffer`, naming key and values.
-`learning_rule` is not one of the seven: a catalogued rule is forwarded and trained, so refusing a second rule would restore ASM-7's
-single-rule clause D-19 retired. A configuration-level block is a declaration no entry can see, so leaving it unchecked drops it exactly as
-an entry's would be. Silence is the plateau defect — four sweeps of one model looked like four results (ASM-7, ASM-18, D-19).
+A `hyper` key and a `snapshot_every` — **at the configuration and at each entry** — are `IgnoredDeclaration` unless they equal that key's `HYPER`
+value and the **declared** samples ÷ 10; a `learning_rule` or a `utility` is refused only when the catalogue `agents.learners()` publishes does not
+carry it, and two arms declaring two values for one of the **five** shared settings that reach the pair check are `PairDeclarationsDiffer`. Neither
+member is one of the seven: a catalogued rule or utility is forwarded and trained, so refusing a second would restore the single-member clause
+D-19 retired. A configuration-level block is a declaration no entry can see, so leaving it unchecked drops it as silently as an entry's would be
+(ASM-7, ASM-18, D-19, D-20).
 Caught by: `test_errors.py::TRN-9.15`–`TRN-9.16`, `test_fairness.py::TRN-7.8`, FAM-17.9, and the contract's test writer's next cases.
 ## G22 — A declared `param_budget` is validated where it is resolved, never coerced
-A `param_budget` that is not a positive integer — `"abc"`, `12345.6`, `True`, `-5` — is `VariantSettingInvalid` naming the key, the level and the
-value, so `int()` never truncates a float, reads `True` as 1 or accepts a negative band: the `params` band is the resolved number ∓2% (`declarations.md` §2, ASM-10, `errors.md` §4).
+A `param_budget` that is not a positive integer — `"abc"`, `12345.6`, `True`, `-5` — is `VariantSettingInvalid` naming the key, the level and the value, so `int()` never truncates a float, reads `True` as 1 or accepts a negative band: the `params` band is the resolved number ∓2% (`declarations.md` §2, ASM-10, `errors.md` §4).
 Caught by: `test_errors.py::TRN-9.15`–`TRN-9.16`'s file; the contract's test writer pins every shape next.
-## G23 — The rule is read and forwarded, and the record says which estimator trained which curve (Rev 6)
-A variant's `learning_rule` — else its configuration's copy, else nothing — goes into the `agents.build_learner` spec as
-`"learning_rule"`, so the learner is built under the rule the entry names and an entry naming none passes nothing: `agents` builds the
-catalogue's first, and this module never substitutes a rule of its own. The catalogue is read through `agents.learners()`, never a private
-copy. `variants[i]` carries `learning_rule` (the rule it was **built** under) and the record carries `rules`, the distinct rules in
-declaration order, which is `records.md` §12's required set; `fairness` reports the same set under `constants["rules"]` and the `rule` axis.
-Caught by: FAM-17.7–17.9, `tests/e2e/test_fam03_ladder.py::FAM-3.19`, and the contract's test writer's cases for the record's `rules` set.
-## G24 — An index entry carries its `rule`, one per shipped run
-An entry is a `records.md` §7 version record, so `rule` is **required** beside `kind` (`checkpoints.md` §4, D-19): `_snapshot_entry` and
-`_final_entry` read it from `SHIPPED_RULES`, the per-rung declaration beside `SHIPPED`, because no default stands in for one and a rung added
-to `SHIPPED` names its rule in the same edit. Without it the retained window a successor inherits cannot be certified and the pool's id covers
-no estimator (`records.md` §7, §8, `rules.md` §6, ASM-27).
-Caught by: `test_checkpoints.py::TRN-6.3`, `TRN-6.10`, `test_loop.py::TRN-2.16`, `test_index.py::TRNJ-6.4`, FAM-12.8.
+## G23 — Both members are read and forwarded, and the record says which trained which curve (Rev 6, Rev 9)
+A variant's `learning_rule` and its `utility` — else its configuration's copy, else nothing — go into the `agents.build_learner` spec; an entry
+naming either passes no key and `agents` builds that catalogue's first, and this module never substitutes one. Both catalogues are read through
+`agents.learners()`, never a private copy. `variants[i]` carries `learning_rule` and `utility`, and the record carries `rules` and `utilities`,
+the distinct members in declaration order — `fairness` reports the same sets on the `rule` and `utility` axes (`utilities.md` §5, D-20).
+Caught by: FAM-17.7–17.9 (`tests/e2e/test_fam17_rules.py`), FAM-18.7–18.9 (`tests/e2e/test_fam18_utilities.py`: 18.7 the run record's `utilities` set and each variant's `utility`), `tests/e2e/test_fam03_ladder.py::FAM-3.19`, FAM-18.10 (a cell's `utilities`, a matrix's `utilities` and its `utility_population`) and FAM-18.11 (a pool member's `utility`, the pool record's `utilities`, and the id that digests it).
+## G24 — An index entry carries its `rule` and its `utility`, one of each per shipped run
+An entry is a `records.md` §7 version record, so `rule` and `utility` are **required** beside `kind` (`checkpoints.md` §4, D-19, D-20):
+`_snapshot_entry` and `_final_entry` read them from `SHIPPED_RULES` and `SHIPPED_UTILITIES`, the per-rung declarations beside `SHIPPED`, because no
+default stands in for either and a rung added to `SHIPPED` names both in the same edit; without them the window a successor inherits cannot be certified
+and the pool's id covers neither estimator nor objective (`records.md` §7, §8, ASM-27).
+Caught by: `test_checkpoints.py::TRN-6.3`, `TRN-6.10`, `test_loop.py::TRN-2.16`, `test_index.py::TRNJ-6.4`, FAM-12.8 for the `rule` and FAM-18.6 for the `utility`.
+## G25 — The utility is applied here, terminal-only, selected by reward token
+`episode._transitions` re-expresses the **terminal** decision's reward as the variant's utility's number, selected by the token
+`agents.learners()` publishes for that member — never by a member name copied into this module — and every other decision keeps `0.0`;
+`learner.py`'s branches stay `target = record["reward"]`, so applying it inside `learn` or shaping an intermediate decision breaks D-20 (`reward.md` §1–§4, `utilities.md` §4, ASM-28). Caught by: `test_episode.py::TRN-4.9`–`TRN-4.13` — 4.9 the reward's four numbers, 4.10 the zero every non-terminal decision keeps, 4.11 the unshaped `net-chips` delta, 4.12 the chips-in-play guard and 4.13 the reward token that selects the arithmetic.

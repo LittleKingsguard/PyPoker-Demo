@@ -9,11 +9,10 @@
 
 `surface.md` §1 says an invalid argument is refused by raising an error that names the violated contract, and that no entry
 point coerces a value, substitutes a default, swallows an error or returns part of a record. The error is therefore the only
-reporting channel: nothing comes back as a failure record, and no refused call has an observable effect — `build_pool`
-validates the whole declaration before it builds a member, `matrix` validates before it loads a checkpoint, and `rating` and
-`report` validate before they fit or assemble anything (`pool.md` §8, `rating.md` §6). The hierarchy exists so a caller can
-catch "this module refused me" without catching a `KeyError` from a bug — a mistyped key, a `TypeError` from a helper or a
-NumPy error from the fit each leak an internal decision as a crash. The one declared catch is `scheduler.md` §6's.
+reporting channel: nothing comes back as a failure record, and no refused call has an observable effect (`pool.md` §8,
+`rating.md` §6). The hierarchy exists so a caller can catch "this module refused me" without catching a `KeyError` from a
+bug — a mistyped key, a `TypeError` from a helper or a NumPy error from the fit each leak an internal decision as a crash.
+The one declared catch is `scheduler.md` §6's.
 
 ## 2. The classes — `src/evaluation/errors.py`
 
@@ -21,7 +20,7 @@ NumPy error from the fit each leak an internal decision as a crash. The one decl
     class InvalidPool(EvaluationError)             # pool_members, offer, opponent, matrix: not a pool this module built
     class PoolDeclarationInvalid(EvaluationError)  # build_pool: not a mapping, or missing members / m / frozen
     class PoolBoundInvalid(EvaluationError)        # build_pool: m not a positive integer, a bool, or above the league's M
-    class MemberInvalid(EvaluationError)           # a member or a side is not the record it must be; a bad id, lineage or rule
+    class MemberInvalid(EvaluationError)           # a member or a side is not the record it must be; a bad id, lineage, rule or utility
     class MemberUnloadable(EvaluationError)        # a member/version carries no path, or its path is not readable
     class MemberDuplicate(EvaluationError)         # two records carry one id, a pinned baseline's name is declared, an offer repeats
     class LineageConflict(EvaluationError)         # two members descend from one (surface.md §5, families.md §1)
@@ -29,8 +28,10 @@ NumPy error from the fit each leak an internal decision as a crash. The one decl
     class PoolFrozen(EvaluationError)              # offer into a frozen pool
     class LineageNotExtended(EvaluationError)      # offer: the lineage is not its family's newest member (families.md §5)
     class UnknownRule(EvaluationError)             # a member's rule is not one of the catalogue's (rules.md §4, D-19)
+    class UnknownUtility(EvaluationError)          # a member's utility is not one of the catalogue's (utility.md §4, D-20)
     class RuleMismatch(EvaluationError)            # two declarations of one rule disagree: a record against its checkpoint's,
                                                    #   or a version's rule against the family it extends (families.md §1, §5)
+    class UtilityMismatch(EvaluationError)         # the utility's pair of the same two disagreements (utility.md §4, D-20)
     class FamilyBoundExceeded(EvaluationError)     # a declaration or an offer holds more families than the bound allows (ASM-26)
     class PoolNotFrozen(EvaluationError)           # matrix: the pool may still change while it is tabled
     class InvalidSeed(EvaluationError)             # opponent, match: the seed is not an integer
@@ -56,12 +57,12 @@ NumPy error from the fit each leak an internal decision as a crash. The one decl
     class HeaderIncomplete(EvaluationError)        # report: a header item is missing — the item is named
     class InvalidArgument(EvaluationError)         # any: an argument of the wrong type — a not-mapping record, a non-str rung
 
-**One base and thirty-six subclasses**, one per refusal family of `surface.md` §5–§13 — D-19 added `UnknownRule`,
-`RuleMismatch` and `FamilyBoundExceeded` in that order, after `LineageNotExtended` and before `PoolNotFrozen`, which is where
-`errors.py` declares them (`rules.md` §4, `families.md` §6, D-19). They are **not** module-level names of the `evaluation`
-package: they live below an entry point and are not surface (`README.md` §3, `e2e-surface.md` §1). Their names and nesting
-are nonetheless contract, because `README.md` §4 makes `errors.py` contract for `tests/evaluation/`: only `test_errors.py`
-(`EVL-9.1`–`EVL-9.2`) asserts a subclass by name, and elsewhere a battery asserts the *behaviour* (`agents/errors.md` §2 agrees).
+**One base and thirty-eight subclasses**, one per refusal family of `surface.md` §5–§13 — D-19 added `UnknownRule`,
+`RuleMismatch` and `FamilyBoundExceeded` in that order, and D-20 added `UnknownUtility` and `UtilityMismatch` beside the
+rule's pair, which is where `errors.py` declares them (`rules.md` §4, `families.md` §6, `utility.md` §4, D-19, D-20).
+They are **not** module-level names of the `evaluation` package: they live below an entry point and are not surface
+(`README.md` §3, `e2e-surface.md` §1). Their names and nesting are nonetheless contract, because `README.md` §4 makes
+`errors.py` contract for `tests/evaluation/`: only `test_errors.py` (`EVL-9.1`–`EVL-9.2`) asserts a subclass by name.
 
 ## 3. The message grammar
 
@@ -71,26 +72,27 @@ Every message has the form
 
 so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a missing
 key — the message names the key instead of inventing a `got` clause. A `report` reusing `rating.md` §6's checks names the
-violated rule in the **field** slot (`hands` / `cells` / `pair` / the missing baseline), because the check is the rating's own
-(`report.md` §3 item 2), and `cell_count(K): …` names the callable `league()` returns (`declarations.md` §5). Three
-properties the battery relies on: the message names the entry point, the rule or `cell_count` and the key at fault; it never
-claims a value was accepted; and a member, a family or a baseline is named by its **id**.
+violated rule in the **field** slot (`hands` / `cells` / `pair` / the missing baseline), and `cell_count(K): …` names the
+callable `league()` returns (`declarations.md` §5). Three properties: the message names the entry point, the rule or
+`cell_count` and the key at fault; it never claims a value was accepted; and a member, a family or a baseline is named by
+its **id**.
 
 ## 4. The canonical messages
 
-L4 follows these spellings; the unit battery matches them tolerantly (the entry point's name, the field's name and the value),
-and `tests/e2e/`'s `refusal_text` reader accepts any wording that names the family, the pool rule or the member.
+L4 follows these spellings; the unit battery matches them tolerantly (the entry point's name, the field's name and the
+value), and `tests/e2e/`'s `refusal_text` reader accepts any wording that names the family, the pool rule or the member.
 
 | Where | Message |
 |---|---|
 | `build_pool` not a mapping | `build_pool(declaration): the declaration must be a mapping, got list` |
 | `build_pool` missing key | `build_pool(declaration): the declaration is missing the required key 'frozen'`; a member's is `build_pool(member 'version-kestrel'): the member is missing the required key 'rule'` |
-| `build_pool` bound | `build_pool(m): the bound must be a positive integer no larger than the league's 5, got 6` |
-| `build_pool` flag | `build_pool(frozen): the frozen flag must be a boolean, got 'yes'` |
-| `build_pool` member key | `build_pool(member 'version-kestrel'): the member is missing the required key 'lineage'` |
+| `build_pool` bound or flag | `build_pool(m): the bound must be a positive integer no larger than the league's 5, got 6`; the flag's is `build_pool(frozen): the frozen flag must be a boolean, got 'yes'` |
+| `build_pool` member key | `build_pool(member 'version-kestrel'): the member is missing the required key 'lineage'`; the `utility`'s is the same sentence with `'utility'` for `'lineage'`, and `offer`'s is `offer(version 'version-osprey'): the member is missing the required key 'utility'` (§5 exempts a bare §7 record) |
 | `build_pool` bad id or rule | `build_pool(member 'version-kestrel'): the id must be a non-empty string without a newline or the digest's separator, got ''`; the `rule`'s says `the rule must be …` |
 | `build_pool` unknown rule | `build_pool(member 'version-kestrel'): the rule 'masked-q' is not one of the catalogue's ('masked-q-learning', 'double-q-learning')` |
 | `build_pool` two rules in one family | `build_pool(member 'version-osprey'): the rule 'double-q-learning' is not the rule 'masked-q-learning' of the family it extends, whose start is 'R3/start'` |
+| `build_pool` two utilities in one family | `build_pool(member 'version-osprey'): the utility 'stack-shortfall' is not the utility 'net-chips' of the family it extends, whose start is 'R3/start'` |
+| `build_pool`, `offer` unknown utility | `build_pool(member 'version-kestrel'): the utility 'chips-per-hour' is not one of the catalogue's ('net-chips', 'stack-shortfall')`; the field's own shape says `the utility must be a non-empty string …`, as the rule's does |
 | `build_pool` too many families | `build_pool(m): the declaration holds 6 families, and a window of 5 cannot keep one member of each` |
 | `build_pool` unreadable | `build_pool(member 'version-kestrel'): the path 'checkpoints/x.pt' names no readable file` |
 | `build_pool` two successors | `build_pool(member 'version-quarry'): 'version-bramble' is the lineage of two members, 'version-thistle' and 'version-quarry'` |
@@ -103,12 +105,10 @@ and `tests/e2e/`'s `refusal_text` reader accepts any wording that names the fami
 | `offer` not newest | `offer(version 'version-osprey'): its lineage 'version-thistle' is not the newest member of its family, which is 'version-marlin'` |
 | `offer` rule of the family | `offer(version 'version-osprey'): the rule 'double-q-learning' is not the rule 'masked-q-learning' of the family it extends, whose newest member is 'version-marlin'` |
 | `offer` too many families | `offer(version 'version-osprey'): the pool holds 5 families under a bound of 5, so a new family would leave another without a member` |
-| `opponent` seed | `opponent(seed): the seed must be an integer, got '8086'` |
+| `opponent` seed, `match` hands or side | `opponent(seed): the seed must be an integer, got '8086'`; `match(hands): the hand count must be a positive integer, got 0`; and `match(left): the side must be a policy, a version record or one of ('random', 'always-call', 'oracle'), got 42` |
 | `opponent` no path | `opponent(member 'version-kestrel'): the drawn member carries no path, so it cannot be an opponent` |
-| `match` hands | `match(hands): the hand count must be a positive integer, got 0` |
-| `match` side | `match(left): the side must be a policy, a version record or one of ('random', 'always-call', 'oracle'), got 42` |
 | `match` one id | `match(left, right): the two sides carry one id 'random', and a cell pairs two distinct members` |
-| `match`, `matrix`, `opponent` rule vs checkpoint | `match(left): the member 'version-kestrel' records the rule 'double-q-learning' and its checkpoint 'checkpoints/x.pt' records 'masked-q-learning', and a member is trained under one rule` |
+| `match`, `matrix`, `opponent` rule or utility vs checkpoint | `match(left): the member 'version-kestrel' records the rule 'double-q-learning' and its checkpoint 'checkpoints/x.pt' records 'masked-q-learning', and a member is trained under one rule`; the utility's is the same sentence with `utility` for `rule` (`utility.md` §4) |
 | `matrix` unfrozen | `matrix(pool): the pool is not frozen, and a pool does not change while it is tabled` |
 | `matrix` label or variants | `matrix(table): the table label must be 'live' or 'full', got 'medium'`; the count's is `matrix(variants): the variant count must be 1 or 2, got 3` |
 | `matrix` not distinct | `matrix(members): 'variant-1' is the id of two members of the table, and a cell pairs two distinct members` |
@@ -134,9 +134,9 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 - a declaration **richer than the bound** (windowed by `families.md` §3's rule) and one holding **two or more chains**, which
   are two families in the order their starts are declared — even when two chains name **one undeclared start**, because
   `LineageConflict` is about a declared `id` with two successors (`pool.md` §2, `families.md` §1);
-- a **version record declaring no `rule`** where it is handed to `match`, `matrix` or `opponent` as a bare §7 record, and one
-  whose own `seed` disagrees with its checkpoint's: both admitted, and the container decides, because only a *declaration* must
-  name its rule (`scheduler.md` §5, `rules.md` §4);
+- a **version record declaring no `rule`**, handed to `match`, `matrix` or `opponent` as a bare §7 record, one whose own
+  `seed` disagrees with its checkpoint's, and one declaring no `utility` **in that same bare-record position** — admitted,
+  the container deciding; refused (`MemberInvalid`, a missing required key) only in a version declaration (`scheduler.md` §5, `rules.md` §4, `utility.md` §2);
 - a member record carrying **extra keys**, one with no `path`, and a **`policy-1`/`policy-2` side** whose capacity and rule are
   simply unmeasured (`surface.md` §5, `scheduler.md` §5);
 - a **numpy integer** for a seed, a count or a position (`numpy.int64` is an `Integral`), but never a **`bool`**; a **hand-built

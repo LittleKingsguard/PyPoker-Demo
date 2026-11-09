@@ -1,4 +1,4 @@
-"""TRN-9 — refusals: the fifteen classes, one message each.
+"""TRN-9 — refusals: the sixteen classes, one message each.
 
 Drives `docs/L3/training/errors.md` §1-§4, `docs/L2/training/surface.md` §1-§5 and
 `docs/L3/training/loop.md` §6: every row of `errors.md` §4's canonical-message table, the

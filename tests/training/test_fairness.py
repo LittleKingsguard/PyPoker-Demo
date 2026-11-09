@@ -8,7 +8,12 @@ pool report's six keys with `same` and the intersection for an adjacent pair, th
 refusals, Rev 2's sixth: two arms declaring two `hyper` blocks are `PairDeclarationsDiffer`,
 because a pair that declares two blocks holds no constant there (`TRN-7.8`,
 `declarations.md` §4), and D-19's sixth axis: two arms declaring two catalogue rules are
-reportable on `rule` and their `constants["rules"]` holds both (`TRN-7.9`, `rules.md` §8).
+reportable on `rule` and their `constants["rules"]` holds both (`TRN-7.9`, `rules.md` §8), and D-20's seventh axis: two arms declaring two catalogue
+utilities are reportable on `utility` with `constants["utilities"]` holding both
+(`TRN-7.10`), a side naming none is the catalogue's first and not a phantom difference
+(`TRN-7.11`), the `reward` row states the reward each side's utility delivers (`TRN-7.12`),
+and a pair differing on `utility` **and** on another axis is refused naming both
+(`TRN-7.13`, `utilities.md` §8, D-20).
 
 Reportability is `§2`'s correction and not a restatement: `architecture` is compared only
 where the two sides agree on the representation family and on `sparsity`, so R5's `sparse`
@@ -49,6 +54,11 @@ from _training_support import (
     training,
     two_rule_configuration,
     two_rule_names,
+    two_utility_configuration,
+    two_utility_names,
+    utility_names,
+    utility_reward,
+    utility_set,
     variant_entries,
     variant_name,
     with_pool,
@@ -566,6 +576,278 @@ class FairnessTest(TrainingCase):
             "the control: two entries declaring one rule report a one-element set, so the "
             "row above is what the pair declares and not a fixed pair of names "
             "(fairness.md §4, rules.md §8, D-19): %r" % (control_constants["rules"],),
+        )
+
+    # -- D-20: the utility axis --------------------------------------------
+    def test_trn_7_10_two_utilities_are_the_utility_axis_and_the_set_is_reported(self):
+        """TRN-7.10 two entries declaring the catalogue's two utilities differ on the `utility` axis — the token and the field are one word, unlike the rule's `rule`/`learning_rule` — and are **not** refused, their `constants['utilities']` holding **both**; the control: two entries declaring one utility report a one-element set (fairness.md §2, §4, §6, surface.md §5, declarations.md §3-§4, utilities.md §8, D-20)."""
+        axes = tuple(
+            as_text(axis, "an axis") for axis in self.internal("declarations", "AXES")
+        )
+        self.assertEqual(
+            len(axes),
+            7,
+            "`utility` joins six axes as the seventh, so a comparison is read on seven "
+            "and a report can say which one a pair differs on (declarations.md §3, "
+            "utilities.md §8, D-20): %r" % (axes,),
+        )
+        self.assertIn(
+            "utility",
+            axes,
+            "the utility is one of the axes a comparison reports (utilities.md §8, "
+            "D-20): %r" % (axes,),
+        )
+        first_utility, second_utility = two_utility_names()
+        entries = variant_entries(two_utility_configuration())
+        self.assertEqual(
+            [as_text(entry["utility"], "a declared utility") for entry in entries],
+            [first_utility, second_utility],
+            "the invented pair declares the catalogue's two utilities in its order, read "
+            "from agents.learners() and not restated (utilities.md §2, §5, D-20): %r"
+            % ([entry.get("utility") for entry in entries],),
+        )
+        pair = self.result(entries[0], entries[1])
+        self.assertEqual(
+            set(as_mapping(pair, "a fairness record")),
+            {"pair", "axis", "constants", "pool"},
+            "a pair whose arms declare two catalogue utilities is reportable and returns "
+            "the record every comparison returns, so a differing utility is the `utility` "
+            "axis and never a refusal (fairness.md §2, §6, utilities.md §8, D-20): %r"
+            % (sorted(pair),),
+        )
+        self.assertEqual(
+            [as_text(name, "a pair name") for name in as_sequence(pair["pair"], "'pair'")],
+            [variant_name(entry) for entry in entries],
+            "`pair` reports the two sides by their own names (fairness.md §1)",
+        )
+        axis = as_mapping(pair["axis"], "axis")
+        self.assertEqual(
+            as_text(axis["of"], "of"),
+            "utility",
+            "`of` is the one axis the difference falls in, and two objectives are the "
+            "`utility` axis D-20 added beside the six (fairness.md §2, surface.md §5, "
+            "utilities.md §8, D-20): %r" % (axis["of"],),
+        )
+        self.assertEqual(
+            {
+                as_text(field, "a differing field")
+                for field in as_sequence(axis["differs"], "'differs'")
+            },
+            {"utility"},
+            "`differs` names the field that differs, and it is `utility` — **one word**, "
+            "the axis token and the field name being the same, unlike the rule's pairing "
+            "of the token `rule` with the field `learning_rule` (utilities.md §8, D-20): "
+            "%r" % (axis["differs"],),
+        )
+        self.assertIsNone(
+            axis["declared"],
+            "for two entries `declared` is None, there being no configuration's axis "
+            "sentence to quote (fairness.md §2)",
+        )
+        constants = as_mapping(pair["constants"], "'constants'")
+        self.assertEqual(
+            [as_text(utility, "a utility name") for utility in
+             as_sequence(constants["utilities"], "a utilities row")],
+            [first_utility, second_utility],
+            "what the pair holds constant is the **set** of utilities it declares — both, "
+            "in declaration order, left first, and never one side's — because two "
+            "objectives are reported as the axis and not imposed as a constant "
+            "(fairness.md §4, §6, declarations.md §4, utilities.md §8, D-20): %r"
+            % (constants["utilities"],),
+        )
+        self.assertEqual(
+            utility_set(constants["utilities"]),
+            {first_utility, second_utility},
+            "the row holds both members, so a report of a two-utility pair states both "
+            "objectives it was trained on (utilities.md §8, records.md §13, D-20): %r"
+            % (constants["utilities"],),
+        )
+        control = as_mapping(
+            self.result(entries[0], with_setting(entries[1], utility=first_utility)),
+            "a fairness record of two entries declaring one utility",
+        )
+        control_constants = as_mapping(control["constants"], "'constants'")
+        self.assertEqual(
+            utility_set(control_constants["utilities"]),
+            {first_utility},
+            "the control: two entries declaring one utility report a one-element set, so "
+            "the row above is what the pair declares and not a fixed pair of names "
+            "(fairness.md §4, utilities.md §8, D-20): %r"
+            % (control_constants["utilities"],),
+        )
+        self.assertEqual(
+            len(as_sequence(control_constants["utilities"], "a utilities row")),
+            1,
+            "one utility is one member of the set and not the same name twice "
+            "(fairness.md §4, utilities.md §8): %r" % (control_constants["utilities"],),
+        )
+
+    def test_trn_7_11_a_side_declaring_no_utility_is_the_catalogue_s_first(self):
+        """TRN-7.11 a side that declares no `utility` is trained under the catalogue's **first** member, so a side spelling that member out and a side leaving it unsaid are one utility and never a phantom difference — resolved through the catalogue and not compared as a raw key (fairness.md §2, §4, §7, utilities.md §5, §8, records.md §2, D-20)."""
+        first_utility, _second_utility = two_utility_names()
+        self.assertEqual(
+            utility_names()[0],
+            first_utility,
+            "the catalogue's first member is the declared default of utilities.md §5, so "
+            "a side naming none is that member: %r" % (utility_names(),),
+        )
+        entries = variant_entries(two_utility_configuration())
+        self.assertEqual(
+            as_text(entries[0]["utility"], "the first arm's declared utility"),
+            first_utility,
+            "the invented pair's first arm spells the catalogue's first member out, which "
+            "is what makes the silent side below comparable with it (utilities.md §2, "
+            "§5): %r" % (entries[0].get("utility"),),
+        )
+        silent = {
+            key: value for key, value in entries[0].items() if key != "utility"
+        }
+        self.assertNotIn(
+            "utility",
+            silent,
+            "this side declares no utility at all, which is the input utilities.md §5 "
+            "gives one answer to: %r" % (sorted(silent),),
+        )
+        pair = self.result(silent, entries[0])
+        axis = as_mapping(pair["axis"], "axis")
+        self.assertEqual(
+            as_text(axis["of"], "of"),
+            "no difference",
+            "a side leaving the default unsaid and a side spelling it out are one "
+            "utility, so the pair differs on no axis at all — a phantom `utility` "
+            "difference would be the raw-key comparison utilities.md §5 forbids "
+            "(fairness.md §2, §7, D-20): %r" % (axis["of"],),
+        )
+        self.assertEqual(
+            as_sequence(axis["differs"], "'differs'"),
+            [],
+            "nothing differs, so `differs` is empty and the axis is not named (fairness.md "
+            "§2, utilities.md §5, D-20): %r" % (axis["differs"],),
+        )
+        constants = as_mapping(pair["constants"], "'constants'")
+        self.assertEqual(
+            utility_set(constants["utilities"]),
+            {first_utility},
+            "the silent side's utility is the catalogue's first, resolved through "
+            "agents.learners() and never stood in for by a constant of this module "
+            "(fairness.md §4, utilities.md §5, §8, D-20): %r" % (constants["utilities"],),
+        )
+        differing = self.result(silent, entries[1])
+        self.assertEqual(
+            as_text(as_mapping(differing["axis"], "axis")["of"], "of"),
+            "utility",
+            "the control: the same silent side against an arm declaring the catalogue's "
+            "second utility is a real difference, so the silence is resolved to one "
+            "member and not to whatever makes a pair agree (fairness.md §2, "
+            "utilities.md §5, §8, D-20): %r" % (differing["axis"]["of"],),
+        )
+
+    def test_trn_7_12_the_reward_row_states_what_each_side_s_utility_delivers(self):
+        """TRN-7.12 `constants['reward']` states the reward each side's utility delivers — both members' tokens for a two-utility pair, one for a pair of one objective — named for the member it belongs to and keeping its ASM-12 citation, because a comparison holds the **set** of rewards constant and never one side's (fairness.md §4, utilities.md §2, §8, ASM-12, D-20)."""
+        first_utility, second_utility = two_utility_names()
+        entries = variant_entries(two_utility_configuration())
+        pair = self.result(entries[0], entries[1])
+        row = as_text(
+            as_mapping(pair["constants"], "'constants'")["reward"], "the reward row"
+        )
+        for utility in (first_utility, second_utility):
+            with self.subTest(utility=utility):
+                self.assertIn(
+                    utility_reward(utility),
+                    row,
+                    "the row states the reward token the catalogue gives %r, so a reader "
+                    "sees which arithmetic each arm's terminal transition carried "
+                    "(utilities.md §2, §8, D-20): %r" % (utility, row),
+                )
+                self.assertIn(
+                    utility,
+                    row,
+                    "the row says **whose** reward each statement is, so a two-utility "
+                    "pair's row is two statements and not one (utilities.md §8, D-20): "
+                    "%r" % (row,),
+                )
+        self.assertIn(
+            "ASM-12",
+            row,
+            "the row keeps its ASM-12 citation, because the delivery rule the rewards "
+            "share — the terminal decision, unshaped — is that assumption and not the "
+            "utility (utilities.md §2, ASM-12, D-20): %r" % (row,),
+        )
+        control = as_mapping(
+            self.result(entries[0], with_setting(entries[1], utility=first_utility)),
+            "a fairness record of two entries declaring one utility",
+        )
+        one = as_text(
+            as_mapping(control["constants"], "'constants'")["reward"], "the reward row"
+        )
+        self.assertIn(
+            utility_reward(first_utility),
+            one,
+            "a pair of one objective states the one reward both arms delivered "
+            "(fairness.md §4, utilities.md §8, D-20): %r" % (one,),
+        )
+        self.assertNotIn(
+            utility_reward(second_utility),
+            one,
+            "and it states no second reward, because neither side named a second "
+            "utility: a row holding both would report a difference the pair does not "
+            "have (fairness.md §4, utilities.md §8, D-20): %r" % (one,),
+        )
+        self.assertIn(
+            "ASM-12",
+            one,
+            "the one-utility row keeps the citation too (utilities.md §2, ASM-12): %r"
+            % (one,),
+        )
+
+    def test_trn_7_13_a_pair_differing_on_the_utility_and_the_backend_is_refused(self):
+        """TRN-7.13 two entries declaring two utilities **and** two backends differ on two axes and are refused as `MultipleAxes` naming both, because a reportable pair differs on one (fairness.md §2, §6, errors.md §2, §4, utilities.md §8, D-20)."""
+        first_utility, second_utility = two_utility_names()
+        entries = variant_entries(two_utility_configuration())
+        doctored = with_setting(entries[1], backend="torch")
+        self.assertEqual(
+            as_text(entries[0]["utility"], "a declared utility"),
+            first_utility,
+            "the pair is the two-utility pair before the backend is doctored "
+            "(utilities.md §2, D-20): %r" % (entries[0].get("utility"),),
+        )
+        self.assertEqual(
+            as_text(doctored["utility"], "a declared utility"),
+            second_utility,
+            "and its second arm still declares the catalogue's second utility, so the two "
+            "differences are both present (utilities.md §8, D-20): %r"
+            % (doctored.get("utility"),),
+        )
+        self.assertNotEqual(
+            as_text(entries[0]["backend"], "a declared backend"),
+            as_text(doctored["backend"], "a declared backend"),
+            "the doctored arm names another backend, which is the second axis "
+            "(fairness.md §3, D-7): %r against %r"
+            % (entries[0].get("backend"), doctored.get("backend")),
+        )
+        refused = self.refuse(
+            lambda: training().fairness(entries[0], doctored),
+            "MultipleAxes",
+            groups=(("backend",), ("utility",)),
+            label="fairness of a pair differing on the utility and the backend",
+            entry="fairness",
+        )
+        for axis_name in ("backend", "utility"):
+            self.assertIn(
+                axis_name,
+                str(refused),
+                "the refusal names every axis the pair differs on — %r among them — so a "
+                "reader can see which comparison the pair was not (fairness.md §6, "
+                "utilities.md §8, D-20): %r" % (axis_name, str(refused)),
+            )
+        reported = self.result(entries[0], entries[1])
+        self.assertEqual(
+            as_text(as_mapping(reported["axis"], "axis")["of"], "of"),
+            "utility",
+            "the control: the same pair with one backend is reportable on the utility "
+            "alone, so the refusal above is about the second axis and not about two "
+            "utilities meeting (fairness.md §2, §6, utilities.md §8, D-20): %r"
+            % (reported["axis"]["of"],),
         )
 
 

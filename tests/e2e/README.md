@@ -1,4 +1,4 @@
-# `tests/e2e/` — the L1 end-to-end battery (Rev 2)
+# `tests/e2e/` — the L1 end-to-end battery (Rev 3)
 
 The battery that drives the built artifact through the declared entry points of
 `docs/L1/e2e-surface.md` §3. Authored at L1 under `docs/L1/battery.md`; the harness module
@@ -23,7 +23,7 @@ neither writes into the repository's `checkpoints/` (`docs/L1/battery.md` §2,
 nothing beyond the standard library and the six declared packages, so it stays collectable
 under either runner (`docs/L1/battery.md` §2). **The `-t .` is not optional**: without it
 discovery does not import this package, so the write-root hook never runs, the case set is not
-the battery's 240, and the run writes into the repository's `checkpoints/` instead of a private
+the battery's 253, and the run writes into the repository's `checkpoints/` instead of a private
 temporary root (`docs/L1/battery.md` §2).
 
 Every case is red before implementation exists. Each one reaches its first declared
@@ -35,8 +35,9 @@ collection error, and never an error thrown by the battery itself.
 
 Rev 2 replaced the head-to-head opponent with the bounded round-robin league (D-16):
 `evaluation` declares eleven entry points and the map forty-nine (`e2e-surface.md` §3.4,
-§4). D-19 makes the learning rule a catalogue (`docs/L1/rules.md`), which is FAM-17. The
-families below are the seventeen of `battery.md` §3, in its order.
+§4). D-19 makes the learning rule a catalogue (`docs/L1/rules.md`), which is FAM-17, and D-20
+makes the terminal reward one (`docs/L1/utilities.md`), which is FAM-18. The families below are
+the eighteen of `battery.md` §3, in its order.
 
 | File | Family | What it holds | Cases |
 |---|---|---|---|
@@ -59,10 +60,11 @@ families below are the seventeen of `battery.md` §3, in its order.
 | `test_fam15_custom.py` | FAM-15 | the battery's own seventh rung, its declared membership and the invented pool, run and reported as data | 5 |
 | `test_fam16_blind.py` | FAM-16 | the 37 blind instances of §5 below | 37 |
 | `test_fam17_rules.py` | FAM-17 | the learning-rule catalogue D-19 adds: two named rules with their targets, one capacity and one contract between them, the declared default, a name outside the catalogue refused by name, a checkpoint's rule, a configuration that trains **two** rules, fairness on the rule axis, and the heterogeneous table that names its population | 10 |
+| `test_fam18_utilities.py` | FAM-18 | the utility catalogue D-20 adds: two named utilities with their rewards, one capacity and one contract between them, `net-chips` the declared default, a name outside the catalogue refused by name in a spec, a variant entry, a pool member and a `load` spec, a checkpoint's utility with a contradicting `load` refused, the shipped index whose every entry names a `utility` with one shipped version-1 container read as `net-chips` through `evaluation.policy_from`, a configuration that trains **two** utilities whose arms' curves differ, fairness on the `utility` axis, and the table that names both objectives | 13 |
 
-240 cases: FAM-1 49, FAM-2 11, FAM-3 19, FAM-4 13, FAM-5 8, FAM-6 17, FAM-7 10,
+253 cases: FAM-1 49, FAM-2 11, FAM-3 19, FAM-4 13, FAM-5 8, FAM-6 17, FAM-7 10,
 FAM-8 10, FAM-9 8, FAM-10 5, FAM-11 13, FAM-12 8, FAM-13 6, FAM-14 11, FAM-15 5,
-FAM-16 37, FAM-17 10.
+FAM-16 37, FAM-17 10, FAM-18 13.
 
 This directory is the harness's *consumer*, not its implementation: the `50 + 10×N` line
 ceiling of `docs/L1/module-map.md` §4 applies to the harness's own files, and
@@ -78,7 +80,9 @@ one baselines-plus-one-variant table and its rating once per process and shares 
 table is the one a **second** variant costs: two policies of two rules over the
 baselines alone, K = 5 and 10 cells — 1,200 hands, built once per process and shared by
 FAM-8, FAM-11 and FAM-17 (`shared_rule_league`), which is the smallest membership that
-holds both rules and the last table the battery can afford (`battery.md` §2, ASM-14). Everything
+holds both rules and the last table the battery can afford (`battery.md` §2, ASM-14). D-20's
+`shared_utility_league` is its sibling on the other axis — the same K = 5 and 10 cells, built
+once and read by FAM-18.10 (`utilities.md` §9, D-20). Everything
 else the battery plays stays in the tens of hands per case (`battery.md` §2), and the
 timing cases assert that a cost record carries the hands counted and a per-hand cost or its
 reciprocal throughput — read by what the keys name, never by a literal spelling — and never
@@ -112,6 +116,14 @@ an instance that appears in no design document. The battery's own vocabulary:
   variant names `masked-arm`/`double-arm`, width 53, depth 3, seed set, pool id and
   baselines-only membership are the battery's own, and whose two variant entries agree on
   everything a pair must share and differ on `learning_rule` alone (D-19, `rules.md` §7);
+- the two utilities of `utilities.md` §2, `net-chips` and `stack-shortfall`, read off
+  `agents.learners()` and never spelled twice — with `tournament-payout-battery` and
+  `chips-per-hour-battery` as the invented names **outside** the catalogue, one for a learner
+  spec, a pool member and a `load` spec, one for a variant entry (`utilities.md` §5, D-20) — and a two-utility
+  configuration `R11-dual-utility` (`SurfaceCase.two_utility_rung`) whose variant names
+  `chips-arm`/`shortfall-arm`, width 47, depth 3, seed set, pool id and baselines-only
+  membership are the battery's own, agreeing on everything a pair must share and differing on
+  `utility` alone (D-20, `utilities.md` §7, §8);
 - a seventh rung `R7` (`_surface.custom_rung`) whose axis, variant names
   `deep-sparse`/`wide-sparse`, hyperparameters, sample budget, seed set, pool id and
   declared membership are the battery's own, written to `ladder.md` §3's schema — the

@@ -267,17 +267,52 @@ def _trained_rule(configuration, entry):
     return declarations.learning_rules()[0]
 
 
+def _declared_utility(configuration, entry):
+    """The utility a variant declares — its entry's, else its configuration's, else `None`.
+
+    The utility side of :func:`_declared_rule`, read at either level so a configuration may
+    carry the declaration beside its entries and an entry may name its own; a level that
+    declares none — or declares `None` — is no claim, and `None` is returned so a caller
+    passes no utility at all rather than a utility this module substituted
+    (docs/L2/training/declarations.md §1–§2, utilities.md §5, D-20).
+    """
+    declared = entry.get("utility")
+    if declared is not None:
+        return declared
+    declared = configuration.get("utility")
+    if declared is not None:
+        return declared
+    return None
+
+
+def _trained_utility(configuration, entry):
+    """The utility a variant's learner is trained on: the declared one, else the first.
+
+    A variant naming no utility is built by `agents` under the catalogue's **first**
+    member, so the utility is resolved by reading `declarations.utilities()` — the
+    catalogue `agents.learners()` publishes — and never by standing
+    `declarations.UTILITY` in for it, because that constant is what the six rows declare
+    and not a default this module owns (utilities.md §5, D-20,
+    docs/L3/training/loop.md §1 step 3).
+    """
+    declared = _declared_utility(configuration, entry)
+    if declared is not None:
+        return declared
+    return declarations.utilities()[0]
+
+
 def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     """Steps 3-8 for one variant at one seed: train, snapshot, save, and measure.
 
     The interval is `budget // 10` and not the declared `snapshot_every`, because ASM-18
     fixes ten equally spaced snapshots at whatever budget the run was given. The learner is
     built at the run seed itself, under the rule the entry — else its configuration —
-    declares: a spec naming none carries no `learning_rule` key at all, so `agents` builds
-    the catalogue's first and this module substitutes no rule of its own (D-19, rules.md
-    §4). The hand's deal seed and opponent seed are `seeds.py`'s derivations, so both arms
-    of a pair play the same hands against the same opponents (protocol.md §4, ASM-2,
-    ASM-8).
+    declares and on the reward of the utility the entry — else its configuration —
+    declares: a spec naming either none carries no key at all, so `agents` builds that
+    catalogue's first and this module substitutes nothing of its own (D-19, D-20,
+    rules.md §4, utilities.md §5). The hand's deal seed and opponent seed are `seeds.py`'s
+    derivations, so both arms of a pair play the same hands against the same opponents
+    (protocol.md §4, ASM-2, ASM-8).
 
     `agents.save` is handed `layout._write_path` of a declared path — the write root,
     which is the declared `<repo>/checkpoints` unless the ambient override names another
@@ -304,6 +339,12 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     rule = _declared_rule(configuration, entry)
     if rule is not None:
         spec["learning_rule"] = rule
+    # The utility the variant is trained on, forwarded exactly as the rule is: a spec
+    # naming none carries no `utility` key and `agents` builds the catalogue's first
+    # (utilities.md §5, D-20).
+    trained_utility = _declared_utility(configuration, entry)
+    if trained_utility is not None:
+        spec["utility"] = trained_utility
     learner = agents.build_learner(spec)
     policy = policies._learner_policy(learner, encoder)
     layout._prepare(name, variant, seed)
@@ -318,7 +359,12 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
             played = engine.play_hand(hand_seed, policy, opponent)
         else:
             played = engine.play_hand(hand_seed, opponent, policy)
-        batch = episode._transitions(played, seat, encoder)
+        # The utility the variant is trained on, resolved once and handed to the step
+        # that turns the hand into transitions — the one place D-20's reward is applied
+        # (`utilities.md` §4, D-20).
+        batch = episode._transitions(
+            played, seat, encoder, _trained_utility(configuration, entry)
+        )
         trained = index + 1
         if batch:
             statistics = agents.learn(learner, batch)
@@ -424,6 +470,26 @@ def _member_rules(members):
     return rules
 
 
+def _member_utilities(members):
+    """The distinct utilities the pool's **version** members declare, in membership order.
+
+    The utility side of :func:`_member_rules`: `records.md` §8's pool record carries
+    `utilities` — the objective population a table over the pool measured — and a run
+    record's `pool` block carries the same set, because a run says which objectives its
+    opposition was trained on (`records.md` §8, §12, `utilities.md` §7, D-20).  It is read
+    off the members `pool_members` returned and never invented here: the three pinned
+    baselines declare none, so a baselines-only window reports an empty set
+    (`records.md` §7, §8; `docs/L3/training/loop.md` §3).
+    """
+    utilities = []
+    for member in members:
+        utility = member.get("utility") if isinstance(member, Mapping) else None
+        if utility is None or utility in utilities:
+            continue
+        utilities.append(utility)
+    return utilities
+
+
 def _record(
     configuration,
     pool_id,
@@ -442,10 +508,13 @@ def _record(
 
     `rules` is the distinct set of rules the run trained, in declaration order and deduped:
     one name for a ladder rung, whose six rows declare the catalogue's first, and two for a
-    configuration whose arms name two estimators (`records.md` §12, rules.md §7, D-19). The
-    `pool` block carries the same kind of set for the opposition — `_member_rules` of the
-    members `pool_members` returned — because `records.md` §12 makes the pool's `rules` part
-    of the record (`records.md` §8, D-19).
+    configuration whose arms name two estimators (`records.md` §12, rules.md §7, D-19).
+    `utilities` is the same set on D-20's axis — the utilities the run declared and
+    trained, one for a ladder rung and two for a configuration whose arms name two
+    (`records.md` §12, utilities.md §7, D-20). The `pool` block carries both kinds of set
+    for the opposition — `_member_rules` and `_member_utilities` of the members
+    `pool_members` returned — because `records.md` §12 makes the pool's `rules` and
+    `utilities` part of the record (`records.md` §8, D-19, D-20).
     """
     params = {}
     for entry in configuration["variants"]:
@@ -460,6 +529,11 @@ def _record(
         rule = _trained_rule(configuration, entry)
         if rule not in rules:
             rules.append(rule)
+    utilities = []
+    for entry in configuration["variants"]:
+        utility = _trained_utility(configuration, entry)
+        if utility not in utilities:
+            utilities.append(utility)
     record = {
         "rung": configuration.get("name"),
         "curves": curve_block,
@@ -470,6 +544,7 @@ def _record(
             "frozen": bool(pool_record["frozen"]),
             "members": _recorded_members(pool_record["members"]),
             "rules": _member_rules(pool_record["members"]),
+            "utilities": _member_utilities(pool_record["members"]),
         },
         "checkpoints": checkpoints_block,
         "seeds": list(seed_set),
@@ -480,6 +555,7 @@ def _record(
         "timings": timings_block,
         "variants": variant_block,
         "rules": rules,
+        "utilities": utilities,
     }
     record["header"] = _header(
         configuration, table, hands, seed_set, device, checkpoints_block, interval
@@ -541,6 +617,7 @@ def run(rung, seeds=None, budget=None, device=None):
                 "encoding": entry["encoding"],
                 "architecture": dict(entry["architecture"]),
                 "learning_rule": _trained_rule(configuration, entry),
+                "utility": _trained_utility(configuration, entry),
                 "samples": int(entry.get("samples", hands)),
                 "snapshot_every": int(interval),
             }

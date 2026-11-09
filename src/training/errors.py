@@ -66,7 +66,12 @@ class PoolIdsDiffer(TrainingError):
 
 
 class IgnoredDeclaration(TrainingError):
-    """`run`: a declared `learning_rule` the catalogue does not carry, a `hyper` key, or a `snapshot_every` the run would not use (ASM-7, ASM-18, D-19)."""
+    """`run`: a declared `learning_rule` or `utility` the catalogue does not carry, a `hyper` key, or a `snapshot_every` the run would not use (ASM-7, ASM-18, D-19, D-20)."""
+
+
+class ChipConservationBroken(TrainingError):
+    """`run`: one hand's chips in play disagree with the stacks the game declares, so the
+    utility's normaliser would not be the game's own (ASM-6, `utilities.md` §4, D-20)."""
 
 
 class PairDeclarationsDiffer(TrainingError):

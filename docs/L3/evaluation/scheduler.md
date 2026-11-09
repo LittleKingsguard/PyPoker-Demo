@@ -1,10 +1,11 @@
 # evaluation — the scheduler, one cell at a time
 
 - **Owner:** `match` and `policy_from` — one cell and the sides it plays: seat alternation, the **seed derivations** (§3),
-  win/tie/loss from net chips, the seat split, the zero-sum directions, how a side becomes a policy and **the rule it
-  carries** (§5), the **two facts a checkpoint records** (§5.1), and every refusal (`surface.md` §9, §12, `league.md`, D-19)
+  win/tie/loss from net chips, the seat split, the zero-sum directions, how a side becomes a policy and **the rule and
+  utility it carries** (§5), the **two facts a checkpoint records** (§5.1), and every refusal (`surface.md` §9, §12,
+  `league.md`, D-19, D-20)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** `pool.md` §7, `families.md` §6, `matrix.md` §3–§4, `rating.md` §4, `errors.md` §2–§4
+- **Read with:** `pool.md` §7, `families.md` §6, `utility.md` §1–§4, `matrix.md` §3–§4, `rating.md` §4, `errors.md` §2–§4
 
 ## 1. The cell
 
@@ -21,10 +22,9 @@ no cost fix, because one global `random` stream deals every hand (`league.md` §
 ## 2. Seats alternate, and the split says so
 
 Seat 0 holds the button and posts the small blind in every hand (`engine/surface.md` §4), so alternating which member is
-handed over as seat 0 alternates the button: `left` holds it `ceil(hands/2)` times and `right` `floor(hands/2)`, and one
-member holding it throughout would be a positional artefact and not a measurement (D-16). Each direction reports its own
-`seat_split` — the hands **that member** played in engine seat 0 (the button) and seat 1 (the big blind), summing to
-`hands`, keyed by the engine's seat order and never `button`/`big blind` (`features/surface.md` §5).
+handed seat 0 alternates the button: `left` holds it `ceil(hands/2)` times and `right` `floor(hands/2)`, and one member
+holding it throughout would be a positional artefact (D-16). Each direction reports its own `seat_split`: that member's
+hands in seat 0 and seat 1, summing to `hands` and never `button`/`big blind` (`features/surface.md` §5).
 
 ## 3. The seeds — five derivations, and no stream
 
@@ -43,8 +43,7 @@ the fifth is one modulo, so one seed and one position give one result on any hos
 | `_bootstrap_seed(table_seed)` | `b"pypoker-evaluation/bootstrap/v1"` | `(table_seed,)` | the rating's bootstrap (`rating.md` §4) |
 | `_draw_index(seed, n)` | — | `(seed,)` | the opponent draw, `seed % n` (`pool.md` §7) — arithmetic, not a digest |
 
-**A checkpoint's policy seed is derived here in no way at all**: its container records it (§5.1, `records.md` §7), and no
-rule moves any of the five.
+**A checkpoint's policy seed is derived here in no way at all**: its container records it (§5.1, `records.md` §7).
 
 ## 4. What a hand was, and what the two directions are
 
@@ -56,40 +55,40 @@ cell reads `d0 = payoffs[0]` and `d1 = payoffs[1]`, and each member's delta is i
 - `mean_chip_delta` is `sum(deltas) / hands` as a plain `float` — chips **per hand**, so two cells of different hand counts
   are comparable, and the record carries no total;
 - `directions` holds two entries **position-aligned with `members`**, entry 0 `left`'s side, so a tied hand is a tie for
-  both and the two means are exact negations: `d0 + d1 == 0` for every hand and both divide by the same `hands` (ASM-12,
-  `league.md` §2, FAM-7.4).
+  both and the two means are exact negations: `d0 + d1 == 0` per hand, both divided by one `hands` (ASM-12, `league.md`
+  §2, FAM-7.4).
 
-A cell carries `records.md` §9's six required keys — `members`, `hands`, `directions`, `params`, `rules`, `seed` — plus
-`unlabelled`, this module's own: the ids whose `params` is an **unmeasured** `0` (`surface.md` §2, ASM-10). `rules` maps
-each member's **id** to the rule its policy carries — `None` for a baseline and for an opaque policy that carries none —
-so a cell says which two estimators met (`records.md` §9, §5, D-19). A direction carries `wins`, `ties`, `losses`,
-`mean_chip_delta` and `seat_split` (§2), nothing else, and counts summing to `hands`.
+A cell carries `records.md` §9's seven required keys — `members`, `hands`, `directions`, `params`, `rules`, `utilities`,
+`seed` — plus `unlabelled`, this module's own: the ids whose `params` is an **unmeasured** `0` (`surface.md` §2, ASM-10).
+`rules` and `utilities` map each member's **id** to the rule and the utility its policy carries, `None` for a baseline or
+an opaque policy that carries neither, so a cell says which two estimators met and which two objectives (`records.md` §9,
+`utility.md` §3, D-19, D-20). A direction carries `wins`, `ties`, `losses`, `mean_chip_delta` and `seat_split` (§2).
 
 ## 5. The sides: a member record, a baseline name, or a policy
 
 `match` accepts "two policies or two member records — a `records.md` §7 version record, or one of the three baseline
 names" (`surface.md` §9). `_side(value, label, entry, seed=None, position=1)` resolves one side to
-`(id, policy, params, unlabelled, rule)`:
+`(id, policy, params, unlabelled, rule, utility)` — **six** elements, and every reader of a side unpacks six
+(`_play_cell`, `_membership`):
 
-| `value` | id | policy | `params` | `unlabelled` | `rule` |
-|---|---|---|---|---|---|
-| one of `random`, `always-call`, `oracle` | the name itself | `agents.build_baseline(name, seed)` | `0` | `False` | `None` — a fixed rule, not an estimator |
-| a `records.md` §7 version record (a mapping with `id`) | `record["id"]` | `_member_policy(record)` | `agents.param_count` of the restored learner | `False` | the rule the built policy carries |
-| a `_MemberPolicy` this module built | its `member_id` | the policy itself | its `params` | its `unlabelled` | its `learning_rule` |
-| any other callable | `policy-1`, `policy-2` in argument order | the callable, as given | `0` | `True` | its own `learning_rule` if it declares one, else `None` |
-| anything else | — | refused, `MemberInvalid` | — | — | — |
+| `value` | id | policy | `params` | `unlabelled` | `rule` | `utility` |
+|---|---|---|---|---|---|---|
+| one of `random`, `always-call`, `oracle` | the name itself | `agents.build_baseline(name, seed)` | `0` | `False` | `None` — a fixed rule, not an estimator | `None` — a fixed policy, not a trained objective |
+| a `records.md` §7 version record (a mapping with `id`) | `record["id"]` | `_member_policy(record)` | `agents.param_count` of the restored learner | `False` | the rule the built policy carries | the utility the built policy carries |
+| a `_MemberPolicy` this module built | its `member_id` | the policy itself | its `params` | its `unlabelled` | its `learning_rule` | its `utility` |
+| any other callable | `policy-1`, `policy-2` in argument order | the callable, as given | `0` | `True` | its own `learning_rule` if it declares one, else `None` | its own `utility` if it declares one, else `None` |
+| anything else | — | refused, `MemberInvalid` | — | — | — | — |
 
-**Who carries which rule**, the three cases the record turns on (`e2e-surface.md` §2, `rules.md` §7, D-19): a **baseline**
-carries none, because it is a fixed rule and not a trained estimator, so `rules` names it `None`; a **version** carries
-the rule its checkpoint records, reported by the policy `agents.as_policy` built (§5.1), and a record declaring a `rule` is
-held to it — a disagreement is `RuleMismatch` naming the member and both, after the load and before a hand
-(`families.md` §6, ASM-20); and an **opaque callable** carries whatever its own `learning_rule` says, `None` for a plain
-function (ASM-10).
+**Who carries which rule and which utility**, the three cases the record turns on (`e2e-surface.md` §2, `utilities.md` §7,
+D-19, D-20): a **baseline** carries neither, because it is a fixed policy and not a trained member, so `rules` and
+`utilities` name it `None`; a **version** carries the rule and the utility its checkpoint records, reported by the policy
+`agents.as_policy` built (§5.1), and a record declaring either is held to it — a disagreement is `RuleMismatch` or
+`UtilityMismatch` naming the member and both values, after the load and before a hand (`utility.md` §4, ASM-20); and an
+**opaque callable** carries whatever its own `learning_rule` and `utility` say, `None` for a plain function (ASM-10).
 
-A baseline named in a call is built **at that call's seed**, so one cell is reproduced from its seed alone. A version is
-built by `_member_policy(record)` at the **seed its checkpoint records** (§5.1) — the only seed at which it decides as its
-learner did (`protocol.md` §5) — and a record whose own `seed` disagrees is **not** refused: the container decides
-(`errors.md` §5).
+A baseline named in a call is built **at that call's seed**. A version is built by `_member_policy(record)` at the **seed
+its checkpoint records** (§5.1) — the only seed at which it decides as its learner did (`protocol.md` §5) — and a record
+whose own `seed` disagrees is **not** refused: the container decides (`errors.md` §5).
 
     def _checkpoint_policy(member_id, path):
         seed, names    = _checkpoint_facts(path)      # §5.1 — the recorded seed and the name candidates
@@ -97,18 +96,19 @@ learner did (`protocol.md` §5) — and a record whose own `seed` disagrees is *
         learner        = agents.load(None, path)      # agents' own refusal, propagated unchanged
         policy         = agents.as_policy(learner, encoder, seed)
         return _MemberPolicy(member_id = member_id, params = agents.param_count(learner), policy = policy,
-                             learning_rule = getattr(policy, "learning_rule", None))      # §5.1
+                             learning_rule = getattr(policy, "learning_rule", None),     # §5.1
+                             utility       = getattr(policy, "utility", None))            # §5.1, utility.md §3
 
 `policy_from(path)` is that builder with a bare-artefact id, `"ckpt-" + sha256(path).hexdigest()[:12]`.
 
 ### 5.1 The two facts a checkpoint records, and the reader that finds them
 
 `surface.md` §12 makes the checkpoint's own container the source of the seed and of the encoding name; this module reads
-**exactly those two and nothing else** — not the learner, its parameters, its rule or its format version, which are
-`agents.load`'s alone (`agents/surface.md` §9–§10, ASM-20) — and it never substitutes a seed, a path digest included
-(§3). **The rule is not a third fact read here**: it is the `learning_rule` attribute of the policy `agents.as_policy`
-built, which is the rule the file records, so a version-1 container legitimately reads as `masked-q-learning`
-(`rules.md` §6, ASM-20, D-19, G20).
+**exactly those two and nothing else** — not the learner, its parameters, its rule, its utility or its format version,
+which are `agents.load`'s alone (`agents/surface.md` §9–§10, ASM-20) — and it never substitutes a seed, a path digest
+included (§3). **The rule and the utility are not further facts read here**: they are the `learning_rule` and `utility`
+attributes of the policy `agents.as_policy` built, which are what the file records, so a version-1 container legitimately
+reads as `masked-q-learning` and `net-chips` (`rules.md` §6, `utilities.md` §6, ASM-20, D-19, D-20, G20).
 
 The container was established **empirically** — a learner built through the declared entry points, saved, and the file
 inspected, never `agents`' source — and it is a plain **zip** of `metadata.json` then `parameters.npy`, a bare `.npy`
@@ -125,8 +125,8 @@ is `UnknownEncoding` (§6); a fact the walk finds nowhere is `CheckpointRecordMi
 |---|---|---|
 | `MemberInvalid` | a side is neither a callable nor a §7 record nor a baseline name; a record carries no `id` | the value and the three contracts |
 | `MemberUnloadable` | a §7 record carries no `path`, or its `path` names no readable file | the member and the path |
-| `UnknownRule` | a §7 record's declared `rule` is not one the catalogue carries | the member, the name and the catalogue (`families.md` §6) |
-| `RuleMismatch` | a §7 record's declared `rule` disagrees with the rule its policy carries — after the load, before a hand | the member, both values and the path |
+| `UnknownRule`, `UnknownUtility` | a §7 record's declared `rule` or `utility` is not one its catalogue carries | the member, the name and the catalogue (`families.md` §6, `utility.md` §4) |
+| `RuleMismatch`, `UtilityMismatch` | a §7 record's declared `rule` or `utility` disagrees with the one its policy carries — after the load, before a hand | the member, both values and the path (`utility.md` §4) |
 | `InvalidHandCount` | `hands` is not a positive integer, or is a `bool` | the count |
 | `InvalidSeed` | `seed` is not an integer (a `bool` included) | the seed |
 | `SameMemberPair` | the two sides carry one id — a cell pairs two **distinct** members | the id |
@@ -140,9 +140,9 @@ module declares is the encoder's, re-raised as `UnknownEncoding` (§5.1). Only `
 ## 7. Determinism
 
 One pair, one hand count and one seed give one cell **whatever was played before it**, because every hand's seed is a
-function of the cell's seed and the hand's index alone (§3), and `match` seeds no stream — the only seeding is
-`engine.new_hand`, inside `engine.play_hand` (`protocol.md` §4) — so two runs of one cell are equal value for value,
-`rules` included (FAM-7.7), and `policy_from` answers what `agents.act` answers at the learner's own seed (FAM-12.3).
+function of the cell's seed and the index alone (§3) and `match` seeds no stream: `engine.new_hand` is the only seeding
+(`protocol.md` §4). Two runs of one cell are therefore equal value for value, `rules` and `utilities` included (FAM-7.7),
+and `policy_from` answers what `agents.act` answers at the learner's seed (FAM-12.3).
 
 ## 8. What is deliberately free
 

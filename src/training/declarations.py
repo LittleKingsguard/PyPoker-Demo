@@ -38,10 +38,12 @@ TABLE_BUDGETS = ("live", "full")
 #: The device a run uses when none is named (D-8, protocol.md §6).
 DEVICE = "cpu"
 
-#: What the six rows below declare: the catalogue's first member (rules.md §2, §4, D-19).
-#: Not a rule the run is fixed to — a variant may name another catalogued rule, and
-#: `learning_rules()` is how the run learns which names exist.
+#: What the six rows below declare: the catalogue's first member of each axis (rules.md
+#: §2, §4, utilities.md §2, §5, D-19, D-20).  Not a rule or a utility the run is fixed to
+#: — a variant may name another catalogued member of either axis, and `learning_rules()`
+#: and `utilities()` are how the run learns which names exist.
 LEARNING_RULE = "masked-q-learning"
+UTILITY = "net-chips"
 
 #: `agents.learners()["hyper"]`'s declarations, quoted so a fairness report can name the
 #: hyperparameters a pair holds constant (ladder.md §4, docs/L3/agents/rule.md §6).
@@ -84,16 +86,26 @@ KIND_FAMILY = {
     "plain": "token-sequence",
 }
 
-#: The six axes a comparison is read on (`docs/L2/training/surface.md` §5,
-#: `docs/L3/training/fairness.md` §2, and D-19, which makes the rule an axis).
-AXES = ("backend", "encoding", "architecture", "connectivity", "residual", "rule")
+#: The seven axes a comparison is read on (`docs/L2/training/surface.md` §5,
+#: `docs/L3/training/fairness.md` §2, D-19, which makes the rule an axis, and D-20, which
+#: makes the utility the seventh).
+AXES = (
+    "backend",
+    "encoding",
+    "architecture",
+    "connectivity",
+    "residual",
+    "rule",
+    "utility",
+)
 
 #: The three pinned baselines, in `agents.baselines()`'s order (D-6, ASM-16).
 BASELINES = ("random", "always-call", "oracle")
 
-#: The seven settings both arms of one pair declare one value for: `learning_rule` is not
-#: one of them, because two arms may declare two catalogue rules and every variant is
-#: trained (docs/L2/training/declarations.md §4, rules.md §8, D-19).
+#: The seven settings both arms of one pair declare one value for: `learning_rule` and
+#: `utility` are not among them, because two arms may declare two catalogue members of
+#: either axis and every variant is trained (docs/L2/training/declarations.md §4,
+#: rules.md §8, utilities.md §8, D-19, D-20).
 PAIR_SETTINGS = (
     "hyper",
     "samples",
@@ -118,6 +130,19 @@ def learning_rules():
     return tuple(agents.learners()["learning_rules"])
 
 
+def utilities():
+    """The catalogue's utility names, in `agents.learners()`'s order (utilities.md §2, D-20).
+
+    The one place this module reads the utility catalogue:
+    `agents.learners()["utilities"]` is keyed by the catalogue's members in
+    `utilities.md` §2's order, so a reader learns which utilities exist and which one is
+    first — the declared default `agents.build_learner` applies to a spec naming none —
+    without a second copy of the names here. Never hard-coded, for the reason
+    `learning_rules()` gives (`utilities.md` §2, §5, D-20, `agents/surface.md` §3).
+    """
+    return tuple(agents.learners()["utilities"])
+
+
 def _architecture(kind, width, depth, sparsity=0.0, residual=False):
     """One architecture record: the kind and the four settings (records.md §2)."""
     return {
@@ -132,11 +157,12 @@ def _architecture(kind, width, depth, sparsity=0.0, residual=False):
 def _variant(name, backend, encoding, architecture):
     """One variant entry of a rung configuration (records.md §2, ladder.md §3).
 
-    A variant declares its own `learning_rule` — these six rows name the catalogue's first
-    member, and a variant may name another catalogued rule — while the hyperparameters, the
-    budgets, the seed set, the device, the snapshot interval and the table budget stay one
-    declaration for the whole ladder, so two arms of a pair quote the same values and no
-    rung carries a second copy (rules.md §2, §4, D-19, ASM-7, ASM-8, ASM-10).
+    A variant declares its own `learning_rule` and its own `utility` — these six rows name
+    the catalogue's first member of each axis, and a variant may name another catalogued
+    member of either — while the hyperparameters, the budgets, the seed set, the device,
+    the snapshot interval and the table budget stay one declaration for the whole ladder,
+    so two arms of a pair quote the same values and no rung carries a second copy
+    (rules.md §2, §4, utilities.md §2, §5, D-19, D-20, ASM-7, ASM-8, ASM-10).
     """
     return {
         "name": name,
@@ -144,6 +170,7 @@ def _variant(name, backend, encoding, architecture):
         "encoding": encoding,
         "architecture": architecture,
         "learning_rule": LEARNING_RULE,
+        "utility": UTILITY,
         "hyper": {
             key: (dict(value) if isinstance(value, dict) else value)
             for key, value in HYPER.items()
@@ -504,6 +531,41 @@ def _check_learning_rule(where, configuration, entries):
         )
 
 
+def _check_utility(where, configuration, entries):
+    """Refuse a `utility` the catalogue does not carry, at either level (D-20).
+
+    The utility side of :func:`_check_learning_rule`, on the same terms: the catalogue
+    `agents.learners()` publishes — read once through `utilities()` — is the whole
+    vocabulary a utility is judged against, at the configuration first and then at each
+    entry.  A declared name no member carries, or a name that is not a string, is a
+    utility no learner can be built under; a **second catalogued** utility is read,
+    forwarded and trained, so what is refused here is an uncatalogued name and never a
+    utility the run is not fixed to.  A level that declares no utility — or declares
+    `None` — is no claim and is accepted (utilities.md §2, §5, D-20,
+    docs/L2/training/declarations.md §2).
+    """
+    catalogue = utilities()
+    own = configuration.get("utility")
+    if own is not None and own not in catalogue:
+        raise errors.IgnoredDeclaration(
+            "training.run refused the configuration %r: 'utility' is %r, and the "
+            "catalogue agents.learners() publishes (src/agents/declarations.py) carries "
+            "%s — name one of those, or name none for the catalogue's first "
+            "(utilities.md §2, §5, D-20)" % (where, own, ", ".join(catalogue))
+        )
+    for entry in entries:
+        utility = entry.get("utility") if isinstance(entry, Mapping) else None
+        if utility is None or utility in catalogue:
+            continue
+        raise errors.IgnoredDeclaration(
+            "training.run refused the variant %r of the configuration %r: 'utility' "
+            "is %r, and the catalogue agents.learners() publishes (src/agents/"
+            "declarations.py) carries %s — name one of those, or name none for the "
+            "catalogue's first (utilities.md §2, §5, D-20)"
+            % (entry.get("name"), where, utility, ", ".join(catalogue))
+        )
+
+
 def _check_snapshot_every(configuration, where, entries):
     """Refuse a `snapshot_every`, at either level, that is not the declared samples ÷ 10.
 
@@ -545,17 +607,19 @@ def check_declarations(configuration):
     """Refuse every declaration a run would not use, before the pool is built.
 
     One place for the rule `docs/L2/training/declarations.md` §2–§4 states: a `hyper` key
-    that is unknown or disagrees with `HYPER`, and a `learning_rule` the catalogue
-    `agents.learners()` publishes does not carry — each **at the configuration and at each
-    entry** — and a `snapshot_every` at either level that is not the declared samples ÷ 10,
-    plus, for a two-entry configuration, the seven settings both arms must share. Every
-    refusal is raised before the first hand is dealt and before anything is written
-    (ASM-7, ASM-8, ASM-18, docs/L3/training/loop.md §1 step 1).
+    that is unknown or disagrees with `HYPER`, and a `learning_rule` or a `utility` the
+    catalogues `agents.learners()` publishes do not carry — each **at the configuration
+    and at each entry** — and a `snapshot_every` at either level that is not the declared
+    samples ÷ 10, plus, for a two-entry configuration, the seven settings both arms must
+    share. Every refusal is raised before the first hand is dealt and before anything is
+    written (ASM-7, ASM-8, ASM-18, utilities.md §5, D-19, D-20,
+    docs/L3/training/loop.md §1 step 1).
     """
     where = configuration.get("name")
     entries = list(configuration["variants"])
     _check_hyper(where, configuration, entries)
     _check_learning_rule(where, configuration, entries)
+    _check_utility(where, configuration, entries)
     _check_snapshot_every(configuration, where, entries)
     if len(entries) != 2:
         return

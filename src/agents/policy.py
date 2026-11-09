@@ -1,11 +1,13 @@
-"""`as_policy` and the frozen snapshot (`rule.md` §7, `surface.md` §10).
+"""`as_policy` and the frozen snapshot (`rule.md` §7, `utility.md` §7, `surface.md` §10).
 
 A policy is a callable `policy(readout, legal_actions)` that encodes the readout with
 the caller's encoder, takes the mask `features.legal_indices` gives it, decides by
 `rule.md` §4-§5 with its **own** seed, and returns `features.decode_action` of the
 index it chose — always one of `legal_actions`.  It holds the learner's state as a
 copy taken at build time, so a later `learn` cannot change a policy already built
-(`surface.md` §10, ASM-5).
+(`surface.md` §10, ASM-5).  It carries the catalogue member its learner learned under
+and the one whose reward it was trained on, and no decision it makes reads either
+(`rules.md` §7, `utilities.md` §7, D-19, D-20).
 
 Its refusals are **this** module's (`errors.md` §2-§3): a readout that is not a
 mapping, or that is missing a fact the rule needs, is refused as `agents`'
@@ -30,13 +32,14 @@ LEGAL = "legal"
 
 
 class Policy:
-    """One learner, frozen: its parameters, its position, its own seed, its rule.
+    """One learner, frozen: its parameters, its position, its own seed, its rule, its utility.
 
-    `learning_rule` is the catalogue member the learner was built under.  It is the
-    only thing a policy carries that a decision does not read: `evaluation` reads it to
-    label a table's members, so a table names the population it measured even when a
-    variant was built in process and no record of it exists yet (`e2e-surface.md` §2,
-    `rules.md` §7, D-19).
+    `learning_rule` is the catalogue member the learner was built under and `utility`
+    the catalogue member whose reward its model was trained on.  They are the only
+    things a policy carries that a decision does not read: `evaluation` reads them to
+    label a table's members, so a table names the population and the objectives it
+    measured even when a variant was built in process and no record of it exists yet
+    (`e2e-surface.md` §2, `rules.md` §7, `utilities.md` §7, D-19, D-20).
     """
 
     __slots__ = (
@@ -48,10 +51,20 @@ class Policy:
         "_encoder",
         "_facts",
         "learning_rule",
+        "utility",
     )
 
     def __init__(
-        self, backend, layout, state, seed, position, encoder, facts, learning_rule
+        self,
+        backend,
+        layout,
+        state,
+        seed,
+        position,
+        encoder,
+        facts,
+        learning_rule,
+        utility,
     ):
         self._backend = backend
         self._layout = layout
@@ -61,13 +74,15 @@ class Policy:
         self._encoder = encoder
         self._facts = tuple(facts)
         self.learning_rule = learning_rule
+        self.utility = utility
 
     def __repr__(self):
-        return "Policy(%r, position %d, seed %d, %s)" % (
+        return "Policy(%r, position %d, seed %d, %s, %s)" % (
             self._layout.kind,
             self._position,
             self._seed,
             self.learning_rule,
+            self.utility,
         )
 
     def __call__(self, readout, legal_actions):
@@ -137,4 +152,7 @@ def as_policy(learner, encoder, seed):
         # The rule the frozen model learned under, carried so a table can name the
         # population it measured (`e2e-surface.md` §2, `rules.md` §7, D-19).
         held.rule,
+        # ... and the utility it was trained on, so the same table can name the
+        # objectives it measured (`e2e-surface.md` §2, `utilities.md` §7, D-20).
+        held.utility,
     )

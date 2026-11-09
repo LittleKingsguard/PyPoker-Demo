@@ -15,10 +15,11 @@ statement about a member the table does not name (D-16, `league.md` §8, brief �
 
 `rating(matrix)` reads `records.md` §10's matrix record — this module's own or a hand-built one, because what is
 checked is the record and not its provenance (`surface.md` §11) — and reads only the keys it fits: `members`, `cells`,
-`hands_per_cell`, `table_seed` and `table` (`matrix.md` §5). The record's `rules` and `population` are **not read**: they
-say which estimators played, not how the fit goes (D-19, `league.md` §4). This module's own keys — `pool`,
-`member_records`, `unlabelled`, `cell_count` — are ignored too, so a hand-built table is rated as readily as a played
-one. It plays no hand, reads no file and leaves the global `random` stream where it found it (`surface.md` §1).
+`hands_per_cell`, `table_seed` and `table` (`matrix.md` §5). The record's `rules`, `population`, `utilities` and
+`utility_population` are **not read**: they say which estimators played and which questions they were asked, not how the
+fit goes (D-19, D-20, `league.md` §4). This module's own keys — `pool`, `member_records`, `unlabelled`, `cell_count` — are
+ignored too, so a hand-built table is rated as readily as a played one. It plays no hand, reads no file and leaves the
+global `random` stream where it found it (`surface.md` §1).
 
 ## 2. The parameterisation, and the anchor
 
@@ -115,11 +116,10 @@ repeated, and the interval is the 2.5th to 97.5th percentile of the resulting va
 | `bound`, `tolerance`, `iterations`, `resamples` | `10.0`, `1e-10`, the steps this fit took, and `200` — the fit's own record |
 | `hands_per_cell`, `members`, `table_seed`, `table` | the matrix's four own facts, copied, so a rating names the table it was fitted over |
 
-An entry's `hands` is `hands_per_cell × (K − 1)` — one cell against each of the other members — and that is the
-number of hands behind the value (`records.md` §11, FAM-9.5). `bounded` repeats `bound_applied` per member, so a
-reader can see *which* member was pinned; the record's own `bound_applied` is the union. The interval is one unordered
-pair either way: `records.md` §11 fixes neither the bounds' key names nor the order they are stated in
-(`_records.rating_interval` tolerates either).
+An entry's `hands` is `hands_per_cell × (K − 1)` — one cell against each of the other members — and that is the number
+of hands behind the value (`records.md` §11, FAM-9.5). `bounded` repeats `bound_applied` per member, so a reader can see
+*which* member was pinned; the record's own `bound_applied` is the union. The interval is one unordered pair either way:
+`records.md` §11 fixes neither the bounds' key names nor the order they are stated in (`_records.rating_interval` tolerates either).
 
 ## 6. Refusals — a matrix that is not a table
 
@@ -136,10 +136,10 @@ pair either way: `records.md` §11 fixes neither the bounds' key names nor the o
 | `MissingBaseline` | the membership lacks `random`, `always-call` or `oracle` — the anchor would not exist (`protocol.md` §3, FAM-8.8) |
 
 A `table` label's **value** is not re-judged here: `matrix` refused anything but `live` or `full` when it built the
-record (`matrix.md` §7), and `rating` fits a hand-built record by the rules above and nothing else (`surface.md`
-§11). A cell whose two directions disagree with its hand count is not refused either: §2's `n_ij` is the observed
-total, so the fit reads what the record says instead of repairing it. Refusing more than `surface.md` §11 refuses is
-a defect — a battery may hand any valid table, hand-built ones included.
+record (`matrix.md` §7), and `rating` fits a hand-built record by the rules above and nothing else (`surface.md` §11). A
+cell whose two directions disagree with its hand count is not refused either: §2's `n_ij` is the observed total, so the
+fit reads what the record says instead of repairing it — refusing more than `surface.md` §11 refuses is a defect, so a
+battery may hand any valid table, hand-built ones included.
 
 ## 7. What is deliberately free
 

@@ -1,12 +1,13 @@
-"""The one catalogue: `BACKENDS`, `ARCHITECTURES`, `LEARNING_RULES`, `HYPER`, `KINDS`.
+"""The one catalogue: `BACKENDS`, `ARCHITECTURES`, `LEARNING_RULES`, `UTILITIES`, `HYPER`.
 
 `learners()` publishes these and nothing is restated elsewhere (`README.md` §5,
 `surface.md` §3): the two backends in `numpy` then `torch` order (D-7), the seven kinds
 in `architecture.md` §1's order with the family and the declared size each is sized
 from, the two learning rules in `rules.md` §2's order with the target each aims at
-(D-19), and the six fixed declarations the two rules share (`rule.md` §6).  The record
-is plain data, rebuilt on every call, so no caller can mutate the catalogue through a
-returned mapping.
+(D-19), the two terminal-reward utilities in `utilities.md` §2's order with the reward
+each delivers (D-20), and the six fixed declarations both catalogues share
+(`rule.md` §6).  The record is plain data, rebuilt on every call, so no caller can
+mutate the catalogue through a returned mapping.
 """
 
 from __future__ import annotations
@@ -96,6 +97,30 @@ LEARNING_RULES = {
 #: derived from the order above so the declaration cannot drift (`rules.md` §4, §6).
 DEFAULT_LEARNING_RULE = next(iter(LEARNING_RULES))
 
+#: The terminal-reward catalogue, in the declared order (`utilities.md` §2, D-20): each
+#: member is a record of exactly three keys -- its `name`, the `reward` it delivers as a
+#: stable token and never a sentence, and the `normaliser` that reward is divided by.
+#: `net-chips` is the unshaped net chip delta of ASM-12; `stack-shortfall` is the delta
+#: of the squared stack shortfall over the chips in play, normalised by the shortfall a
+#: hand begins with (`utilities.md` §2, §4).
+UTILITIES = {
+    "net-chips": {
+        "name": "net-chips",
+        "reward": "net-chip-delta",
+        "normaliser": "none",
+    },
+    "stack-shortfall": {
+        "name": "stack-shortfall",
+        "reward": "squared-stack-shortfall-delta",
+        "normaliser": "U(s_0)",
+    },
+}
+
+#: The declared default of the utility axis: the catalogue's **first** member, which is
+#: what a learner spec naming none is built under and what a version-1 or version-2
+#: checkpoint is read as (`utilities.md` §5, §6, D-20).  Derived from the order above.
+DEFAULT_UTILITY = next(iter(UTILITIES))
+
 #: The six fixed declarations both catalogue members consume (`rule.md` §6): one
 #: value each, never a per-learner argument and never a per-rule block, so a rule swap
 #: is one axis and no budget moves with it (`rules.md` §2, ASM-7).
@@ -128,12 +153,13 @@ def hyper_record():
 
 
 def catalogue():
-    """`learners()`'s record: four keys in order, plain data, rebuilt per call."""
+    """`learners()`'s record: five keys in order, plain data, rebuilt per call."""
     return {
         "backends": {name: {"name": name} for name in BACKENDS},
         "architectures": {kind: dict(entry) for kind, entry in ARCHITECTURES.items()},
         "learning_rules": {
             name: dict(entry) for name, entry in LEARNING_RULES.items()
         },
+        "utilities": {name: dict(entry) for name, entry in UTILITIES.items()},
         "hyper": hyper_record(),
     }

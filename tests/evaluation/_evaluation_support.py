@@ -33,13 +33,16 @@ Three conventions keep this battery honest:
   `RESAMPLES`, the two budgets -- a case asserts it exactly.
 * **Cost discipline.** `matrix` plays `K(K-1)/2 x 120` hands, and the pinned `oracle`
   baseline asks `engine.equity` at every decision, so one real `live` matrix costs
-  about a minute and a half on CPU. This battery therefore builds exactly three, once
+  about a minute and a half on CPU. This battery therefore builds exactly four, once
   each, cached in `_REAL_MATRICES` and shared by every case that needs one: `k4`
   (the three baselines and one labelled `variant-1`), `k5` (two variants, the
-  second an opaque callable) and `k6` (the three baselines, one real version member
+  second an opaque callable), `k6` (the three baselines, one real version member
   read from a checkpoint, and one labelled `variant-1` -- the one table that plays
   `matrix.md` §4's version row, `policy._member_policy(record)` at the seed its
-  checkpoint records). Every other matrix in the battery is hand-built in
+  checkpoint records) and `k7` (`k6`'s D-20 counterpart: the pool member written
+  under `stack-shortfall`, the labelled variant under `net-chips`, so one table's
+  `utility_population` holds two objectives -- `records.md` §10, D-20). Every other
+  matrix in the battery is hand-built in
   `records.md` §10's shape, which is what `rating` and `report` are specified to
   accept (`rating.md` §1, `report.md` §2).
 
@@ -165,6 +168,12 @@ HANDS_PER_CELL = 120
 DEFAULT_RULE = "masked-q-learning"
 OTHER_RULE = "double-q-learning"
 RULES = (DEFAULT_RULE, OTHER_RULE)
+
+#: The utility catalogue's two members (`utilities.md` §2, D-20), on the same terms: the
+#: names the battery asserts against, with the catalogue always read off `agents`.
+DEFAULT_UTILITY = "net-chips"
+OTHER_UTILITY = "stack-shortfall"
+UTILITIES = (DEFAULT_UTILITY, OTHER_UTILITY)
 
 #: The invented configuration label an unregistered rung carries (`ladder.md` §1).
 RUNG_NAME = "R7-heron-ladder"
@@ -373,10 +382,11 @@ def pool_digest(members):
     """`families.md` §4's id: one line per member, SHA-256, 16 hex, prefixed.
 
     A baseline contributes its id alone and a version contributes its `id`, ``\\x1f``,
-    then its `rule`; the lines are joined by one ``\\n`` with no trailing separator.
-    Recomputed in the case so a digest over member records, a `repr` or a salted `hash()`
-    is red, and so a digest of the ids alone is red for a version (`guardrails.md` G2,
-    ASM-27).
+    its `rule`, ``\\x1f``, then its `utility`; the lines are joined by one ``\\n`` with no
+    trailing separator.  Recomputed in the case so a digest over member records, a `repr`
+    or a salted `hash()` is red, so a digest of the ids alone is red for a version, and so
+    a digest that leaves the utility out is red for a membership under two objectives
+    (`guardrails.md` G2, ASM-27, D-19, D-20).
     """
     lines = []
     for member in members:
@@ -385,7 +395,10 @@ def pool_digest(members):
         elif member.get("baseline"):
             lines.append(str(member["id"]))
         else:
-            lines.append("%s\x1f%s" % (member["id"], member["rule"]))
+            lines.append(
+                "%s\x1f%s\x1f%s"
+                % (member["id"], member["rule"], member["utility"])
+            )
     payload = "\n".join(lines).encode("utf-8")
     return "pool-" + hashlib.sha256(payload).hexdigest()[:16]
 
@@ -681,15 +694,19 @@ def version_record(
     rung=RUNG_NAME,
     variant="heron",
     rule=DEFAULT_RULE,
+    utility=DEFAULT_UTILITY,
 ):
     """One `records.md` §7 version record, with the `path` only when the battery has one.
 
-    `records.md` §7 marks `id`, `path` and — D-19's key — `rule` required, while
+    `records.md` §7 marks `id`, `path`, `rule` and — D-20's key — `utility` required, while
     `docs/L2/evaluation/surface.md` §5 admits a declared member without a `path` and lets
     `matrix`/`opponent` refuse it when it must be a policy.  A record built here without a
-    path is that admitted version and nothing else.  `rule` defaults to the catalogue's
-    first member, the declared default of `rules.md` §4, so every caller that predates the
-    catalogue keeps the version it built before.
+    path is that admitted version and nothing else.  `rule` and `utility` are **declared**
+    here as the catalogues' first members — the declared defaults of `rules.md` §4 and
+    `utilities.md` §5 — so a case that means those names need not spell them out; nothing
+    is filled in downstream, because a version declaration that names no `utility` is
+    refused by name (`records.md` §7, `utilities.md` §5, D-20).  A case that wants that
+    silence pops the key, as the EVL-14 cases do.
     """
     record = {
         "id": member_id_value,
@@ -700,18 +717,23 @@ def version_record(
         "samples": samples,
         "lineage": lineage,
         "rule": rule,
+        "utility": utility,
     }
     if path is not None:
         record["path"] = path
     return record
 
 
-def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE):
+def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
+                  utility=DEFAULT_UTILITY):
     """A single lineage chain, oldest first, declared in lineage order.
 
     The first member descends from `start`, the i-th from the (i-1)-th, which is how a
     rung's snapshots are declared (`pool.md` §3, `records.md` §7).  One chain under one
-    rule is one family (`families.md` §1, ASM-26).
+    rule and one utility is one family (`families.md` §1, ASM-26, D-19, D-20).  `rule` and
+    `utility` are declared on **every** member, as `version_record` declares them, because
+    a member that named none would be refused by name rather than read under one
+    (`records.md` §7, `utilities.md` §5, D-20).
     """
     records = []
     for index, member in enumerate(ids):
@@ -726,6 +748,7 @@ def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE):
                 step=100 * (index + 1),
                 samples=1200 * (index + 1),
                 rule=rule,
+                utility=utility,
             )
         )
     return records
@@ -746,25 +769,29 @@ def baseline_members():
     return [baseline_member(name) for name in BASELINES]
 
 
-def pool_record(members=(), m=5, frozen=True, identity=None, rules=()):
+def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities=()):
     """A hand-built `records.md` §8 pool record: baselines first, then the versions.
 
     `report` reads its `pool` family as this shape (`report.md` §2, `surface.md` §13),
     and a hand-built one keeps the report cases free of `build_pool`'s cost and of its
-    own defects (`errors.md` §1: a report is assembled from records alone).  `rules` is
-    the distinct set its version members declare (`records.md` §8, D-19); it defaults to
-    the empty tuple, which is what a baselines-only row declares, and is derived from the
-    members when a case hands over versions without stating it.
+    own defects (`errors.md` §1: a report is assembled from records alone).  `rules` and
+    `utilities` are the distinct sets its version members declare (`records.md` §8, D-19,
+    D-20); each defaults to the empty tuple, which is what a baselines-only row declares,
+    and is derived from the members when a case hands over versions without stating it.
     """
     ordered = baseline_members() + [dict(entry) for entry in members]
     ids = [member_id(entry) for entry in ordered]
     declared = tuple(rules) if rules else declared_rules(ordered)
+    declared_utility = (
+        tuple(utilities) if utilities else declared_utilities(ordered)
+    )
     return {
         "id": identity or pool_digest(ordered),
         "m": m,
         "frozen": frozen,
         "members": tuple(ordered),
         "rules": declared,
+        "utilities": declared_utility,
     }
 
 
@@ -778,6 +805,28 @@ def declared_rules(members):
         if isinstance(name, str) and name not in seen:
             seen.append(name)
     return tuple(seen)
+
+
+def declared_utilities(members):
+    """The distinct utilities a members sequence declares, in its order (§8, D-20)."""
+    seen = []
+    for entry in members:
+        if isinstance(entry, Mapping) and entry.get("baseline"):
+            continue
+        name = entry.get("utility") if isinstance(entry, Mapping) else None
+        if isinstance(name, str) and name not in seen:
+            seen.append(name)
+    return tuple(seen)
+
+
+def pool_utilities(record):
+    """The `utilities` a pool record declares — a **required** key of `records.md` §8."""
+    if not isinstance(record, Mapping) or "utilities" not in record:
+        raise AssertionError(
+            "a pool record carries `utilities`, the distinct utilities its version members "
+            "declare (records.md §8, D-20): %r" % (record,)
+        )
+    return record["utilities"]
 
 
 def pool_rules(record):
@@ -1063,16 +1112,18 @@ def scratch_root():
 _CHECKPOINTS = {}
 
 
-def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="naive-stack", width=4, depth=1, backend="numpy", rule=None):
+def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="naive-stack", width=4, depth=1, backend="numpy", rule=None, utility=None):
     """A real checkpoint saved by `agents.save`, cached per class of spec.
 
     The learner is built through `agents.build_learner` and saved through
     `agents.save`; the checkpoint's own container records the seed, the encoding name
-    that `policy_from` must read (`scheduler.md` §5.1, `surface.md` §12) and -- D-19's
-    field -- the rule its learner was trained under (`rules.md` §6).  `rule` defaults to
-    none declared, which `build_learner` builds under the catalogue's first member.
+    that `policy_from` must read (`scheduler.md` §5.1, `surface.md` §12), -- D-19's
+    field -- the rule its learner was trained under (`rules.md` §6) and -- D-20's --
+    the utility whose reward it was trained on (`utilities.md` §6).  `rule` and
+    `utility` default to none declared, which `build_learner` builds under each
+    catalogue's first member.
     """
-    key = (name, seed, encoding, kind, width, depth, backend, rule)
+    key = (name, seed, encoding, kind, width, depth, backend, rule, utility)
     if key not in _CHECKPOINTS:
         encoder = features().build_encoder(encoding)
         spec = {
@@ -1083,8 +1134,11 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
         }
         if rule is not None:
             spec["learning_rule"] = rule
+        if utility is not None:
+            spec["utility"] = utility
         learner = agents().build_learner(spec)
-        path = os.path.join(scratch_root(), name + "-%d.ckpt" % seed)
+        suffix = "" if utility is None else "-" + token(utility)
+        path = os.path.join(scratch_root(), name + "-%d%s.ckpt" % (seed, suffix))
         agents().save(learner, path)
         _CHECKPOINTS[key] = {
             "name": name,
@@ -1095,6 +1149,7 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
             "kind": kind,
             "seed": seed,
             "rule": rule,
+            "utility": utility,
             "params": agents().param_count(learner),
         }
     return _CHECKPOINTS[key]
@@ -1103,6 +1158,15 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
 def member_policy_checkpoint():
     """The checkpoint a labelled (`_MemberPolicy`) variant is built from."""
     return checkpoint(name="member")
+
+
+def shortfall_checkpoint():
+    """A checkpoint written under the catalogue's **second** utility (`utilities.md` §6, D-20).
+
+    The container records `stack-shortfall`, which is what `policy_from` reports and what
+    a member record is held to (`utilities.md` §6, §7, ASM-20).
+    """
+    return checkpoint(name="shortfall-member", utility=OTHER_UTILITY)
 
 
 def other_checkpoint():
@@ -1219,7 +1283,7 @@ def policy_answers(policy, count=4):
 
 
 # ---------------------------------------------------------------------------
-# The three shared real matrices (cost discipline: built once, shared by every case)
+# The four shared real matrices (cost discipline: built once, shared by every case)
 # ---------------------------------------------------------------------------
 _REAL_MATRICES = {}
 _REAL_RATINGS = {}
@@ -1240,20 +1304,43 @@ def version_pool_member():
     )
 
 
+def shortfall_version_member():
+    """The one real version member the shared `k7` pool declares, under the **second** utility.
+
+    Its `path` is a checkpoint written under `stack-shortfall` (`shortfall_checkpoint`),
+    so the member's declared `utility` is the one its container records -- D-20's
+    required pair (`records.md` §7, `utilities.md` §6).  It is a pool member of its own
+    family, which is what makes `k7` a table whose `utility_population` holds two
+    objectives (`records.md` §10, D-20).
+    """
+    return version_record(
+        VERSION_IDS[1],
+        START_LABEL,
+        path=shortfall_checkpoint()["path"],
+        utility=OTHER_UTILITY,
+    )
+
+
 def shared_pool(key="k4"):
     """The frozen pool one shared matrix is played over, cached per key (`matrix.md` §1).
 
     `k4` and `k5` are played over the frozen **baselines-only** pool; `k6` is played
     over a frozen pool whose window holds one real version member
-    (`version_pool_member`), so its membership is the three baselines, that version,
-    then the variant slot -- K = 5, and the version is a *pool member* and not a
-    variant (`matrix.md` §1, §4). One pool per key, so no case rebuilds one to read it.
+    (`version_pool_member`, written under the catalogue's first utility) and `k7` over
+    a pool whose one version member was written under the second (`shortfall_version_member`),
+    so its membership is the three baselines, that version, then the variant slot --
+    K = 5, and the version is a *pool member* and not a variant (`matrix.md` §1, §4).
+    One pool per key, so no case rebuilds one to read it.
     """
     if key not in _REAL_POOLS:
         package = evaluation()
         if key == "k6":
             _REAL_POOLS[key] = package.build_pool(
                 declaration(members=[version_pool_member()], m=POOL_M, frozen=True)
+            )
+        elif key == "k7":
+            _REAL_POOLS[key] = package.build_pool(
+                declaration(members=[shortfall_version_member()], m=POOL_M, frozen=True)
             )
         else:
             _REAL_POOLS[key] = package.build_pool(
@@ -1272,24 +1359,30 @@ def _variants_for(key):
         return [labelled, first_legal]
     if key == "k6":
         return [labelled]
+    if key == "k7":
+        return [labelled]
     raise AssertionError(
-        "the battery shares three matrices, k4, k5 and k6, and no other: %r" % (key,)
+        "the battery shares four matrices, k4, k5, k6 and k7, and no other: %r" % (key,)
     )
 
 
 def shared_matrix(key="k4"):
     """One real `live` matrix over one frozen shared pool, cached per key.
 
-    The three shared matrices are the smallest legal memberships this surface can build
+    The four shared matrices are the smallest legal memberships this surface can build
     (`tables.md` §2): `k4` is the three pinned baselines and one variant (`matrix.md`
     §1's R1 shape), `k5` adds a second, opaque variant so the slot naming and the
-    unlabelled zero are exercised, and `k6` is played over a pool whose window holds
-    one real version member (`shared_pool`), so `matrix.md` §4's version row -- a
-    version played by `policy._member_policy(record)` at the seed its checkpoint
-    records -- is driven through `matrix` itself. A `live` cell is 120 hands and every
-    cell pairing the pinned `oracle` asks `engine.equity` at each decision
-    (`agents/learner.md` §5), so each matrix is built exactly once
-    (`guardrails.md` G13, ASM-15); a case reads it again and never rebuilds it.
+    unlabelled zero are exercised, `k6` is played over a pool whose window holds one
+    real version member (`shared_pool`), so `matrix.md` §4's version row -- a version
+    played by `policy._member_policy(record)` at the seed its checkpoint records -- is
+    driven through `matrix` itself, and `k7` is that table's D-20 counterpart: its
+    pool member was written under `stack-shortfall` and its labelled variant under
+    `net-chips`, so the record's `utilities` names two objectives and its
+    `utility_population` sorts them (`records.md` §10, `utilities.md` §7, §9).  A
+    `live` cell is 120 hands and every cell pairing the pinned `oracle` asks
+    `engine.equity` at each decision (`agents/learner.md` §5), so each matrix is built
+    exactly once (`guardrails.md` G13, ASM-15); a case reads it again and never
+    rebuilds it.
     """
     if key not in _REAL_MATRICES:
         _REAL_MATRICES[key] = evaluation().matrix(
@@ -1421,6 +1514,24 @@ class EvaluationCase(unittest.TestCase):
                 return tuple(str(name) for name in value)
         raise AssertionError(
             "agents.learners() publishes the learning-rule catalogue (rules.md §2, D-19): "
+            "%r carries none" % (sorted(str(key) for key in declared),)
+        )
+
+    def catalogue_utilities(self):
+        """The utility catalogue `agents.learners()` publishes, in declared order.
+
+        `utilities.md` §2 makes `utilities` the catalogue a learner spec selects from and
+        §5 makes its first member, `net-chips`, the declared default.  As with the rules,
+        the names are read off the granted arrow on every call and never copied from a
+        document or a module constant, so a battery asserts against the catalogue the
+        implementation reads (`module-map.md` §2, D-20).
+        """
+        declared = agents().learners()
+        catalogue = declared.get("utilities") if isinstance(declared, Mapping) else None
+        if isinstance(catalogue, Mapping):
+            return tuple(str(name) for name in catalogue)
+        raise AssertionError(
+            "agents.learners() publishes the utility catalogue (utilities.md §2, D-20): "
             "%r carries none" % (sorted(str(key) for key in declared),)
         )
 

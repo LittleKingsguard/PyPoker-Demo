@@ -1,12 +1,12 @@
 # evaluation — the league: pool, scheduler, matrix, rating, tables, report
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09 · §5, §7: the band and the
-  direction, not the figure (ASM-23) · **Rev 3:** the families, the fair-share window and the id that certifies
-  each version's rule (§1, §3, §6, §8 — D-19, ASM-26, ASM-27)
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09 · §5, §7: the band and the
+  direction, not the figure (ASM-23) · **Rev 4:** the id certifies each version's rule **and utility**, and the
+  matrix states two populations (§1, §3 — D-20, `utilities.md` §7, §9)
 - **Owner of this file:** the league itself — the bounded pool and its rolling window, the scheduler, the
   matrix, the rating, the two tables and the shipped `full` one, the seven evidence families the report is
   judged against, the contracts this module holds at its edge, and the battery invariants it carries
-  (D-16, ASM-14, ASM-17, ASM-26, ASM-27, `battery.md` §3 FAM-6..FAM-11, FAM-16)
+  (D-16, ASM-14, ASM-17, ASM-26, ASM-27, `battery.md` §3 FAM-6..FAM-11, FAM-16, FAM-18)
 - **Ceiling:** 210 lines. At the ceiling, split by owner — never append
 
 ## 1. The pool
@@ -19,8 +19,8 @@ and the table the agent is measured in — one object, one owner, no second eval
   evicted, so a pool holds between 3 and 8 members (D-16, ASM-14). M is the league's and `league()` declares
   it; a declaration may carry a **tighter** `m` and none may exceed M (D-16, `records.md` §8, `pool.md` §1).
 - **The window is a set of families, ordered by lineage**: a family is one chain of a declaration's versions,
-  its members under one rule, and the window lists each family's members contiguously oldest to newest, the
-  families in the order they entered (ASM-26, `rules.md` §3, `records.md` §8). A declaration richer than the
+  its members under one rule and one utility, and the window lists each family's members contiguously oldest to
+  newest, the families in the order they entered (ASM-26, `rules.md` §3, `utilities.md` §8, `records.md` §8). A declaration richer than the
   bound is windowed and never refused, unless it holds more families than the bound allows (D-16, ASM-18,
   ASM-26). A rung's own snapshots are what the next rung's window is built from, and `offer` advances a
   window by one version — extending one family — so rolling is a declared operation and not a training side
@@ -36,10 +36,10 @@ and the table the agent is measured in — one object, one owner, no second eval
   tabled** — that is what makes D-16's "identical frozen pool" true of R4, R5 and R6 while D-3 keeps the rung
   to one axis (D-16, D-3, ASM-16): `build_pool` freezes what the declaration says to freeze, `offer` refuses
   a frozen pool, and `matrix` refuses one that is not frozen (`pool.md` §1, §3, `surface.md` §10).
-- **The pool is deterministic and its id certifies the population**: the id is a digest of one line per
-  member — a baseline's bare name, a version's `id` and its `rule` — so it changes when and only when the
-  membership does, a corrected seed or step does not rename it, and two pools of one membership under two
-  estimators do not wear one id (D-16, ASM-2, ASM-27, `records.md` §8, `rules.md` §3).
+- **The pool is deterministic and its id certifies both populations**: the id is a digest of one line per
+  member — a baseline's bare name, a version's `id`, its `rule` and its `utility` — so it changes when and only when
+  the membership does, a corrected seed or step does not rename it, and two pools of one membership under two
+  estimators or two objectives do not wear one id (D-16, ASM-2, ASM-27, `records.md` §8, `utilities.md` §7, D-19, D-20).
 
 ## 2. The scheduler
 
@@ -69,10 +69,10 @@ and the table the agent is measured in — one object, one owner, no second eval
   R1, 9 for a single-variant rung with a full window and 10 for a two-variant rung with one (ASM-14,
   `docs/L1/league.md` §4, `ladder.md` §2, `records.md` §10). The order is `pool_members`'s, then the variants in
   argument order, so one pool and one variant list have one membership (`surface.md` §10).
-- **Every member carries its rule, and the table states the population it measured**: the record names each
-  member's rule by its id — `None` for a baseline, which is a fixed rule and not an estimator — and its
-  `population`, the distinct rules those members declared, sorted (D-19, `records.md` §10, `rules.md` §4,
-  `surface.md` §10). The rating is a function of the matrix and reads neither key (`docs/L1/league.md` §4).
+- **Every member carries its rule and its utility, and the table states both populations it measured**: the record
+  names each member's rule and utility by its id — `None` for a baseline, which is a fixed rule and not an estimator
+  or an objective — and its `population` and `utility_population`, the distinct rules and utilities those members
+  declared, sorted (D-19, D-20, `records.md` §10, `utilities.md` §9); the rating reads none of those keys (`docs/L1/league.md` §4).
 - **The cells are exactly K(K−1)/2 unordered pairs** — 6, 36 or 45 — one cell per pair and no repeat
   (D-16, ASM-14, `records.md` §10). Each cell's seed is derived from the table seed and the pair, and each
   member's policy is built at a seed derived from the table seed and its position, so a table is reproduced
@@ -148,7 +148,7 @@ row is a value and never a blank (D-6, D-16, `records.md` §13).
 | Evidence family | What the report must carry | The word its absence is refused with |
 |---|---|---|
 | curves | per variant, per seed: the sample axis and at least one learning signal from `agents.learn`, with the spread across seeds (D-6) | `curves` |
-| pool | the frozen pool's id, M and ordered members with lineage, the `rules` its versions declare, and one id where both arms of a pair trained (D-16, ASM-16, records.md §8, D-19) | `pool` |
+| pool | the frozen pool's id, M and ordered members with lineage, the `rules` and `utilities` its versions declare, and one id where both arms of a pair trained (D-16, ASM-16, records.md §8, D-19, D-20) | `pool` |
 | matrix | the §10 matrix at one table budget: one cell per pair, both directions, the hand count, the seat split and the mean chip delta per hand (D-16) | `matrix` |
 | rating | the §11 rating: one value and a 95% interval per member, with the method, the anchor and the hands behind each value (D-16, ASM-17) | `rating` |
 | baselines | the three baseline rows inside that matrix, each at the same hand count as every league cell (D-16, `protocol.md` §3) | `baselines` |
@@ -157,14 +157,13 @@ row is a value and never a blank (D-6, D-16, `records.md` §13).
 
 Members are reported by the id the pool gave them and never by rank order alone, and the report carries the
 seed set `0, 1, 2`, its matrix's table seed and the device the run used, so a GPU run and a CPU run are never
-confused (D-6, `protocol.md` §1, §2, §6). The pool family and the header also name the rules the measured
-population held, and no family is added for them: a report gains **no new required content item**, because a
-new one would refuse records other batteries hand-build (`rules.md` §4, `errors.md` §5, D-19).
+confused (D-6, `protocol.md` §1, §2, §6). The pool family and the header also name the rules and utilities the
+measured population held, and no family is added for them: a report gains **no new required content item**, because a
+new one would refuse records other batteries hand-build (`rules.md` §4, `errors.md` §5, D-19, D-20).
 
 ## 7. Contracts at this edge
 
-Calls go one way along `module-map.md` §2's arrows, and each row below is what this module requires of the
-module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
+Calls go one way along `module-map.md` §2's arrows, and each row below is what this module requires of the module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
 
 - **`agents`** — a table's members are `baselines()`'s three and the policies `build_baseline` and
   `as_policy` return; every member's capacity is `param_count`'s integer, and a baseline's is the `0` the
@@ -198,13 +197,14 @@ module it calls, or grants to the one that calls it (D-13, `module-map.md` §2).
 | Family | The entry points it drives | What is asserted here (`battery.md` §3) |
 |---|---|---|
 | FAM-6 | `league`, `build_pool`, `pool_members`, `offer` | at most M versions and always the three pinned baselines; a member declares its rule and a pool record the `rules` it holds; the id digests each version's rule and a baselines-only pool keeps its id; a second family is accepted and fair-share eviction leaves one member of each; the (m+1)th family is refused; R1's pool is the baselines alone (D-16, ASM-14, ASM-16, ASM-26, ASM-27) |
-| FAM-7 | `match`, `opponent` | a cell accounts for every hand, seats alternate and the split covers both, both directions are the same hands and their deltas sum to zero, a cell plays the hand count it was given and carries two parameter counts, its `rules` and its seed, two cells are never interleaved, and `opponent` draws a pool member (D-16, ASM-2, D-19) |
-| FAM-8 | `matrix` | membership is the pool plus the variants, the cells are exactly K(K−1)/2 pairs, every cell carries the table's one hand count with the baseline cells included, the table names each member's rule and the `population` it measured, and an unequal cell, a missing baseline or a foreign member is refused (D-16, ASM-14, `records.md` §10, D-19) |
+| FAM-7 | `match`, `opponent` | a cell accounts for every hand, seats alternate and the split covers both, both directions are the same hands and their deltas sum to zero, a cell plays the hand count it was given and carries two parameter counts, its `rules`, its seed and its `utilities` (FAM-18.10), two cells are never interleaved, and `opponent` draws a pool member (D-16, ASM-2, D-19, D-20) |
+| FAM-8 | `matrix` | membership is the pool plus the variants, the cells are exactly K(K−1)/2 pairs, every cell carries the table's one hand count with the baseline cells included, the table names each member's rule and the `population` it measured, and each member's utility and the `utility_population` it measured (FAM-18.10), and an unequal cell, a missing baseline or a foreign member is refused (D-16, ASM-14, `records.md` §10, D-19, D-20) |
 | FAM-9 | `rating` | one value and a 95% interval per member, Bradley-Terry, the anchor set so the baselines' mean is 0, the hands behind each value, a member that won everything bounded rather than infinite, and convergence and bootstrap seed recorded (D-16, ASM-17) |
 | FAM-10 | `league`, `matrix` | both budgets declared with their cell sizes, the live table's hands played equal to cells × hands per cell, the cell count following from K, and a cost record carrying hands and seconds per hand (D-8, ASM-14, ASM-21) |
 | FAM-11 | `report`, `protocol` | a complete record yields a report carrying all seven families, a record missing one is refused with that family named, R1's pool row is the baselines it had, the pool family names the rules the measured population held, a single-variant rung's axis row is an explicit value, and the report carries the seeds, the table seed and the device (D-6, D-16, D-19) |
 | FAM-16 | the nine `general` rows | one invented instance apiece — a seed, a membership, a cell size, a checkpoint — from this surface alone (D-15, `battery.md` §4) |
+| FAM-18 | `build_pool`, `pool_members`, `match`, `matrix` | a member's uncatalogued utility is refused by `build_pool` and a version's utility is digested into the pool's id; a cell names each member's utility; and a table over two utility populations carries each member's utility and the `utility_population` it measured (D-20, `utilities.md` §7, §9, `records.md` §8–§10) |
 
 The joins a single module cannot check are these: that the pool the loop samples is the pool the table
-measures, that both arms of a pair held one pool, that a table's rows are comparable because its cells were
-played at one hand count, and that a member's record, its checkpoint and the pool's `rules` agree (D-16, ASM-16, ASM-26).
+measures, that both arms of a pair held one pool and were asked one question each per axis, that a table's rows are
+comparable because its cells were played at one hand count, and that a member's record, its checkpoint and the pool's `rules` and `utilities` agree (D-16, ASM-16, ASM-26, D-20).

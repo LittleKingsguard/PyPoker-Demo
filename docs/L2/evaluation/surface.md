@@ -1,6 +1,7 @@
 # evaluation — the callable surface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09
+- **Ceiling:** 260 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** the surface — the eleven module-level names of `src/evaluation/`, each with its
   argument contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.4)
 - **Rev 2:** §12 reads a checkpoint's recorded seed and encoding from its container and checks the name by
@@ -8,7 +9,8 @@
 - **Rev 3:** D-19's rule at the edge — a member declares `rule`, a window is grouped into families and
   evicts fair-share, the id digests each version's rule, and five records name it; the argument, the
   refusal and the digest are `rules.md`'s, and the records stay this file's (§2, §5–§7, §9–§13)
-- **Ceiling:** 260 lines. At the ceiling, split by owner — never append
+- **Rev 4:** D-20's utility at the edge — a member declares `utility` beside `rule`, a family declares one rule and one
+  utility, the id digests both, a side is six elements, and five records name the utility (`utilities.md` §5–§9, D-20)
 
 ## 1. Rules that hold of every entry point
 
@@ -43,12 +45,13 @@ run record, the rung label and the record's families arrive as data (`module-map
   `legal_actions`; a policy that returns an illegal descriptor is a contract violation and never a fold
   (D-2, `e2e-surface.md` §2). This module calls policies and imports none: `policy_from` and `opponent`
   return one, and `agents.as_policy` and `agents.build_baseline` return the ones it loads and draws
-  (D-2, `module-map.md` §2). A policy built from a learner also carries `learning_rule`, the catalogue
-  member its model learned under, and a baseline policy carries none: that attribute is the only witness
-  of a member's rule this module reads (`e2e-surface.md` §2, `rules.md` §7, D-19).
-- A **member** is a version — a checkpoint with `records.md` §7's record, its `rule` included — or one
+  (D-2, `module-map.md` §2). A policy built from a learner also carries `learning_rule` and `utility`, the
+  catalogue members its model learned under and was trained on, and a baseline policy carries neither: those
+  attributes are the only witness of a member's rule and objective this module reads (`e2e-surface.md` §2,
+  `rules.md` §7, `utilities.md` §7, D-19, D-20).
+- A **member** is a version — a checkpoint with `records.md` §7's record, its `rule` and `utility` included — or one
   of the three pinned baselines, and no cell is played against a policy that is not a named member
-  (`e2e-surface.md` §2, `docs/L1/league.md` §1, D-16). A cell, a matrix and a rating name their members
+  (`e2e-surface.md` §2, `docs/L1/league.md` §1, D-16, D-20). A cell, a matrix and a rating name their members
   by **id** and never by rank order (`protocol.md` §1, `records.md` §7, §9, §10).
 - A side is named by its member record whenever this module holds one: a pool member, one of the three
   baseline names given in the call, or a checkpoint `policy_from` loaded. A callable handed in from
@@ -95,10 +98,11 @@ run record, the rung label and the record's families arrive as data (`module-map
 
 `build_pool`, `pool_members`, `offer` and `opponent` are §5–§8 of the surface, and each one's arguments,
 returned record, refusals and determinism are **`pool.md` §1–§4** — the one carrier of them since D-19 added
-a member's `rule`, the families a window is grouped into and the id that certifies each version's rule to
-all four (`pool.md` §1, `rules.md` §2–§3, ASM-26, ASM-27). What this file keeps of them is the boundary: a
+a member's `rule` and D-20 its `utility`, the families a window is grouped into and the id that certifies each
+version's rule and utility to all four (`pool.md` §1, `rules.md` §2–§3, `utilities.md` §5–§7, ASM-26, ASM-27).
+What this file keeps of them is the boundary: a
 pool is an **opaque value** a caller only passes back (§1); `pool_members` returns `records.md` §8's record,
-`id`, `m`, `frozen`, `members` and `rules` included (`records.md` §8); and `offer` returns a **new** pool,
+`id`, `m`, `frozen`, `members`, `rules` and `utilities` included (`records.md` §8); and `offer` returns a **new** pool,
 leaving its argument unchanged (`surface.md` §1, D-12).
 
 ## 9. `match` — the scheduler's one cell (`general` row)
@@ -108,17 +112,18 @@ leaving its argument unchanged (`surface.md` §1, D-12).
   names; `hands`, a positive integer; `seed`, an integer (`e2e-surface.md` §3.4).
 - **Returns:** `records.md` §9's cell record — `members` (the two ids in argument order), `hands`,
   `directions` (two entries, position-aligned with `members`, each carrying `wins`, `ties`, `losses`,
-  `mean_chip_delta` and `seat_split`), `params` (§2), `rules` — each member's rule **by id**: the
-  catalogue name its policy carries, `None` for a baseline and for an opaque policy that carries none,
-  so a cell says which estimators met — and `seed` (`records.md` §9, `rules.md` §4, D-19).
+  `mean_chip_delta` and `seat_split`), `params` (§2), `rules` and `utilities` — each member's rule and utility
+  **by id**: the catalogue names its policy carries, `None` for a baseline and for an opaque policy that carries
+  neither, so a cell says which estimators and which objectives met — and `seed` (`records.md` §9, `rules.md` §4,
+  `utilities.md` §7, §9, D-19, D-20).
 - **Behaviour:** it is the scheduler, and `docs/L1/league.md` §3 fixes what it does — one cell at a time,
   seats alternating, both directions from one set of hands, a cell costing its hand count and not twice it
   (D-16, ASM-14).
 - **Refusals:** a value that is neither callable nor a member; a hand count that is not a positive integer;
   a seed that is not an integer; two members carrying one id, because a cell pairs two distinct members
-  (`records.md` §9, `docs/L1/league.md` §3); a member **record** whose declared `rule` contradicts the rule its
-  checkpoint records, naming the member and both values (§12, `rules.md` §6). An illegal descriptor from either
-  policy is `engine`'s refusal and is not caught or repaired here (D-2, `engine/surface.md` §10).
+  (`records.md` §9, `docs/L1/league.md` §3); a member **record** whose declared `rule` or `utility` contradicts the
+  ones its checkpoint records, naming the member and both values (`RuleMismatch`/`UtilityMismatch`, §12, `utilities.md`
+  §6, D-20). An illegal descriptor from either policy is `engine`'s refusal and is not caught or repaired here (D-2).
 - **Determinism:** one pair, one hand count and one seed give one cell, whatever was played before it, and
   a different seed deals different hands (`battery.md` §3 FAM-7, FAM-4, ASM-2).
 
@@ -129,18 +134,18 @@ leaving its argument unchanged (`surface.md` §1, D-12).
   `full` (`ladder.md` §2, `docs/L1/league.md` §4, §6).
 - **Returns:** `records.md` §10's matrix record — `members` (the membership **by id**, the pool's members in
   `pool_members`'s order and then the variants as `variant-1`, `variant-2` in argument order), `cells`
-  (exactly K(K−1)/2 §9 records, one per unordered pair), `rules` (each member's rule by id), `population`
-  (the distinct rules those members declared, **sorted**), `hands_per_cell` (the one hand count of §4's
-  `tables`, the baseline cells included), `table_seed` (the league's) and `table` (the budget), plus this
-  module's own keys, the pool's id and each member's record among them, each carrying that member's rule
-  (`records.md` §10, `docs/L1/league.md` §4, `rules.md` §4, D-19).
+  (exactly K(K−1)/2 §9 records, one per unordered pair), `rules` and `utilities` (each member's rule and utility by
+  id), `population` and `utility_population` (the distinct rules and utilities those members declared, **sorted**),
+  `hands_per_cell` (the one hand count of §4's `tables`, the baseline cells included), `table_seed` (the league's) and
+  `table` (the budget), plus this module's own keys, the pool's id and each member's record among them, each carrying
+  that member's rule and utility (`records.md` §10, `docs/L1/league.md` §4, `utilities.md` §7, §9, D-19, D-20).
 - **Refusals:** a pool that is not frozen, naming it, because a pool does not change while it is tabled
   (`docs/L1/league.md` §2, §4, `records.md` §8); a pool member the declaration gave no `path`, naming the
   member (`records.md` §7, `protocol.md` §5); a variant count other than one or two, or a variant that is
   not a policy, naming it (`ladder.md` §2, `docs/L1/league.md` §4); a membership that is not distinct — two
   members carrying one id, which no cell can pair (§9, `records.md` §9); a `table` label that is not `live` or
-  `full` (`records.md` §10, `docs/L1/league.md` §6). A version record whose `rule` contradicts its own
-  checkpoint's is `RuleMismatch`, before a cell is played (§12, `rules.md` §6).
+  `full` (`records.md` §10, `docs/L1/league.md` §6). A version record whose `rule` or `utility` contradicts its own
+  checkpoint's is `RuleMismatch`/`UtilityMismatch`, before a cell is played (§12, `utilities.md` §6, D-20).
 - **Determinism:** one pool, one variant list and one budget give one matrix: every cell's seed is derived
   from the table seed and the pair, and every policy the table builds is built at a seed the table fixes — a
   baseline at a seed derived from the table seed and its position, a version member at the seed its
@@ -172,15 +177,16 @@ leaving its argument unchanged (`surface.md` §1, D-12).
 - **Arguments:** one checkpoint path `agents.save` wrote; a member is loadable from its path alone, which is
   why a checkpoint records the seed and the encoding it was built at (`e2e-surface.md` §3.4, `records.md` §7).
 - **Returns:** a policy in the sense of §2 — a member policy carrying the member record it was loaded for,
-  so a cell names it and reports its capacity (§2, `records.md` §7), and carrying **`learning_rule`**: the
-  catalogue member its learner was trained under, which the policy `agents.as_policy` built reports and
-  which is the rule the file records (`rules.md` §6, `e2e-surface.md` §2, §3.4, D-19). It is
+  so a cell names it and reports its capacity (§2, `records.md` §7), and carrying **`learning_rule`** and
+  **`utility`**: the catalogue members its learner was built under and trained on, which the policy
+  `agents.as_policy` built reports and which are the two the file records (`rules.md` §6, `utilities.md` §6,
+  `e2e-surface.md` §2, §3.4, D-19, D-20). It is
   `agents.as_policy` of `agents.load(None, path)` over the encoder `features.build_encoder` makes for the
   encoding name the checkpoint records, at the seed the checkpoint records (`agents/surface.md` §9, §10,
   `protocol.md` §5, ASM-5). Both facts are read from the checkpoint's own container — what `agents`
   requires a restore to recover *from the file alone* and its surface declines to hand back
-  (`agents/learner.md` §4, ASM-20); the rule is no third fact read there, but one the built policy carries
-  (`rules.md` §7, `scheduler.md` §5.1).
+  (`agents/learner.md` §4, ASM-20); the two catalogue members are no third fact read there, but what the
+  built policy carries (`rules.md` §7, `utility.md` §3, `scheduler.md` §5.1).
 - **Refusals:** a path that names no readable file, naming it; a checkpoint whose container records no seed
   or no encoding name — or records them in a form this module does not read — naming which, because no seed
   is ever substituted (`records.md` §7, `protocol.md` §5, ASM-20); an encoding name `features.build_encoder`
@@ -203,11 +209,11 @@ leaving its argument unchanged (`surface.md` §1, D-12).
   declares, each carrying what that family must carry, with the rung, the seeds, the table budget, the
   table seed and the device beside them, and no family reduced to a blank (`protocol.md` §1, §2,
   `records.md` §13). The pool family is `pool_members`'s record shape (`protocol.md` §1, `records.md` §8)
-  and it names the rules the measured population held: a report gains **no family and no new required
-  content item** for D-19 — the population rides inside the pool family and the header that already
-  exist — and a pool block declaring no rule of its own is completed on the report's own copy with the
-  population its matrix names, never by editing the record it was handed (`rules.md` §4, §6,
-  `e2e-surface.md` §3.4, D-19).
+  and it names the rules and the utilities the measured population held: a report gains **no family and no new
+  required content item** for D-19 or D-20 — both populations ride inside the pool family that already
+  exists — and a pool block declaring none of its own is completed on the report's own copy with the
+  population its matrix names, never by editing the record it was handed (`rules.md` §4, §6, `utilities.md` §7, §9,
+  `e2e-surface.md` §3.4, D-19, D-20).
 - **Refusals:** an absent family, naming it exactly as `protocol()` spells it, `axis row` included; a
   matrix that is not a table (§11's checks, `docs/L1/league.md` §4); a matrix whose membership is not the
   pool family's members plus the rung's variants — every pool member present, the three baselines present,

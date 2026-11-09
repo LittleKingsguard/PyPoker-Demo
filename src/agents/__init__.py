@@ -35,12 +35,14 @@ __all__ = (
 
 
 def learners():
-    """The declared backends, the seven kinds, the rule catalogue and its declarations.
+    """The declared backends, the seven kinds, the two catalogues and their declarations.
 
     Plain data, rebuilt on every call: `backends` keyed `numpy` then `torch`,
     `architectures` keyed by the seven kind names in `architecture.md` §1's order,
     `learning_rules` keyed by the two catalogue members in `rules.md` §2's order, each
-    carrying its `name` and the `target` it aims at, and `hyper` the six fixed values
-    both rules consume (`surface.md` §3, D-19).
+    carrying its `name` and the `target` it aims at, `utilities` keyed by the two
+    terminal-reward members in `utilities.md` §2's order, each carrying its `name`, the
+    `reward` it delivers and the `normaliser` that reward is divided by (D-20), and
+    `hyper` the six fixed values both catalogues consume (`surface.md` §3, D-19).
     """
     return _declarations.catalogue()

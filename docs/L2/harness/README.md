@@ -1,6 +1,7 @@
 # harness — L2 integration interface
 
 - **Layer:** L2 · **Module:** `harness` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09 · §4 states readings, no bound
+- **Ceiling:** 112 lines. At the ceiling, split by owner — never append
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.6 — test support whose consumers are test
   batteries (brief §5, `module-map.md` §1) — and the paths this module owns beside them: `tests/conftest.py`, the
   L1 battery under `tests/e2e/` (its consumer, never its implementation) and `pyproject.toml` with the dependency
@@ -10,7 +11,6 @@
   `training/surface.md` §4, `agents/surface.md` §4, §12, `features/surface.md` §4, `engine/surface.md` §4,
   `evaluation/surface.md` §5; and the battery — `tests/e2e/README.md`, `_surface.py`, `_records.py`,
   `test_fam14_harness.py`, the harness cases of `test_fam16_blind.py`
-- **Ceiling:** 112 lines. At the ceiling, split by owner — never append
 
 ## 1. The one job
 

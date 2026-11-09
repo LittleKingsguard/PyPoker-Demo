@@ -30,15 +30,16 @@ from _agents_support import (
 
 
 class LearnersTest(AgentsCase):
-    def test_agt2_1_four_keys_in_order(self):
-        """AGT-2.1 the record's four keys, in order (`surface.md` §3, `README.md` §5, D-19)."""
+    def test_agt2_1_five_keys_in_order(self):
+        """AGT-2.1 the record's five keys, in order (`surface.md` §3, `README.md` §5, D-19, D-20)."""
         record = self.agents().learners()
         self.assertEqual(
             tuple(record),
-            ("backends", "architectures", "learning_rules", "hyper"),
-            "learners() must carry backends, architectures, learning_rules, hyper in "
-            "that order: D-19 replaced the singular `learning_rule` with the catalogue "
-            "`learning_rules` (surface.md §3, rules.md §2)",
+            ("backends", "architectures", "learning_rules", "utilities", "hyper"),
+            "learners() must carry backends, architectures, learning_rules, utilities, "
+            "hyper in that order: D-19 replaced the singular `learning_rule` with the "
+            "catalogue `learning_rules`, and D-20 publishes the utility catalogue after "
+            "it and before `hyper` (surface.md §3, rules.md §2, utilities.md §2)",
         )
 
     def test_agt2_2_backends_keyed_numpy_then_torch(self):

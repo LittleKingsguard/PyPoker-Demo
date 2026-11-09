@@ -121,25 +121,29 @@ def ids_of(value):
 # ---------------------------------------------------------------------------
 def make_version(case, name, seed=S.SEED_A, step=53, samples=S.BUDGET_TINY,
                  lineage="R6-residual-battery", rung="R7", variant="deep-sparse",
-                 width=None, depth=None, rule=None):
+                 width=None, depth=None, rule=None, utility=None):
     """One version record of ``records.md`` §7, with a checkpoint the case really wrote.
 
     The battery builds a small learner through ``agents.build_learner``, saves it with
     ``agents.save`` into the process scratch area, and wraps the artefact as a version:
     an id, the path ``evaluation.policy_from`` loads, the rung and variant that
     produced it, the seed, the snapshot's step and the hands trained, the lineage it
-    descends from, and — D-19's required key — the **rule** it was trained under.  Every
-    one of those values is the battery's own.
+    descends from, and — D-19's required key — the **rule** it was trained under, and —
+    D-20's — the **utility** whose reward it was trained on.  Every one of those values
+    is the battery's own.
 
-    ``rule`` defaults to the catalogue's first member, the declared default of
-    ``rules.md`` §4, so every caller that predates the catalogue keeps the version it
-    built before; the learner is built under the rule the record declares, so a version
-    whose file and record disagreed would only exist where a case doctors it on purpose.
+    ``rule`` and ``utility`` default to the catalogues' first members, the declared
+    defaults of ``rules.md`` §4 and ``utilities.md`` §5, so every caller that predates
+    either catalogue keeps the version it built before; the learner is built under the
+    rule and utility the record declares, so a version whose file and record disagreed
+    would only exist where a case doctors it on purpose.
     """
     width = S.VERSION_WIDTH if width is None else width
     depth = S.VERSION_DEPTH if depth is None else depth
     rule = S.RULE_DEFAULT if rule is None else rule
-    spec = case.learner_spec(width=width, depth=depth, seed=seed, learning_rule=rule)
+    utility = S.UTILITY_DEFAULT if utility is None else utility
+    spec = case.learner_spec(width=width, depth=depth, seed=seed, learning_rule=rule,
+                             utility=utility)
     learner = case.ep("agents", "build_learner")(spec)
     target = os.path.join(work_dir(), "version-%s.pt" % (name,))
     written = case.ep("agents", "save")(learner, target)
@@ -153,10 +157,11 @@ def make_version(case, name, seed=S.SEED_A, step=53, samples=S.BUDGET_TINY,
         "samples": samples,
         "lineage": lineage,
         "rule": rule,
+        "utility": utility,
     }
 
 
-def version_chain(case, names, seed=S.SEED_A, step=53, rule=None,
+def version_chain(case, names, seed=S.SEED_A, step=53, rule=None, utility=None,
                   lineage_start="R6-residual-battery", rung="R7",
                   variant="deep-sparse"):
     """A lineage chain of version records, each descending from the one before it.
@@ -164,7 +169,8 @@ def version_chain(case, names, seed=S.SEED_A, step=53, rule=None,
     ``lineage_start`` is the label the chain's first member descends from: a label no
     member of the pool carries, which is what makes this chain **one family** of a pool
     that holds several (``ASM-26``).  Two chains given two starts and two rules are two
-    families, and that is how a case builds a heterogeneous window (D-19).
+    families, and that is how a case builds a heterogeneous window (D-19); a chain's
+    members declare one utility for the same reason they declare one rule (D-20).
     """
     out = []
     previous = lineage_start
@@ -178,6 +184,7 @@ def version_chain(case, names, seed=S.SEED_A, step=53, rule=None,
                 samples=S.BUDGET_TINY * (index + 1),
                 lineage=previous,
                 rule=rule,
+                utility=utility,
                 rung=rung,
                 variant=variant,
             )
@@ -186,7 +193,7 @@ def version_chain(case, names, seed=S.SEED_A, step=53, rule=None,
     return out
 
 
-def next_version(case, name, newest, seed=None, later=37, rule=None):
+def next_version(case, name, newest, seed=None, later=37, rule=None, utility=None):
     """One version offered into a window: it sits at the head of the lineage order.
 
     ``records.md`` §7 makes a version's ``lineage`` the version it descends from, and
@@ -196,9 +203,9 @@ def next_version(case, name, newest, seed=None, later=37, rule=None):
     lineage points nowhere in the window would leave the window with no order to roll,
     which is what makes "the oldest evictable version is dropped" unobservable and the
     membership — and so the id — unchanged.  The tag, the seed and the increment are the
-    battery's own.  ``rule`` is the rule the version is trained under, defaulting to the
-    newest member's own rule, because a family is one lineage chain under one rule
-    (``ASM-26``).
+    battery's own.  ``rule`` and ``utility`` are what the version is trained under,
+    defaulting to the newest member's own, because a family is one lineage chain under
+    one rule and one utility (``ASM-26``, D-20).
     """
     step, samples = 53, S.BUDGET_TINY
     lineage = "R6-residual-battery"
@@ -211,6 +218,8 @@ def next_version(case, name, newest, seed=None, later=37, rule=None):
         variant = newest.get("variant") or variant
         if rule is None:
             rule = newest.get("rule")
+        if utility is None:
+            utility = newest.get("utility")
     elif newest:
         lineage = str(newest)
     return make_version(
@@ -223,6 +232,7 @@ def next_version(case, name, newest, seed=None, later=37, rule=None):
         rung=rung,
         variant=variant,
         rule=rule,
+        utility=utility,
     )
 
 

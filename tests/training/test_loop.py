@@ -12,6 +12,13 @@ declare the catalogue's two rules trains both arms, and the record says which ru
 built under (`rules.md` §7-§8). The rules are read from `agents.learners()` and never
 restated here (`rules.md` §2, §4).
 
+D-20's `TRN-2.17`-`TRN-2.19` are the shape the utility catalogue adds: a record that names
+each variant's utility and the set the run declared and trained, a pool block carrying the
+utilities its version members declare beside their rules, and a run that refuses an
+uncatalogued utility **before a hand is dealt** (`utilities.md` §5, §7, `records.md` §12,
+D-20). The utilities are read from `agents.learners()` and never restated here
+(`utilities.md` §2, §5).
+
 The battery's budgets are 10 and 60 hands, so `budget // 10` is 1 and 6 and the ten
 points are observable at both (`loop.md` §2, `curves.md` §2). Every run is cached in
 `_training_support` and handed to the cases that read it, because a `torch` build costs
@@ -25,11 +32,15 @@ from _training_support import (
     CHECKPOINT_ROOT,
     CUSTOM_SEED,
     FALLBACK_SEED,
+    IGNORED_UTILITY,
     INVENTED_BUDGET_POOL,
     INVENTED_BUDGET_RUNG,
     INVENTED_BUDGET_VARIANT,
     INVENTED_PARAM_BUDGET,
     INVENTED_POOL,
+    INVENTED_UTILITY_LEFT,
+    INVENTED_UTILITY_POOL,
+    INVENTED_UTILITY_RUNG,
     INVENTED_VARIANT,
     LEARNING_RULE,
     PARAM_BUDGET,
@@ -72,13 +83,20 @@ from _training_support import (
     two_rule_configuration,
     two_rule_run,
     two_seed_run,
+    two_utility_configuration,
+    two_utility_names,
+    two_utility_run,
+    utility_names,
+    utility_set,
     variant_entries,
     variant_name,
     write_root,
+    write_tree,
 )
 
-#: `records.md` §12's required keys, `rules` among them since D-19 (`surface.md` §4,
-#: `loop.md` §3); this module's own `variants` is asserted beside them in TRN-2.1.
+#: `records.md` §12's required keys, `rules` among them since D-19 and `utilities` since
+#: D-20 (`surface.md` §4, `loop.md` §3); this module's own `variants` is asserted beside
+#: them in TRN-2.1.
 REQUIRED_KEYS = (
     "rung",
     "curves",
@@ -91,6 +109,7 @@ REQUIRED_KEYS = (
     "table",
     "timings",
     "rules",
+    "utilities",
 )
 
 #: §4.1's three further keys a complete report needs (Rev 2, measured).
@@ -99,14 +118,16 @@ FURTHER_KEYS = ("header", "baselines", "axis row")
 #: `loop.md` §4's four timing facts, by the name each one names (FAM-13.5).
 TIMING_KEYS = ("hands", "wall_clock_seconds", "seconds_per_hand", "hands_per_second")
 
-#: `loop.md` §4's keys of one `variants` row: the entry's declaration, the **rule that
-#: variant was built under**, and the interval the run used (D-19, `rules.md` §7).
+#: `loop.md` §4's keys of one `variants` row: the entry's declaration, the **rule** that
+#: variant was built under, the **utility** its reward came from, and the interval the run
+#: used (D-19, D-20, `rules.md` §7, `utilities.md` §7).
 VARIANT_ROW_KEYS = (
     "name",
     "backend",
     "encoding",
     "architecture",
     "learning_rule",
+    "utility",
     "samples",
     "snapshot_every",
 )
@@ -925,6 +946,270 @@ class RunTest(TrainingCase):
             "in declaration order and de-duplicated, so a two-rule configuration says so "
             "without walking `variants` (records.md §12, loop.md §3-§4, surface.md §4, "
             "rules.md §7, D-19): %r" % (rules,),
+        )
+
+    # -- D-20: the utility in the run record -------------------------------
+    def rows_of(self, record):
+        """One record's `variants` rows, in declaration order (`loop.md` §4)."""
+        return [
+            as_mapping(row, "a variants row")
+            for row in as_sequence(
+                as_mapping(record, "a run record")["variants"], "'variants'"
+            )
+        ]
+
+    def test_trn_2_17_the_record_names_each_variant_s_utility_and_the_set_it_trained(self):
+        """TRN-2.17 every `variants` row carries `utility` — the member its entry declares, else the catalogue's **first** — and the record's top-level `utilities` is the set the run declared and trained, one name for a rung and both members for a two-utility configuration (records.md §12, loop.md §3-§4, surface.md §4, utilities.md §5, §7, D-20)."""
+        first_utility, second_utility = two_utility_names()
+        record = one_seed_run()
+        declared = as_text(
+            variant_entries(training().rung("R1"))[0]["utility"], "R1's declared utility"
+        )
+        rows = self.rows_of(record)
+        self.assertEqual(
+            [as_text(row["utility"], "a row's utility") for row in rows],
+            [declared],
+            "`variants[i].utility` is the utility that variant was trained on — the "
+            "member its entry declares — so a reader rebuilds the reward the curve came "
+            "from (loop.md §1 step 3, §4, declarations.md §1, utilities.md §7, D-20): %r"
+            % ([row.get("utility") for row in rows],),
+        )
+        self.assertEqual(
+            [as_text(utility, "a utility name") for utility in
+             as_sequence(record["utilities"], "'utilities'")],
+            [declared],
+            "the record carries `utilities`, the distinct utilities the run declared and "
+            "trained, in declaration order and de-duplicated — one name for a rung whose "
+            "single variant declares one (records.md §12, loop.md §3-§4, utilities.md §7, "
+            "D-20): %r" % (record["utilities"],),
+        )
+        self.assertEqual(
+            utility_set(record["utilities"]),
+            {declared},
+            "the row is a **set** of members and not one side's value: one utility is one "
+            "member (records.md §12, utilities.md §7, §8, D-20): %r" % (record["utilities"],),
+        )
+        silent_configuration = custom_configuration()
+        self.assertNotIn(
+            "utility",
+            variant_entries(silent_configuration)[0],
+            "the invented configuration's entry names no utility at all, which is what "
+            "makes the catalogue's first member observable below (utilities.md §5)",
+        )
+        silent = as_mapping(custom_run(), "a custom configuration's run record")
+        self.assertEqual(
+            [as_text(row["utility"], "a row's utility") for row in self.rows_of(silent)],
+            [first_utility],
+            "a variant naming no utility is built and trained under the catalogue's "
+            "**first** member — the declared default of utilities.md §5 — and the record "
+            "says that name rather than a value this module substituted "
+            "(declarations.md §1, §4, records.md §12, utilities.md §5, D-20): %r"
+            % ([row.get("utility") for row in self.rows_of(silent)],),
+        )
+        self.assertEqual(
+            utility_set(silent["utilities"]),
+            {first_utility},
+            "and the run's set is that one member, resolved through agents.learners() and "
+            "never through a constant of this module (rules.md §4's precedent, "
+            "utilities.md §5, D-20): %r" % (silent["utilities"],),
+        )
+        configuration = two_utility_configuration()
+        entries = variant_entries(configuration)
+        names = [variant_name(entry) for entry in entries]
+        wanted = [as_text(entry["utility"], "a declared utility") for entry in entries]
+        self.assertEqual(
+            wanted,
+            [first_utility, second_utility],
+            "the invented configuration declares the catalogue's two utilities, so the "
+            "rows below are two members and not one member twice (utilities.md §2, §7, "
+            "D-20): %r" % (wanted,),
+        )
+        paired = as_mapping(two_utility_run(), "a two-utility configuration's run record")
+        self.assertEqual(
+            list(as_mapping(paired["curves"], "'curves'")),
+            names,
+            "a run trains every variant its configuration declares, so both arms appear "
+            "in `curves`, in declaration order (loop.md §1 step 3, §4, utilities.md §7, "
+            "D-20): %r" % (sorted(as_mapping(paired["curves"], "'curves'")),),
+        )
+        self.assertEqual(
+            [as_text(row["name"], "a row's name") for row in self.rows_of(paired)],
+            names,
+            "one `variants` row per arm, in declaration order (loop.md §4, utilities.md "
+            "§7)",
+        )
+        self.assertEqual(
+            [as_text(row["utility"], "a row's utility") for row in self.rows_of(paired)],
+            wanted,
+            "each row names the utility *that* variant was trained on, so a run that "
+            "trained both arms on one reward and copied it into both rows fails here "
+            "(loop.md §1 step 3, §4, utilities.md §7, records.md §12, D-20): %r"
+            % ([row.get("utility") for row in self.rows_of(paired)],),
+        )
+        self.assertEqual(
+            [as_text(utility, "a utility name") for utility in
+             as_sequence(paired["utilities"], "'utilities'")],
+            wanted,
+            "the run's `utilities` names both members, in declaration order, so a "
+            "two-utility configuration says which objectives it trained without walking "
+            "`variants` (records.md §12, loop.md §3-§4, surface.md §4, utilities.md §7, "
+            "D-20): %r" % (paired["utilities"],),
+        )
+        self.assertEqual(
+            utility_set(paired["utilities"]),
+            {first_utility, second_utility},
+            "both members are in the set — the run declared and trained both — and never "
+            "one arm's utility standing for the run (records.md §12, utilities.md §8, "
+            "D-20): %r" % (paired["utilities"],),
+        )
+
+    def test_trn_2_18_the_pool_block_carries_the_utilities_its_members_declare(self):
+        """TRN-2.18 `pool` carries `utilities` beside `rules` — the distinct utilities its **version** members declare, read off the members `pool_members` returned — so a baselines-only window reports an empty set and R2's inherited window reports the shipped run's utility, each version member carrying its own (records.md §7, §8, §12, utilities.md §6, §7, ASM-27, D-20)."""
+        first_utility, _second_utility = two_utility_names()
+        baselines_only = as_mapping(
+            as_mapping(one_seed_run(), "a run record").get("pool"), "'pool'"
+        )
+        for key in ("rules", "utilities"):
+            with self.subTest(key=key):
+                self.assertIn(
+                    key,
+                    baselines_only,
+                    "records.md §12 makes the pool's `rules` **and** `utilities` part of "
+                    "the run record, so a record says which estimators and which "
+                    "objectives its opposition held (records.md §8, §12, utilities.md §7, "
+                    "D-20): %r" % (sorted(baselines_only),),
+                )
+        self.assertEqual(
+            as_sequence(baselines_only["utilities"], "'pool utilities'"),
+            [],
+            "R1 inherits no lineage, so its pool holds the three pinned baselines and no "
+            "version, and a baseline declares no utility — the set is empty and no name "
+            "is invented for it (records.md §7, §8, league.md §2, utilities.md §7, D-20): "
+            "%r" % (baselines_only["utilities"],),
+        )
+        invented = as_mapping(
+            as_mapping(custom_run(), "a custom configuration's run record").get("pool"),
+            "a custom run's 'pool'",
+        )
+        self.assertEqual(
+            as_sequence(invented["utilities"], "'pool utilities'"),
+            [],
+            "a configuration whose declared window is empty trains against the three "
+            "baselines alone, so its pool's utility set is empty too "
+            "(records.md §8, league.md §2, D-20): %r" % (invented["utilities"],),
+        )
+        inherited = as_mapping(
+            as_mapping(
+                registry_run("R2", (OTHER_SEED,), TINY_BUDGET), "R2's run record"
+            ).get("pool"),
+            "R2's 'pool'",
+        )
+        versions = [
+            as_mapping(member, "a version member")
+            for member in as_sequence(inherited.get("members"), "'members'")
+            if not as_mapping(member, "a pool member").get("baseline")
+        ]
+        self.assertGreaterEqual(
+            len(versions),
+            RETAINED,
+            "R2 trains against R1's retained window, so its pool carries M versions and "
+            "not the baselines alone (registry.md §3, ASM-18, FAM-12.4): %r"
+            % (versions,),
+        )
+        declared = []
+        for member in versions:
+            utility = as_text(member.get("utility"), "a version member's utility")
+            self.assertIn(
+                utility,
+                utility_names(),
+                "each version member carries the utility whose reward its artefact was "
+                "trained on, and it is a member of the catalogue agents.learners() "
+                "publishes (records.md §7, utilities.md §2, §6, D-20): %r" % (member,),
+            )
+            if utility not in declared:
+                declared.append(utility)
+        self.assertEqual(
+            [as_text(utility, "a pool utility") for utility in
+             as_sequence(inherited.get("utilities"), "'pool utilities'")],
+            declared,
+            "the record's `pool.utilities` is exactly the distinct utilities its version "
+            "members declare, in membership order — read off the members `pool_members` "
+            "returned and never one name the run chose (records.md §7, §8, §12, "
+            "utilities.md §7, D-20): %r" % (inherited.get("utilities"),),
+        )
+        self.assertEqual(
+            declared,
+            [first_utility],
+            "the window R2 inherits is the shipped run's, whose version-1 containers "
+            "carry no `utility` and are read as the catalogue's first — the only utility "
+            "its writer could have used (utilities.md §6, ASM-5, D-20): %r" % (declared,),
+        )
+
+    def test_trn_2_19_an_uncatalogued_utility_is_refused_before_a_hand_is_dealt(self):
+        """TRN-2.19 `training.run` refuses a variant entry naming an uncatalogued utility, by name and against the catalogue, **before any hand is dealt** and before anything is written — and a catalogued second utility is trained, so the refusal is about the name (declarations.md §1-§2, errors.md §2, §3, loop.md §1 step 1, utilities.md §5, §7, ASM-2, D-20)."""
+        import random
+
+        configuration = custom_configuration(
+            name=INVENTED_UTILITY_RUNG,
+            variant=INVENTED_UTILITY_LEFT,
+            pool_id=INVENTED_UTILITY_POOL,
+        )
+        configuration["variants"][0]["utility"] = IGNORED_UTILITY
+        before_stream = random.getstate()
+        before_write = write_tree()
+        refused = self.refuse(
+            lambda: training().run(configuration),
+            "IgnoredDeclaration",
+            groups=((IGNORED_UTILITY,), ("utility",), (INVENTED_UTILITY_LEFT,)),
+            label="run of a variant entry naming an uncatalogued utility",
+        )
+        self.assert_no_hand_dealt(
+            before_stream, "a run refusing an uncatalogued utility"
+        )
+        self.assertEqual(
+            [path for path in write_tree() if path not in before_write],
+            [],
+            "the refusal is raised before the first hand is dealt and before anything is "
+            "written, so a declared utility the run would not honour costs no hand and "
+            "leaves no artefact (loop.md §1 step 1, declarations.md §2, ASM-2, D-20): %r"
+            % ([path for path in write_tree() if path not in before_write],),
+        )
+        for name in utility_names():
+            self.assertIn(
+                name,
+                str(refused),
+                "the refusal names every utility the catalogue carries, so a reader sees "
+                "the vocabulary it may name instead (utilities.md §2, §5, D-20): %r"
+                % (str(refused),),
+            )
+        at_configuration = custom_configuration(
+            name=INVENTED_UTILITY_RUNG,
+            variant=INVENTED_UTILITY_LEFT,
+            pool_id=INVENTED_UTILITY_POOL,
+        )
+        at_configuration["utility"] = IGNORED_UTILITY
+        self.refuse(
+            lambda: training().run(at_configuration),
+            "IgnoredDeclaration",
+            groups=((IGNORED_UTILITY,), ("utility",), ("configuration",)),
+            label="run of a configuration declaring an uncatalogued utility at its level",
+        )
+        _first_utility, second_utility = two_utility_names()
+        paired = as_mapping(two_utility_run(), "a two-utility configuration's run record")
+        self.assertEqual(
+            utility_set(paired["utilities"]),
+            set(two_utility_names()),
+            "the control: a configuration naming a **catalogued** second utility is "
+            "accepted and both arms are trained, so the refusal above is about the name "
+            "and not about declaring a utility at all (utilities.md §5, §7, D-20): %r"
+            % (paired["utilities"],),
+        )
+        self.assertIn(
+            second_utility,
+            [as_text(row["utility"], "a row's utility") for row in self.rows_of(paired)],
+            "and the catalogued second member reaches the record it trained, which is "
+            "what an uncatalogued name never does (records.md §12, utilities.md §7, "
+            "D-20): %r" % (second_utility,),
         )
 
 

@@ -1,11 +1,12 @@
 # training — one episode into transitions
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
 - **Owner:** how one `engine.play_hand` episode becomes `records.md` §4 transitions for the learner's seat — the seat
   alternation (§1), the assembled policy (§2), the decision ordering and the index (§3), `reward` and `next_legal` (§4), and
-  the one batch per hand handed to `agents.learn` (§5); **Rev 2** counts the five granted `agents` calls, `learners()` included (D-19)
+  the one batch per hand handed to `agents.learn` (§5); **Rev 2** counts the five granted `agents` calls, `learners()` included (D-19);
+  **Rev 3** states that this step is the one place a utility is applied and hands its arithmetic to `reward.md` (D-20)
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
-- **Read with:** `loop.md` §1 steps 5–6, `seeds.md` §2, `curves.md` §3, `agents/rule.md` §2–§4, `errors.md` §4
+- **Read with:** `loop.md` §1 steps 5–6, `reward.md` §1–§5, `seeds.md` §2, `curves.md` §3, `agents/rule.md` §2–§4, `errors.md` §4
 
 ## 1. The learner's seat: `_seat(index)`
 
@@ -43,9 +44,9 @@ Rejected: `agents.as_policy(learner, encoder, seed)`, a call outside the grant; 
 would be two policies in one loop; and recording the index inside the closure, which would make the batch a side channel of the
 policy rather than a function of the episode.
 
-## 3. `_transitions(episode, seat, encoder)`
+## 3. `_transitions(episode, seat, encoder, utility=None)`
 
-    _transitions(episode, seat, encoder) -> list[Mapping]    # records.md §4 records, in decision order
+    _transitions(episode, seat, encoder, utility=None) -> list[Mapping]    # records.md §4 records, in decision order
 
 For the decisions where the learner's seat acted, **in the order the hand played them**:
 
@@ -71,9 +72,13 @@ and `loop.md` §1 step 6 says so (`agents/surface.md` §7 refuses an empty batch
 - **`terminal` is positional**: the last transition of the list — the last decision that seat made in the hand — carries
   `terminal=True`, and every earlier one carries `False`. The seat's last decision is its terminal one even when the opponent
   folded afterwards, because the hand's outcome arrives at the seat's own terminal decision (`records.md` §5, ASM-12).
-- **`reward` is the decision's own**: `float(decision["reward"])`, which the episode sets to `0.0` at every decision but the
-  seat's terminal one and to that seat's net chip delta there (`records.md` §5, ASM-12). No term is added, clipped or shaped
-  — this module computes no reward and reads it as given (`engine/surface.md` §10, ASM-12).
+- **`reward` is the decision's own at every decision but the terminal one**: those keep the episode's `0.0` — the engine places the
+  hand's delta at the seat's terminal decision alone, and no intermediate term is added (`records.md` §5, ASM-12). At the terminal
+  decision the reward is re-expressed by the variant's **utility**: **this is the one place a utility is applied**, and `reward.md`
+  §1–§4 owns the arithmetic, the selection of it by the catalogue's reward token and the chips-in-play guard (D-20, `utilities.md` §4).
+- **No reward arithmetic in `src/agents/learner.py` is touched by any of it**: its terminal branch stays `target = record["reward"]` and
+  its non-terminal branch stays the rule's, so the utility never enters the update — the learner carries the utility's name and reads no
+  arithmetic from it (`utilities.md` §3, §4, D-19, D-20).
 - **The terminal transition's `next_observation` and `next_legal` are its own**: it has no successor and `agents.learn` reads
   neither, and an empty mask is illegal, so the mask it carries is the mask of the decision it is (`features/surface.md` §8,
   `agents/rule.md` §3, `tests/e2e/_surface.py` `transitions`).
@@ -97,6 +102,7 @@ pass, and no transition survives its hand.
 
 Whether the descriptor's position is found by `list.index` or by an enumerate over the pairs, whether the observations are
 computed once and reused for the successor, and the internals of the two functions. Not L4's: `_seat`'s parity, the four calls
-of §2 and the descriptor round trip, the successor rule of §3, the terminal flag's positional definition, `reward`'s provenance,
-the terminal mask, and the empty-batch rule (`guardrails.md` G7, G10, G17). The two signatures of §1 and §3 are contract for
-`tests/training/` (`README.md` §4).
+of §2 and the descriptor round trip, the successor rule of §3, the terminal flag's positional definition, the terminal reward
+being the utility's number and `0.0` at every other decision, the terminal mask, and the empty-batch rule (`reward.md` §1–§5,
+`guardrails.md` G7, G10, G17, G25). The two signatures of §1 and §3 — `_transitions`' `utility` argument included — are contract
+for `tests/training/` (`README.md` §4).

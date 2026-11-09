@@ -167,17 +167,19 @@ SHARED = {
 RETAINED = 5
 SNAPSHOTS = 10
 
-#: `fairness.md` §4's thirteen held-constant declarations, under its own key names.
-#: `rules` is the **set** of rules the two sides are trained under and never one side's
-#: value: `learning_rule` left the settings a pair must share when D-19 made it a sixth
-#: axis, so the scalar "learning rule" row is gone (`fairness.md` §4, `declarations.md`
-#: §4, `rules.md` §8, D-19).
+#: `fairness.md` §4's fourteen held-constant declarations, under its own key names.
+#: `rules` and `utilities` are the **sets** of rules and of utilities the two sides are
+#: trained under and never one side's value: `learning_rule` left the settings a pair must
+#: share when D-19 made it a sixth axis, and D-20's `utility` is the seventh, so neither
+#: carries a scalar row (`fairness.md` §4, `declarations.md` §4, `rules.md` §8,
+#: `utilities.md` §8, D-19, D-20).
 CONSTANT_KEYS = (
     "game",
     "action vocabulary",
     "readout facts",
     "reward",
     "rules",
+    "utilities",
     "hyper",
     "sample budget",
     "param budget",
@@ -264,6 +266,30 @@ INVENTED_RULE_RUNG = "rung-invented-5522"
 INVENTED_RULE_LEFT = "variant-invented-5522-a"
 INVENTED_RULE_RIGHT = "variant-invented-5522-b"
 INVENTED_RULE_POOL = "pool-invented-5522"
+
+#: The invented two-utility configuration of D-20 (`utilities.md` §7): one rung name, two
+#: arm names and a declared pool id, none of which a design document carries
+#: (`battery.md` §4, D-15).
+INVENTED_UTILITY_RUNG = "rung-invented-5523"
+INVENTED_UTILITY_LEFT = "variant-invented-5523-a"
+INVENTED_UTILITY_RIGHT = "variant-invented-5523-b"
+INVENTED_UTILITY_POOL = "pool-invented-5523"
+
+#: A utility name the catalogue in force nowhere carries (`utilities.md` §5, D-20). It is
+#: the battery's own, like `IGNORED_RULE`, so the refusal it earns can only be about the
+#: name and never about a catalogue member this battery misread.
+IGNORED_UTILITY = "progress-5524"
+
+#: D-20's four invented hands, in the fixed game of D-2: 40 chips in play, 20 dealt to
+#: each seat. Two are played with both seats calling, so the winner's net delta is ±2; two
+#: are played with both seats raising whenever they may, so the hand goes all-in and the
+#: winner's net delta is ±20 (`utilities.md` §2, §4, ASM-6). Each seed is the battery's
+#: own and appears in no design document (`battery.md` §4); the cases assert the payoff
+#: they found at the seed before they assert the reward it scores.
+WIN_TWO_SEED = 7730
+ALL_IN_WIN_SEED = 7731
+LOSE_TWO_SEED = 7733
+ALL_IN_LOSE_SEED = 7734
 
 
 class SurfaceAbsent(AssertionError):
@@ -387,8 +413,9 @@ def error_root():
     return root
 
 
-#: The fifteen refusal classes `errors.md` §2 fixes, in its order (Rev 2's
-#: `IgnoredDeclaration` and `PairDeclarationsDiffer` included).
+#: The sixteen refusal classes `errors.md` §2 fixes, in its order (Rev 2's
+#: `IgnoredDeclaration` and `PairDeclarationsDiffer`, and Rev 5's `ChipConservationBroken`,
+#: included).
 ERROR_CLASSES = (
     "UnknownRung",
     "ConfigurationInvalid",
@@ -404,6 +431,7 @@ ERROR_CLASSES = (
     "MultipleAxes",
     "PoolIdsDiffer",
     "IgnoredDeclaration",
+    "ChipConservationBroken",
     "PairDeclarationsDiffer",
 )
 
@@ -415,7 +443,7 @@ def error_class(name):
     if not isinstance(klass, type) or not issubclass(klass, error_root()):
         raise SurfaceAbsent(
             "training.errors.%s is missing or does not descend from TrainingError, and "
-            "errors.md §2 declares the fifteen classes as design" % (name,)
+            "errors.md §2 declares the sixteen classes as design" % (name,)
         )
     return klass
 
@@ -481,6 +509,85 @@ def rule_set(value):
     row is a `list` or a `set` is a shape the design leaves free (`fairness.md` §4, §8).
     """
     return {as_text(rule, "a rule name") for rule in as_sequence(value, "a rules row")}
+
+
+def utility_catalogue():
+    """The utility catalogue `agents.learners()` publishes, as name → member record.
+
+    `utilities.md` §2 makes `learners()["utilities"]` the catalogue: more than one member,
+    in a declared order whose first is the default of §5, each stating its `name`, the
+    `reward` token it delivers and the `normaliser` that reward is divided by. A case reads
+    the vocabulary from that call and never restates a member name, because the catalogue is
+    what a `utility` is judged against — the second setting this battery does not invent
+    (`battery.md` §4, `utilities.md` §2, §5, D-20).
+    """
+    published = agents().learners()["utilities"]
+    catalogue = {}
+    if hasattr(published, "keys"):
+        for name in published:
+            entry = published[name]
+            catalogue[str(name)] = dict(entry) if hasattr(entry, "items") else entry
+        return catalogue
+    for entry in published:
+        if hasattr(entry, "get"):
+            catalogue[str(entry.get("name", entry.get("id")))] = dict(entry)
+        else:
+            catalogue[str(entry)] = {}
+    return catalogue
+
+
+def utility_names():
+    """The catalogue's utility names, in the order `agents.learners()` publishes them."""
+    return tuple(utility_catalogue())
+
+
+def two_utility_names():
+    """The two catalogue utilities an invented two-utility configuration declares, in order.
+
+    D-20 makes the objective a parameter a variant names, so a configuration may train two
+    arms under two utilities (`utilities.md` §2, §7); this reader says which two, from the
+    catalogue itself, and refuses to invent a name the catalogue does not carry
+    (`utilities.md` §2, §5).
+    """
+    catalogue = utility_names()
+    if len(catalogue) < 2:
+        raise SurfaceAbsent(
+            "agents.learners() publishes %d utility/utilities and D-20 ratifies two "
+            "objectives, so a configuration cannot be shown training two utilities: %r"
+            % (len(catalogue), catalogue)
+        )
+    return catalogue[0], catalogue[1]
+
+
+def utility_reward(name):
+    """The `reward` token the catalogue states for one utility (`utilities.md` §2, D-20).
+
+    A member's reward is the token `training`'s transition step selects its arithmetic by,
+    so a case reads it off the catalogue's own record and never off a sentence of its own
+    (`utilities.md` §2, §4).
+    """
+    entry = utility_catalogue().get(as_text(name, "a utility name"))
+    reward = entry.get("reward") if hasattr(entry, "get") else None
+    if not isinstance(reward, str):
+        raise SurfaceAbsent(
+            "the catalogue member %r states no `reward` token, and utilities.md §2 makes "
+            "the token what a utility delivers: %r" % (name, entry)
+        )
+    return reward
+
+
+def utility_set(value):
+    """A `utilities` row read as the **set** of utilities it names.
+
+    The utility side of :func:`rule_set`: `utilities.md` §8 and `records.md` §12 make the
+    row a set of members — one per distinct objective — so a case compares it as a set and
+    never as one side's value, and whether the row is a `list` or a `set` is a shape the
+    design leaves free (`utilities.md` §7, §8, D-20).
+    """
+    return {
+        as_text(utility, "a utility name")
+        for utility in as_sequence(value, "a utilities row")
+    }
 
 
 # --------------------------------------------------------------------------
@@ -840,6 +947,31 @@ def two_rule_configuration(name=INVENTED_RULE_RUNG, left=INVENTED_RULE_LEFT,
     return configuration
 
 
+def two_utility_configuration(name=INVENTED_UTILITY_RUNG, left=INVENTED_UTILITY_LEFT,
+                              right=INVENTED_UTILITY_RIGHT, pool_id=INVENTED_UTILITY_POOL,
+                              seeds=None, samples=TINY_BUDGET):
+    """A two-entry configuration whose arms declare the catalogue's two utilities (D-20).
+
+    The utility side of :func:`two_rule_configuration`, from the same invented entry: the
+    second arm carries the catalogue's second utility and nothing else moves, so the pair
+    the run trains differs on the `utility` axis alone and every setting both arms must
+    share — `hyper`, `samples`, `seeds`, `device`, `snapshot_every`, `table`,
+    `param_budget`, and the learning rule — is one declaration (`utilities.md` §7-§8,
+    `records.md` §2, `docs/L2/training/declarations.md` §4). The utilities are read from
+    `agents.learners()`, so no member name is restated here (`utilities.md` §2, §5).
+    """
+    first_utility, second_utility = two_utility_names()
+    configuration = custom_configuration(
+        name=name, variant=left, pool_id=pool_id, seeds=seeds, samples=samples
+    )
+    first = with_setting(variant_entries(configuration)[0], utility=first_utility)
+    second = with_setting(first, name=right, utility=second_utility)
+    configuration["variants"] = [first, second]
+    configuration["primary"] = left
+    configuration["axis"] = "the utility, at one architecture"
+    return configuration
+
+
 def with_setting(entry, **settings):
     """A copy of a variant entry with top-level settings replaced."""
     copy = dict(entry)
@@ -937,6 +1069,23 @@ def two_rule_run():
     return run_once(("two-rule", INVENTED_RULE_RUNG), thunk)
 
 
+def two_utility_run():
+    """`run` of the invented two-utility configuration, at the battery's tiny budget.
+
+    One seed and ten hands per arm, so `budget // 10` is one and every arm's curve closes
+    with ten points. Both arms are trained — D-20 makes the objective a parameter a variant
+    names, so a configuration declaring two catalogue utilities trains two learners — and the
+    record names each variant's utility and the run's `utilities` set (`utilities.md` §7,
+    `docs/L3/training/loop.md` §1 step 3, §3-§4, `records.md` §12).
+    """
+    configuration = two_utility_configuration()
+
+    def thunk():
+        return training().run(configuration)
+
+    return run_once(("two-utility", INVENTED_UTILITY_RUNG), thunk)
+
+
 def fallback_configuration():
     """A configuration declaring no `seeds` of its own: its entry carries them (§5)."""
     configuration = custom_configuration(
@@ -1023,6 +1172,28 @@ def fold_first_policy():
     return policy
 
 
+def raise_first_policy():
+    """A policy that raises whenever raising is legal, else calls, else takes the first.
+
+    It is what makes D-20's all-in numbers observable: in the fixed game of D-2 a seat that
+    raises at every opportunity commits the twenty chips it was dealt, so the hand's two
+    payoffs are ±20 and the shortfall reward is +1.000 / −3.000 (`utilities.md` §2, §4,
+    ASM-6).
+    """
+    raise_descriptor = features().decode_action(2)
+    call_descriptor = features().decode_action(1)
+
+    def policy(readout, legal_actions):
+        del readout
+        for wanted in (raise_descriptor, call_descriptor):
+            for descriptor in legal_actions:
+                if descriptor == wanted:
+                    return descriptor
+        return legal_actions[0]
+
+    return policy
+
+
 _EPISODES = {}
 
 
@@ -1044,6 +1215,23 @@ def fold_episode():
             baseline_policy("always-call", BASELINE_SEED),
         )
     return _EPISODES["fold"]
+
+
+def all_in_episode(seed=ALL_IN_WIN_SEED):
+    """One real episode whose two seats raise whenever they may, so the hand goes all-in.
+
+    The engine deals one seeded hand and both seats commit their twenty chips, so the
+    episode's payoffs are ±20 and the shortfall reward is +1.000 at the winner's terminal
+    decision and −3.000 at the loser's (`utilities.md` §2, §4, `records.md` §5, ASM-6).
+    Each call builds its policies fresh, because a baseline is a stateful object and a
+    shared one would make the second hand depend on the first.
+    """
+    key = ("all-in", int(seed))
+    if key not in _EPISODES:
+        _EPISODES[key] = engine().play_hand(
+            int(seed), raise_first_policy(), raise_first_policy()
+        )
+    return _EPISODES[key]
 
 
 def decisions_of(record):
@@ -1101,7 +1289,7 @@ class TrainingCase(unittest.TestCase):
         """Assert a refusal of the class `errors.md` §2 names, naming the value.
 
         `thunk` is called with no argument. The class is asserted exactly, because
-        `errors.md` §2 names the fifteen classes as design and a subclass would be an
+        `errors.md` §2 names the sixteen classes as design and a subclass would be an
         invention; the message must name the entry point that refused (`errors.md` §3)
         and every token of `groups` — one alternative per tuple — which is how a case
         says "the offending value is named" (§3 rule 1, §4).

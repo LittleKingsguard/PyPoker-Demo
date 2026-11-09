@@ -137,6 +137,13 @@ CELL_SEED = 55103              # its one real cell's seed, invented
 TABLE_SEED = 84017             # its table seed, invented
 VARIANT_LABEL = "variant-invented-7"   # a member outside the pool, invented
 SNAPSHOT_POINTS = 10           # ASM-18's ten snapshot intervals (`curves.md` §2)
+UTILITY_SEED = 4409            # D-20's run's two seeds, invented
+UTILITY_SEED_OTHER = 4410
+UTILITY_BUDGET = 10            # its hands per variant per seed, invented
+UTILITY_RUNG = "rung-invented-utility-9"        # its rung label, invented
+UTILITY_LEFT = "chips-arm-invented-9"           # its two arms' names, invented
+UTILITY_RIGHT = "shortfall-arm-invented-9"
+UTILITY_POOL = "pool-invented-utility-9"        # the pool id it declares, invented
 
 
 # --------------------------------------------------------------------------
@@ -401,6 +408,26 @@ def is_baseline(member):
 
 def baseline_names():
     return [str(name) for name in baselines()]
+
+
+def utility_names():
+    """The utilities `agents.learners()` publishes, in its declared order (`utilities.md` §2).
+
+    The catalogue is the only vocabulary a `utility` is judged against, so a case reads the
+    two members from that call and never restates a name (D-20, `utilities.md` §2, §5).
+    """
+    published = learners()["utilities"]
+    return [str(name) for name in published]
+
+
+def policy_utility(policy):
+    """The utility a policy carries, or `None` (`e2e-surface.md` §2, `utilities.md` §6).
+
+    `agents.as_policy` and `evaluation.policy_from` build a policy that names the utility
+    the file it came from records, so a table can name each member's objective even when no
+    other record of it exists yet (D-20, `utilities.md` §6, §7).
+    """
+    return getattr(policy, "utility", None)
 
 
 def baseline_members(pool_record):
@@ -675,6 +702,64 @@ def other_seed_run():
     if "other" not in _SHARED:
         _run_at("R1", RUN_SEED_OTHER, RUN_BUDGET, "other")
     return _SHARED["other"]["record"]
+
+
+def two_utility_configuration():
+    """A two-variant configuration whose arms declare the two catalogue utilities (D-20).
+
+    A configuration in no design document (`docs/L1/battery.md` §4, D-15), written to
+    `records.md` §2's shape: the registry's own R1 entry, declared twice under two variant
+    names, with only the `utility` differing — one backend, one encoding, one
+    architecture, one rule, one `hyper`, one seed set and one budget — so the two arms are
+    one capacity trained on two rewards (`utilities.md` §3, §7, D-20). The utilities are
+    read from `agents.learners()`, so no member name is restated here.
+    """
+    first_utility, second_utility = utility_names()[:2]
+    template = clone(variant_entry(rung("R1"), "naive-numeric"))
+    template["samples"] = UTILITY_BUDGET
+    template["snapshot_every"] = max(1, UTILITY_BUDGET // SNAPSHOT_POINTS)
+    left = clone(template)
+    left["name"] = UTILITY_LEFT
+    left["utility"] = first_utility
+    right = clone(template)
+    right["name"] = UTILITY_RIGHT
+    right["utility"] = second_utility
+    return {
+        "name": UTILITY_RUNG,
+        "axis": "the utility, at one architecture",
+        "carried_from": None,
+        "primary": UTILITY_LEFT,
+        "variants": [left, right],
+        "pool": {
+            "id": UTILITY_POOL,
+            "lineage": None,
+            "m": 5,
+            "frozen": True,
+            "members": [],
+        },
+        "seeds": [UTILITY_SEED, UTILITY_SEED_OTHER],
+        "samples": UTILITY_BUDGET,
+        "param_budget": int(template["param_budget"]),
+        "table": "live",
+        "device": "cpu",
+        "snapshot_every": max(1, UTILITY_BUDGET // SNAPSHOT_POINTS),
+    }
+
+
+def two_utility_run():
+    """One run of it, built once per process: two arms, two rewards, one run record.
+
+    Both variants are trained — D-20 makes the objective a parameter a variant names — so
+    the record is the observable that says so: a curve, a final model and a utility per
+    arm (`utilities.md` §7, `records.md` §12, `docs/L3/training/loop.md` §1 step 3).
+    """
+    if "utility" not in _SHARED:
+        _SHARED["utility"] = run(
+            two_utility_configuration(),
+            seeds=[UTILITY_SEED, UTILITY_SEED_OTHER],
+            budget=UTILITY_BUDGET,
+        )
+    return _SHARED["utility"]
 
 
 def episode():

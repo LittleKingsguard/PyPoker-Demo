@@ -3,7 +3,9 @@
 Puts `<repo>/src` on `sys.path`, imports the `agents` package **lazily inside a
 helper** (so an absent `src/agents/` is one red case per contract and never a
 collection error), and holds the battery's invented instances, its tolerant
-readers and the base `unittest.TestCase` every case derives from.
+readers, the container surgery a case needs to build a file this module did not
+write (`container_document`, `write_container`, `version_container`) and the base
+`unittest.TestCase` every case derives from.
 
 Everything asserted here is stated in `docs/L3/agents/` and `docs/L2/agents/`;
 the two consumed edges are read through `docs/L2/features/surface.md` §5, §8, §9
@@ -25,9 +27,11 @@ spellings this battery imports.
 """
 
 import importlib
+import json
 import os
 import sys
 import unittest
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -468,6 +472,50 @@ def greedy_expectation(seed, kind, observations, masks):
         if u >= end:
             greedy += 1
     return greedy
+
+
+def container_document(path):
+    """`(metadata, parameters)` of one checkpoint: the document parsed, the array as bytes.
+
+    A checkpoint is one zip container of `metadata.json` and `parameters.npy`
+    (`checkpoint.md` §2), and the two member names are contract, so a case that has to
+    say what a container *records* — its `format_version` and its fields, in the order
+    the document holds them — reads that document here rather than through an entry
+    point, which is the reading rule of §2's byte paragraph.  The array is handed back
+    as the bytes it was read as, so a rewrite carries it through untouched.
+    """
+    with zipfile.ZipFile(path) as container:
+        metadata = json.loads(container.read("metadata.json").decode("utf-8"))
+        parameters = container.read("parameters.npy")
+    return metadata, parameters
+
+
+def write_container(target, metadata, parameters):
+    """Write one container at `target`: the document re-serialised, the array's bytes kept.
+
+    The container is the one form `checkpoint.md` §2 declares — two members, the array
+    written back exactly as it was read — so a rewritten file differs from the one
+    `save` wrote in `metadata.json` alone.
+    """
+    with open(target, "wb") as handle:
+        with zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_STORED) as container:
+            container.writestr("metadata.json", json.dumps(metadata).encode("utf-8"))
+            container.writestr("parameters.npy", parameters)
+    return target
+
+
+def version_container(source, target, version, drop=()):
+    """Copy one container to `target` in another format version's form.
+
+    `format_version` is set to `version` and each field named in `drop` is removed; both
+    members are otherwise the source file's own, which is how a case builds a container
+    this module did not write without touching `checkpoints/` (`checkpoint.md` §2, §3).
+    """
+    metadata, parameters = container_document(source)
+    metadata["format_version"] = int(version)
+    for field in drop:
+        metadata.pop(field, None)
+    return write_container(target, metadata, parameters)
 
 
 def plain_int(value, what):

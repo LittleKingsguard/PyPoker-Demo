@@ -157,6 +157,13 @@ DEFAULT_RULE = "masked-q-learning"
 OTHER_RULE = "double-q-learning"
 RULES = (DEFAULT_RULE, OTHER_RULE)
 
+#: The utility catalogue's two members, on the same terms (`utilities.md` §2, D-20): the
+#: names this battery asserts against, with the catalogue itself always read off
+#: `agents.learners()`.
+DEFAULT_UTILITY = "net-chips"
+OTHER_UTILITY = "stack-shortfall"
+UTILITIES = (DEFAULT_UTILITY, OTHER_UTILITY)
+
 HAND_BUILT_MEMBERS = (
     "random",
     "always-call",
@@ -433,13 +440,13 @@ def bootstrap_seed(table_seed):
 
 
 def pool_id(members):
-    """A pool's id: one line per member, a baseline's id alone and a version's with its rule.
+    """A pool's id: one line per member, a baseline's id alone and a version's with its two members.
 
-    `docs/L3/evaluation/families.md` §4 and ASM-27: the payload is a baseline's id alone
-    and a version's `id`, ``\\x1f``, then its `rule`, one line per member, joined by one
-    ``\\n``; SHA-256, truncated to sixteen hex characters and prefixed `pool-`.  A
-    sequence of bare ids is read as a baselines-only membership, which is what a caller
-    holding only names can mean.
+    `docs/L3/evaluation/families.md` §4, ASM-27 and D-20: the payload is a baseline's id
+    alone and a version's `id`, ``\\x1f``, then its `rule`, ``\\x1f``, then its `utility`,
+    one line per member, joined by one ``\\n``; SHA-256, truncated to sixteen hex
+    characters and prefixed `pool-`.  A sequence of bare ids is read as a baselines-only
+    membership, which is what a caller holding only names can mean.
     """
     lines = []
     for member in members:
@@ -447,7 +454,10 @@ def pool_id(members):
             if member.get("baseline"):
                 lines.append(str(member["id"]))
             else:
-                lines.append("%s\x1f%s" % (member["id"], member["rule"]))
+                lines.append(
+                    "%s\x1f%s\x1f%s"
+                    % (member["id"], member["rule"], member["utility"])
+                )
         else:
             lines.append(str(member))
     payload = "\n".join(lines).encode("utf-8")
@@ -470,14 +480,18 @@ def scratch_root():
 
 
 def checkpoint(name=CHECKPOINT_A, seed=CHECKPOINT_SEED, width=WIDTH_A, depth=DEPTH_A,
-               kind=DEFAULT_KIND, rule=None):
+               kind=DEFAULT_KIND, rule=None, utility=None):
     """A real checkpoint: `agents.build_learner` then `agents.save`.
 
     `rule` is the catalogue member the learner is built under, and the container records
     it: `rules.md` §6 makes a checkpoint's `learning_rule` a required field of the format
-    (D-19).  A caller naming none gets the catalogue's first member, the declared default.
+    (D-19).  `utility` is the catalogue member whose reward the learner is trained on,
+    and the container records that too: `utilities.md` §6 makes `utility` a required
+    field of the same container (D-20).  A caller naming none gets each catalogue's first
+    member, the declared default, so every caller that predates D-20 keeps the checkpoint
+    it wrote before.
     """
-    key = ("checkpoint", name)
+    key = ("checkpoint", name, utility)
     if key not in _SHARED:
         encoder = build_encoder(encoding_for(kind))
         spec = {
@@ -488,8 +502,13 @@ def checkpoint(name=CHECKPOINT_A, seed=CHECKPOINT_SEED, width=WIDTH_A, depth=DEP
         }
         if rule is not None:
             spec["learning_rule"] = rule
+        if utility is not None:
+            spec["utility"] = utility
         learner = build_learner(spec)
-        path = save(learner, os.path.join(scratch_root(), name))
+        suffix = "" if utility is None else "-" + "".join(
+            ch for ch in str(utility).lower() if ch.isalnum()
+        )
+        path = save(learner, os.path.join(scratch_root(), name + suffix))
         _SHARED[key] = {
             "path": path,
             "learner": learner,
@@ -497,14 +516,30 @@ def checkpoint(name=CHECKPOINT_A, seed=CHECKPOINT_SEED, width=WIDTH_A, depth=DEP
             "params": param_count(learner),
             "seed": seed,
             "rule": rule,
+            "utility": utility,
         }
     return _SHARED[key]
 
 
 def version(member_id, lineage, checkpoint_name=CHECKPOINT_A, seed=CHECKPOINT_SEED,
-            width=WIDTH_A, depth=DEPTH_A, step=STEP, samples=SAMPLES):
-    """One `records.md` §7 version record carrying a real checkpoint's path."""
-    info = checkpoint(checkpoint_name, seed, width, depth)
+            width=WIDTH_A, depth=DEPTH_A, step=STEP, samples=SAMPLES,
+            utility=DEFAULT_UTILITY):
+    """One `records.md` §7 version record carrying a real checkpoint's path.
+
+    The checkpoint is built under the utility the record declares, so the pair the record
+    states is the pair its container records: a member whose `utility` disagreed with its
+    file is refused where it is played (`utilities.md` §6, §7, ASM-20, D-20).  The
+    catalogue's first member is the declared default of `utilities.md` §5, which is what
+    a learner built without one records, so a case naming the default needs no second
+    file.
+    """
+    info = checkpoint(
+        checkpoint_name,
+        seed,
+        width,
+        depth,
+        utility=None if utility == DEFAULT_UTILITY else utility,
+    )
     return {
         "id": member_id,
         "path": info["path"],
@@ -518,11 +553,15 @@ def version(member_id, lineage, checkpoint_name=CHECKPOINT_A, seed=CHECKPOINT_SE
         # this record names was built without a `learning_rule`, so it records the
         # catalogue's first member, which is the declared default of `rules.md` §4.
         "rule": DEFAULT_RULE,
+        # ... and its `utility` on the same terms (D-20): the record declares the one the
+        # checkpoint it names was built under, and the container agrees (`utilities.md`
+        # §6, §7).
+        "utility": utility,
     }
 
 
 def bare_version(member_id, lineage, step=STEP, samples=SAMPLES, seed=CHECKPOINT_SEED,
-                 rule=DEFAULT_RULE):
+                 rule=DEFAULT_RULE, utility=DEFAULT_UTILITY):
     """One `records.md` §7 version record with no `path`: admitted, not loadable."""
     return {
         "id": member_id,
@@ -533,6 +572,7 @@ def bare_version(member_id, lineage, step=STEP, samples=SAMPLES, seed=CHECKPOINT
         "step": step,
         "samples": samples,
         "rule": rule,
+        "utility": utility,
     }
 
 
@@ -812,6 +852,28 @@ def pool_rules(pool_record):
             "(records.md §8, D-19): %r" % (sorted(str(key) for key in pool_record),)
         )
     return tuple(pool_record["rules"])
+
+
+def pool_utilities(pool_record):
+    """The `utilities` a pool record declares — a **required** key of `records.md` §8 (D-20)."""
+    if "utilities" not in pool_record:
+        raise AssertionError(
+            "a pool record carries `utilities`, the distinct utilities its version members "
+            "declare (records.md §8, utilities.md §7, D-20): %r"
+            % (sorted(str(key) for key in pool_record),)
+        )
+    return tuple(pool_record["utilities"])
+
+
+def member_utility(pool_record, member_id):
+    """One version member's `utility` out of a pool record (`records.md` §7, D-20)."""
+    member = member_record(pool_record, member_id)
+    if "utility" not in member:
+        raise AssertionError(
+            "a version member carries `utility`, the objective it was trained on "
+            "(records.md §7, utilities.md §6, D-20): %r" % (member,)
+        )
+    return str(member["utility"])
 
 
 def member_record(pool_record, member_id):
