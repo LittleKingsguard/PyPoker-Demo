@@ -42,7 +42,7 @@ PYPOKER_CHECKPOINT_ROOT=/tmp/pypoker-run PYTHONPATH=src .venv/bin/python -c "imp
 
 ## 5. Run a league table
 
-A **live** table is what a talk plays, one declared call per stage (`e2e-surface.md` §3.4): `evaluation.build_pool(...)` over that run's frozen membership with the three baselines added and pinned, `evaluation.matrix(pool, [variant_policy], "live")` at 120 hands a cell, then `evaluation.rating(matrix)` — six cells and ≈110 s at K = 4, at the measured 0.141–0.153 s/hand (`league.md` §7, ASM-21, ASM-14).
+A **live** table is what a talk plays, one declared call per stage (`e2e-surface.md` §3.4): `evaluation.build_pool(...)` over that run's frozen membership with the three anchor baselines added and pinned — a declaration that names D-21's folding baselines holds them too, which takes K and the table's cost to `folders.md` §5, ASM-33 — `evaluation.matrix(pool, [variant_policy], "live")` at 120 hands a cell, then `evaluation.rating(matrix)` — six cells and ≈110 s at K = 4, at the measured 0.141–0.153 s/hand (`league.md` §7, ASM-21, ASM-14).
 
 The **variant policy** is the rung's own trained model, named by the run record: `record["checkpoints"][variant][str(seed)]["final"]` is a repository-relative path — resolve it against the repository root first, because `policy_from` and `build_pool` read a path as the working directory spells it — then `evaluation.policy_from` loads it and `matrix` names it `variant-1` by the slot it was passed in (`records.md` §10, `e2e-surface.md` §3.4). `notebooks/r1-naive-numpy.ipynb` walks that route.
 

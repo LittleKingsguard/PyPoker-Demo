@@ -43,7 +43,7 @@ def new_hand(seed: int) -> "Hand":
 
 
 def readout(hand: "Hand") -> dict:
-    """The acting seat's ten facts at this decision (surface.md §5)."""
+    """The acting seat's eleven facts at this decision (surface.md §5)."""
     return _readout.readout(hand)
 
 

@@ -23,7 +23,9 @@ import features
 
 from . import declarations, errors
 
-#: The ten readout facts, declared here because `engine.readout` is not a granted call.
+#: The eleven readout facts, declared here because `engine.readout` is not a granted
+#: call.  `hand_class` is D-21's derived fact (ASM-30): a fact of the information set that
+#: no encoding carries, so it is declared here and not in `features`' `fields`.
 READOUT_FACTS = (
     "street",
     "seat",
@@ -35,6 +37,7 @@ READOUT_FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
 )
 
 
@@ -266,9 +269,22 @@ def _declared_pool(value):
 
 
 def _member_ids(value):
-    """The member ids one side's pool declares: the pinned baselines, then its window."""
+    """The member ids one side's pool declares: the pinned baselines, then its window.
+
+    The pinned set is the anchor three **plus** any folding baseline the side's membership
+    declaration names, because that is the pool the side trains against and the parity
+    pair is played over the membership both sides share (`records.md` §8, `loop.md` §4,
+    ASM-32, D-21).  The declared names are read off the declaration itself; the anchor
+    three come from `declarations.BASELINES`, which is `evaluation.league()`'s pinned set
+    read through the granted arrow and never a literal here (`module-map.md` §2, D-13).
+    """
     ids = list(declarations.BASELINES)
     pool = value.get("pool")
+    declared = pool.get("baselines") if isinstance(pool, Mapping) else None
+    if isinstance(declared, (list, tuple)):
+        for name in declared:
+            if isinstance(name, str) and name not in ids:
+                ids.append(name)
     members = pool.get("members") if isinstance(pool, Mapping) else None
     if not isinstance(members, (list, tuple)):
         return ids
@@ -285,6 +301,26 @@ def _member_ids(value):
     return ids
 
 
+def _pinned_ids(*sides):
+    """The pinned baselines the sides' pools hold: the anchor three, then declared folders.
+
+    `declarations.BASELINES` is `evaluation.league()`'s pinned set — the catalogue's
+    `anchor: True` members — and a folder joins only through a side's own `pool`
+    declaration, so this module names no baseline it did not read from a granted call
+    (`module-map.md` §2, `records.md` §8, ASM-32, D-21).
+    """
+    names = list(declarations.BASELINES)
+    for side in sides:
+        pool = side.get("pool") if isinstance(side, Mapping) else None
+        declared = pool.get("baselines") if isinstance(pool, Mapping) else None
+        if not isinstance(declared, (list, tuple)):
+            continue
+        for name in declared:
+            if isinstance(name, str) and name not in names:
+                names.append(name)
+    return names
+
+
 def _pool_report(left, right):
     """The frozen pool a pair is read against: `m`, `frozen`, the baselines, the ids."""
     left_id = _declared_pool(left)
@@ -296,10 +332,11 @@ def _pool_report(left, right):
     for member in right_members:
         if member in shared and member not in membership:
             membership.append(member)
+    held = set(left_members) | set(right_members)
     return {
         "m": declarations.LEAGUE_M,
         "frozen": True,
-        "baselines": list(declarations.BASELINES),
+        "baselines": [name for name in _pinned_ids(left, right) if name in held],
         "ids": [left_id, right_id],
         "same": left_id if left_id is not None and left_id == right_id else None,
         "membership": membership,

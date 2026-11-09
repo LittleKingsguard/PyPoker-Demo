@@ -380,3 +380,44 @@ hands won and chips per hand — so a variant trained on one utility and judged 
 another is not a like-for-like comparison. Every record, member and table must name the utility a
 model was trained under, and a report must state both, or the ladder would silently compare models
 that were asked different questions (D-6, D-16).
+
+---
+
+## D-21 — Three simple folding baselines join the catalogue
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Add additional, simpler folding strategies
+- folds if pocket cards do not contain a pair or face card
+- folds if hand does not contain a pair or better on the flop
+- folds if bet is greater than half its stack at start of hand"
+
+**Decision:** The baseline catalogue grows from three fixed rules to six. The three new ones are
+simple, deterministic, non-learning folders, each with one pinned reading:
+
+- `fold-no-pair-or-face` — preflop only: fold when the hole cards are unpaired **and** neither card is
+  a face card. "Face card" is pinned as **J, Q, K or A**; rejected: J/Q/K alone, which leaves ace-high
+  hands folding and is a one-line change if the talk wants it.
+- `fold-no-pair-or-better` — from the flop onward: fold when the best five-card hand of hole plus
+  board is **worse than a pair** (high card only). Before the flop it calls.
+- `fold-large-bet` — fold when `to_call` exceeds half the starting stack (`> 10 chips` at the
+  declared 20), at any street; otherwise it calls.
+
+Each calls (check/calls) in every case it does not fold, and none of them raises. The three original
+baselines stay exactly as they are and stay the rating's anchor: the Bradley-Terry fit is still
+zeroed on **their** mean, so a shipped rating stays comparable with every one already recorded. The
+three new rules are pool members and table rows when a configuration declares them; they do not
+silently join the anchor.
+
+**Why this is the change that matters.** The measured degeneracy is that no bet can win a pot without
+showdown, because `always-call` and the oracle almost never fold (`multiway-probe.md`). Three folders
+give aggression something to win, which is what makes bluffing, position and bet-sizing learnable —
+and it is the precondition for the Phase 2 opponent-modelling objective (D-9) being more than a
+diagram.
+
+**Consequences the design must carry.** `fold-no-pair-or-better` needs a hand-strength fact that the
+readout does not expose today, so either `engine`'s readout gains one or `features` gains an
+evaluator — `agents` must not import `pokerkit` (D-13). Baseline count changes pool membership and
+therefore K and the K(K−1)/2 cell count, so the table's cost moves with it (ASM-14). The e2e battery's
+baseline family asserts three and must be extended, never weakened. The shipped artefacts were
+measured over a three-baseline pool and are not re-baselined by this row.

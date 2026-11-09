@@ -295,7 +295,7 @@ class FAM3Ladder(S.SurfaceCase):
                 "pool id: %r" % (rung_name, sorted(set(ids))),
             )
             members = S.flatten_text(S.find_values(record, "pool"))
-            for baseline in S.BASELINES:
+            for baseline in S.ANCHOR_BASELINES:
                 self.assertIn(
                     baseline,
                     members,

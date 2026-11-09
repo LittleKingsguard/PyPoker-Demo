@@ -5,7 +5,7 @@
 ASM-12.
 
 The record carries the seed it was called with, the ordered decisions and the
-payoffs; every decision carries its own seat, the whole ten-fact readout taken
+payoffs; every decision carries its own seat, the whole eleven-fact readout taken
 before the action, the legal descriptors, the action applied and a reward that is
 zero except at that seat's last decision, where it is the seat's net chip delta.
 The record is the hand: driving the same seed by hand with the recorded actions
@@ -57,8 +57,8 @@ class ENG8Episode(S.EngineCase):
 
     def test_eng8_2_every_decision_carries_its_five_facts(self):
         """ENG-8.2 each decision carries seat, readout, legal, action and reward; its
-        readout holds the ten facts, its action is a member of its legal descriptors, and
-        its seat is the readout's seat (environment.md §3, episode.md §3)."""
+        readout holds the eleven facts, its action is a member of its legal descriptors, and
+        its seat is the readout's seat (environment.md §3, episode.md §3, ASM-30)."""
         record = self.episode(S.SEED_B, S.always_raise, S.always_call)
         for index, decision in enumerate(record["decisions"]):
             with self.subTest(decision=index):
@@ -68,7 +68,7 @@ class ENG8Episode(S.EngineCase):
                                   "every decision carries its %r (records.md §5)" % key)
                 facts = decision["readout"]
                 self.assertEqual(set(facts), set(S.FACTS),
-                                 "the decision's readout is the whole ten-fact mapping of that "
+                                 "the decision's readout is the whole eleven-fact mapping of that "
                                  "decision (environment.md §3): %r" % (sorted(facts),))
                 self.assertEqual(tuple(decision["seat"]), tuple(facts["seat"]),
                                  "a decision's seat is its readout's seat fact")
@@ -209,8 +209,8 @@ class ENG8Episode(S.EngineCase):
 
     def test_eng8_6_the_policy_protocol_is_a_callable_taking_the_readout_and_the_legal_set(self):
         """ENG-8.6 a policy is called with (readout, legal) and its answer is applied; a
-        recording policy sees a ten-fact mapping and a sequence holding its answer, and
-        first/last/lambda policies all work (e2e-surface.md §2, episode.md §4)."""
+        recording policy sees an eleven-fact mapping and a sequence holding its answer, and
+        first/last/lambda policies all work (e2e-surface.md §2, episode.md §4, ASM-30)."""
         seen = []
 
         def recording(readout, legal):
@@ -223,7 +223,7 @@ class ENG8Episode(S.EngineCase):
             self.assertTrue(S.is_mapping(readout),
                             "the policy's first argument is the readout mapping (e2e-surface §2)")
             self.assertEqual(set(readout), set(S.FACTS),
-                             "the policy sees the whole ten-fact readout: %r" % (sorted(readout),))
+                             "the policy sees the whole eleven-fact readout: %r" % (sorted(readout),))
             self.assertIsNotNone(legal, "the policy's second argument is the legal descriptors")
             self.assertTrue(list(legal), "the legal sequence the policy sees is never empty")
         self.assertTrue(

@@ -12,7 +12,7 @@
     src/engine/hand.py         Hand, SEAT_TO_PLAYER, player_index(), seat_of(), AUTOMATIONS,
                                new_hand(), advance(), is_terminal(), payoffs()
     src/engine/actions.py      ACTIONS, legal_actions(), apply_action()
-    src/engine/readout.py      facts() — the ten-key mapping — and readout()
+    src/engine/readout.py      facts(), readout(), hand_class() and CLASS_OF — the eleven-key mapping (readout.md §2)
     src/engine/episode.py      play_hand() and the reward placement
     src/engine/equity.py       equity() and the random save/seed/restore
 
@@ -55,7 +55,7 @@ battery that drives the surface uses `engine.<name>` and nothing else (`battery.
 `engine` imports:
 
 - `pokerkit` (`FixedLimitTexasHoldem`, `Automation`, `analysis.calculate_equities`,
-  `utilities.Deck`, `hands.StandardHighHand`) and the Python standard library (`random`, `copy`,
+  `utilities.Deck`, `hands.StandardHighHand`, `lookups.Label`) and the Python standard library (`random`, `copy`,
   `itertools`, `collections.abc`, `numbers`, `typing`).
 
 and **nothing else**. Never `features`, `agents`, `evaluation`, `training`, `harness`, and never a
@@ -70,8 +70,8 @@ of the map and a test-only or numeric dependency here would leak into every call
 ## 4. Where the design stops
 
 Function bodies are L4's. This directory fixes: the nine names and their arguments and returns, the
-value types (a `str` card, a `str` descriptor, a `dict` readout with ten keys, a `tuple` legal set, a
-`dict` payoff, an opaque `Hand`), the seat mapping, the derivations of the ten facts, the seeding and
+value types (a `str` card, a `str` descriptor, a `dict` readout with eleven keys, a `tuple` legal set, a
+`dict` payoff, an opaque `Hand`), the seat mapping, the derivations of the eleven facts, the seeding and
 stream rules, the error grammar, and the file/import layout. Anything else — helper names, private
 constants, docstring style, the order of two independent statements — is L4's and is not a finding
 against this design unless it breaks one of the rules above (`guardrails.md`).

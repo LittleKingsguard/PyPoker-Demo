@@ -1,11 +1,12 @@
-"""FAM-2, D-3 — the information set is exactly the ten declared facts.
+"""FAM-2, D-3 — the information set is exactly the eleven declared facts.
 
 `docs/L2/engine/environment.md` §2 and `surface.md` §5.  The readout is the closed
-information set: exactly ten keys, no eleventh, the acting seat's own cards and never
+information set: exactly eleven keys, no twelfth, the acting seat's own cards and never
 the other seat's, 0/3/4/5 board cards as the street reveals them, `legal` the same
 descriptors `legal_actions` returns, `history` the empty list before the first action
-and one entry longer per action, `seat` the acting seat with its button flag, and
-`pot` plus the two `stacks` conserving the forty chips the hand began with.
+and one entry longer per action, `seat` the acting seat with its button flag,
+`pot` plus the two `stacks` conserving the forty chips the hand began with, and D-21's
+derived `hand_class` — `None` before the flop and a class from the flop on (ASM-30).
 """
 
 import os
@@ -24,8 +25,8 @@ except ImportError:
 class FAM2InformationSet(S.EngineCase):
     """D-3's information set, through a whole hand."""
 
-    def test_fam2_10_readout_carries_exactly_the_ten_facts(self):
-        """FAM-2.10 the readout's keys are exactly environment.md §2's ten facts."""
+    def test_fam2_10_readout_carries_exactly_the_eleven_facts(self):
+        """FAM-2.10 the readout's keys are exactly environment.md §2's eleven facts."""
         for seed in (S.SEED_A, S.SEED_B, S.SEED_C):
             steps, _ = self.walk(seed, limit=S.DECISION_BOUND)
             self.assertTrue(steps, "a hand has at least one decision; seed %r" % (seed,))
@@ -34,7 +35,8 @@ class FAM2InformationSet(S.EngineCase):
                     set(step.readout),
                     set(S.READOUT_FACTS),
                     "the information set is closed: decision %d of seed %r must carry "
-                    "exactly the ten facts and no eleventh (environment.md §2, D-3); it "
+                    "exactly the eleven facts and no twelfth (environment.md §2, D-3, "
+                    "ASM-30); it "
                     "carried %r" % (position, seed, sorted(str(key) for key in step.readout)),
                 )
 

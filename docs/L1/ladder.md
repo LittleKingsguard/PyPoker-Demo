@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 rung ladder as configuration
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
-- **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8), the set of learning rules a rung declares (D-19), and the utility its arms are trained under (D-20)
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-09
+- **Covers:** brief §2's six rungs and the budgets L1 fixes for them (D-3, ASM-8), the set of learning rules a rung declares (D-19), the utility its arms are trained under (D-20) and the folding baselines a configuration may add to its pool (D-21)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
 ## 1. A rung is a configuration, not a script
@@ -12,7 +12,7 @@ What this buys, and it is the point of the design: no rung can drift into its ow
 
 ## 2. The rung registry
 
-Each rung trains and is evaluated against one frozen pool: the last M versions of the rung it inherits plus the three baselines, held identical for both arms of a pair (D-16, ASM-16, `league.md` §2).
+Each rung trains and is evaluated against one frozen pool: the last M versions of the rung it inherits plus the three anchor baselines, held identical for both arms of a pair (D-16, ASM-16, `league.md` §2). **The six rows below declare no folder of D-21**, so no rung's table membership, cells or rating moves with that decision; a configuration that declares the three folders is a custom one — the same machinery as data — and takes K = 12 or 13 and the cost `folders.md` §5 forecasts (ASM-33, `battery.md` §3 FAM-15, D-21).
 
 | Rung | The axis it varies | Variants | Primary (the lineage) | Carried from | The pool it trains against |
 |---|---|---|---|---|---|
@@ -44,7 +44,7 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 | `name`, `axis` | the rung's name and the one thing it varies, both from §2 |
 | `carried_from`, `primary` | the previous rung's primary variant, and the variant the next rung inherits |
 | `variants` | one or two variant entries |
-| `pool` | the frozen pool the variants train and are evaluated against: its lineage, M, and the id every arm's run record must carry — and, for a configuration that is not in the registry, the membership declaration itself, which is how a custom league reaches the loop as data (D-16, ASM-16, `records.md` §8) |
+| `pool` | the frozen pool the variants train and are evaluated against: its lineage, M, and the id every arm's run record must carry — and, for a configuration that is not in the registry, the membership declaration itself, which names any baseline beyond the three anchor ones it wants in the pool, and is how a custom league reaches the loop as data (D-16, ASM-16, `records.md` §8, ASM-32, D-21) |
 | variant `backend` | `numpy` for R1, `torch` from R2 on (D-7) |
 | variant `encoding` | `flat-numeric` for R1/R2, `card-tokens` for R3–R6 (D-3) |
 | variant `architecture` | the kind — naive stack, token embedding, wide, deep, sparse, residual, plain — with its width, depth, sparsity and residual settings (D-3) |

@@ -446,6 +446,72 @@ class RatingTest(EvaluationCase):
             "repairs the record (rating.md §1, §6): %r" % (matrix,),
         )
 
+    def test_evl_5_12_the_anchor_is_the_flagged_three_and_never_a_folder(self):
+        """EVL-5.12 a table over the whole catalogue is anchored on the three flagged baselines' mean alone: the anchors' mean is exactly 0 while the folders' values are free, and the record's `anchor` names the three and no folder (`rating.md` §2-§3, §5, `records.md` §11, ASM-32, D-21).
+
+        The table makes every anchor beat every folder and the members of each group tie
+        one another, so a fit that anchored all six would hold the folders at 0 with the
+        anchors and one that anchored none would leave the three off 0: only the flagged
+        three's mean can be exactly 0 here (`docs/L1/folders.md` §4, ASM-32).
+        """
+        package = self.evaluation()
+        catalogue = tuple(package.protocol()["baselines"]) + tuple(
+            name
+            for name in self.agents().baselines()
+            if name not in tuple(package.protocol()["baselines"])
+        )
+        self.assertEqual(
+            tuple(package.protocol()["baselines"]),
+            BASELINES,
+            "the pinned set is the three baselines of D-6 (declarations.md §2.2, ASM-32)",
+        )
+
+        def anchors_beat_folders(left, right):
+            left_anchor = left in BASELINES
+            right_anchor = right in BASELINES
+            if left_anchor and not right_anchor:
+                return HANDS_PER_CELL, 0
+            if right_anchor and not left_anchor:
+                return 0, 0
+            return 0, HANDS_PER_CELL
+
+        matrix = hand_matrix(anchors_beat_folders, members=catalogue)
+        rating = package.rating(matrix)
+        entries = rating_entries(rating)
+        anchored = [entry_value(entries[name]) for name in BASELINES]
+        self.assertAlmostEqual(
+            mean(anchored),
+            0.0,
+            places=9,
+            msg="the fit is zeroed on the flagged three's mean, and on nothing else "
+            "(rating.md §2-§3, ASM-32): %r" % (anchored,),
+        )
+        for name in catalogue:
+            if name in BASELINES:
+                continue
+            with self.subTest(folder=name):
+                value = entry_value(entries[name])
+                self.assertLess(
+                    value,
+                    -1.0,
+                    "a folder that lost every cell is not held at the anchor: an anchor "
+                    "of all six would pin it with the three, and a folder is a member and "
+                    "never an anchor (rating.md §3, ASM-32, D-21): %r" % (value,),
+                )
+                self.assertNotIn(
+                    name,
+                    str(rating["anchor"]),
+                    "the record's `anchor` never names a folding baseline "
+                    "(records.md §11, ASM-32, D-21): %r" % (rating["anchor"],),
+                )
+        for name in BASELINES:
+            self.assertIn(
+                name,
+                str(rating["anchor"]),
+                "the record's `anchor` names the three baselines it zeroes the fit on "
+                "(records.md §11, ASM-32): %r" % (rating["anchor"],),
+            )
+
     def test_evl_5_11_rating_plays_no_hand_reads_no_file_and_moves_no_stream(self):
         """EVL-5.11 `rating` plays no hand, reads no file and leaves Python's global `random` stream where it found it, its bootstrap drawing from its own generator (`surface.md` §1, `rating.md` §1, §4, ASM-17)."""
         package = self.evaluation()

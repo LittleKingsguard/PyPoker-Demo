@@ -1,11 +1,13 @@
-"""ENG-4 -- the ten facts of the readout.
+"""ENG-4 -- the eleven facts of the readout.
 
 ``docs/L2/engine/environment.md`` §1, §2; ``docs/L3/engine/readout.md`` §2-§5;
-``docs/L1/battery.md`` §3 FAM-2 and FAM-16 (D-3).
+``docs/L1/battery.md`` §3 FAM-2 and FAM-16 (D-3, D-21, ASM-30).
 
-The readout is the information set: exactly ten keys, the acting seat's own
+The readout is the information set: exactly eleven keys, the acting seat's own
 cards and nothing of the opponent's, and the facts the game's life fixes -- a
-board of 0, 3, 4 or 5 cards and 40 chips conserved at every decision.
+board of 0, 3, 4 or 5 cards and 40 chips conserved at every decision.  The
+eleventh, `hand_class`, is D-21's derived fact: `None` before the flop, where no
+five-card hand exists, and the class of the best five-card hand from the flop on.
 """
 
 import os
@@ -22,7 +24,7 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
 
 
 class ENG4Readout(S.EngineCase):
-    """The ten facts, their values, and what the readout may never expose."""
+    """The eleven facts, their values, and what the readout may never expose."""
 
     def walks(self):
         """The readouts of a few driven hands: always-call at three seeds and
@@ -34,19 +36,153 @@ class ENG4Readout(S.EngineCase):
             out.extend(entry[0] for entry in self.drive(seed, S.always_raise)[0])
         return out
 
-    def test_eng4_1_the_key_set_is_exactly_the_ten_facts(self):
+    def test_eng4_1_the_key_set_is_exactly_the_eleven_facts(self):
         """ENG-4.1 the key set is exactly street, seat, hole, board, stacks, pot,
-        to_call, limit, history, legal -- at several seeds and several decisions
-        (environment.md §2, readout.md §2, FAM-2)."""
+        to_call, limit, history, legal and hand_class -- at several seeds and several
+        decisions (environment.md §2, readout.md §2, FAM-2, ASM-30)."""
         readings = [self.readout(self.hand(seed)) for seed in S.SEEDS[:6]]
         readings.extend(self.walks())
         self.assertTrue(len(readings) > 12, "the case reads the facts at many decisions")
         for facts in readings:
             self.assertEqual(
                 set(facts), set(S.FACTS),
-                "the readout is a closed information set of exactly ten facts "
+                "the readout is a closed information set of exactly eleven facts "
                 "(environment.md §2): %r" % (sorted(facts),),
             )
+
+    def test_eng4_11_the_hand_class_is_none_preflop_and_a_class_from_the_flop_on(self):
+        """ENG-4.11 `hand_class` is `None` before the flop and an integer 0-8 from the
+        flop onward, and it is the class of the best five-card hand of hole plus board,
+        over a walk of real hands (readout.md §2, ASM-30, D-21).
+
+        This case is the **derivation's breadth** witness: the expected class is rebuilt
+        here from the readout's own two card facts with `pokerkit`'s evaluator, so a class
+        the engine derived from anything but hole plus board fails it over more than forty
+        decisions, and the fact is shown not to be a constant.  It is deliberately *not* the
+        witness for the numbering: `hand_class_of` reads the library's label order, which is
+        how the engine builds its own map, so a reordered library would move both together.
+        The nine integers are fixed by ENG-4.12's literal table and its pinned deals."""
+        pairs = 0
+        for facts in self.walks():
+            card_count = len(facts["hole"]) + len(facts["board"])
+            with self.subTest(cards=(facts["hole"], facts["board"])):
+                if len(facts["board"]) == 0:
+                    self.assertIsNone(
+                        facts["hand_class"],
+                        "before the flop fewer than five cards are known, so no five-card "
+                        "hand exists and the fact is None (readout.md §2, ASM-30): %r"
+                        % (facts["hand_class"],),
+                    )
+                    continue
+                self.assertIn(
+                    len(facts["board"]), (3, 4, 5),
+                    "a post-flop board is 3, 4 or 5 cards: %r" % (facts["board"],),
+                )
+                self.assertIsInstance(
+                    facts["hand_class"], int,
+                    "from the flop onward the fact is an integer (readout.md §2): %r"
+                    % (facts["hand_class"],),
+                )
+                self.assertIn(
+                    facts["hand_class"], S.HAND_CLASSES,
+                    "the class is one of the nine, 0 high card through 8 straight flush "
+                    "(readout.md §2, ASM-30): %r" % (facts["hand_class"],),
+                )
+                expected = S.hand_class_of(facts["hole"], facts["board"])
+                self.assertEqual(
+                    facts["hand_class"], expected,
+                    "hand_class is the class of the best five-card hand of the acting "
+                    "seat's two hole cards plus the board over %d known cards "
+                    "(readout.md §2, ASM-30): %r against %r"
+                    % (card_count, facts["hand_class"], expected),
+                )
+                pairs += 1
+        self.assertGreaterEqual(
+            pairs, 8, "the case reads the fact at more than a handful of post-flop decisions"
+        )
+        seen = set()
+        for facts in self.walks():
+            if facts["hand_class"] is not None:
+                seen.add(facts["hand_class"])
+        self.assertGreater(
+            len(seen), 1,
+            "the walked decisions produce more than one class, so the fact is derived and "
+            "not a constant (readout.md §2): %r" % (sorted(seen),),
+        )
+
+    def test_eng4_12_each_declared_class_takes_its_declared_integer(self):
+        """ENG-4.12 each of the nine hand classes maps to the integer the design declares
+        for it -- 0 high card, 1 one pair, 2 two pair, 3 three of a kind, 4 straight, 5 flush,
+        6 full house, 7 four of a kind, 8 straight flush -- asserted from nine hands whose
+        cards this battery spells out itself (e2e-surface.md §2, folders.md §3, ASM-30,
+        D-21, readout.md §2).
+
+        The expectation is a literal of the design's numbered table (`S.HAND_CLASS_TABLE`),
+        never `pokerkit.lookups.Label`'s declaration order, and the nine deals are real hands
+        of the engine: a mapping that shuffles two classes is caught even if the library
+        agrees with the shuffle, and so are a mapping that reports the library's four-digit
+        `entry.index` strength instead of the class and one that evaluates the board alone."""
+        names = [name for name, _value in S.HAND_CLASS_TABLE]
+        values = [value for _name, value in S.HAND_CLASS_TABLE]
+        self.assertEqual(
+            names,
+            ["high card", "one pair", "two pair", "three of a kind", "straight", "flush",
+             "full house", "four of a kind", "straight flush"],
+            "the nine classes are the design's, in its own order (folders.md §3, ASM-30): %r"
+            % (names,),
+        )
+        self.assertEqual(
+            values, list(range(9)),
+            "the nine classes take the integers 0-8, one each -- 0 high card through 8 "
+            "straight flush (folders.md §3, ASM-30): %r" % (values,),
+        )
+        declared = dict(S.HAND_CLASS_TABLE)
+        dealt = [name for name, _seed, _hole, _board, _five in S.CLASS_DEALS]
+        self.assertEqual(
+            sorted(dealt), sorted(declared),
+            "the pinned deals cover each declared class exactly once (folders.md §3, "
+            "ASM-30): %r" % (sorted(dealt),),
+        )
+        for name, seed, hole, board, five in S.CLASS_DEALS:
+            walk, _last = self.drive(seed, S.always_call)
+            found = [
+                facts for facts, _legal, _action in walk
+                if (tuple(facts["hole"]), tuple(facts["board"])) == (hole, board)
+            ]
+            with self.subTest(hand_class=name, seed=seed):
+                if not found:
+                    self.fail(
+                        "the deal at seed %d reads these cards at no decision of a check-call "
+                        "walk, so the pinned construction is stale and the table is refreshed "
+                        "from a fresh deal (readout.md §2, ASM-30): hole %r, board %r"
+                        % (seed, list(hole), list(board))
+                    )
+                facts = found[0]
+                self.assertEqual(
+                    len(found), 1,
+                    "exactly one decision of the walk reads these cards -- the decision the "
+                    "entry pins (readout.md §2): %d did" % (len(found),),
+                )
+                self.assertIn(
+                    len(board), (3, 4, 5),
+                    "the pinned %s deal is a post-flop decision, where a five-card hand "
+                    "exists, so its board holds 3, 4 or 5 cards (readout.md §2, ASM-30): %r"
+                    % (name, board),
+                )
+                for card in tuple(hole) + tuple(board) + tuple(five):
+                    self.assertTrue(
+                        S.card_spelling_ok(card),
+                        "a pinned card of the %s deal is a two-character spelling of the "
+                        "declared alphabets (readout.md §3): %r" % (name, card),
+                    )
+                self.assertEqual(
+                    facts["hand_class"], declared[name],
+                    "hole %r plus board %r is a %s -- the five cards are %r -- so hand_class "
+                    "is %d by the design's numbered table (e2e-surface.md §2, folders.md §3, "
+                    "ASM-30), and the readout read %r"
+                    % (list(hole), list(board), name, tuple(five), declared[name],
+                       facts["hand_class"]),
+                )
 
     def test_eng4_2_the_first_decision_of_any_seed_is_the_declared_one(self):
         """ENG-4.2 the first decision of any seed reads preflop, pot 3, stacks

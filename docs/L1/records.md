@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 record shapes
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
-- **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16, the learning rule of D-19 and the utility of D-20 included
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
+- **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16, the learning rule of D-19, the utility of D-20 and the folding baselines of D-21 included
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 
 ## 1. Why these are L1's
@@ -50,7 +50,7 @@ successor, as `features.legal_indices` returns them, so a masked update re-deriv
 
 ## 8. Pool declaration and pool record — `build_pool`, `pool_members`, `offer`
 
-A declaration is `members` (**required** — the versions, by id, lineage, rule and utility), `m` (**required** — the bound) and `frozen` (**required** — whether the pool may not change while used). A pool record returns `id` and `m` (**required**), `frozen` (**required** — whether the pool was frozen when it was used, which is how a pair's parity is read), `members` (**required**) in the pool's order — the three pinned baselines, then each family's chain oldest to newest, the families in the order they entered the window (ASM-26) — each a §7 record, `rules` (**required** — the distinct rules its version members declare, in that order, which is the population a table over it measured) and `utilities` (**required** — the distinct utilities those members declare, in that order, D-20) (D-16, D-19, ASM-16, ASM-26). The id changes when and only when the membership does — a version's rule and its utility included — so a run record and a table can be compared by the id alone (D-16, ASM-27).
+A declaration is `members` (**required** — the versions, by id, lineage, rule and utility), `m` (**required** — the bound), `frozen` (**required** — whether the pool may not change while used) and `baselines` (**optional** — the catalogue names of the baselines a configuration admits beyond the three anchor ones, which are members whether it names them or not, so D-21's folders join by declaration and never silently; a name outside the catalogue is refused by name, ASM-32, D-21). A pool record returns `id` and `m` (**required**), `frozen` (**required** — whether the pool was frozen when it was used, which is how a pair's parity is read), `members` (**required**) in the pool's order — the pinned baselines, the three of D-6 first and then the declared folders in the catalogue's order, then each family's chain oldest to newest, the families in the order they entered the window (ASM-26) — each a §7 record, `rules` (**required** — the distinct rules its version members declare, in that order, which is the population a table over it measured) and `utilities` (**required** — the distinct utilities those members declare, in that order, D-20) (D-16, D-19, ASM-16, ASM-26, D-21). The id changes when and only when the membership does — a version's rule and its utility included — so a run record and a table can be compared by the id alone, and a pool whose declaration names no folder keeps the id it had (D-16, ASM-27).
 
 ## 9. Cell record — `evaluation.match`
 
@@ -76,7 +76,7 @@ side of those hands (`protocol.md` §2).
 | Key | Content |
 |---|---|
 | `values` | **required** — one entry per matrix member: the fitted value, its 95% interval and the hands behind it |
-| `method`, `anchor` | **required** — `Bradley-Terry` (`league.md` §5), and the anchor: the three baselines' mean fixed at zero (ASM-17) |
+| `method`, `anchor` | **required** — `Bradley-Terry` (`league.md` §5), and the anchor: the **three anchor baselines of D-6**'s mean fixed at zero — the catalogue's `anchor` flag, never a folding baseline D-21 adds (ASM-17, ASM-32, D-21) |
 | `bound_applied`, `bootstrap_seed`, `converged` | **required** — whether a member with no finite maximum-likelihood value was bounded, and that its interval says so (ASM-17); the interval's seed, recorded so the fit can be re-run; the fit's convergence (D-6) |
 
 ## 12. Run record — `training.run`

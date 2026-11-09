@@ -159,9 +159,9 @@ class FactoryTest(HarnessCase):
         observation = as_mapping(engine().readout(hand), "the factory hand's readout")
         self.assertEqual(
             len(observation),
-            10,
-            "the readout is the mapping of ten facts engine/surface.md §5 declares "
-            "(G3): %r" % (sorted(observation),),
+            11,
+            "the readout is the mapping of eleven facts engine/surface.md §5 declares — "
+            "D-21's `hand_class` included (G3, ASM-30): %r" % (sorted(observation),),
         )
         self.assertTrue(
             len(engine().legal_actions(hand)),

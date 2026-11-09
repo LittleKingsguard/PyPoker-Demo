@@ -1,15 +1,20 @@
-"""FAM-6 — the pool: a bounded window, three pinned baselines, a deterministic id.
+"""FAM-6 — the pool: a bounded window, pinned baselines, a deterministic id.
 
 `docs/L1/battery.md` §3 FAM-6 and `docs/L1/league.md` §2 (D-16, ASM-14, ASM-16,
-ASM-18).  The pool is the object the agent trains against and the table measures; it
-holds at most M versions plus the three baselines, which are pinned and never evicted;
-`offer` advances it by one version and drops the oldest evictable one; R1's pool is the
-baselines alone; and the same membership declaration always yields the same ordered
-members and the same id.
+ASM-18, ASM-32, D-21).  The pool is the object the agent trains against and the table
+measures; it holds at most M versions plus D-6's three anchor baselines, which are pinned
+and never evicted; `offer` advances it by one version and drops the oldest evictable one;
+R1's pool is the baselines alone; and the same membership declaration always yields the
+same ordered members and the same id.
 
-Every instance below — the version names, their lineages, steps, samples and seeds, and
-the memberships built from them — is the battery's own; no document in `docs/L1/`
-carries it (``battery.md`` §4).
+D-21 added the declaration's **optional** `baselines` key, so a configuration admits its
+folding baselines explicitly and never silently: a declaration that names none holds the
+flagged three and nothing more, its id is the one it always had, and a name outside the
+catalogue is refused by name (`records.md` §8, `folders.md` §4, ASM-32).
+
+Every instance below — the version names, their lineages, steps, samples and seeds, the
+memberships built from them, and the invented baseline name of FAM-6.20 — is the
+battery's own; no document in `docs/L1/` carries it (``battery.md`` §4).
 """
 
 import os
@@ -34,29 +39,40 @@ class FAM6Pool(S.SurfaceCase):
     def league(self):
         return self.ep("evaluation", "league")()
 
-    def declaration(self, versions, m=None, frozen=True):
-        """A pool declaration in the shape ``records.md`` §8 pins."""
-        return {
+    def declaration(self, versions, m=None, frozen=True, baselines=()):
+        """A pool declaration in the shape ``records.md`` §8 pins.
+
+        ``baselines`` is §8's **optional** key — the catalogue names a configuration
+        admits beyond the three anchor baselines, which is how D-21's folders join a
+        membership — and it is left out when empty, so a declaration that names no folder
+        is the declaration a pool has always been built from (`records.md` §8, ASM-32).
+        """
+        declaration = {
             "members": list(versions),
             "m": S.LEAGUE_BOUND if m is None else m,
             "frozen": frozen,
         }
+        if baselines:
+            declaration["baselines"] = list(baselines)
+        return declaration
 
-    def built(self, versions, m=None, frozen=True):
-        pool = self.pool(self.declaration(versions, m, frozen))
+    def built(self, versions, m=None, frozen=True, baselines=()):
+        pool = self.pool(self.declaration(versions, m, frozen, baselines))
         row = self.members(pool)
         return pool, row
 
-    def advancing(self, versions, m=None):
+    def advancing(self, versions, m=None, baselines=()):
         """A pool a case means to advance.
 
         ``records.md`` §8 ties frozen-ness to the membership not changing while the pool
         is used, so a case that observes ``offer`` rolling the window builds an unfrozen
         pool: a frozen one either refuses the offer or holds its membership still, and
         the rolling operation would not be observable through it (``e2e-surface.md`` §2,
-        ASM-16).
+        ASM-16).  ``baselines`` declares the catalogue baselines the pool admits beyond
+        the anchor three, which is how a case tables a membership holding D-21's folders
+        (``records.md`` §8, ASM-32).
         """
-        return self.built(versions, m, frozen=False)
+        return self.built(versions, m, frozen=False, baselines=baselines)
 
     def five(self):
         """Five invented versions: a full window at the league's bound."""
@@ -71,7 +87,7 @@ class FAM6Pool(S.SurfaceCase):
             "the league's pool holds at most M = 5 versions (league.md §2): %r" % (league,),
         )
         text = S.flatten_text(league)
-        for baseline in S.BASELINES:
+        for baseline in S.ANCHOR_BASELINES:
             self.assertIn(
                 baseline,
                 text,
@@ -85,9 +101,9 @@ class FAM6Pool(S.SurfaceCase):
         members = R.member_ids(row)
         self.assertEqual(
             len(members),
-            len(S.BASELINES),
-            "R1 has no lineage, so its pool is the three baselines alone (league.md §2): %r"
-            % (members,),
+            len(S.ANCHOR_BASELINES),
+            "R1 has no lineage, so its pool is the three anchor baselines alone and no "
+            "version (league.md §2, ASM-32): %r" % (members,),
         )
         self.assertEqual(
             R.version_members(row),
@@ -95,7 +111,7 @@ class FAM6Pool(S.SurfaceCase):
             "the report may not invent a version for a first rung (protocol.md §5): %r"
             % (members,),
         )
-        for baseline in S.BASELINES:
+        for baseline in S.ANCHOR_BASELINES:
             self.assertIsNotNone(
                 R.baseline_member(members, baseline),
                 "the %r baseline is always a pool member (league.md §2): %r"
@@ -145,7 +161,7 @@ class FAM6Pool(S.SurfaceCase):
         for tags in ((), ("kestrel",), ("kestrel", "bramble", "thistle")):
             _pool, row = self.built([self.version(tag) for tag in tags])
             members = R.member_ids(row)
-            for baseline in S.BASELINES:
+            for baseline in S.ANCHOR_BASELINES:
                 self.assertIsNotNone(
                     R.baseline_member(members, baseline),
                     "a pool always holds the %r baseline (D-16, league.md §2): %r"
@@ -195,7 +211,7 @@ class FAM6Pool(S.SurfaceCase):
             pool = self.ep("evaluation", "offer")(pool, offered)
             newest = offered
         members = R.member_ids(self.members(pool))
-        for baseline in S.BASELINES:
+        for baseline in S.ANCHOR_BASELINES:
             self.assertIsNotNone(
                 R.baseline_member(members, baseline),
                 "the baselines are pinned and never evicted (league.md §2, ASM-16): %r"
@@ -256,6 +272,9 @@ class FAM6Pool(S.SurfaceCase):
         records = R.member_records(row)
         self.assertTrue(records, "pool_members returns its members' records: %r" % (row,))
         for member in records:
+            # The catalogue's **six** names, because a folder is a baseline member exactly
+            # as `always-call` is: a member named by any of them carries no version record,
+            # and none of them is required to (records.md §7, §8, ASM-32, D-21).
             if any(str(baseline) in S.flatten_text(member) for baseline in S.BASELINES):
                 continue
             for key in ("id", "path", "rung", "variant", "seed", "step", "samples",
@@ -544,6 +563,156 @@ class FAM6Pool(S.SurfaceCase):
                 "each family, which is how heterogeneity survives the bound (league.md §2, "
                 "ASM-26, D-19): %r" % (after,),
             )
+
+
+    # -- the baselines a declaration names (D-21, records.md §8) -----------
+    def test_fam6_18_a_declaration_naming_no_folder_holds_the_anchor_baselines(self):
+        """FAM-6.18 a declaration with no `baselines` key holds D-6's three and no folder.
+
+        `records.md` §8 makes the declaration's `baselines` key **optional**: the three
+        anchor baselines are members whether it names them or not, and a folder joins only
+        when a declaration names it (`protocol.md` §3, `league.md` §2, ASM-32, D-21).  So a
+        declaration that names none holds exactly the flagged three plus the versions it
+        declares — and its id is the id the same declaration had before D-21.
+        """
+        version = self.version("kestrel")
+        _pool, row = self.built([version])
+        members = R.member_ids(row)
+        self.assertEqual(
+            set(members),
+            set(S.ANCHOR_BASELINES) | {version["id"]},
+            "a declaration that names no folder holds exactly the three anchor baselines "
+            "and the version it declares (records.md §8, ASM-32, D-21): %r" % (members,),
+        )
+        for folder in S.FOLDER_BASELINES:
+            self.assertNotIn(
+                folder,
+                members,
+                "a folding baseline joins a pool only when the declaration names it, so %r "
+                "is not a member of a declaration that names none (records.md §8, "
+                "'never silently', ASM-32, D-21): %r" % (folder, members),
+            )
+        self.assertEqual(
+            R.version_members(row),
+            [version["id"]],
+            "the pool's version members are the declaration's versions and nothing else "
+            "(records.md §8): %r" % (members,),
+        )
+
+    def test_fam6_19_a_declaration_naming_the_folders_holds_them_after_the_three(self):
+        """FAM-6.19 declared folders join pinned after D-6's three, and move the id.
+
+        `records.md` §8 orders a pool's members as the pinned baselines first — the three
+        of D-6 in the catalogue's order, then the declared folders in the catalogue's order
+        — and then the families.  A folder is a member the same declaration does not hold
+        when it names none, so the two pools of one membership differ in membership and
+        therefore in id (`records.md` §8, `league.md` §2, ASM-27, ASM-32, ASM-33, D-21).
+        """
+        plain, plain_row = self.built([])
+        declared, declared_row = self.built([], baselines=list(S.FOLDER_BASELINES))
+        plain_members = R.member_ids(plain_row)
+        members = R.member_ids(declared_row)
+        self.assertEqual(
+            plain_members,
+            list(S.ANCHOR_BASELINES),
+            "the same declaration without the folders holds the anchor three alone "
+            "(records.md §8, ASM-32): %r" % (plain_members,),
+        )
+        self.assertEqual(
+            members,
+            list(S.ANCHOR_BASELINES) + list(S.FOLDER_BASELINES),
+            "the declared folders join pinned **after** the three of D-6, in the catalogue's "
+            "order, so the pool's first six members are the catalogue's baselines in its own "
+            "order (records.md §8, ASM-32, ASM-33, D-21): %r" % (members,),
+        )
+        for folder in S.FOLDER_BASELINES:
+            self.assertIsNotNone(
+                R.baseline_member(members, folder),
+                "the declared %r is a member of the pool that named it (records.md §8, "
+                "D-21): %r" % (folder, members),
+            )
+        self.assertNotEqual(
+            R.pool_id(declared, declared_row),
+            R.pool_id(plain, plain_row),
+            "the two pools do not hold the same members, so they must not wear one id — a "
+            "table must be able to say which population it measured (records.md §8, ASM-27, "
+            "D-21)",
+        )
+        _again_pool, again_row = self.built([], baselines=list(S.FOLDER_BASELINES))
+        self.assertEqual(
+            R.member_ids(again_row),
+            members,
+            "one declaration yields one ordered membership, folders included (records.md "
+            "§8, ASM-2): %r against %r" % (members, R.member_ids(again_row)),
+        )
+
+    def test_fam6_21_offer_never_evicts_a_declared_folder(self):
+        """FAM-6.21 a declared folder is pinned exactly as D-6's three are.
+
+        `records.md` §8 and `league.md` §2: eviction is the version window's and takes no
+        baseline — a baseline a declaration names joins **pinned**, so repeated offers into
+        a full window leave the folders in place as they leave the anchor three
+        (ASM-16, ASM-32, D-21).  An implementation that treated a declared folder as
+        evictable, or that rebuilt the pool's pinned set from the flagged three only, would
+        lose it here.
+        """
+        versions = self.five()
+        pool, row = self.advancing(versions, baselines=list(S.FOLDER_BASELINES))
+        before = R.member_ids(row)
+        for name in S.FOLDER_BASELINES:
+            self.assertIsNotNone(
+                R.baseline_member(before, name),
+                "the declared %r folder is a member of the pool before any offer "
+                "(records.md §8, ASM-32, D-21): %r" % (name, before),
+            )
+        newest = versions[-1]
+        for tag in ("nimbus", "osprey", "petrel", "skua"):
+            offered = R.next_version(self, tag, newest)
+            pool = self.ep("evaluation", "offer")(pool, offered)
+            newest = offered
+        members = R.member_ids(self.members(pool))
+        for name in S.ANCHOR_BASELINES + S.FOLDER_BASELINES:
+            self.assertIsNotNone(
+                R.baseline_member(members, name),
+                "every pinned baseline — the anchor three and each declared folder — "
+                "survives four offers into a full window (records.md §8, league.md §2, "
+                "ASM-16, ASM-32, D-21): %r" % (members,),
+            )
+        self.assertEqual(
+            len(R.version_members(self.members(pool))),
+            S.LEAGUE_BOUND,
+            "the window is still full of versions after the offers, so what was evicted was "
+            "a version and not a baseline (league.md §2, ASM-16): %r" % (members,),
+        )
+
+    def test_fam6_20_a_declaration_naming_an_uncatalogued_baseline_is_refused(self):
+        """FAM-6.20 a declared baseline the catalogue does not carry is refused by name.
+
+        `records.md` §8: "a name outside the catalogue is refused by name" — a membership
+        that admitted a baseline the project cannot build would be a table row no member
+        plays (ASM-32, D-21, `e2e-surface.md` §2).  The invented name is the battery's own
+        (`battery.md` §4).
+        """
+        offending = S.UNKNOWN_BASELINE
+        self.assertNotIn(
+            offending,
+            S.BASELINES,
+            "the name this case invents is outside the catalogue it names",
+        )
+        text = S.refusal_text(
+            lambda: self.built([], baselines=[offending])
+        )
+        self.assertIsNotNone(
+            text,
+            "build_pool must refuse a declaration naming the baseline %r, which the "
+            "catalogue does not carry, instead of building a pool that holds it "
+            "(records.md §8, ASM-32, D-21)" % (offending,),
+        )
+        self.assertIn(
+            R.tok(offending),
+            R.tok(text),
+            "the refusal names the baseline it refused (records.md §8, ASM-32): %r" % (text,),
+        )
 
 
 if __name__ == "__main__":

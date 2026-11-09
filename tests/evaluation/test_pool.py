@@ -113,6 +113,73 @@ class PoolTest(EvaluationCase):
                     "(pool.md §2 step 5, agents/surface.md §11): %r" % (record,),
                 )
 
+    def test_evl_2_27_a_declaration_admits_a_folder_pinned_and_refuses_an_unknown_name(self):
+        """EVL-2.27 the optional `baselines` key of a membership declaration admits the catalogue's names beyond the flagged three — pinned after them in the catalogue's order, with the id following the membership — and a name the catalogue does not carry is refused naming it; a declaration that names none keeps the membership, the order and the id it had (`records.md` §8, `pool.md` §1, ASM-27, ASM-32, D-21)."""
+        package = self.evaluation()
+        catalogue = tuple(package.league()["catalogue"])
+        pinned = tuple(package.protocol()["baselines"])
+        self.assertTrue(
+            set(pinned) < set(catalogue),
+            "the catalogue carries the flagged three and D-21's folders "
+            "(declarations.md §4, ASM-32, D-21): %r against %r" % (pinned, catalogue),
+        )
+        folders = tuple(name for name in catalogue if name not in pinned)
+        self.assertTrue(folders, "the catalogue carries at least one folding baseline")
+        plain = self.pool_members(self.frozen_pool(members=()))
+        self.assertEqual(
+            tuple(member_id(record) for record in plain["members"]),
+            pinned,
+            "a declaration naming no folder holds the flagged three, in that order "
+            "(records.md §8, ASM-32, D-21)",
+        )
+        admitted = self.pool_members(
+            package.build_pool(
+                {
+                    "members": (),
+                    "m": 5,
+                    "frozen": True,
+                    "baselines": list(reversed(folders)),
+                }
+            )
+        )
+        self.assertEqual(
+            tuple(member_id(record) for record in admitted["members"]),
+            pinned + folders,
+            "the declared folders join after the anchor three, in the catalogue's order "
+            "rather than the declaration's (pool.md §1, ASM-32, D-21): %r"
+            % ([member_id(record) for record in admitted["members"]],),
+        )
+        for record in admitted["members"][len(pinned):]:
+            self.assertTrue(
+                bool(record.get("pinned")),
+                "a declared folder is pinned like any baseline, because eviction is the "
+                "version window's (league.md §2, ASM-32, D-21): %r" % (record,),
+            )
+        self.assertNotEqual(
+            admitted["id"],
+            plain["id"],
+            "the id is the digest of the membership, so admitting a folder renames the "
+            "pool while naming none keeps the id (records.md §8, ASM-27, D-21)",
+        )
+        for unknown in ("fold-no-pair", "oracle-two", "always-raise"):
+            with self.subTest(unknown=unknown):
+                with self.assertRaises(Exception) as caught:
+                    package.build_pool(
+                        {
+                            "members": (),
+                            "m": 5,
+                            "frozen": True,
+                            "baselines": [unknown],
+                        }
+                    )
+                self.assertIn(
+                    unknown,
+                    str(caught.exception),
+                    "a name the catalogue does not carry is refused by name, because the "
+                    "membership would name a row no rule exists for (records.md §8, "
+                    "errors.md §3-§4, D-21): %r" % (str(caught.exception),),
+                )
+
     def test_evl_2_3_a_rich_declaration_is_windowed_and_the_bound_is_checked(self):
         """EVL-2.3 a declaration richer than `m` keeps its last `m` versions and is not refused; `m` from 1 to the league's M is accepted, `0`, a bool and above M are refused naming the bound, and `frozen` must be a boolean (`pool.md` §2, `surface.md` §5, G5)."""
         package = self.evaluation()

@@ -74,7 +74,7 @@ class InvalidReadout(AgentsError):
 
 
 class UnknownBaseline(AgentsError):
-    """`build_baseline`: a name the three fixed baselines do not include."""
+    """`build_baseline`: a name the six fixed baselines do not include."""
 
 
 class CheckpointUnwritable(AgentsError):

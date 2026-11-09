@@ -41,7 +41,8 @@ digests, and what `offer`'s "newest" resolves against (§5) — so it is fixed h
 1. each family's members **contiguously, oldest to newest**;
 2. the families in **the order they entered the window** — for a declared membership, the position of each family's
    start in the declaration's `members` sequence;
-3. the three pinned baselines first and never inside the window (`pool.md` §2 step 5, ASM-16).
+3. the **pinned** baselines first and never inside the window: the three the catalogue flags as anchors, then each
+   folding baseline the declaration names, both in `agents.baselines()`'s order and never the declaration's (`pool.md` §2 step 5, ASM-16, ASM-32, D-21).
 
 The grouping is derivable from the records alone — a member whose `lineage` is not its predecessor's `id` begins a
 family — which is what lets `offer` regroup a window it is handed with no stored family list to fall out of step with
@@ -70,8 +71,8 @@ family keeps the last `m` of its chain, exactly as before the catalogue, which i
 a rich declaration and an equal series of offers reach one membership (`pool.md` §2 step 4,
 `docs/L2/evaluation/pool.md` §1). A declaration or an offer that would leave `m+1` families is refused —
 `FamilyBoundExceeded` — because a window of `m` cannot keep one member of each, and emptying a family to make room is
-exactly what this section exists to prevent (ASM-26, `docs/L2/evaluation/rules.md` §3). The bound is the
-declaration's own `m`, never the league's M when a declaration is tighter (`docs/L1/league.md` §2, D-16).
+exactly what this section exists to prevent (ASM-26, `docs/L2/evaluation/rules.md` §3). The bound is the declaration's own
+`m`, never the league's M when a declaration is tighter — and no baseline is ever evicted, because eviction is the window's (`docs/L1/league.md` §2, ASM-32, D-16).
 
 Rejected: oldest-first over the concatenated window (the rule before D-19, ASM-26's rejected alternative), and raising
 M to hold every family, which multiplies the cells as K(K−1)/2 and is capped by the live-table budget (D-18, ASM-14).
@@ -85,10 +86,11 @@ M to hold every family, which multiplies the cells as K(K−1)/2 and is capped b
 Why the rule **and the utility** are inside: D-19 requires the id to certify each version's estimator, so two pools of
 one membership under two estimators do not wear one id, and D-20 adds the same requirement for the objective — so a
 pool's id changes when its members' objective changes, and a table can say which population and which objectives a
-rating was fitted over (ASM-27, D-19, D-20, `records.md` §8, `utility.md` §3). Why the baselines' lines stay bare: they
-carry neither, so a **baselines-only pool digests exactly as it did before either catalogue existed** — R1's pool, the
-one id a shipped artefact records, which therefore survives both changes without a regeneration (ASM-27, ASM-14,
-`protocol.md` §5, `tables.md` §2).
+rating was fitted over (ASM-27, D-19, D-20, `records.md` §8, `utility.md` §3). Why the baselines' lines stay bare — their
+id alone, no flag and no position: they carry no rule and no utility, so a **baselines-only pool digests exactly as it did
+before either catalogue existed**, and a declaration that names no folder yields exactly the membership, the order and the
+id it has today — R1's pool, the `pool-bcbea031cb617939` a shipped artefact records, which therefore survives both changes
+without a regeneration; a declaration that names a folder simply carries one more bare line (ASM-27, ASM-32, ASM-14, D-21, `protocol.md` §5, `tables.md` §2).
 
 Outside the payload, deliberately: `m`, `frozen` and every other member field, so a corrected `seed` or `step` or a
 re-declared bound does not rename the pool (`records.md` §8, `docs/L2/evaluation/pool.md` §1). `"\x1f"` is the digest's
@@ -145,5 +147,4 @@ declares **no** `utility` is refused by name, never read as the catalogue's firs
 
 - how the families are held while computing — lists, a label→chain mapping, one pass or two: only that §1's grouping
   and §2's order are the result, and whether the window is regrouped per `offer` or carried inside `Pool` (`pool.md` §9);
-- how §3's tie is decided — index order, chain sizes or an explicit age — provided ties go to the earlier family, and
-  the wording of each message beyond §6's parts (`errors.md` §3 fixes the grammar).
+- how §3's tie is decided — index order, chain sizes or an explicit age — provided ties go to the earlier family (`errors.md` §3's grammar covers the wording).

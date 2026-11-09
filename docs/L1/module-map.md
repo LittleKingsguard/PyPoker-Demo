@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 module map
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
-- **Covers:** brief §2 (the rung ladder), brief §3 (the league evaluation, D-16), the learning-rule catalogue (D-19) and the utility catalogue (D-20), Phase 1 only
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
+- **Covers:** brief §2 (the rung ladder), brief §3 (the league evaluation, D-16), the learning-rule catalogue (D-19), the utility catalogue (D-20) and the six-baseline catalogue (D-21), Phase 1 only
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. The map
@@ -16,7 +16,7 @@ caller hands it (D-19, `rules.md` §2).
 |---|---|---|
 | `engine` | the fixed game as a reinforcement-learning environment: hands, legality, readouts, reward, seeding, equity (D-2, ASM-2) | 9 |
 | `features` | the observation and action encoding of a readout — the ladder's representation axis (D-3) | 7 |
-| `agents` | everything that chooses or learns an action: one learner family under a catalogue of learning rules and a catalogue of terminal-reward utilities, and the three fixed baselines (D-6, ASM-7, D-19, D-20) | 10 |
+| `agents` | everything that chooses or learns an action: one learner family under a catalogue of learning rules and a catalogue of terminal-reward utilities, and the six fixed baselines — the three of D-6 that anchor the rating and the three folders of D-21 (D-6, ASM-7, D-19, D-20, D-21) | 10 |
 | `evaluation` | the league: the bounded pool — which may hold models trained under different rules and objectives — the match scheduler, the pairwise matrix, the fitted rating, the shipped tables, and the complete per-rung report (D-16, D-19, D-20) | 11 |
 | `training` | the rung registry plus the one training loop every rung is a configuration of; the loop trains every declared variant against the pool (D-3, D-16, D-19) | 6 |
 | `harness` | test support whose consumers are test batteries (brief §5) | 6 |
@@ -33,11 +33,11 @@ Calls go one way along the arrow; the direction is fixed so that no pair of modu
 | `training` | `agents` | `build_learner`, `act`, `learn`, `save`, `learners` | the loop drives one learner per declared variant, and reads the rule and utility catalogues it refuses an unknown name against (D-7, D-19, D-20) |
 | `training` | `features` | `build_encoder`, `encode`, `observation_spec`, `legal_indices`, `decode_action` | the loop encodes readouts (D-3) |
 | `training` | `engine` | `game_config`, `new_hand`, `play_hand`, `payoffs` | the loop needs hands (D-2) |
-| `evaluation` | `agents` | `baselines`, `build_baseline`, `as_policy`, `load`, `param_count`, `learners` | a table needs the three baselines as members, each arm's parameter count, and the catalogues a member's rule and utility are checked against (D-6, D-16, D-19, D-20) |
+| `evaluation` | `agents` | `baselines`, `build_baseline`, `as_policy`, `load`, `param_count`, `learners` | a table needs the catalogue's baselines as members — including which of them anchor the fit — each arm's parameter count, and the catalogues a member's rule and utility are checked against (D-6, D-16, D-19, D-20, ASM-32) |
 | `evaluation` | `features` | `build_encoder`, `encode` | a checkpoint becomes a policy only over an observation, so the league builds an encoder to load a member (D-16, D-3) |
 | `evaluation` | `engine` | `new_hand`, `readout`, `legal_actions`, `play_hand`, `payoffs` | a cell is a run of hands (D-2, D-16) |
 | `agents` | `features` | `encode`, `observation_spec`, `action_space`, `legal_indices`, `decode_action` | a learner consumes an observation and is sized by the encoding, and `as_policy` must encode the readouts its policy receives (D-3) |
-| `agents` | `engine` | `readout`, `equity` | the oracle baseline reads pot and equity (ASM-4) |
+| `agents` | `engine` | `readout`, `equity`, `game_config` | the oracle baseline reads pot and equity (ASM-4), and `fold-large-bet` reads the declared starting stack rather than holding a copy of it (`folders.md` §2, ASM-31, D-21) |
 | `features` | `engine` | the readout facts of `e2e-surface.md` §2 | an encoder encodes a readout (D-3) |
 | `engine` | — | `pokerkit` only | the engine is the bottom of the map (D-1) |
 | `harness` | any declared entry point | — | test support only, never a real subsystem (brief §5) |
@@ -53,7 +53,7 @@ One job per module, and each "never" is what keeps the module independently test
 
 - `engine` never imports another project module, never encodes an observation, never chooses an action and never records a result. It depends on `pokerkit` and the standard library (D-2, ASM-2).
 - `features` never decides legality, never applies an action, never counts a parameter, and never learns which opponent it faces. It maps a readout to an observation and an index to an action (D-3).
-- `agents` never deals a hand, never measures a match, never schedules an opponent and never writes a report. It acts and it learns, under the one rule its spec named and on the reward of the one utility its spec named, and it never chooses for the caller which rule or which utility that is (D-6, D-7, D-19, D-20).
+- `agents` never deals a hand, never measures a match, never schedules an opponent and never writes a report. It acts and it learns, under the one rule its spec named and on the reward of the one utility its spec named, and it never chooses for the caller which rule or which utility that is (D-6, D-7, D-19, D-20). It holds no copy of a game parameter and imports no game engine: a fact a rule needs arrives on the readout, a limit on the game is read through `engine`, and a card's rank is read off the one declared card spelling rather than a second spelling this module invents (`folders.md` §2, §3, ASM-30, ASM-31).
 - `evaluation` never trains and never edits a curve. It owns the pool, plays the cells and assembles evidence, and never reports a table whose members it cannot name or whose cells differ in hand count (D-16).
 - `training` never claims a result and never chooses the pool's membership: it declares the lineage it inherits and freezes the pool that lineage yields (D-3, D-16).
 - `harness` never re-implements, simplifies, or substitutes for a real subsystem; it calls the entry points this map declares and nothing else (brief §5, D-13).

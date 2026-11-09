@@ -49,7 +49,9 @@ from _training_support import (
     engine,
     entry_of,
     error_class,
+    folder_baselines,
     member_ids,
+    pinned_baselines,
     rule_set,
     training,
     two_rule_configuration,
@@ -62,11 +64,13 @@ from _training_support import (
     variant_entries,
     variant_name,
     with_pool,
+    with_pool_baselines,
     with_setting,
     write_tree,
 )
 
-#: `fairness.md` §4's `readout facts`, the ten fact names every encoding carries.
+#: `fairness.md` §4's `readout facts`, the eleven fact names of the information set --
+#: the ten every encoding carries plus D-21's derived `hand_class` (ASM-30).
 READOUT_FACTS = (
     "street",
     "seat",
@@ -78,6 +82,7 @@ READOUT_FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
 )
 
 #: `fairness.md` §4's `action vocabulary`, declared there as data.
@@ -225,8 +230,8 @@ class FairnessTest(TrainingCase):
         self.assertEqual(
             set(as_sequence(constants["readout facts"], "readout facts")),
             set(READOUT_FACTS),
-            "the ten readout facts are declared here for the same reason, identical for "
-            "every encoding (fairness.md §4, D-3): %r" % (constants["readout facts"],),
+            "the eleven readout facts are declared here for the same reason, identical for "
+            "every encoding (fairness.md §4, D-3, ASM-30): %r" % (constants["readout facts"],),
         )
         declared_rules = {
             as_text(entry["learning_rule"], "a declared rule")
@@ -326,9 +331,9 @@ class FairnessTest(TrainingCase):
         self.assertEqual(
             [as_text(name, "a baseline") for name in
              as_sequence(report["baselines"], "'baselines'")],
-            baseline_names(),
-            "the three baselines are reported in agents.baselines()'s order "
-            "(fairness.md §5, records.md §8)",
+            pinned_baselines(),
+            "the three pinned baselines are reported in agents.baselines()'s order, and a "
+            "registry row declares no folder (fairness.md §5, records.md §8, ASM-32)",
         )
         self.assertIsNone(
             report["same"],
@@ -351,10 +356,10 @@ class FairnessTest(TrainingCase):
         )
         self.assertEqual(
             member_ids(report["membership"]),
-            baseline_names(),
+            pinned_baselines(),
             "`membership` is the intersection of the two windows in lineage order, which "
-            "for R1-R2 is the three baselines alone — the pool the parity check plays on "
-            "(fairness.md §5, D-7): %r" % (report["membership"],),
+            "for R1-R2 is the three pinned baselines alone — the pool the parity check "
+            "plays on (fairness.md §5, D-7, ASM-32): %r" % (report["membership"],),
         )
         pair = self.result(
             with_pool(self.entry("R5", "dense"), INVENTED_PAIR_POOL),
@@ -373,6 +378,38 @@ class FairnessTest(TrainingCase):
             [INVENTED_PAIR_POOL, INVENTED_PAIR_POOL],
             "both arms declare the one id, so both are reported and they agree "
             "(fairness.md §5)",
+        )
+
+    def test_trn_7_14_a_declared_folder_is_reported_beside_the_anchor_three(self):
+        """TRN-7.14 a pair whose two arms declare D-21's folders reports them as the baselines their pools hold — pinned after the three anchors and never among the anchors — and a pair that declares none reports the three alone (fairness.md §5, records.md §8, ASM-32, D-21)."""
+        declared = list(folder_baselines())
+        self.assertTrue(declared, "the catalogue carries at least one folding baseline")
+        left = with_pool_baselines(self.rung("R1"), declared)
+        right = with_pool_baselines(self.rung("R2"), declared)
+        report = as_mapping(self.result(left, right)["pool"], "'pool'")
+        self.assertEqual(
+            [as_text(name, "a baseline") for name in
+             as_sequence(report["baselines"], "'baselines'")],
+            pinned_baselines() + declared,
+            "the report names the anchor three and then the declared folders, in the "
+            "catalogue's order (fairness.md §5, records.md §8, D-21): %r"
+            % (report["baselines"],),
+        )
+        self.assertEqual(
+            member_ids(report["membership"])[: len(pinned_baselines())],
+            pinned_baselines(),
+            "the pinned three open the shared membership whatever a declaration names "
+            "(fairness.md §5, ASM-32): %r" % (report["membership"],),
+        )
+        plain = as_mapping(
+            self.result(self.rung("R1"), self.rung("R2"))["pool"], "'pool'"
+        )
+        self.assertEqual(
+            [as_text(name, "a baseline") for name in
+             as_sequence(plain["baselines"], "'baselines'")],
+            pinned_baselines(),
+            "a pair that declares no folder reports the anchor three and no more "
+            "(fairness.md §5, D-21)",
         )
 
     def test_trn_7_6_the_five_refusals(self):

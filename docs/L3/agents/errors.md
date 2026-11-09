@@ -36,7 +36,7 @@ caller catch "this module refused me" without catching a `TypeError` from a bug 
     class InvalidBatch(AgentsError)          # learn: an empty batch, a transition missing a required key,
                                              #   or an action outside that transition's legal mask
     class InvalidReadout(AgentsError)        # a policy: not a mapping, or a fact it needs missing or malformed
-    class UnknownBaseline(AgentsError)       # build_baseline: a name the three do not include
+    class UnknownBaseline(AgentsError)       # build_baseline: a name the six do not include
     class CheckpointUnwritable(AgentsError)  # save: a path that is not a writable file location
     class CheckpointUnreadable(AgentsError)  # load: missing, unreadable, or a form this module does not read
     class CheckpointMismatch(AgentsError)    # load: the spec disagrees with the file on a compared key
@@ -87,8 +87,8 @@ spellings, and the unit battery matches them tolerantly (the entry point's name,
 | `as_policy` seed | `as_policy(seed): the seed must be an integer, got None` |
 | `as_policy` encoder | `as_policy(encoder): the encoder declares vocabulary 96 and the learner is dense-numeric at 203` |
 | a policy's readout | `policy(readout): the readout is missing 'to_call', which the rule needs` |
-| a malformed readout | `policy(readout): the readout's 'stacks' must be one number per seat, got (1, 2, 3)`; and `'hole'` must be two cards, got 1 |
-| `build_baseline` name | `build_baseline(name): the name must be one of ('random', 'always-call', 'oracle'), got 'gto'` |
+| a malformed readout | `policy(readout): the readout's 'stacks' must be one number per seat, got (1, 2, 3)`; and `'hole'` must be two cards, got 1; and `'hand_class'` must be None or an integer 0-8, got 9 |
+| `build_baseline` name | `build_baseline(name): the name must be one of ('random', 'always-call', 'oracle', 'fold-no-pair-or-face', 'fold-no-pair-or-better', 'fold-large-bet'), got 'gto'` |
 
 Three properties the battery relies on: the message always contains the entry point's own name, the name of the
 argument or key at fault, and the offending value; it never claims a value was accepted
@@ -111,7 +111,7 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
   (`architecture.md` §3, `surface.md` §4);
 - a **`numpy` integer for a seed**, a width, a depth or an index: `numpy.int64` is an `Integral`, and a **`bool`**
   is refused in every one of those places because a flag is not a count (`docs/L3/features/errors.md` §4);
-- a **policy's readout carrying extra facts**: the ten facts of `README.md` §7 are inspected, so an extra one is
+- a **policy's readout carrying extra facts**: the eleven facts of `README.md` §7 are inspected, so an extra one is
   ignored but a malformed one is refused rather than defaulted (`baselines.md` §1);
 - a **batch longer or shorter than `batch_size`**, a batch of one, and a transition whose `terminal` is true and
   whose `next_observation` equals its `observation` (`rule.md` §3);

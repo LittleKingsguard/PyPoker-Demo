@@ -149,7 +149,7 @@ class FAM11Report(S.SurfaceCase):
             "R1's report carries a pool row even though the window is empty: %r" % (report,),
         )
         text = S.flatten_text(report)
-        for baseline in S.BASELINES:
+        for baseline in S.ANCHOR_BASELINES:
             self.assertIn(
                 baseline,
                 text,

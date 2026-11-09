@@ -25,8 +25,8 @@ contract (`e2e-surface.md` §1, brief §5). Five rules are shared and are stated
   (`protocol.md` §1, `e2e-surface.md` §3.2).
 
 This module never decides legality, never applies an action, never counts a parameter and never learns
-which opponent it faces (`module-map.md` §3, D-2). Its whole view of the game is `engine.readout`'s ten
-facts, which it reads as data and never asks for (`module-map.md` §2, `engine/environment.md` §6).
+which opponent it faces (`module-map.md` §3, D-2). Its whole view of the game is `engine.readout`'s
+eleven facts, of which it carries nine and reads as data (`module-map.md` §2, `engine/environment.md` §6).
 
 ## 2. The action vocabulary and the action descriptor
 
@@ -94,7 +94,7 @@ Five consequences bind both sides of this edge (`e2e-surface.md` §2, D-3):
 |---|---|
 | `representation` | **the encoding's own name** — `flat-numeric` or `card-tokens`; the invariance family reads it as that name (`e2e-surface.md` §2, `battery.md` §3 FAM-2 case FAM-2.6) |
 | `kind` | the representation family: `dense-numeric` or `token-sequence` (`e2e-surface.md` §3.2) |
-| `fields` | the readout facts the observation carries: the same nine names for both encodings, a subset of `engine.readout`'s ten (`e2e-surface.md` §2, `encodings.md` §2) |
+| `fields` | the readout facts the observation carries: the same nine names for both encodings, a subset of `engine.readout`'s eleven, `legal` and the derived `hand_class` excluded (`e2e-surface.md` §2, `encodings.md` §2, `folders.md` §3) |
 | `shape` | a tuple of integers, one observation's shape: `(203,)` for `flat-numeric`, `(40,)` for `card-tokens` (`encodings.md` §3–§4) |
 | `dtype` | the element type: `float32` for `flat-numeric`, `int32` for `card-tokens` (`encodings.md` §3–§4) |
 | `vocabulary` | the number of distinct token ids a `card-tokens` observation can carry, `96`, and `null` for `flat-numeric`: a key this document adds to the two encodings' record because `agents` sizes an embedding table from it, and the only one a caller depends on beyond the five keys above it (`module-map.md` §2, `e2e-surface.md` §2, `records.md` §1) |
@@ -107,16 +107,16 @@ Five consequences bind both sides of this edge (`e2e-surface.md` §2, D-3):
 ## 6. `encode` — one readout, one observation (`general` row)
 
 - **Signature:** `encode(encoder, readout)`.
-- **Arguments:** an encoder, and a readout in the shape `engine.readout` returns — the ten facts, with
-  `street`, `seat`, `hole`, `board`, `stacks`, `pot`, `to_call`, `limit`, `history` and `legal` all present
-  (`engine/environment.md` §2, `e2e-surface.md` §2).
+- **Arguments:** an encoder, and a readout in the shape `engine.readout` returns — the eleven facts, with
+  `street`, `seat`, `hole`, `board`, `stacks`, `pot`, `to_call`, `limit`, `history`, `legal` and
+  `hand_class` all present (`engine/environment.md` §2, `e2e-surface.md` §2, `folders.md` §3).
 - **Returns:** one observation — a NumPy array of the declared `shape` and `dtype` (`encodings.md` §3–§4).
   It carries the declared `fields` and nothing else, and in particular nothing the readout withholds, so no
   observation can show the other seat's cards or the undealt deck (`engine/environment.md` §2, D-3).
 - **Refusals:** a value that is not an encoder; a readout missing a field this encoding carries; a carried
   field that cannot be represented, such as a `street` outside the four or a `hole` that is not two cards.
-  Each names what was violated, and none is defaulted (`e2e-surface.md` §2, D-3). A key the encoding does
-  not carry is ignored and not refused, because `legal` is always present in a readout (`encodings.md` §2).
+  Each names what was violated, and none is defaulted (`e2e-surface.md` §2, D-3). The two facts it does not
+  carry — `legal` and `hand_class` — are ignored and not refused (`encodings.md` §2, `folders.md` §3).
 - **Determinism:** one encoder and one readout give one observation value for value, and `encode` neither
   mutates its argument nor draws randomness (`battery.md` §3 FAM-16 case FAM-16.9, ASM-2).
 

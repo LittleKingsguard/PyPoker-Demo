@@ -1,13 +1,13 @@
 # agents — module design (L3)
 
-- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
+- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
 - **Realises:** `docs/L2/agents/surface.md` (the ten entry points, their arguments, returns and refusals) and
   `docs/L2/agents/learner.md` (both catalogues and the one contract each one's members answer, the edges)
-- **Reads:** `docs/L1/e2e-surface.md` §1–§3.3, §5, `records.md` §2–§4, §6, §7, §9, `ladder.md` §2, §3, §5,
-  §6, `protocol.md` §3–§5, `rules.md` §1–§8, `utilities.md` §2–§7, `assumptions.md` (ASM-2, ASM-4, ASM-5,
-  ASM-7, ASM-10, ASM-12, ASM-18, ASM-25, ASM-28), `battery.md` §3–§4, `strata/decisions.md` (D-1, D-2, D-3,
-  D-6, D-7, D-11, D-12, D-13, D-16, D-19, D-20), `strata/platform.md`, `docs/L2/features/surface.md` §1, §5,
-  §6, §8, §9, `docs/L2/engine/surface.md` §2, §11, `docs/L3/features/README.md` §4–§5 (inherited, never code).
+- **Reads:** `docs/L1/e2e-surface.md` §1–§3.3, §5, `records.md` §2–§4, §6, §7, §9, `ladder.md` §2, §3, §5, §6,
+  `protocol.md` §3–§5, `rules.md` §1–§8, `utilities.md` §2–§7, `folders.md` §2–§4, `assumptions.md` (ASM-2, ASM-4, ASM-5,
+  ASM-7, ASM-10, ASM-12, ASM-18, ASM-25, ASM-28, ASM-30, ASM-31, ASM-32), `battery.md` §3–§4, `strata/decisions.md` (D-1,
+  D-2, D-3, D-6, D-7, D-11, D-12, D-13, D-16, D-19, D-20, D-21), `strata/platform.md`, `docs/L2/features/surface.md` §1,
+  §5, §6, §8, §9, `docs/L2/engine/surface.md` §2, §11, `docs/L3/features/README.md` §4–§5 (inherited, never code).
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Implements:** `src/agents/` (written by L4, never by L3). `tests/agents/` is this design's unit battery;
   `tests/e2e/`'s `test_fam01_surface.py` (FAM-1.17–1.26), `test_fam05_baselines.py`, `test_fam12_checkpoints.py`,
@@ -16,11 +16,11 @@
 ## 1. What this module is
 
 `agents` is everything that chooses or learns an action: one learner family, the catalogue of two learning rules and
-the catalogue of two terminal-reward utilities a spec selects from, and the three fixed baselines (`module-map.md` §1,
-D-6, D-19, D-20, ASM-7). It acts, learns, saves, restores and hands out policies; it never deals a hand, decides
-legality, encodes an observation, measures a match or writes a report (D-2, D-3, D-6, `surface.md` §1, `learner.md`
-§6–§8). The **sets** of rules and of utilities, the vocabulary and the readout facts are fixed for the ladder, so a
-rung difference is never a rule's or a utility's (D-3, ASM-7, ASM-28, `rules.md` §8, `utility.md` §1).
+the catalogue of two terminal-reward utilities a spec selects from, and the six fixed baselines — D-6's three, which
+anchor the rating, and D-21's three folders (`module-map.md` §1, D-6, D-19, D-20, D-21, ASM-7). It acts, learns, saves,
+restores and hands out policies; it never deals a hand, decides legality, encodes an observation, measures a match or
+writes a report (D-2, D-3, D-6, `surface.md` §1, `learner.md` §6–§8). The **sets** of rules and of utilities, the
+vocabulary and the readout facts are fixed for the ladder, so a rung difference is no axis's (D-3, ASM-7, ASM-28, `rules.md` §8, `utility.md` §1).
 
 ## 2. The documents, one per owner
 
@@ -32,7 +32,7 @@ rung difference is never a rule's or a utility's (D-3, ASM-7, ASM-28, `rules.md`
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |
 | `checkpoint.md` | a version | what a restore recovers, the **exact bytes** of the container, format version 3 and the three version rules, the `utility` field written beside `learning_rule`, and `save`/`load`'s refusals (D-16, ASM-5, ASM-18, D-19, D-20) |
 | `restore.md` | a restore's promise | the loss-free equality stated testably, why the file must carry more than the parameters, where the promise is asserted by a case, and what is left to L4 (D-16, ASM-5, ASM-20) |
-| `baselines.md` | the three fixed rules | `random`'s keyed uniform draw, `always-call`'s procedure, `oracle`'s pot-odds inequality at **257** samples, the blindness, the `baselines()` record (D-6, ASM-4) |
+| `baselines.md` | the six fixed rules | `random`'s keyed uniform draw, `always-call`'s procedure, `oracle`'s pot-odds inequality at **257** samples, the three folders' predicates under one legality rule, the blindness, the `baselines()` record and the `anchor` flag that keeps the rating's scale (D-6, ASM-4, ASM-31, ASM-32, D-21) |
 | `errors.md` | refusals | the hierarchy, the message grammar, the canonical message per refusal of `surface.md` §4–§12, and what is deliberately *not* refused |
 | `guardrails.md` | L4 | one numbered note per risk this design identified, in the order they bite, each naming the test that catches it |
 
@@ -68,11 +68,11 @@ substituted default, no swallowed error, no global `random` (ASM-2) — are L2's
     learner.py        Learner, build_learner, param_count, act, learn (rule.md, architecture.md)
     checkpoint.py     save, load, the zip container and its metadata (checkpoint.md §2–§3)
     policy.py         as_policy and the frozen snapshot (rule.md §7)
-    baselines.py      baselines, build_baseline, the three rules (baselines.md §1–§4)
+    baselines.py      baselines, build_baseline, the six rules and the anchor set (baselines.md §1–§9)
 
-Eleven files, one concern each; a twelfth needs a document here saying what it owns. `src/agents/` holds no
-test, no fixture and no data file: the catalogue is code, and the kinds are its rows. The names `rule.md` §8
-fixes in `rule.py`, `model.py` and `checkpoint.py` are contract for `tests/agents/` — L4 implements those spellings.
+Eleven files, one concern each, and a twelfth needs a document here saying what it owns; `src/agents/` holds no
+test, no fixture and no data file, the catalogue being code and the kinds its rows. The names `rule.md` §8 fixes in
+`rule.py`, `model.py` and `checkpoint.py` are contract for `tests/agents/` — L4 implements those spellings.
 
 ## 5. The catalogue `learners()` publishes
 
@@ -86,12 +86,12 @@ plain data, equal on two calls, never the copy a fairness check audits (`ladder.
 
 ## 6. The import boundary — a hard rule
 
-`agents` imports `numpy`, the Python standard library (`hashlib`, `io`, `json`, `numbers`, `os`, `zipfile`,
-`collections.abc`, `typing`), the five granted `features` calls (`encode`, `observation_spec`, `action_space`,
-`legal_indices`, `decode_action`) and the one `engine` call `equity` (`learner.md` §5–§7, `module-map.md` §2). Never
-`pokerkit`; never `evaluation`, `training` or `harness`; never a `tests/` helper; never `build_encoder`, the encoder
-always arriving from the caller (D-13). `torch` is imported **inside** `torch_backend.py` when a torch learner is built
-and nowhere else (`backends.md` §4), so `import agents` leaves `torch` and `pokerkit` absent from `sys.modules`.
+`agents` imports `numpy`, the Python standard library, the five granted `features` calls (`encode`,
+`observation_spec`, `action_space`, `legal_indices`, `decode_action`) and the granted `engine` calls — `equity` for
+the oracle, `game_config` for `fold-large-bet`, each imported inside the policy that needs it (`module-map.md` §2,
+ASM-31). Never `pokerkit`; never `evaluation`, `training` or `harness`; never a `tests/` helper; never `build_encoder`,
+the encoder always arriving from the caller (D-13). `torch` is imported inside `torch_backend.py` and nowhere else
+(`backends.md` §4), so `import agents` leaves `torch` and `pokerkit` absent from `sys.modules`.
 
 ## 7. Facts inherited from `engine` and `features`, and not re-derived
 
@@ -100,8 +100,9 @@ and nowhere else (`backends.md` §4), so `import agents` leaves `torch` and `pok
   `docs/L3/features/README.md` §4). A learner records them and copies no width out of a document (D-3).
 - The mask is `legal_indices`' ascending, distinct, non-empty sequence, and a chosen index is one of its members;
   the policy's descriptor is `decode_action` of it — `"fold"`, `"check-call"`, `"raise"` (`features/surface.md` §8–§9).
-- A readout is the ten facts: `seat` a pair, `hole` two cards, `board` 0/3/4/5 cards, `stacks`/`limit` pairs,
-  `pot`/`to_call` ints, `history` entries, `legal` descriptors (`docs/L3/features/README.md` §4).
+- A readout is the eleven facts: `seat` a pair, `hole` two cards, `board` 0/3/4/5 cards, `stacks`/`limit` pairs,
+  `pot`/`to_call` ints, `history` entries, `legal` descriptors, and `hand_class` `None` or an integer 0–8 — D-21's
+  derived fact, which no encoding carries (`docs/L3/features/README.md` §4, ASM-30).
 - `equity(decision_or_readout, seed, samples)` returns a float in `[0, 1]`, accepts a readout and repeats for one
   decision, seed and count (`engine/surface.md` §11) — the oracle's only `engine` call (`learner.md` §7).
 

@@ -1,11 +1,11 @@
 # training — the rung registry as data, the one loop, and the edges
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
 - **Owner of this file:** the registry as data (§1, §2), the one loop (§3), what a comparison holds constant and
   the R1/R2 parity rung (§4), budgets and devices (§5), the notebooks this module owns (§6), the checkpoints that
   ship (§7), the contracts at this edge (§8) and the battery invariants it carries (§9)
   (D-3, D-5, D-7, D-8, D-16, ASM-8, ASM-16, ASM-18, `battery.md` §3)
-- **Rev 3:** §1's step 1 and §2 refuse a declaration the run would not honour — `declarations.md` §1–§4 owns it (ASM-7). **Rev 5:** §1 step 9 and §9's FAM-12 row name the `rules`, and `checkpoints()`'s entries carry each artefact's `rule` (D-19)
+- **Rev 3:** §1's step 1 and §2 refuse a declaration the run would not honour — `declarations.md` §1–§4 owns it (ASM-7). **Rev 5:** §1 step 9 and §9's FAM-12 row name the `rules`, and `checkpoints()`'s entries carry each artefact's `rule` (D-19). **Rev 6:** §1 step 2 forwards a `pool` entry's `baselines`, §3 reads the pinned set through `evaluation.league` and §9 gains a D-21 row (ASM-32, D-21)
 - **Ceiling:** 220 lines. At the ceiling, split by owner — never append
 
 ## 1. The registry is data (D-3)
@@ -60,10 +60,12 @@ One pass of `run`, in this order, for any configuration:
 1. **Resolve, refusing what the run would discard.** A name goes through `rung`; a configuration is used as it stands
    once `declarations.md` §2's declarations are read — one it declares and the run would not honour is refused here,
    before the first hand and before anything is written (§2, ASM-7, ASM-18, `e2e-surface.md` §2).
-2. **Freeze the pool before the first hand.** The `pool` declaration goes to `evaluation.build_pool` and
+2. **Freeze the pool before the first hand.** The `pool` declaration goes to `evaluation.build_pool` — its optional `baselines`
+   sequence forwarded as it stands, so a configuration that names a folder trains against it and one that names none keeps the
+   membership, the order and the id it has today — and
    `evaluation.pool_members` reads back the id, the bound, the `frozen` flag and the ordered members. A declared
    version whose checkpoint the repository does not carry is not a member: the record states the membership it used,
-   and a pool never pretends a version it could not load (`protocol.md` §5, `records.md` §8). It is frozen and never
+   and a pool never pretends a version it could not load (`protocol.md` §5, `records.md` §8, ASM-32, D-21). It is frozen and never
    advanced during a run — rolling is `evaluation.offer` between runs (D-16, ASM-16, `evaluation/surface.md` §7).
 3. **Build the variant.** `features.build_encoder` for the entry's `encoding`, cross-checked against its kind by
    `features.observation_spec`, and, per seed, `agents.build_learner` with the entry's `backend`, `architecture`,
@@ -174,14 +176,11 @@ so the two are never confused (D-8, `strata/platform.md`, `protocol.md` §6, D-6
 - **A window is a declaration of `records.md` §7 versions in lineage order.** Within a run snapshot *k+1* descends
   from *k*; a seed's first descends from the last version the run wrote before it and the run's first from its rung's
   own start; the three seeds' windows lie end to end in the recorded seed set's order, so they are one chain (§7).
-- **A declaration richer than the bound is windowed, not refused**: a rung's declaration may name more versions than
-  M and the frozen pool holds the newest M of them, which is how a run's ten snapshots become a five-version window
-  (`league.md` §2, `records.md` §8, `evaluation/surface.md` §5).
+- **A declaration richer than the bound is windowed, not refused**: a rung's declaration may name more versions than M and the frozen pool holds the newest M of them, which is how a run's ten snapshots become a five-version window (`league.md` §2, `records.md` §8, `evaluation/surface.md` §5).
 - **A loaded checkpoint chooses the action its learner chose** on the same readout — which is what makes a shipped
   version a league member — and it is played in evaluation mode and never updated (ASM-5, `protocol.md` §5, `evaluation/surface.md` §12).
-- **A lineage checkpoint the repository does not carry leaves the pool at the baselines and whatever versions are
-  present**, and the record states the membership it used; the index lists no artefact twice and never scans a
-  scratch directory (`protocol.md` §5, `surface.md` §7, FAM-12).
+- **A lineage checkpoint the repository does not carry leaves the pool at the pinned baselines and whatever versions are
+  present**, and the record states the membership it used; the index lists no artefact twice and never scans a scratch directory (`protocol.md` §5, `surface.md` §7, FAM-12).
 
 ## 8. Contracts at this edge (D-13, `module-map.md` §2)
 
@@ -192,10 +191,9 @@ what this module requires of a module it calls, or grants to the one that calls 
   `league` (M and both cell sizes), `build_pool` (the freeze), `pool_members` (the pool record and the id the run
   carries) and `opponent` (the per-hand draw) (`evaluation/surface.md` §3–§8, D-16, ASM-16). This module never calls
   `match`, `matrix`, `rating`, `report`, `offer` or `policy_from`, and never measures a cell (`module-map.md` §3).
-- **`agents`** — five calls: `learners` (the rule and utility catalogues a variant's members are refused against, D-19,
-  D-20), `build_learner` (complete when built, under the rule and on the reward the entry names), `act` (the training-time decision), `learn` (the update and its
-  `td_error`) and `save` (the path it wrote) (`agents/surface.md` §4, §6–§8, `utility.md` §1, ASM-7). Capacity is `param_count`, which is
-  not granted, so a run reports a declared budget and no measurement (ASM-10, `surface.md` §4).
+- **`agents`** — five reads: `learners` (the rule and utility catalogues a variant's members are refused against, D-19, D-20),
+  `build_learner` (complete when built, under the rule and on the reward the entry names), `act` (the training-time decision), `learn` (the update and its
+  `td_error`) and `save` (the path it wrote) (`agents/surface.md` §4, §6–§8, §11, `utility.md` §1, ASM-7). Capacity is `param_count`, which is not granted, so a run reports a declared budget and no measurement (ASM-10).
 - **`features`** — five calls: `build_encoder` (this module owns the encoder, because `agents` cannot build one),
   `observation_spec` (the cross-check that keeps a declared size and an observed one equal), `encode`,
   `legal_indices` (the mask) and `decode_action` (an index back to the engine's descriptor) (`features/surface.md` §4–§9).
@@ -216,5 +214,6 @@ what this module requires of a module it calls, or grants to the one that calls 
 | FAM-13 | `rungs`, `rung`, `fairness`, `run` | R1 and R2 declare one encoding, one architecture, one rule and one budget and differ only on the backend; both run records carry throughput, the D-7 speed evidence (D-7, D-8, `ladder.md` §5) |
 | FAM-15 | `run`, `fairness`, `rung` | a configuration and a membership in no design document run through the same loop and report their own axis; `rung` refuses a name the registry does not carry (D-3, D-16) |
 | FAM-16 | `rung`, `run`, `fairness`, `checkpoints` | the four `general` rows, one invented instance apiece — a rung name, a budget and seed, a variant pair, an artefact set — from this surface alone (D-15, `battery.md` §4) |
+| FAM-6 | `run`, `fairness` | a configuration whose `pool` entry declares catalogue baselines trains against a pool holding them — one `baselines` row and one declared `0` per baseline it holds — and one that declares none trains against the pinned three alone, with the pool id it had (ASM-32, D-21) |
 
 FAM-3's matched capacity is measured through `agents.param_count` by the battery, never by a run record, because a run measures no capacity (ASM-10, `surface.md` §4); and no invariant here asserts a result, a version outranking a baseline being `evaluation`'s to report (D-6, `battery.md` §5). FAM-18's utility arithmetic is the unit battery's, because no e2e case asserts its numbers (`battery.md` §5, `utility.md` §6).

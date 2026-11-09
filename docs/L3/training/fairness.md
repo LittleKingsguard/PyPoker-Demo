@@ -1,10 +1,11 @@
 # training — what a comparison holds constant
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
 - **Owner:** `fairness()` — the two argument shapes (§1), the seven axes and the one rule that is L2's correction (§2), the eight
   reportable pairs (§3), the `constants` list (§4), the pool report and the R1/R2 parity reading (§5), refusals (§6), determinism
   (§7); Rev 3 adds the `rule` axis and the rule **set** `constants` reports (D-19); **Rev 4** adds the seventh axis, `utility`, the
-  utility set beside it and the `reward` row that states what each side's utility delivers (D-20)
+  utility set beside it and the `reward` row that states what each side's utility delivers (D-20); **Rev 5** makes `readout facts`
+  eleven names — `hand_class` included — and reads the pool report's `baselines` off the catalogue's baselines either side holds (D-21)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Read with:** `registry.md` §1–§3, `loop.md` §1 step 2, §3, `checkpoints.md` §5, `reward.md` §1, `errors.md` §4
 
@@ -36,7 +37,7 @@ when they are entries. Both are reported in `pair`, under `left` and `right`. No
 | `rule` | the rule a variant is trained under — its `learning_rule`, else its configuration's copy, else the catalogue's first — an axis a pair may differ on (D-19, `rules.md` §8) |
 | `utility` | the utility a variant is trained on, resolved by the same reading — its `utility`, else its configuration's copy, else the catalogue's first — the seventh axis, and **one word for both the axis token and the field** (D-20, `utilities.md` §8) |
 
-**The rule, which is L2's correction: a pair compares `architecture` only when the two sides agree on the representation family and on
+The rule, which is L2's correction: a pair compares `architecture` only when the two sides agree on the representation family and on
 `sparsity`.** Where either differs, the width (and depth) gap is the capacity match's *compensation* — ASM-10 wants `sparse` wider than
 its dense mate and a token encoding at another width — so it belongs to `encoding` or `connectivity` and never to a second axis; with
 the rule and the utility, each of §3's eight pairs differs on one (`docs/L2/training/surface.md` §5, ASM-10).
@@ -51,8 +52,7 @@ differ, the `rule` and `utility` axes appended from the resolved members — and
   that differ (`width`, `depth`, `sparsity`, `residual`, `backend`, `encoding`, `learning_rule`, `utility`) so a reader sees the words
   — FAM-17.8 wants `learning_rule` for the `rule` axis, and the `utility` axis names token and field alike (D-20);
 - `differs: []` — two sides that differ on nothing — invents no axis: `of` is the later configuration's declared axis for two
-  configurations, and the literal `"no difference"` for two entries (`surface.md` §5). More than one differing axis is a refusal
-  naming them all (§6).
+  configurations, and the literal `"no difference"` for two entries (`surface.md` §5); more than one differing axis is a refusal naming them all (§6).
 
 ## 3. The eight reportable pairs
 
@@ -83,7 +83,7 @@ with it — hence the eight rows above, the six rungs declaring one of each (D-1
 |---|---|
 | `game` | `engine.game_config()` — the fixed game, identical for every rung (D-2, `engine/surface.md` §3) |
 | `action vocabulary` | `{0: "fold", 1: "check-call", 2: "raise"}`, **declared here as data**: `features.action_space` is not among this module's five granted `features` calls (`module-map.md` §2, `e2e-surface.md` §2) |
-| `readout facts` | the ten fact names of `e2e-surface.md` §2, declared here for the same reason, and identical for every encoding (D-3) |
+| `readout facts` | the **eleven** fact names of `e2e-surface.md` §2, `hand_class` included — declared here for the same reason, and identical for every encoding, because it is a derived fact of `hole` and `board` and no encoding carries it (D-3, ASM-30, D-21) |
 | `reward` | what each side's **utility** delivers at the seat's terminal decision, read off the catalogue's own reward tokens — one for a one-utility pair and both for a two-utility pair — the net chip delta among them (ASM-12, `utilities.md` §2, §8, D-20) |
 | `rules` | the **set** of rules the two sides are trained under — each side's `learning_rule`, else its configuration's copy, else the catalogue's first — in declaration order and never one side's, because what a rung holds constant is the set (`rules.md` §8, D-19, ASM-7) |
 | `utilities` | the same **set** on D-20's axis — each side's `utility` through `_utility`, deduped by `_utility_set` — so a side spelling the default out and a side leaving it unsaid are one utility and never a phantom difference (`utilities.md` §5, §8, D-20) |
@@ -97,19 +97,21 @@ with it — hence the eight rows above, the six rungs declaring one of each (D-1
 | `device policy` | `cpu` inside the sandbox; a user-started run records the device it used (D-8, `protocol.md` §6) |
 
 The two declared-as-data rows are deliberate: the ladder never changes the game, the vocabulary or the readout facts, so a constant
-naming them is a *report*, and reading a catalogue this module is not granted would be a sixth `features` call (`module-map.md` §2,
-D-13). The budgets, the seed set and the rule and utility **sets** are read from the two sides; a pair declaring two `hyper` blocks is
+naming them is a *report*, and reading a catalogue this module is not granted would be a sixth `features` call (`module-map.md` §2, D-13).
+The budgets, the seed set and the rule and utility **sets** are read from the two sides; a pair declaring two `hyper` blocks is
 **refused** rather than reported with one side's value, and two rules or two utilities are no held constant — they are the axes
 (`declarations.md` §3–§4, `rules.md` §8, ASM-7, D-19, D-20).
 
 ## 5. The pool report, and the R1/R2 parity reading
 
-`pool` carries `m` = 5, `frozen`, the three `baselines` in `agents.baselines()`'s order, each arm's declared `id` under `ids`,
-`same` — the one id both declare, or `None` — and `membership`, the version window both arms train against
-(`surface.md` §5, ASM-16). Two arms of R4, R5 or R6 declare **one** configuration-level pool entry, so `same` is that id and
-`membership` is that entry's window (FAM-3.17, FAM-3.18). An **adjacent** pair cannot share one: a rung's pool is the previous rung's
-window, so R2's contains R1's snapshots while R1's is the baselines alone — `same` is `None`, both ids are reported, and `membership`
-is the **intersection** of the two windows in lineage order, which for R1–R2 is the three baselines alone (`loop.md` §4, `league.md` §2).
+`pool` carries `m` = 5, `frozen`, the **baselines either side's pool holds** — the anchor three in every pool and any
+folding baseline a membership declaration named, the anchors first and never one side's — each arm's declared
+`id` under `ids`, `same` — the one id both declare, or `None` — and `membership`, the pinned set plus the version window both
+arms train against (`surface.md` §5, ASM-16, ASM-32, D-21). Two arms of R4, R5 or R6 declare **one** configuration-level pool
+entry, so `same` is that id and `membership` is that entry's window (FAM-3.17, FAM-3.18). An **adjacent** pair cannot share one: a
+rung's pool is the previous rung's window, so R2's contains R1's snapshots while R1's is the baselines alone — `same` is `None`,
+both ids are reported, and `membership` is the **intersection** of the two memberships in order, which for R1–R2 is the three
+baselines alone and carries a folder both sides declared (`loop.md` §4, `league.md` §2, `records.md` §8).
 
 That intersection is what the parity check plays on: R1 and R2 declare one encoding, one architecture, one update rule, one utility
 and one sample order, so they are handed the same deals against the same opponents and **must choose the same actions on the same
@@ -138,13 +140,11 @@ An **unregistered** configuration is not refused for being unregistered: it decl
 One pair gives one record: `fairness` plays no hand, builds no encoder or learner, writes nothing and moves no stream (`surface.md`
 §5, ASM-2). It reads the two sides' entries, their pool entries, `declarations.HYPER` and — for a side declaring no rule or no
 utility — the catalogue `agents.learners()` publishes, so the record is a function of its arguments and of no earlier call
-(`battery.md` §3 FAM-3, FAM-15, `rules.md` §4, `utilities.md` §5). Equal sides give equal records, and §3's eight pairs give their
-eight results in any order.
+(`battery.md` §3 FAM-3, FAM-15, `rules.md` §4, `utilities.md` §5); equal sides give equal records, and §3's eight pairs give eight results in any order.
 
 ## 8. What is left to L4
 
 Whether a side is classified by its keys or by a tag, whether `differs` is a list or a tuple, and the private helpers below §1's four
-signatures — `_rule`, `_utility`, `_rule_set`, `_utility_set` and `_differences` among them. Not L4's: the seven axes and their
-compared values, §2's matching rule, §3's eight results, the fourteen `constants` keys with the rule and utility **sets** and the
-`reward` row, the two declared-as-data rows, the pool report's six keys, the `same`-and-intersection reading, and §6's six refusals
-(`guardrails.md` G14, G15, G21). The four signatures of §1 are contract for `tests/training/`.
+signatures — `_rule`, `_utility`, `_rule_set`, `_utility_set`, `_member_ids`, `_catalogue` and `_differences` among them. Not L4's: the seven
+axes and their compared values, §2's matching rule, §3's eight results, the fourteen `constants` keys with the rule and utility **sets** and
+the `reward` row, the two declared-as-data rows, the pool report's six keys, the `same`-and-intersection reading, and §6's six refusals (`guardrails.md` G14, G15, G21); §1's four signatures are contract for `tests/training/`.

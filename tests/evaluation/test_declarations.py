@@ -46,7 +46,15 @@ FAMILY_REQUIRED = {
 PROTOCOL_KEYS = ("families", "seeds", "header", "table_budgets", "baselines", "rating")
 
 #: `league()`'s six keys, in `declarations.md` §4's order.
-LEAGUE_KEYS = ("m", "baselines", "tables", "cell_count", "table_seed", "rating")
+LEAGUE_KEYS = (
+    "m",
+    "baselines",
+    "catalogue",
+    "tables",
+    "cell_count",
+    "table_seed",
+    "rating",
+)
 
 
 class DeclarationsTest(EvaluationCase):
@@ -183,9 +191,14 @@ class DeclarationsTest(EvaluationCase):
         )
         self.assertEqual(
             tuple(record["baselines"]),
-            tuple(self.agents().baselines()),
-            "protocol()'s baseline names are agents.baselines()'s own order "
-            "(README.md §6, agents/surface.md §11)",
+            tuple(
+                name
+                for name, entry in self.agents().baselines().items()
+                if entry.get("anchor")
+            ),
+            "protocol()'s baseline names are the catalogue's `anchor: True` members, in "
+            "their own order — the flagged three, never a folder (README.md §6, "
+            "agents/surface.md §11, ASM-32, D-21)",
         )
 
     def test_evl_1_6_protocol_declares_the_nine_header_items_in_order(self):
@@ -264,15 +277,15 @@ class DeclarationsTest(EvaluationCase):
         )
         self.assert_stream_unchanged(before, "protocol()")
 
-    def test_evl_1_9_league_has_its_six_keys_and_the_declared_numbers(self):
-        """EVL-1.9 `league()` is read under six keys in `declarations.md` §4's order, with M = 5 and the one table seed `20261105` (`surface.md` §4, declarations.md §4, §6)."""
+    def test_evl_1_9_league_has_its_seven_keys_and_the_declared_numbers(self):
+        """EVL-1.9 `league()` is read under seven keys in `declarations.md` §4's order — the pinned baselines and the catalogue a declaration may add beyond them — with M = 5 and the one table seed `20261105` (`surface.md` §4, declarations.md §4, §6, D-21)."""
         package = self.evaluation()
         record = package.league()
         self.assertEqual(
             tuple(record),
             LEAGUE_KEYS,
-            "league() is read under exactly these six keys, in this order "
-            "(declarations.md §4, surface.md §4), got %r" % (tuple(record),),
+            "league() is read under exactly these seven keys, in this order "
+            "(declarations.md §4, surface.md §4, D-21), got %r" % (tuple(record),),
         )
         self.assertEqual(
             int(record["m"]),
@@ -292,6 +305,19 @@ class DeclarationsTest(EvaluationCase):
             BASELINES,
             "league() declares the same three pinned baselines in the same order "
             "(declarations.md §4): %r" % (record["baselines"],),
+        )
+        self.assertEqual(
+            tuple(record["catalogue"]),
+            tuple(self.agents().baselines()),
+            "league() declares the catalogue's names in agents.baselines()'s order — the "
+            "names a membership declaration may add beyond the pinned three "
+            "(declarations.md §4, records.md §8, D-21): %r" % (record["catalogue"],),
+        )
+        self.assertTrue(
+            set(record["baselines"]) < set(record["catalogue"]),
+            "the pinned baselines are a proper subset of the catalogue: D-21's folders are "
+            "declare-able members and never pinned (ASM-32, D-21): %r against %r"
+            % (record["baselines"], record["catalogue"]),
         )
 
     def test_evl_1_10_league_declares_both_budgets_with_their_arithmetic(self):

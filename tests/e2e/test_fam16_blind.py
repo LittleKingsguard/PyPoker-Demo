@@ -112,11 +112,46 @@ class FAM16Blind(S.SurfaceCase):
         self.assertEqual(
             set(readout),
             set(S.READOUT_FACTS),
-            "the readout is exactly the ten declared facts (e2e-surface §2): %r" % (readout,),
+            "the readout is exactly the eleven declared facts (e2e-surface §2, D-21): %r"
+            % (readout,),
         )
         self.assertEqual(len(readout["hole"]), 2, "the acting seat holds two cards")
         self.assertEqual(len(readout["board"]), 0, "no public card before the flop")
         self.assertEqual(readout["history"], [], "nothing has happened yet at the first decision")
+        # D-21's eleventh fact at this invented decision: fewer than five cards are known
+        # before the flop, so no five-card hand exists and the fact is `None` — never a
+        # `0`, which is what a high-card hand reads as from the flop onward
+        # (e2e-surface §2, folders.md §3, ASM-30).
+        self.assertIsNone(
+            S.readout_fact(readout, "hand_class"),
+            "before the flop `hand_class` is None, never a class (folders.md §3, ASM-30): %r"
+            % (readout.get("hand_class"),),
+        )
+        # ... and the same hand, played to the flop, reads an integer 0..8 there.
+        post_flop = None
+        for _seat, later, _legal, _action, _index in self.seated_walk(
+            S.SEED_J, {"default": self.baseline("always-call", S.SEED_D)}
+        ):
+            if str(S.readout_fact(later, "street")).strip().lower() == "preflop":
+                continue
+            post_flop = S.readout_fact(later, "hand_class")
+            break
+        self.assertIsNotNone(
+            post_flop,
+            "seed 99991's hand must reach a flop, turn or river decision, so the post-flop "
+            "half of `hand_class`'s contract is observed (folders.md §3)",
+        )
+        self.assertTrue(
+            S.is_count(post_flop),
+            "from the flop onward `hand_class` is the class of the best five-card hand of "
+            "hole plus board, an integer (e2e-surface §2, folders.md §3, ASM-30): %r"
+            % (post_flop,),
+        )
+        self.assertTrue(
+            0 <= int(post_flop) <= 8,
+            "the nine classes are 0..8, high card 0 and straight flush 8 (folders.md §3): %r"
+            % (post_flop,),
+        )
 
     def test_fam16_03_engine_legal_actions(self):
         """FAM-16.3 engine.legal_actions — instance: the first decision at seed 131."""
@@ -409,7 +444,7 @@ class FAM16Blind(S.SurfaceCase):
         )
         self.assertEqual(
             len(members),
-            len(versions) + len(S.BASELINES),
+            len(versions) + len(S.ANCHOR_BASELINES),
             "the baselines are added and pinned, so a pool of four versions has seven "
             "members (league.md §2): %r" % (members,),
         )
@@ -434,7 +469,7 @@ class FAM16Blind(S.SurfaceCase):
             "that ordered list is left free, so the versions are not required to come first: "
             "%r" % (ordered,),
         )
-        for baseline in S.BASELINES:
+        for baseline in S.ANCHOR_BASELINES:
             self.assertIsNotNone(
                 R.baseline_member(ordered, baseline),
                 "the read-back names the %r baseline beside the versions, pinned wherever it "
@@ -558,7 +593,7 @@ class FAM16Blind(S.SurfaceCase):
             "battery.md §2): %r" % (rating,),
         )
         baselines = []
-        for name in S.BASELINES:
+        for name in S.ANCHOR_BASELINES:
             member = R.baseline_member(members, name)
             self.assertIsNotNone(member, "the %r baseline is a rated member" % (name,))
             key = member if member in entries else next(

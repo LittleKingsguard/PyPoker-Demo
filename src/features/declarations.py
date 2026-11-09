@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from .cards import CARD_SLOT
 
-# The nine facts an observation carries, in the readout's own order less `legal`
-# (encoder.md §3.1).  This tuple is also the block order of both encodings.
+# The nine facts an observation carries, in the readout's own order less `legal` and the
+# derived `hand_class` (encoder.md §3.1, ASM-30); it is also both encodings' block order.
 FIELDS = (
     "street",
     "seat",

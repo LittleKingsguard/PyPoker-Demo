@@ -57,8 +57,9 @@ NINE = (
     "decode_action",
 )
 
-# The readout's ten facts, exactly (docs/L2/features/encodings.md §2, README.md §4),
-# and the nine of them an observation carries -- `legal` is not carried.
+# The readout's eleven facts, exactly (docs/L2/features/encodings.md §2, README.md §4,
+# ASM-30), and the nine of them an observation carries -- neither `legal` nor D-21's
+# `hand_class` is carried (D-21, ASM-30).
 FACTS = (
     "street",
     "seat",
@@ -70,8 +71,9 @@ FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
 )
-FIELDS = FACTS[:-1]
+FIELDS = tuple(fact for fact in FACTS if fact not in ("legal", "hand_class"))
 SPEC_KEYS = ("representation", "kind", "fields", "shape", "dtype", "vocabulary")
 
 STREETS = ("preflop", "flop", "turn", "river")
@@ -563,14 +565,15 @@ def history_entries(count):
 
 def readout(street="preflop", seat=(0, True), hole=("Td", "2c"), board=None,
             stacks=None, pot=None, to_call=None, limit=None, history=None,
-            legal=None, extra=None):
-    """One invented readout: the ten facts, as a fresh plain mapping.
+            legal=None, hand_class=None, extra=None):
+    """One invented readout: the eleven facts, as a fresh plain mapping.
 
     The defaults follow the street, so an untouched default is a plausible
     readout -- but only its *shape* is contracted, and an override can leave a
     combination the engine would not produce (see the note above).  A case that
     needs an *unrepresentable* value builds a valid readout and overrides the one
-    fact with :func:`with_facts`.
+    fact with :func:`with_facts`.  `hand_class` defaults to `None`, the fact's value
+    before the flop, and no encoding carries it (ASM-30, D-21).
     """
     base = STREET_DEFAULTS.get(street, STREET_DEFAULTS["preflop"])
     if board is None:
@@ -596,6 +599,7 @@ def readout(street="preflop", seat=(0, True), hole=("Td", "2c"), board=None,
         "limit": tuple(limit),
         "history": list(history) if history is not None else [],
         "legal": tuple(legal),
+        "hand_class": hand_class,
     }
     if extra:
         record.update(extra)

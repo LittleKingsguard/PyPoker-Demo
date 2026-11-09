@@ -94,11 +94,11 @@ no stream (D-3, `surface.md` §3); it reads the index's declared windows and cal
 1. `_window(carried_from)` reads the declared window of the rung this one inherits — `index.SHIPPED_WINDOWS[carried_from]`, version
    records in lineage order, each carrying its `rule` and `utility` — and **drops every version whose `path` names no readable file**, so a
    declared but absent lineage checkpoint leaves the window short and the record states the membership it used (`protocol.md` §5, `loop.md` §3);
-   R1 has no `carried_from`, so its window is empty and its pool is the three baselines alone (FAM-3.17, D-20).
-2. The declaration is `{"members": <that filtered window>, "m": 5, "frozen": True}` — `records.md` §8's shape, with no baselines in it,
-   because `build_pool` adds and pins them itself.
-3. `evaluation.build_pool(declaration)`, then `evaluation.pool_members(pool)`; a refusal from either **propagates unrepaired**
-   (`surface.md` §4, `e2e-surface.md` §2).
+   R1 has no `carried_from`, so its window is empty and its pool is the three anchor baselines alone (FAM-3.17, D-20).
+2. The declaration is `{"members": <that filtered window>, "m": 5, "frozen": True}` — `records.md` §8's shape, with no baselines in it
+   and **no `baselines` key either**, because `build_pool` adds and pins the three anchor baselines itself; a registry row therefore
+   declares no folding baseline, and the six rows resolve to exactly the pool ids they resolve to today (ASM-32, D-21).
+3. `evaluation.build_pool(declaration)`, then `evaluation.pool_members(pool)`; a refusal from either **propagates unrepaired** (`surface.md` §4, `e2e-surface.md` §2).
 4. `id` is the read-back's `id` and `members` is the filtered window as declared; the read-back's own member list is **not** copied into
    the configuration, because it belongs to the run record (`loop.md` §4).
 
@@ -107,8 +107,8 @@ So **the declared `id` is the read-back id of the membership the repository actu
 
 **A configuration in no registry** carries the same entry and supplies its own `members` and `id`, which is how a custom league
 reaches the loop as data (`ladder.md` §3, FAM-15.4). Its members may carry no `path`: they are filtered out by step 1's
-readability rule, the pool it trains against is the three baselines, and its run record still carries **its own declared id**
-(`loop.md` §4, FAM-15.2).
+readability rule, the pool it trains against is the pinned baselines — the three anchors, plus any its own `baselines` names — and its run record still carries **its own declared id**
+(`loop.md` §3, FAM-15.2, ASM-32, D-21).
 
 ## 4. The parameter budget, shown as arithmetic (ASM-10)
 

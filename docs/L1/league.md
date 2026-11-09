@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-09
-- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19) and several objectives (D-20), and what they cost
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 11 · **Date:** 2026-11-09
+- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19) and several objectives (D-20), the folding baselines a configuration may declare (D-21), and what they cost
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. What the league is
@@ -11,7 +11,7 @@ A bounded round-robin league: a rolling pool of the model's last M versions plus
 ## 2. The pool
 
 - A version is a snapshot of a run: a checkpoint with an id, the rung, the variant, the seed, the training step it came from, and the **rule** it was trained under (D-16, D-19, ASM-18).
-- The pool holds **at most M = 5 versions** and **always the three baselines**, which are pinned and never evicted, so the pool has between 3 and 8 members (D-16, ASM-14). The bound is a declaration's own field: a configuration may declare a tighter `m` than the league's M, and no declaration may exceed it (D-16, `records.md` §8).
+- The pool holds **at most M = 5 versions** and **always the three anchor baselines of D-6**, which are pinned and never evicted; a baseline the configuration's membership declaration names beyond them — the three folders of D-21 — joins pinned as well, because eviction is the version window's and takes no baseline, so the pool has between 3 and 8 members and one more per declared folder (D-16, ASM-14, ASM-32, `records.md` §8, D-21). The bound is a declaration's own field: a configuration may declare a tighter `m` than the league's M, and no declaration may exceed it (D-16, `records.md` §8).
 - A rung's pool is the last M versions of the rung it inherits, by lineage order, plus the baselines; R1 has no lineage, so its pool is the three baselines alone and the report says so instead of inventing a version (D-16, `ladder.md` §2).
 - The pool is **frozen before a rung's variants train** and does not change while either arm of a pair trains or is tabled. That is what makes D-16's "identical frozen pool" true of R4, R5 and R6 while D-3 keeps the rung to one axis: both arms sample the same opponents, in the same window, and their run records carry the same pool id (D-16, D-3, ASM-16).
 - A rung's own snapshots are what the next rung's window is built from; `evaluation.offer` advances a pool by one version and `evaluation.pool_members` reads one back, so rolling is a declared operation on a named object rather than a side effect of training (D-16, ASM-18). A window holding several estimators is grouped into **families** — one lineage chain each, every member of it trained under one rule — and `offer` extends one family at a time: the offered version's lineage must be that family's newest member, or a label no member carries, which opens a new family (D-19, ASM-26).
@@ -28,22 +28,13 @@ A bounded round-robin league: a rolling pool of the model's last M versions plus
 
 ### 3.1 What a cell's recorded seed reproduces, and the replay recipe
 
-A cell's `seed` (`records.md` §9) is the seed its hands were dealt from, derived from the table seed and
-the pair's membership positions — not a key that replays the cell. `evaluation.match(a, b, hands, seed)`
-builds a **baseline** at the seed it is handed, while a table builds each baseline from the table seed and
-that baseline's position, so a cell with a baseline in it replayed from its recorded seed is a different
-cell and a different count — one measured replay's win/tie/loss triple differed from the triple the cell recorded,
-in a cell whose counts this page therefore does not quote — the replay rule `records.md` §9 carries (D-16, ASM-14, ASM-23).
-Two checkpoint members do replay from it, because a version is built at the seed its own checkpoint records
-either way. What always reproduces a cell is the table it came from: replay `evaluation.matrix(pool,
-[variant], "live")` over the same frozen pool, whose id and whose `table_seed` — one declared constant —
-are what a third party needs, and neither is a per-cell number (D-16, ASM-14, `records.md` §10).
+A cell's `seed` (`records.md` §9) is the seed its hands were dealt from, derived from the table seed and the pair's membership positions — not a key that replays the cell. `evaluation.match(a, b, hands, seed)` builds a **baseline** at the seed it is handed, while a table builds each baseline from the table seed and that baseline's position, so a cell with a baseline in it replayed from its recorded seed is a different cell and a different count, which is why this page quotes no cell's counts (the replay rule is `records.md` §9: D-16, ASM-14, ASM-23). Two checkpoint members do replay from it, because a version is built at the seed its own checkpoint records either way. What always reproduces a cell is the table it came from: replay `evaluation.matrix(pool, [variant], "live")` over the same frozen pool, whose id and whose `table_seed` — one declared constant — are what a third party needs, and neither is a per-cell number (D-16, ASM-14, `records.md` §10).
 
 ## 4. The matrix
 
-- Membership is the frozen pool plus the rung's variants: K = |pool| + V, with V = 1 or 2 (`ladder.md` §2). K is therefore 4 for R1, 9 for a single-variant rung with a full window and 10 for a two-variant rung with a full window (ASM-14). **Every member carries its rule**, and the matrix records each member's rule beside the distinct set it measured, its `population`, so a table says which estimators it fitted over — the pool's versions from their records and the variants from the policies they were passed as (D-19, `records.md` §9, §10, `e2e-surface.md` §2).
-- Cells = K(K−1)/2 unordered pairs, each played at the table budget's hand count: 6 cells for R1, 36 for K = 9 and 45 for K = 10 (D-16, ASM-14).
-- The three baselines are rows *and* columns at that same hand count, and their three mutual cells are in the table, so the matrix carries cells no model influences (D-16, `protocol.md` §3).
+- Membership is the frozen pool plus the rung's variants: K = |pool| + V, with V = 1 or 2 (`ladder.md` §2). K is therefore 4 for R1, 9 for a single-variant rung with a full window and 10 for a two-variant rung with a full window (ASM-14); a configuration that declares D-21's three folders adds three members, so K = **12** or **13** and the cells `folders.md` §5 counts with their cost (ASM-33, D-21). **Every member carries its rule**, and the matrix records each member's rule beside the distinct set it measured, its `population`, so a table says which estimators it fitted over — the pool's versions from their records and the variants from the policies they were passed as (D-19, `records.md` §9, §10, `e2e-surface.md` §2).
+- Cells = K(K−1)/2 unordered pairs, each played at the table budget's hand count: 6 cells for R1, 36 for K = 9, 45 for K = 10, and **66** or **78** when the three folders are declared (D-16, ASM-14, ASM-33, D-21).
+- The baselines are rows *and* columns at that same hand count — always the three of D-6 and, when declared, the three folders of D-21 — and their mutual cells are in the table, so the matrix carries cells no model influences (D-16, `protocol.md` §3, D-21).
 - The matrix is reported raw — both directions of every cell, its counts, chip deltas and seat split — and is never reduced to a ranking in the report. A summary statistic that assumes a transitive order is exactly what a poker payoff need not have (D-16).
 - A matrix whose cells differ in hand count, whose membership is not the pool's, or which is missing a baseline, is a contract violation and not a table (D-16, `e2e-surface.md` §2).
 
@@ -51,7 +42,7 @@ are what a third party needs, and neither is a per-cell number (D-16, ASM-14, `r
 
 - The fitted rating is **Bradley-Terry**, fitted over the matrix's cells on each cell's win/tie/loss counts with a tie counted as half a win to each side (ASM-17, D-16).
 - Each member's rating carries a **95% confidence interval** from a hand-level bootstrap: the hands inside each cell are resampled, the fit is repeated, and the interval is the 2.5th to 97.5th percentile of the resulting ratings. The bootstrap is seeded from the table seed and its seed is recorded (ASM-17, D-16).
-- The fit is **anchored by the three baselines**, whose mean rating is fixed at 0, so every value reads as a distance from the only fixed standard in the table and two tables can be compared on one scale (D-16).
+- The fit is **anchored by the three baselines of D-6** — the catalogue's `anchor` flag, and never a folding baseline D-21 adds — whose mean rating is fixed at 0, so every value reads as a distance from the only fixed standard in the table and two tables can be compared on one scale, including one recorded before D-21 and one after it (D-16, ASM-17, ASM-32, D-21).
 - A member that won or lost every cell has no finite maximum-likelihood rating; the fit bounds it, reports that the bound was applied, and the interval then says the evidence pinned it (ASM-17, D-16).
 - The rating and the matrix travel together in the report, and neither is a claim of poker skill: a rank states where a version stands among the table's named members on this game at this cell size (D-16, brief §8).
 
@@ -59,10 +50,10 @@ are what a third party needs, and neither is a per-cell number (D-16, ASM-14, `r
 
 | Quantity | `live` | `full` |
 |---|---|---|
-| Membership | the frozen pool plus the rung's variants (K = 9 or 10) | exactly the same membership (D-16) |
+| Membership | the frozen pool plus the rung's variants (K = 9 or 10; 12 or 13 with D-21's folders declared) | exactly the same membership (D-16, ASM-33) |
 | Hands per cell | 120, seats alternating | 1,500, seats alternating (ASM-14) |
-| Cells | 36 or 45 | 36 or 45 (ASM-14) |
-| Hands played | 4,320 or 5,400 | 54,000 or 67,500 (ASM-14) |
+| Cells | 36 or 45; 66 or 78 with the folders declared | the same count (ASM-14, ASM-33) |
+| Hands played | 4,320 or 5,400; 7,920 or 9,360 with the folders declared | 54,000 or 67,500; 99,000 or 117,000 (ASM-14, ASM-33) |
 | Produced by | the talk, on the fly (D-8) | precomputed offline and shipped under `tables/` (D-16, D-8) |
 | Per-cell resolution | about ±9 percentage points of win rate | about ±2.5 percentage points (ASM-14) |
 
@@ -76,6 +67,7 @@ demonstration, and the full table with the fitted intervals is what a claim rest
 - The per-hand cost is a **measurement, not a bound**, and each artefact reports its own, in its own shape: a record's `seconds_per_hand` per seed over 3,000 hands (`checkpoints/evidence/r1-live.json`'s `run.timings`), the shipped `full` table's over 9,000 hands (`tables/league-full.json`'s `cost` block), and the `live` table's over 720 hands (that bundle's `stages.matrix_live`). **This document states the band, the arithmetic the band implies and the shape, and quotes no build's measured seconds**: the band is ASM-21's **0.105–0.153 s/hand** (6.5–9.5 hands/s) — 0.105–0.120 for a live run, 0.1299–0.1324 for the shipped full table and 0.1415–0.1532 for the live table, every live-table pass measured so far inside its own — and it is the band **both** L1's own ASM-15 (`assumptions.md`) **and** the brief's ASM-21 state. The exact seconds are **read from the artefact and never from this page**, because a regeneration moves every one of them and leaves only the band, so a document that quotes a build's seconds is stale as soon as the next build ships (`protocol.md` §2); the live table is not inside the run's own band, and the next bullet is why (ASM-21, ASM-15, ASM-23, D-16).
 - **Why the table costs more per hand than the run that fed it**, measured rather than asserted: an oracle-bearing cell measured **0.255–0.315 s/hand** and an oracle-free cell **0.002–0.004 s/hand**, so the oracle's per-decision equity sample is virtually all of a table's cost (ASM-4); and the oracle's share of the hands differs — a K = 4 table has it in 3 of its 6 cells, half of the 720 hands, while R1's run draws each hand's opponent from a three-baseline pool and so faces it in one hand in three. Policy construction is not a factor (`evaluation.build_pool` is a one-off per table, microseconds in the bundle's own `stages`, and `policy_from` one-off per member) and neither is seat alternation (both paths alternate and every cell reports its 60/60 split): the band's midpoints give half the oracle rate plus half the oracle-free rate, 0.5·0.285 + 0.5·0.003 = 0.144 s/hand, within 7 % of the measured table, and a third of it plus two thirds of the cheap rate, plus the learner step, predicts the measured run (ASM-15, ASM-4).
 - What that implies, at the measured band: the live table is **≈95–110 s at K = 4** (720 hands, every measured pass inside its own band) and **≈10–12 minutes at K = 9–10** at the live table's fast end; the full table **≈2 hours at K = 9–10** (2.0 h at K = 9 and 2.5 h at K = 10 at the shipped rate). Holding the band's slow end, 0.1532 s/hand, instead is the **conservative bound** — **≈14 minutes at K = 10** live and **≈2.3–2.9 hours** full (4,320–5,400 and 54,000–67,500 hands) — and it over-states, because a wider table pairs the oracle in a smaller share of its hands than K = 4's half (the previous bullet). The shipped K = 4 full table is 9,000 hands and recorded ≈20 min of wall clock in its own `cost` block. A ten-minute live table is what a talk has to plan for at a full window, not the under-four-minute figure the old bound reported (ASM-21, ASM-14, D-8, `tables/league-full.json`).
+- A configuration that declares D-21's three folders pays in cells and is repaid by the oracle's smaller share of them, which is `folders.md` §5's forecast and not a measurement: the cells rise from 45 to 78 at the worst case while the oracle sits in 11 of 66 at K = 12 instead of half the hands at K = 4, so such a table prices between ≈7 minutes live and ≈1.4 hours full at the composition rate ASM-15 records, or ≈19–20 minutes and ≈3.6 hours if the live table's own per-hand figure is held as a bound. The band's composition says the cheap end is the one to expect and a talk plans for the slow one (ASM-33, ASM-21, ASM-15, D-21).
 - Cost is bought with cell size and never with concurrency, because one global `random` stream deals every hand (§3, D-16, ASM-2); and no case asserts that a wall clock was beaten. `harness.timings` reports seconds per hand from a real run, and the battery asserts that the record exists and that the live table's hands played match §6 — never a stopwatch (ASM-21, `battery.md` §3 FAM-10).
 - The parameters are L1's under ASM-13. Their alternatives — a larger M, cells of a few dozen hands, wall-clock-derived cell sizes — are recorded with ASM-14 and ASM-15 (assumptions.md).
 

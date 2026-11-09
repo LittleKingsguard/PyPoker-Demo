@@ -65,8 +65,16 @@ class FAM2Invariance(S.JoinCase):
             self.assertEqual(
                 set(fields),
                 set(S.CARRIED_FACTS),
-                "the encoding carries the readout's ten facts less `legal` "
-                "(encodings.md §2); %r carries %r" % (name, list(fields)),
+                "the encoding carries the readout's eleven facts less `legal` and less "
+                "D-21's `hand_class` (encodings.md §2, ASM-30); %r carries %r"
+                % (name, list(fields)),
+            )
+            self.assertNotIn(
+                "hand_class",
+                set(fields),
+                "no encoding carries D-21's derived hand class, so a learner cannot see "
+                "it and no rung's observation moves (ASM-30, D-21); %r carries it"
+                % (name,),
             )
             self.assertNotIn(
                 "legal",

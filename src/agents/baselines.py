@@ -1,14 +1,19 @@
-"""`baselines`, `build_baseline` and the three fixed rules (`baselines.md` §1-§6).
+"""`baselines`, `build_baseline` and the six fixed rules (`baselines.md` §1-§9).
 
-`random`, `always-call` and `oracle` are D-6's three fixed standards: none of them
-learns from a match, none has a trainable parameter (`params: 0`), and none advances a
-state, so each is a function of the decision it is handed.  `random`'s draw is keyed by
-the decision (`baselines.md` §2) because a uniform draw over each decision's legal
-indices cannot come from a stream position once the order of decisions is free.
+`random`, `always-call` and `oracle` are D-6's three fixed standards and the rating's
+**anchor**; `fold-no-pair-or-face`, `fold-no-pair-or-better` and `fold-large-bet` are
+D-21's three simple folders, which are members and table rows and never anchors.  None
+of the six learns from a match, none has a trainable parameter (`params: 0`), and none
+advances a state, so each is a function of the decision it is handed.  `random`'s draw is
+keyed by the decision (`baselines.md` §2) because a uniform draw over each decision's
+legal indices cannot come from a stream position once the order of decisions is free.
 
-`engine` is imported **inside** the oracle's policy and nowhere else: `engine`'s
-modules hold `pokerkit` at module level, and an eager import would leak it into
-`sys.modules` (`backends.md` §4, `README.md` §6).
+`engine` is imported **inside** a policy that needs it — the oracle's and
+`fold-large-bet`'s — and nowhere else: `engine`'s modules hold `pokerkit` at module level,
+and an eager import would leak it into `sys.modules` (`backends.md` §4, `README.md` §6).
+A folder's rank is read off the one card spelling `engine` declares and never off a second
+one; the starting stack is read from `engine.game_config` rather than copied (`folders.md`
+§2, ASM-31, D-13, D-21).
 """
 
 from __future__ import annotations
@@ -23,7 +28,21 @@ import features
 
 from .errors import InvalidReadout, InvalidSeed, UnknownBaseline
 
-NAMES = ("random", "always-call", "oracle")
+#: The six catalogue names, in `protocol.md` §3's order: D-6's three first, then D-21's
+#: three folders (`baselines.md` §6, D-21).
+NAMES = (
+    "random",
+    "always-call",
+    "oracle",
+    "fold-no-pair-or-face",
+    "fold-no-pair-or-better",
+    "fold-large-bet",
+)
+
+#: The names that are the rating's anchor: the catalogue's `anchor: True` members, and
+#: never a folder (`protocol.md` §3, ASM-32, D-21).  A catalogue record's flag is this
+#: set's membership, so the declared flag and the anchor cannot drift.
+ANCHORS = ("random", "always-call", "oracle")
 
 #: The board sizes a decision declares: no public card, the flop, the turn, the river
 #: (`README.md` §7).
@@ -37,7 +56,16 @@ EQUITY_SAMPLES = 257
 #: `baselines.md` §2's payload tag.
 PAYLOAD = b"pypoker-agents/baseline-random/v1"
 
-#: The facts the canonical spelling and the inequality read, in the readout's order.
+#: The rank alphabet of the one card spelling (`engine`'s `readout.md` §3): a card is two
+#: characters, rank first.  `fold-no-pair-or-face` reads a rank off this spelling and adds
+#: no second one (`folders.md` §2, `module-map.md` §2).
+RANKS = "23456789TJQKA"
+
+#: The ranks D-21 pins as face cards: J, Q, K **or A** (`folders.md` §2, D-21).
+FACE_RANKS = frozenset("JQKA")
+
+#: The facts the canonical spelling, the inequality and the three folder rules read, in
+#: the readout's order (`folders.md` §2, `surface.md` §11).
 FACTS = (
     "street",
     "seat",
@@ -48,16 +76,22 @@ FACTS = (
     "to_call",
     "limit",
     "history",
+    "hand_class",
 )
 
 
 def _record(name, rule):
     """One baseline's catalogue value (`baselines.md` §6)."""
-    return {"name": name, "rule": rule, "params": 0}
+    return {
+        "name": name,
+        "rule": rule,
+        "params": 0,
+        "anchor": name in ANCHORS,
+    }
 
 
 def baselines():
-    """The three fixed baselines, keyed in `random`, `always-call`, `oracle` order."""
+    """The six fixed baselines, in `protocol.md` §3's order, each with its `anchor` flag."""
     return {
         "random": _record(
             "random",
@@ -77,6 +111,21 @@ def baselines():
                 "folding is legal",
             ),
             equity_samples=EQUITY_SAMPLES,
+        ),
+        "fold-no-pair-or-face": _record(
+            "fold-no-pair-or-face",
+            "before the flop, fold when the two hole cards are unpaired and neither "
+            "card's rank is J, Q, K or A; check/call on every other decision",
+        ),
+        "fold-no-pair-or-better": _record(
+            "fold-no-pair-or-better",
+            "from the flop onward, fold when the best five-card hand of hole plus board "
+            "is a high card only (hand_class 0); check/call before the flop",
+        ),
+        "fold-large-bet": _record(
+            "fold-large-bet",
+            "fold when the chips to call exceed half the declared starting stack — "
+            "more than 10 of the declared 20 — on any street; check/call otherwise",
         ),
     }
 
@@ -127,16 +176,52 @@ def _cards(fact, wanted, sizes, value):
     return cards
 
 
+def _hand_class(value):
+    """The readout's `hand_class`: `None` before the flop, or an integer 0-8 (ASM-30).
+
+    A `bool`, a float, a string or an integer outside the nine classes is refused naming
+    the fact, because a rule that read one would answer a decision nobody described; a
+    missing `hand_class` is refused as a missing fact by :func:`_readout` itself
+    (`folders.md` §2, §3, D-21).
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise _malformed("hand_class", "None or an integer 0-8", value)
+    number = int(value)
+    if not 0 <= number <= 8:
+        raise _malformed("hand_class", "None or an integer 0-8", value)
+    return number
+
+
+def _rank(card):
+    """One hole card's rank, read off the one declared spelling `engine` fixes (§3).
+
+    A card is two characters, rank first from `"23456789TJQKA"`; anything else is refused
+    as this module's own `policy(readout)` naming the fact, because a rank this module
+    guessed would be a second spelling of the deal (`folders.md` §2, `module-map.md` §2,
+    `engine/readout.md` §3).
+    """
+    spelling = card if isinstance(card, str) else None
+    if spelling is None or len(spelling) != 2 or spelling[0] not in RANKS:
+        raise _malformed(
+            "hole", "the two-card spellings of engine's declared alphabet", card
+        )
+    return spelling[0]
+
+
 def _readout(value):
     """One readout mapping whose facts have the shapes `baselines.md` §1 fixes.
 
-    A readout is the ten facts of `README.md` §7 or it is refused: a policy that
+    A readout is the eleven facts of `README.md` §7 or it is refused: a policy that
     defaulted a malformed fact would answer a decision nobody described, and an
     `int("3")` on the way to one would invent it (`surface.md` §1, `errors.md` §2-§3).
     Every shape is checked here, before any rule reads a fact, and as this module's
-    own `InvalidReadout` named `policy(readout)`.  Nothing parses a card's spelling:
+    own `InvalidReadout` named `policy(readout)`, `hand_class`'s `None`-or-0-8 rule
+    included (`folders.md` §2, §3, ASM-30).  Nothing parses a card's spelling here:
     the counts and the shapes are checked and the cards only counted, so no `engine`
-    parser is imported to inspect one (`README.md` §6).
+    parser is imported to inspect one (`README.md` §6); the one rule that reads a rank
+    reads it through :func:`_rank`.
     """
     if not isinstance(value, Mapping):
         raise InvalidReadout(
@@ -160,6 +245,7 @@ def _readout(value):
     hole = _cards("hole", "two cards", (2,), value["hole"])
     board = _cards("board", "0, 3, 4 or 5 cards", BOARD_SIZES, value["board"])
     _entries("history", value["history"], "a sequence of entries")
+    _hand_class(value["hand_class"])
     seen = set()
     for card in hole + board:
         spelling = str(card)
@@ -263,6 +349,68 @@ def _oracle_index(readout, legal_actions, seed):
     return indices[-1]
 
 
+def _continue_or_fold(indices, fold):
+    """A folder's one legality rule: fold where folding is legal, else check/call (§7).
+
+    Index `0` is taken only where `fold` is legal, index `1` whenever check/call is, and
+    index `2` — the minimum legal completion — only where a raise is the sole legal
+    action, because a raise-only decision is forced by the game and never chosen by the
+    rule (ASM-31, `folders.md` §2).  An impossible mask holding none of the three gets its
+    smallest index: legality outranks never-fold (D-2).
+    """
+    if fold and 0 in indices:
+        return 0
+    if 1 in indices:
+        return 1
+    if 2 in indices:
+        return 2
+    return indices[0]
+
+
+def _fold_no_pair_or_face_index(readout, legal_actions):
+    """`baselines.md` §7: pre-flop, fold unpaired hole cards with no J, Q, K or A."""
+    indices = _indices(legal_actions)
+    fold = False
+    if readout["street"] == "preflop":
+        first, second = readout["hole"]
+        ranks = (_rank(first), _rank(second))
+        fold = ranks[0] != ranks[1] and not (
+            ranks[0] in FACE_RANKS or ranks[1] in FACE_RANKS
+        )
+    return _continue_or_fold(indices, fold)
+
+
+def _fold_no_pair_or_better_index(readout, legal_actions):
+    """`baselines.md` §7: from the flop, fold a high-card-only best five (§3's fact).
+
+    `hand_class` is `None` before the flop, so `== 0` is the whole rule: it folds
+    exactly on a high-card-only hand from the flop onward and never pre-flop (D-21).
+    """
+    indices = _indices(legal_actions)
+    return _continue_or_fold(indices, readout["hand_class"] == 0)
+
+
+def _fold_large_bet_index(readout, legal_actions):
+    """`baselines.md` §7: fold when the call is more than half the starting stack.
+
+    The stack is `engine.game_config()["starting_stack"]` read through the granted arrow
+    on every decision, never a copied `20`: a game parameter lives once, in `engine`
+    (ASM-31, `module-map.md` §2, D-13, D-21).
+    """
+    indices = _indices(legal_actions)
+    to_call = int(readout["to_call"])
+    try:
+        import engine
+
+        starting_stack = engine.game_config()["starting_stack"]
+    except Exception as error:
+        raise InvalidReadout(
+            "policy(readout): the game's declared starting stack is not readable: %s"
+            % (error,)
+        ) from None
+    return _continue_or_fold(indices, 2 * to_call > int(starting_stack))
+
+
 class Baseline:
     """One fixed rule as a policy: a callable over `(readout, legal_actions)`."""
 
@@ -289,8 +437,14 @@ class Baseline:
             index = _random_index(decision, legal_actions, self._seed)
         elif self._name == "always-call":
             index = _always_call_index(legal_actions)
-        else:
+        elif self._name == "oracle":
             index = _oracle_index(decision, legal_actions, self._seed)
+        elif self._name == "fold-no-pair-or-face":
+            index = _fold_no_pair_or_face_index(decision, legal_actions)
+        elif self._name == "fold-no-pair-or-better":
+            index = _fold_no_pair_or_better_index(decision, legal_actions)
+        else:
+            index = _fold_large_bet_index(decision, legal_actions)
         return features.decode_action(int(index))
 
 

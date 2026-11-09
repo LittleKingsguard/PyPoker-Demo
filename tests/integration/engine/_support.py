@@ -45,7 +45,8 @@ ENTRY_POINTS = (
     "equity",
 )
 
-# environment.md §2: the closed information set, in its declared order.
+# environment.md §2: the closed information set, in its declared order.  The eleventh is
+# D-21's derived `hand_class` (ASM-30).
 READOUT_FACTS = (
     "street",
     "seat",
@@ -57,6 +58,7 @@ READOUT_FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
 )
 
 # records.md §5: the episode record's three required keys, and each decision's
@@ -579,7 +581,7 @@ class PolicyProbe:
         expected = set(token(fact) for fact in READOUT_FACTS)
         if declared != expected:
             raise AssertionError(
-                "%s was called with a mapping whose keys are not exactly the ten facts "
+                "%s was called with a mapping whose keys are not exactly the eleven facts "
                 "(environment.md §2): %r" % (self.name, sorted(str(key) for key in readout))
             )
         descriptors = descriptor_list(legal, "the legal descriptors a policy is called with")

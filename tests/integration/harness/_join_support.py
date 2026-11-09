@@ -384,7 +384,7 @@ def seat_index(seat):
 
 
 def pinned(member):
-    """Whether a `records.md` §8 member is one of the three pinned baselines."""
+    """Whether a `records.md` §8 member is one of the pinned baselines."""
     if not isinstance(member, dict):
         return False
     if member.get("pinned") or member.get("baseline"):
@@ -397,6 +397,19 @@ def member_ids(pool_record):
 
 
 def baseline_names():
+    """The catalogue's pinned baselines — its `anchor: True` members (`fairness.md` §5,
+    ASM-32, D-21)."""
+    declared = baselines()
+    found = [
+        str(name)
+        for name, record in declared.items()
+        if isinstance(record, dict) and record.get("anchor")
+    ]
+    return found or [str(name) for name in declared]
+
+
+def catalogue_names():
+    """The catalogue's six baseline names, in its order (D-21)."""
     return [str(name) for name in baselines()]
 
 

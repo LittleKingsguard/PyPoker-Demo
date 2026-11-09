@@ -24,27 +24,26 @@ size, and no rung can drift into an encoding of its own (D-3, `ladder.md` §2, `
 
 ## 2. The fields carried, and why they never move
 
-`observation_spec`'s `fields` is the same nine names for both encodings, each one of `engine.readout`'s ten
-facts (`e2e-surface.md` §2, `battery.md` §3 FAM-2): `street`, `seat`, `hole`, `board`, `stacks`, `pot`,
-`to_call`, `limit` and `history` — the readout's ten less `legal` (`engine/environment.md` §2).
+`observation_spec`'s `fields` is the same nine names for both encodings, each one of `engine.readout`'s
+eleven facts (`e2e-surface.md` §2, `battery.md` §3 FAM-2): `street`, `seat`, `hole`, `board`, `stacks`,
+`pot`, `to_call`, `limit` and `history` — the eleven less `legal` and `hand_class`, the derived fact
+that no encoding carries (`engine/environment.md` §2, `folders.md` §3, ASM-30).
 
 - The set is identical for every encoding, and that identity is the ladder's fairness condition: a
   comparison pair holds the information set constant and varies one axis (`ladder.md` §4, D-3), so an
   R2-to-R3 difference is attributable to the representation and to nothing else (D-3, `battery.md` §3
   FAM-2). The battery asserts the identity field by field (FAM-2.4) and that each field is a readout fact
   and no other (FAM-2.5).
-- `legal`, the tenth fact, is **not** carried: a decision's legal set reaches a policy beside the
+- `legal`, one of the eleven, is **not** carried: a decision's legal set reaches a policy beside the
   observation, as the index mask `legal_indices` returns and as the mask `agents.act` takes beside it
-  (`e2e-surface.md` §2, §3.3). Carrying it twice would give one decision two statements of its legality
-  that could disagree, and nothing is lost, because the mask is always available at the decision
-  (`battery.md` §3 FAM-2 cases FAM-2.9–FAM-2.11).
+  (`e2e-surface.md` §2, §3.3); carrying it twice would give one decision two statements of its legality
+  that could disagree, and the mask is always at the decision (`battery.md` §3 FAM-2.9–FAM-2.11).
 - A field is carried at the granularity its encoding declares — the pot as one normalised number, the
   history as its ordered action kinds, a card as a rank-and-suit pair — so "identical" means the same nine
   facts and never the same numbers: the fact set is what the ladder holds constant, and how a fact is
   spelled is the representation the rung varies (`e2e-surface.md` §2, D-3, `battery.md` §3 FAM-2).
-- Nothing outside the nine is carried, and the readout offers nothing outside its ten: never the other
-  seat's cards, never the undealt deck, never a rung, an encoder, an opponent or a seed
-  (`engine/environment.md` §2, D-3).
+- Nothing outside the nine is carried, and the readout offers nothing outside its eleven: never the other
+  seat's cards, the undealt deck, a rung, an encoder, an opponent or a seed (`engine/environment.md` §2, D-3).
 
 ## 3. `flat-numeric` — one dense vector
 
@@ -108,8 +107,8 @@ embedding's vocabulary (§1, §6).
 What this module may rely on, stated as the facts it consumes and never as a description of that module's
 internals (`module-map.md` §2, D-13):
 
-- a readout is a mapping with exactly the ten facts declared in `engine/environment.md` §2; this module
-  reads nine and ignores `legal` (`e2e-surface.md` §2);
+- a readout is a mapping with exactly the eleven facts declared in `engine/environment.md` §2; this module
+  reads nine and ignores `legal` and the derived `hand_class` (`e2e-surface.md` §2, `folders.md` §3);
 - `street` is one of `preflop`, `flop`, `turn`, `river`, and those four strings are its whole domain
   (`engine/environment.md` §2);
 - `seat` gives the acting seat's index — 0 or 1 — and a boolean saying whether it holds the button, which

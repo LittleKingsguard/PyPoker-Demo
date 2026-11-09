@@ -117,7 +117,7 @@ class FAM8Matrix(S.SurfaceCase):
         """FAM-8.4 the baselines play each other: three cells no model influences."""
         matrix = self.table()["matrix"]
         members = R.matrix_members(matrix)
-        baseline_ids = [R.baseline_member(members, name) for name in S.BASELINES]
+        baseline_ids = [R.baseline_member(members, name) for name in S.ANCHOR_BASELINES]
         for member in baseline_ids:
             self.assertIsNotNone(
                 member,
@@ -289,6 +289,89 @@ class FAM8Matrix(S.SurfaceCase):
             "sorted, so a table says which estimators it was fitted over (records.md §10, "
             "league.md §4, D-19): %r" % (R.matrix_population(matrix),),
         )
+
+
+    # -- a table whose pool declares D-21's folders (ASM-33) ---------------
+    def test_fam8_11_a_table_over_declared_folders_has_one_cell_per_pair(self):
+        """FAM-8.11 a pool declaring the folders tables K(K−1)/2 cells over that membership.
+
+        D-21's folders are pool members and table rows when the configuration declares
+        them, so a table over such a pool carries them as rows *and* columns, at the one
+        hand count, and its cells are still exactly the pairs of its membership — the
+        baseline cells included, because a folder is a baseline and plays the others
+        (`league.md` §4, §6, `folders.md` §5, `records.md` §8, §10, ASM-33, D-21).
+        """
+        league = S.shared_folder_league(self)
+        matrix = league["matrix"]
+        pool_members = R.member_ids(self.members(league["pool"]))
+        members = R.matrix_members(matrix)
+        self.assertEqual(
+            set(pool_members),
+            set(S.ANCHOR_BASELINES) | set(S.FOLDER_BASELINES),
+            "a declaration naming the three folders builds a pool of the flagged three and "
+            "the three folders, and no version (records.md §8, ASM-32, ASM-33, D-21): %r"
+            % (pool_members,),
+        )
+        self.assertEqual(
+            len(members),
+            len(pool_members) + 1,
+            "the membership is the frozen pool plus the rung's one variant (league.md §4): "
+            "%r" % (members,),
+        )
+        k = len(members)
+        cells = R.matrix_cells(matrix)
+        self.assertEqual(
+            len(cells),
+            k * (k - 1) // 2,
+            "a table of K = %d members carries K(K-1)/2 = %d unordered pairs, the folder "
+            "cells included (league.md §4, §6, ASM-33, D-21): %r"
+            % (k, k * (k - 1) // 2, len(cells)),
+        )
+        self.assertEqual(
+            sorted({self.pair_key(cell) for cell in cells}),
+            sorted({tuple(sorted((R.tok(left), R.tok(right))))
+                    for index, left in enumerate(members)
+                    for right in members[index + 1:]}),
+            "the cells present are exactly the pairs of the membership the pool declares "
+            "(records.md §10, D-21)",
+        )
+        hands = R.matrix_hands_per_cell(matrix)
+        self.assertEqual(
+            hands,
+            S.LIVE_CELL_HANDS,
+            "the table is asked for the live budget, whose cells are 120 hands "
+            "(league.md §6): %r" % (matrix,),
+        )
+        baseline_ids = [
+            R.baseline_member(members, name)
+            for name in S.ANCHOR_BASELINES + S.FOLDER_BASELINES
+        ]
+        for name, member in zip(S.ANCHOR_BASELINES + S.FOLDER_BASELINES, baseline_ids):
+            self.assertIsNotNone(
+                member,
+                "the %r baseline is a row and a column of a table whose pool declares the "
+                "folders (protocol.md §3, ASM-33, D-21): %r" % (name, members),
+            )
+        present = {self.pair_key(cell) for cell in R.matrix_cells(matrix)}
+        for name, member in zip(S.FOLDER_BASELINES, baseline_ids[-3:]):
+            for index, other in enumerate(baseline_ids):
+                if other == member:
+                    continue
+                key = tuple(sorted((R.tok(member), R.tok(other))))
+                self.assertIn(
+                    key,
+                    present,
+                    "the %r folder plays every other baseline in the table, so its cell "
+                    "exists at the table's one hand count (league.md §4, ASM-33, D-21): %r"
+                    % (name, sorted(present)),
+                )
+        for cell in R.matrix_cells(matrix):
+            self.assertEqual(
+                R.cell_hands(cell),
+                hands,
+                "every cell of the table — a folder's included — plays the table's one hand "
+                "count (league.md §3, §4, D-16, ASM-33): %r" % (cell,),
+            )
 
 
 if __name__ == "__main__":

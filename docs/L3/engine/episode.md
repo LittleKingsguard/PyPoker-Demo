@@ -52,7 +52,7 @@ and no caller may depend on one (`L2 surface.md` §1, D-13).
 
 - `seat` — the decision’s own acting seat, in the shape of `readout`’s `seat` fact, so
   `(index, on_button)`; the index is the first number inside it (`records.md` §5);
-- `readout` — the whole ten-fact mapping of that decision, taken **before** the action, so a record
+- `readout` — the whole eleven-fact mapping of that decision, taken **before** the action, so a record
   can be encoded after the hand is over (D-3);
 - `legal` — that decision’s ordered descriptor tuple;
 - `action` — the descriptor the policy returned and the engine applied;
@@ -87,7 +87,7 @@ policies may be the same object (a self-play episode) (ASM-2, FAM-4).
 
 Driving only `play_hand` (and the other eight for support): the record has `seed`, `decisions`,
 `payoffs`; the seed is the seed it was called with; there is at least one decision and at most 200;
-every decision has `seat`, `readout`, `legal`, `action`, `reward`, the readout has the ten facts, the
+every decision has `seat`, `readout`, `legal`, `action`, `reward`, the readout has the eleven facts, the
 action is a member of the decision’s legal tuple, and the sequence of actions replays the same hand
 when driven by hand through `new_hand`/`apply_action`; each seat has at most one non-zero reward and
 it equals that seat’s payoff; the payoffs are two numbers summing to zero; two identical calls give

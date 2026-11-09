@@ -65,6 +65,11 @@ class UnknownUtility(EvaluationError):
     D-20)."""
 
 
+class UnknownBaseline(EvaluationError):
+    """A pool declaration's `baselines` names a baseline the catalogue does not carry
+    (`records.md` §8, `agents/surface.md` §11, ASM-32, D-21)."""
+
+
 class RuleMismatch(EvaluationError):
     """Two declarations of one rule disagree: a member's record against its checkpoint's,
     or a version's `rule` against the rule of the family it extends (`records.md` §7,

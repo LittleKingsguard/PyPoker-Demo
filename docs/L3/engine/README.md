@@ -1,8 +1,8 @@
 # engine — module design (L3)
 
-- **Layer:** L3 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
-- **Realises:** `docs/L2/engine/surface.md` (the nine entry points) and `docs/L2/engine/environment.md` (the hand's life, the ten facts, the episode, `equity`, seeding)
-- **Reads:** `docs/L1/e2e-surface.md` §2–§3.1, §5, `docs/L1/records.md` §1, §5, `docs/L1/module-map.md` §2–§3, `docs/L1/battery.md` §2–§4, `docs/L1/assumptions.md` (ASM-6, ASM-12, ASM-15), `strata/brief.md` §5, §7, `strata/decisions.md` (D-2, D-3, D-6, D-11, D-12, D-13, D-16), `strata/platform.md`
+- **Layer:** L3 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
+- **Realises:** `docs/L2/engine/surface.md` (the nine entry points) and `docs/L2/engine/environment.md` (the hand's life, the eleven facts, the episode, `equity`, seeding)
+- **Reads:** `docs/L1/e2e-surface.md` §2–§3.1, §5, `docs/L1/folders.md` §3, `docs/L1/records.md` §1, §5, `docs/L1/module-map.md` §2–§3, `docs/L1/battery.md` §2–§4, `docs/L1/assumptions.md` (ASM-6, ASM-12, ASM-15, ASM-30), `strata/brief.md` §5, §7, `strata/decisions.md` (D-2, D-3, D-6, D-11, D-12, D-13, D-16, D-21), `strata/platform.md`
 - **Ceiling:** 75 lines. At the ceiling, split by owner — never append
 - **Implements:** `src/engine/` (written by L4, never by L3). `tests/engine/` is this design's unit battery
 
@@ -26,7 +26,7 @@ match (`docs/L2/engine/README.md` §3).
 | `history.md` | the public history | the one-entry-per-action rule, the entry grammar, the `<amount>` and `<index>` definitions, and why a card never appears |
 | `actions.md` | the action vocabulary | the three descriptors: their type, value equality, stable text, and how `raise` resolves to the minimum legal completion |
 | `stepping.md` | legality and the step | `legal_actions`’ order and refusals, `apply_action`’s validation and its three-method idiom |
-| `readout.md` | the ten facts | each fact's derivation and type, the card spelling, the seat fact's shape, what the readout may never expose |
+| `readout.md` | the eleven facts | each fact's derivation and type, the card spelling, the seat fact's shape, the derived hand-class fact, what the readout may never expose |
 | `episode.md` | `play_hand` | the policy protocol, the episode record, the decision records, where the reward lands |
 | `equity.md` | the equity question | what the answer is conditional on, and hand-or-readout equivalence |
 | `equity-sample.md` | the equity sample | the unseen deck, the `calculate_equities` call, the library's tie share, and the five things that bind the implementation |
@@ -45,7 +45,7 @@ The `engine` package exports exactly nine entry points and adds, removes and ren
 
     game_config()                                        -> Mapping
     new_hand(seed)                                       -> Hand
-    readout(hand)                                        -> Mapping          (ten keys)
+    readout(hand)                                        -> Mapping          (eleven keys)
     legal_actions(hand)                                  -> tuple[str, ...]
     apply_action(hand, action)                           -> Hand
     is_terminal(hand)                                    -> bool

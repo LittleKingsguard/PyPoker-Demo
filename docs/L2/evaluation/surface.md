@@ -1,6 +1,6 @@
 # evaluation — the callable surface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
 - **Ceiling:** 260 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** the surface — the eleven module-level names of `src/evaluation/`, each with its
   argument contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.4)
@@ -11,6 +11,9 @@
   refusal and the digest are `rules.md`'s, and the records stay this file's (§2, §5–§7, §9–§13)
 - **Rev 4:** D-20's utility at the edge — a member declares `utility` beside `rule`, a family declares one rule and one
   utility, the id digests both, a side is six elements, and five records name the utility (`utilities.md` §5–§9, D-20)
+- **Rev 5:** D-21's catalogue at the edge — `agents.baselines()` names six, the **pinned** set is its `anchor: True`
+  members, `league()` gains a seventh key `catalogue`, `build_pool`'s declaration gains an optional `baselines` key refused
+  by `UnknownBaseline`, and the rating's `anchor` names the flagged three (§2–§4, §11, §13, `folders.md` §2, §4, ASM-32)
 
 ## 1. Rules that hold of every entry point
 
@@ -50,10 +53,11 @@ run record, the rung label and the record's families arrive as data (`module-map
   attributes are the only witness of a member's rule and objective this module reads (`e2e-surface.md` §2,
   `rules.md` §7, `utilities.md` §7, D-19, D-20).
 - A **member** is a version — a checkpoint with `records.md` §7's record, its `rule` and `utility` included — or one
-  of the three pinned baselines, and no cell is played against a policy that is not a named member
-  (`e2e-surface.md` §2, `docs/L1/league.md` §1, D-16, D-20). A cell, a matrix and a rating name their members
+  of the catalogue's baselines a pool pins: the three anchor ones always, and a folding baseline only when the
+  declaration names it (`e2e-surface.md` §2, `docs/L1/league.md` §2, D-16, D-20, ASM-32, D-21). No cell is played
+  against a policy that is not a named member. A cell, a matrix and a rating name their members
   by **id** and never by rank order (`protocol.md` §1, `records.md` §7, §9, §10).
-- A side is named by its member record whenever this module holds one: a pool member, one of the three
+- A side is named by its member record whenever this module holds one: a pool member, one of the catalogue's
   baseline names given in the call, or a checkpoint `policy_from` loaded. A callable handed in from
   outside carries none, so it is named for its position — `policy-1`, `policy-2` — and its capacity is
   recorded as unmeasured, which the cell states in `unlabelled`: an opaque policy cannot be asked for a
@@ -72,7 +76,8 @@ run record, the rung label and the record's families arrive as data (`module-map
   family's `required` items and the `refusal` its absence is named by), `seeds` (`0, 1, 2`), `header` (the
   nine items `protocol.md` §1 requires: the game, the action space, the parameter counts, the sample
   budget, the cell size, the seed set, the table seed, the device, the checkpoint paths), `table_budgets`
-  (`live`, `full`), `baselines` (the three names `agents.baselines()` declares) and `rating` (the method,
+  (`live`, `full`), `baselines` (the **pinned** three — the `anchor: True` members of `agents.baselines()`, which are
+  D-6's three and never a folding baseline, so the key's meaning is unchanged by D-21, ASM-32) and `rating` (the method,
   the interval's confidence and the anchor, `docs/L1/league.md` §5). No item is added for D-19: the rules a
   run holds ride in the `pool` family and the `header`, which the run record already fills (`rules.md` §4).
 - **Refusals:** none; it has no argument (`e2e-surface.md` §3.4).
@@ -84,7 +89,9 @@ run record, the rung label and the record's families arrive as data (`module-map
 - **Signature:** `league()`.
 - **Arguments:** none: M, the cell sizes and the table seed are ASM-14's and no parameter varies them
   (D-16, `assumptions.md` ASM-13–ASM-15).
-- **Returns:** one mapping read under these keys — `m` = 5; `baselines` (the three pinned names);
+- **Returns:** one mapping read under these seven keys, in this order — `m` = 5; `baselines` (the **pinned** three, its
+  meaning unchanged by D-21); `catalogue` (all six names `agents.baselines()` declares, in the catalogue's order — the
+  names a membership declaration may add beyond the pinned set, `records.md` §8, ASM-32, D-21);
   `tables`, keyed `live` and `full`, each carrying `hands_per_cell` (120 and 1,500), the `hands_played` a
   K = 9 and a K = 10 membership costs (4,320 or 5,400 live, 54,000 or 67,500 full) and what produces it
   (the talk on the fly, or an offline job shipped under `tables/`); `cell_count`, a callable taking K or a
@@ -92,7 +99,8 @@ run record, the rung label and the record's families arrive as data (`module-map
   integer every matrix is played from; and `rating`, the method, the 95% interval and the anchor.
 - **Refusals:** none (`e2e-surface.md` §3.4).
 - **Determinism:** two calls return equal records, and the numbers are `docs/L1/league.md` §6's table and no
-  other — and no per-hand cost figure at all, since ASM-21 supersedes ASM-15's bound (ASM-14, ASM-21).
+  other — and no per-hand cost figure at all, since ASM-21 supersedes ASM-15's bound (ASM-14, ASM-21). A talk that
+  declares the three folders counts 66 or 78 cells rather than 36 or 45 (`docs/L1/folders.md` §5, ASM-33).
 
 ## 5–8. The four pool entry points — `pool.md`
 
@@ -159,12 +167,14 @@ leaving its argument unchanged (`surface.md` §1, D-12).
   because what is checked is the record and not its provenance (`records.md` §10, `docs/L1/league.md` §4).
 - **Returns:** `records.md` §11's rating record — `values` (one entry per matrix member, keyed by the
   member's id, each carrying the fitted value, the two bounds of its 95% interval and the hands behind it:
-  `hands_per_cell × (K−1)`), `method` = `Bradley-Terry`, `anchor` = the three baselines' mean fixed at
-  zero, `bound_applied`, `bootstrap_seed` and `converged` (`records.md` §11, `docs/L1/league.md` §5, ASM-17).
+  `hands_per_cell × (K−1)`), `method` = `Bradley-Terry`, `anchor` = the **pinned** three's mean fixed at
+  zero — one string, naming the baselines it zeroes the fit on (`random`, `always-call`, `oracle`) and never a
+  folder (ASM-32, D-21) — `bound_applied`, `bootstrap_seed` and `converged` (`records.md` §11, `docs/L1/league.md` §5, ASM-17).
   The rating is a function of the matrix and does not change for D-19: a table's `rules` and `population`
-  are not read by the fit (`docs/L1/league.md` §4).
+  are not read by the fit (`docs/L1/league.md` §4). Nothing here assumes the membership is three baselines plus
+  versions: the fit reads K members, whatever K is (`docs/L1/folders.md` §4, ASM-33).
 - **Refusals:** a matrix that is not a table — a cell whose hand count differs from `hands_per_cell`, a
-  cell count other than K(K−1)/2, a pair present twice, a missing one of the three baselines, a member a
+  cell count other than K(K−1)/2, a pair present twice, a missing one of the pinned three, a member a
   cell names that the membership does not, or an absent `hands_per_cell`, `table_seed` or `table` label —
   each naming the violated rule, and nothing is fitted anyway (`docs/L1/league.md` §4, `records.md` §10, D-16).
 - **Determinism:** one matrix gives one rating: the fit is deterministic and the bootstrap is seeded from
@@ -216,9 +226,9 @@ leaving its argument unchanged (`surface.md` §1, D-12).
   `e2e-surface.md` §3.4, D-19, D-20).
 - **Refusals:** an absent family, naming it exactly as `protocol()` spells it, `axis row` included; a
   matrix that is not a table (§11's checks, `docs/L1/league.md` §4); a matrix whose membership is not the
-  pool family's members plus the rung's variants — every pool member present, the three baselines present,
-  and no more than two members outside the pool — naming the foreign member, the missing pool member or the
-  missing baseline (`docs/L1/league.md` §4, `ladder.md` §2, `protocol.md` §1); a rating that does not name
+  pool family's members plus the rung's variants — **every** pool member present, a declared folder included,
+  the pinned three present, and no more than two members outside the pool — naming the foreign member, the missing pool member or the
+  missing baseline (`docs/L1/league.md` §4, `ladder.md` §2, `protocol.md` §1, ASM-32, D-21); a rating that does not name
   exactly the matrix's members, naming the difference (`records.md` §11); a header missing one of
   `protocol.md` §1's nine items, naming it. No family is invented and none is filled in (D-6, `records.md` §13).
 - **Determinism:** one record, one matrix and one rating give one report, which carries the seeds, the table

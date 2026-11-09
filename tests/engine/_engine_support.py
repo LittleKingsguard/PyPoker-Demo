@@ -14,12 +14,15 @@ This module is test support, not part of any subsystem.  It does three things:
   objects -- so that a case is not written around the one example a design
   document happens to use (``docs/L1/battery.md`` §4, D-15).
 
-The values the *contract* fixes (the ten fact names, the four street names, the
+The values the *contract* fixes (the eleven fact names, the four street names, the
 three descriptors, the two card alphabets, the 200-decision bound) appear here
 because a case asserts them.  Every seed and every sample count below is the
 writer's own invention: no seed or sample count here is an example instance of
 the design documents (the equity examples of ``docs/L3/engine/equity.md`` §4
-included) or a seed, step or budget of ``tests/e2e``.
+included) or a seed, step or budget of ``tests/e2e``.  The nine hand classes are
+written out as the design's own numbered table rather than read off the library's
+label order, and the nine deals of ``CLASS_DEALS`` are pinned card strings this
+battery spells itself (ASM-30, D-21).
 """
 
 from __future__ import annotations
@@ -47,7 +50,8 @@ NINE = (
     "equity",
 )
 
-# The ten facts, exactly (docs/L2/engine/environment.md §2, readout.md §2).
+# The eleven facts, exactly (docs/L2/engine/environment.md §2, readout.md §2): the ten
+# of D-3 plus D-21's derived `hand_class` (ASM-30).
 FACTS = (
     "street",
     "seat",
@@ -59,6 +63,67 @@ FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
+)
+
+#: The nine hand classes, each with the integer the design declares for it -- 0 high card,
+#: 1 one pair, 2 two pair, 3 three of a kind, 4 straight, 5 flush, 6 full house, 7 four of a
+#: kind, 8 straight flush (docs/L1/e2e-surface.md §2, docs/L1/folders.md §3, ASM-30) --
+#: written out here as literals.  This is the battery's own statement of the numbering and
+#: is never read off `pokerkit.lookups.Label`'s declaration order, which is how the engine
+#: builds its map: a library release that reordered or inserted a label must not move the
+#: expectation with the implementation.
+HAND_CLASS_TABLE = (
+    ("high card", 0),
+    ("one pair", 1),
+    ("two pair", 2),
+    ("three of a kind", 3),
+    ("straight", 4),
+    ("flush", 5),
+    ("full house", 6),
+    ("four of a kind", 7),
+    ("straight flush", 8),
+)
+
+#: The nine integers, in the design's own order: 0 high card through 8 straight flush.
+HAND_CLASSES = tuple(value for _name, value in HAND_CLASS_TABLE)
+
+#: One real dealt hand per declared class, spelled as card strings with the class those
+#: cards make.  Each entry is
+#: ``(class name, seed, hole, board, the five cards that make the class)``: driving that
+#: seed with :func:`always_call` reaches a post-flop decision whose ``hole`` and ``board``
+#: are exactly these spellings, and those five cards are the hand of that class.  ENG-4.12
+#: compares that readout's ``hand_class`` with ``HAND_CLASS_TABLE``'s literal, so the
+#: declared numbering is falsified from cards this battery spells itself, without asking
+#: the library what order it thinks the classes are in (ASM-30, D-21).  Eight of the nine
+#: are river deals chosen so that the board alone would be a *different* class, which
+#: makes a board-only evaluation visible; the high-card row is a flop deal, where the
+#: board alone (three cards) is not even a hand, so a board-only evaluation reads
+#: ``None`` against the declared 0.
+#:
+#: The card strings are pinned to the deal ``engine.new_hand(seed)`` produces today.  If
+#: the library's deck order ever changed, the case fails loudly -- no decision of the walk
+#: reads these cards -- instead of silently measuring other hands, and the table is
+#: refreshed by driving a fresh seed, reading its cards and writing down the class it makes.
+CLASS_DEALS = (
+    ("high card", 3000001, ("2h", "7d"), ("9s", "8h", "Ts"),
+     ("2h", "7d", "9s", "8h", "Ts")),
+    ("one pair", 3100003, ("Jd", "9s"), ("5d", "2s", "6c", "8d", "9d"),
+     ("9s", "9d", "Jd", "8d", "6c")),
+    ("two pair", 3100004, ("2s", "2c"), ("8d", "8c", "3s", "7h", "5h"),
+     ("8d", "8c", "2s", "2c", "7h")),
+    ("three of a kind", 3100016, ("6d", "9s"), ("9c", "7s", "2c", "9d", "3d"),
+     ("9s", "9c", "9d", "7s", "6d")),
+    ("straight", 3100006, ("Ad", "Qd"), ("4s", "7s", "Jc", "Kc", "Ts"),
+     ("Ad", "Kc", "Qd", "Jc", "Ts")),
+    ("flush", 3100095, ("3c", "6c"), ("9d", "7c", "Ac", "9c", "Ad"),
+     ("Ac", "9c", "7c", "6c", "3c")),
+    ("full house", 3100001, ("9h", "8h"), ("8d", "Ah", "7c", "7s", "7h"),
+     ("7c", "7s", "7h", "8h", "8d")),
+    ("four of a kind", 3101628, ("7s", "Tc"), ("Td", "Ts", "Th", "Jh", "6h"),
+     ("Tc", "Td", "Ts", "Th", "Jh")),
+    ("straight flush", 3100595, ("Ks", "Qs"), ("Js", "Ts", "9s", "4s", "2h"),
+     ("Ks", "Qs", "Js", "Ts", "9s")),
 )
 
 STREETS = ("preflop", "flop", "turn", "river")
@@ -202,6 +267,33 @@ def card_spelling_ok(card):
     if not isinstance(card, str) or len(card) != 2:
         return False
     return card[0] in RANKS and card[1] in SUITS
+
+
+def hand_class_of(hole, board):
+    """The class of the best five-card hand of these spellings, from `pokerkit` itself.
+
+    A **second, differently built witness for the derivation** -- that the fact is the best
+    five-card hand of hole plus board and of nothing else -- checked over many real deals,
+    so a class the engine derived from anything but those two facts fails
+    (``docs/L3/engine/readout.md`` §2, ASM-30, D-21).  ``None`` while fewer than five cards
+    are known, exactly as the fact is.
+
+    It is **not** the authority for the nine integers: this function reads the library's own
+    ``Label`` order, which is how the engine builds its map, so a reordered library would move
+    both together.  The numbering is fixed independently by ``HAND_CLASS_TABLE`` and the
+    explicit card strings of ``CLASS_DEALS``, which is what ENG-4.12 asserts.
+    """
+    from pokerkit.hands import StandardHighHand
+    from pokerkit.lookups import Label
+    from pokerkit.utilities import Card
+
+    def cards(spellings):
+        return [Card(spelling[0], spelling[1]) for spelling in spellings]
+
+    best = StandardHighHand.from_game_or_none(cards(hole), cards(board))
+    if best is None:
+        return None
+    return list(Label).index(best.entry.label)
 
 
 # --------------------------------------------------------------------------

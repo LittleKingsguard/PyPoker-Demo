@@ -193,8 +193,12 @@ def _pool(configuration):
 
     A declared version whose checkpoint the repository does not carry is not a member, so
     the pool holds what is present and the record states the membership it used
-    (protocol.md §5, docs/L3/training/loop.md §1). Nothing of this run ever enters it:
-    rolling is `evaluation.offer`'s, between runs (ASM-16).
+    (protocol.md §5, docs/L3/training/loop.md §1).  A membership declaration may name the
+    catalogue baselines it admits beyond the flagged three — D-21's folders — and that key
+    is forwarded to `evaluation.build_pool` as it stands, never defaulted here; the six
+    registry rows declare none, so their pools hold the anchor three plus their window
+    (`records.md` §8, ASM-32, D-21).  Nothing of this run ever enters the pool: rolling is
+    `evaluation.offer`'s, between runs (ASM-16).
     """
     declaration = configuration["pool"]
     if not isinstance(declaration, Mapping):
@@ -213,14 +217,31 @@ def _pool(configuration):
         if path and os.path.isfile(layout._resolve(path)):
             members.append(dict(member))
     bound = declaration.get("m", declarations.LEAGUE_M)
-    built = evaluation.build_pool(
-        {"members": layout._resolved(members), "m": bound, "frozen": True}
-    )
+    frozen = {"members": layout._resolved(members), "m": bound, "frozen": True}
+    declared_baselines = declaration.get("baselines")
+    if declared_baselines is not None:
+        frozen["baselines"] = declared_baselines
+    built = evaluation.build_pool(frozen)
     record = evaluation.pool_members(built)
     identifier = declaration.get("id")
     if identifier is None:
         identifier = record["id"]
     return built, str(identifier), record
+
+
+def _pool_baselines(pool_record):
+    """The ids of the baselines the frozen pool actually holds, in the pool's order.
+
+    Read off `pool_members`' read-back and never off a declared list: the three anchor
+    baselines are members whether a declaration names them or not, a declared folder
+    joins after them, and a run record states the membership it had (`records.md` §8,
+    §12, ASM-32, D-21).
+    """
+    return tuple(
+        str(member["id"])
+        for member in pool_record["members"]
+        if member.get("baseline")
+    )
 
 
 def _timings(start, hands):
@@ -392,14 +413,16 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None):
     )
 
 
-def _header(configuration, table, hands, seed_set, device, checkpoints, interval):
+def _header(configuration, table, hands, seed_set, device, checkpoints, interval, baselines):
     """The header family: everything a third party needs to re-run the table.
 
     Eight of `protocol.md` §1's nine items are what the run used; the ninth, the cell size,
     is `evaluation.league()`'s declaration for the table budget this row is measured at
     (`docs/L2/training/surface.md` §4.1). A parameter count is the **declared** budget,
     because `agents.param_count` is not among the four `agents` calls this module is
-    granted (ASM-10, `module-map.md` §2).
+    granted (ASM-10, `module-map.md` §2).  `baselines` is the pool's own baseline list, so
+    the declared `0` reaches the header for every baseline the membership holds — the
+    anchor three and any declared folder — and not for a hard-coded three (ASM-32, D-21).
     """
     league = evaluation.league()
     tables = league.get("tables") or {}
@@ -410,7 +433,7 @@ def _header(configuration, table, hands, seed_set, device, checkpoints, interval
             if "hand" in str(key).lower() and isinstance(value, int):
                 cell = int(value)
                 break
-    counts = {baseline: 0 for baseline in declarations.BASELINES}
+    counts = {baseline: 0 for baseline in baselines}
     for position, entry in enumerate(configuration["variants"], start=1):
         budget = _param_budget(configuration, entry)
         counts[str(entry.get("name"))] = budget
@@ -558,7 +581,14 @@ def _record(
         "utilities": utilities,
     }
     record["header"] = _header(
-        configuration, table, hands, seed_set, device, checkpoints_block, interval
+        configuration,
+        table,
+        hands,
+        seed_set,
+        device,
+        checkpoints_block,
+        interval,
+        _pool_baselines(pool_record),
     )
     record["baselines"] = {
         "rows": [
@@ -568,10 +598,12 @@ def _record(
                 "pinned": True,
                 "measured": False,
             }
-            for baseline in declarations.BASELINES
+            for baseline in _pool_baselines(pool_record)
         ],
-        "note": "the three pinned baselines are pool members and table rows; the run "
-        "declares the row and measures no cell (D-16, protocol.md §3)",
+        "note": "every baseline the pool holds is a pool member and a table row — the "
+        "three anchor baselines always, plus any folding baseline the membership "
+        "declared, and the anchor three are the rating's; the run declares the rows and "
+        "measures no cell (D-16, D-21, protocol.md §3)",
     }
     if len(configuration["variants"]) == 1:
         record["axis row"] = "n/a, single variant"

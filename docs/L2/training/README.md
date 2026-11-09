@@ -1,6 +1,6 @@
 # training — L2 integration interface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-08
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
 - **Covers:** the six entry points of `docs/L1/e2e-surface.md` §3.5 — the rung registry and the one training loop every
   rung is a configuration of (D-3, D-16) — plus the two paths this module owns: `notebooks/`, one thin notebook per rung
   (D-5), and `checkpoints/`, the shipped models and intra-run snapshots the pool is a view over (`module-map.md` §5, ASM-18)
@@ -42,8 +42,8 @@ Each of the following is a boundary and not a preference (`module-map.md` §3, D
 - never claims a result: it reports curves, a pool, seeds, budgets, devices and costs, and a version's worth is a table position `evaluation` measures (D-6, `league.md` §8, `records.md` §13);
 - never seeds, reads or advances the global `random` stream except through `engine.new_hand`, because one stream deals
   every hand and sequential play is the contract (ASM-2, `protocol.md` §4);
-- never calls a module the map does not grant it: five `evaluation`, four `agents`, five `features` and four `engine`
-  calls, and no `harness` at all (`module-map.md` §2, D-13);
+- never calls a module the map does not grant it: five `evaluation` — whose `league()` carries the pinned baselines the
+  `anchor` flag fixes (ASM-32, D-21) — five `agents`, five `features` and four `engine` calls, and no `harness` at all (`module-map.md` §2, D-13);
 - never carries code into a notebook and never lets one reach past an entry point (D-5, `ladder.md` §7).
 
 ## 4. Counts, cap and the blind instances
@@ -57,6 +57,6 @@ instances invented from this surface alone (`e2e-surface.md` §5, D-15).
 ## 5. What is left to L3
 
 This document stops at the entry point, the record it returns and the data that is the registry. `role_l3_designer`
-owns the module design: the widths, depths and sparsity that make a pair match within ±2% (ASM-10), the derivation of a
-hand's deal and opponent seeds from the run seed and the hand index, the transition batch and the reward transform it
-applies, the snapshot naming and the layout under the write root (`write-root.md` §1, §5), the index's own nesting, the error classes, and the layout of `src/training/` (D-1, ASM-18, `module-map.md` §5, D-12, D-13, D-20).
+owns the module design: the widths, depths and sparsity that make a pair match within ±2% (ASM-10), the derivation of a hand's
+deal and opponent seeds from the run seed and the hand index, the transition batch and the reward transform it applies, the snapshot
+naming and the layout under the write root (`write-root.md` §1, §5), the pinned set read off the catalogue's flag, the index's own nesting, the error classes, and the layout of `src/training/` (D-1, ASM-18, `module-map.md` §5, D-12, D-13, ASM-32, D-20).

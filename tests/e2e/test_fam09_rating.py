@@ -116,7 +116,7 @@ class FAM9Rating(S.SurfaceCase):
         members = R.matrix_members(league["matrix"])
         entries = R.rating_entries(league["rating"])
         baseline_values = []
-        for name in S.BASELINES:
+        for name in S.ANCHOR_BASELINES:
             member = R.baseline_member(members, name)
             self.assertIsNotNone(
                 member,
@@ -223,20 +223,94 @@ class FAM9Rating(S.SurfaceCase):
         )
 
     def test_fam9_8_the_anchor_is_declared_in_the_record(self):
-        """FAM-9.8 the record names the anchor: the three baselines' mean at zero."""
+        """FAM-9.8 the record names the anchor: the flagged three's mean at zero."""
         rating = self.table()["rating"]
         anchor = R.required(rating, "a rating record", "anchor")
         text = S.flatten_text(anchor) + " " + str(anchor).lower()
-        named = (
-            "baseline" in text
-            or "zero" in text
-            or "0" in text
-            or any(name in text for name in S.BASELINES)
+        self.assertTrue(
+            "zero" in text or "0" in text,
+            "the anchor states the value it fixes: a mean rating of zero (records.md §11, "
+            "league.md §5, ASM-17): %r" % (anchor,),
         )
         self.assertTrue(
-            named,
-            "the anchor is the three baselines' mean fixed at zero, and the record says so "
-            "(records.md §11, ASM-17): %r" % (anchor,),
+            "baseline" in text
+            or "anchor" in text
+            or any(name in text for name in S.ANCHOR_BASELINES),
+            "the anchor names the baselines whose mean it fixes — D-6's three, which the "
+            "catalogue flags `anchor: True` — and not a bare value with no set behind it "
+            "(records.md §11, ASM-32, D-21): %r" % (anchor,),
+        )
+
+    def test_fam9_9_the_anchor_is_the_three_of_d6_and_never_a_folder(self):
+        """FAM-9.9 over a pool that declares the folders, the anchor is still the three.
+
+        `records.md` §11 and `league.md` §5: the fit is zeroed on the mean of the **three
+        anchor baselines of D-6** — the catalogue's `anchor` flag — and a folding baseline
+        D-21 adds is never one, so a table that holds folders does not move the scale a
+        rating recorded before D-21 was read on (ASM-17, ASM-32, D-21).  Two facts are
+        asserted: the record's `anchor` names the three anchor baselines and no folder, and
+        the arithmetic agrees with it — the flagged three's values average zero while the
+        folders are rated members of the same fit.  An implementation that zeroed the mean
+        of all six baselines would fail the mean asserted here, and one that said so in its
+        `anchor` would fail the name asserted here.
+        """
+        league = S.shared_folder_league(self)
+        matrix, rating = league["matrix"], league["rating"]
+        members = R.matrix_members(matrix)
+        entries = R.rating_entries(rating)
+        anchor = R.required(rating, "a rating record", "anchor")
+        text = S.flatten_text(anchor) + " " + str(anchor).lower()
+        for folder in S.FOLDER_BASELINES:
+            self.assertNotIn(
+                folder,
+                text,
+                "a folding baseline is never an anchor, so the record's `anchor` may not "
+                "name %r (records.md §11, league.md §5, ASM-32, D-21): %r"
+                % (folder, anchor),
+            )
+        self.assertTrue(
+            "baseline" in text
+            or "anchor" in text
+            or "flag" in text
+            or any(name in text for name in S.ANCHOR_BASELINES),
+            "the anchor states the set it fixes at zero — the three anchor baselines of D-6 "
+            "(records.md §11, ASM-32): %r" % (anchor,),
+        )
+        anchor_names = [name for name in S.ANCHOR_BASELINES if name in text]
+        if anchor_names:
+            self.assertEqual(
+                sorted(anchor_names),
+                sorted(S.ANCHOR_BASELINES),
+                "an `anchor` that names the baselines it anchors on names the three of D-6 "
+                "and no other member of the catalogue (records.md §11, ASM-32, D-21): %r"
+                % (anchor,),
+            )
+        values = []
+        for name in S.ANCHOR_BASELINES:
+            member = R.baseline_member(members, name)
+            self.assertIsNotNone(
+                member,
+                "the %r baseline is a rated member of a table whose pool declares the "
+                "folders (protocol.md §3, ASM-32): %r" % (name, members),
+            )
+            values.append(R.rating_value(self.entry_for(entries, member)))
+        for name in S.FOLDER_BASELINES:
+            member = R.baseline_member(members, name)
+            self.assertIsNotNone(
+                member,
+                "the declared %r folder is a rated member of the table, so the fit reports "
+                "a value for it too (e2e-surface.md §3.4, ASM-33, D-21): %r"
+                % (name, members),
+            )
+            self.entry_for(entries, member)
+        self.assertAlmostEqual(
+            sum(values) / len(values),
+            0.0,
+            places=3,
+            msg="the fit is zeroed on the mean of the three anchor baselines — not on the "
+                "six the catalogue holds once the folders are declared — so a rating "
+                "recorded before D-21 and one recorded after it read on one scale "
+                "(league.md §5, ASM-17, ASM-32, D-21): %r" % (values,),
         )
 
 

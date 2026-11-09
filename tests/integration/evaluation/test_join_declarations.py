@@ -88,26 +88,52 @@ class DeclarationsAtTheJoin(J.JoinCase):
         )
 
     def test_join_evl_13_2_the_declared_baselines_are_agents_catalogue(self):
-        """JOIN-EVL-13.2 both declarations name `agents.baselines()`'s three.
+        """JOIN-EVL-13.2 both declarations name `agents.baselines()`'s pinned three, and the league names the whole catalogue.
 
         `docs/L2/evaluation/surface.md` §3–§4 and `docs/L2/evaluation/league.md` §1:
-        `protocol()["baselines"]` and `league()["baselines"]` are the tuple
-        `("random", "always-call", "oracle")`, `agents.baselines()`'s order, because
-        the catalogue is the one home of the three names (`docs/L2/agents/
-        surface.md` §11, D-6), and `league()["m"]` is M = 5 (`docs/L3/evaluation/
+        `protocol()["baselines"]` and `league()["baselines"]` are the catalogue's
+        `anchor`-flagged members in its order — D-6's three — because the catalogue is
+        the one home of the names and the fit is zeroed on the flagged three, while
+        `league()["catalogue"]` is all six, the names a membership declaration may add
+        beyond the pinned set (`docs/L2/agents/surface.md` §11, `records.md` §8, D-6,
+        ASM-32, D-21), and `league()["m"]` is M = 5 (`docs/L3/evaluation/
         declarations.md` §4, ASM-14).
         """
-        catalogue = [str(name) for name in J.baselines()]
+        declared_catalogue = J.baselines()
+        pinned = [
+            str(name) for name, record in declared_catalogue.items()
+            if record.get("anchor")
+        ]
+        everything = [str(name) for name in declared_catalogue]
+        self.assertEqual(
+            pinned,
+            ["random", "always-call", "oracle"],
+            "the catalogue flags the three baselines of D-6 and no other "
+            "(docs/L2/agents/surface.md §11, ASM-32)",
+        )
+        self.assertGreater(
+            len(everything),
+            len(pinned),
+            "the catalogue carries the three folders of D-21 beside the anchors "
+            "(docs/L1/protocol.md §3, D-21): %r" % (everything,),
+        )
         for entry in ("protocol", "league"):
             with self.subTest(declaration=entry):
                 declared = J.protocol() if entry == "protocol" else J.league()
                 self.assertEqual(
                     [str(name) for name in declared["baselines"]],
-                    catalogue,
-                    "%s()'s baselines are agents.baselines()'s names in its order "
+                    pinned,
+                    "%s()'s baselines are the catalogue's flagged three, in its order "
                     "(docs/L2/evaluation/surface.md §3, §4, "
-                    "docs/L2/agents/surface.md §11)" % (entry,),
+                    "docs/L2/agents/surface.md §11, ASM-32)" % (entry,),
                 )
+        self.assertEqual(
+            [str(name) for name in J.league()["catalogue"]],
+            everything,
+            "league() declares the catalogue's names in its order, so a declaration may "
+            "be checked against it (docs/L2/evaluation/surface.md §4, records.md §8, "
+            "D-21)",
+        )
         self.assertEqual(
             int(J.league()["m"]),
             5,

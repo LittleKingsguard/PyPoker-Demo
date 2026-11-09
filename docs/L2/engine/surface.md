@@ -1,6 +1,6 @@
 # engine — the callable surface
 
-- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
 - **Owner of this file:** the surface — the nine module-level names of `src/engine/`, each with its argument contract, its return, its refusals and its ordering (D-12, `e2e-surface.md` §1)
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -48,8 +48,9 @@ sides of the edge (`e2e-surface.md` §2, D-3):
 
 ## 5. `readout` — the acting seat's facts
 
-- Takes a non-terminal hand handle and returns the mapping of ten facts declared in `environment.md` §2 (`e2e-surface.md` §2, D-3).
-- Exactly those ten keys and no others: the information set is closed, and a fact outside it is a D-3 violation (`battery.md` §3 FAM-2, D-3).
+- Takes a non-terminal hand handle and returns the mapping of eleven facts declared in `environment.md` §2 (`e2e-surface.md` §2, D-3).
+- Exactly those eleven keys and no others: the information set is closed, and a fact outside it is a D-3 violation (`battery.md` §3 FAM-2, D-3).
+- `hand_class` is the eleventh: `None` before the flop, where fewer than five cards are known, and from the flop onward an integer 0–8 naming the acting seat's best five-card hand of hole plus board — 0 high card through 8 straight flush. It is a **derived** fact of `hole` and `board`, which the readout already carries, so it widens no information set, and no encoding carries it (`environment.md` §2, ASM-30, D-21).
 - Refuses a hand that is over, because a hand with no acting seat has no readout (`e2e-surface.md` §2).
 - Deterministic and hermetic: one hand at one state reads one mapping, and reading draws no randomness (ASM-2, `battery.md` §3 FAM-4).
 

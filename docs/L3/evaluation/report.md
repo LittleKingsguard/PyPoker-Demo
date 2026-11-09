@@ -18,7 +18,7 @@ attached (`records.md` §12–§13) — against `protocol()`'s declaration, and 
 | 2 | `pool` | `records.md` §8's pool record — id, M, the ordered members with lineage, and `rules` **and** `utilities`: the two **populations the report's table was measured over** — i.e. the shape `pool_members` returns, completed where it must be (`rules.md` §4, `utility.md` §3, D-19, D-20) | `pool` |
 | 3 | `matrix` | the matrix record the report is about (§2) | `matrix` |
 | 4 | `rating` | the rating record fitted to it | `rating` |
-| 5 | `baselines` | the three baseline rows inside that matrix, each at the table's one hand count | `baselines` |
+| 5 | `baselines` | every baseline row of the catalogue the configuration declares inside that matrix — always the three anchor baselines, and the three folders of D-21 when the declaration names them — each at the table's one hand count (`protocol.md` §3, ASM-32, D-21) | `baselines` |
 | 6 | `axis row` | R4–R6's own pair's cell beside its matched budgets; R1–R3's explicit value `n/a, single variant` | `axis row` |
 | 7 | `header` | the nine header items of `declarations.md` §2.1 | `header` |
 
@@ -80,9 +80,10 @@ is absent cannot be judged (`records.md` §13, D-6):
    repairs a table and never rates one itself;
 3. **the membership rule** — `MembershipMismatch`, naming what it found:
    - the pool family's members are read from the report's `pool` family as a pool record (§1 item 2), and **every one
-     of them must be in the matrix's membership** (`league.md` §3) — a missing pool member is named;
-   - **the three baselines must be in the membership** by id — `random`, `always-call`, `oracle` are the table's only
-     fixed standard (`protocol.md` §3) — a missing baseline is named;
+     of them must be in the matrix's membership** (`league.md` §3) — a missing pool member is named, and a folding baseline a
+     declaration admitted is a pool member like any other (ASM-32, D-21);
+   - **the three anchor baselines must be in the membership** by id — `random`, `always-call`, `oracle` are the table's only
+     fixed standard, and the anchor the rating is zeroed on (`protocol.md` §3, ASM-32) — a missing baseline is named;
    - **at most two members may lie outside the pool**, and each is named as a foreign member: those two are the
      rung's variants, which `matrix` named `variant-1` and `variant-2` (`matrix.md` §1, `ladder.md` §2);
 4. **the rating's member identity** — `RatingMismatch`: `rating["values"]` must name **exactly** the matrix's
@@ -97,8 +98,9 @@ raising the same way rather than returning a partial report.
 - **It never invents a family, and never fills one in** — not an empty `curves`, not a zeroed `baselines` row, not a
   header item it could guess (`protocol.md` §1, D-6). An absent family is refused by name, which is why §3's first
   refusal comes before every other check.
-- **It never invents a version.** R1 has no lineage, so its `pool` family is the three baselines and nothing else:
-  the report carries the pool record it was handed and adds no member to it (`league.md` §2, FAM-11.9).
+- **It never invents a version, and never requires a folder.** R1 has no lineage, so its `pool` family is the three baselines
+  and nothing else, and a configuration that declares no folder reports exactly what it reported before D-21: the
+  pinned three are the check, and a folder is present only because a pool held it (`league.md` §2, FAM-11.9, ASM-32, D-21).
 - **It never *requires* a new content item, and never edits an argument to make one fit.** D-19's population is carried
   inside the `pool` family's own `rules` key, and D-20's inside its `utilities` (§1–§2), and no family's `required` tuple
   grows, so a record another battery hand-builds is still a reportable record (`declarations.md` §3, `errors.md` §5,

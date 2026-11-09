@@ -216,9 +216,22 @@ class SurfaceAtTheJoin(J.JoinCase):
             self.assertIsInstance(declared, Mapping)
             self.assertEqual(
                 set(declared),
-                {"random", "always-call", "oracle"},
-                "baselines() must name exactly the three of D-6 "
-                "(docs/L2/agents/surface.md §11)",
+                {
+                    "random",
+                    "always-call",
+                    "oracle",
+                    "fold-no-pair-or-face",
+                    "fold-no-pair-or-better",
+                    "fold-large-bet",
+                },
+                "baselines() must name the six of protocol.md §3 — D-6's three and "
+                "D-21's three folders (docs/L2/agents/surface.md §11, D-21)",
+            )
+            self.assertEqual(
+                [name for name, record in declared.items() if record.get("anchor")],
+                ["random", "always-call", "oracle"],
+                "the anchor flag is true for the three of D-6 and false for the folders "
+                "(docs/L2/agents/surface.md §11, ASM-32)",
             )
 
         def check_baseline():

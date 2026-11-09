@@ -23,7 +23,7 @@ neither writes into the repository's `checkpoints/` (`docs/L1/battery.md` §2,
 nothing beyond the standard library and the six declared packages, so it stays collectable
 under either runner (`docs/L1/battery.md` §2). **The `-t .` is not optional**: without it
 discovery does not import this package, so the write-root hook never runs, the case set is not
-the battery's 253, and the run writes into the repository's `checkpoints/` instead of a private
+the battery's 268, and the run writes into the repository's `checkpoints/` instead of a private
 temporary root (`docs/L1/battery.md` §2).
 
 Every case is red before implementation exists. Each one reaches its first declared
@@ -41,17 +41,17 @@ the eighteen of `battery.md` §3, in its order.
 
 | File | Family | What it holds | Cases |
 |---|---|---|---|
-| `_surface.py` | — | `sys.path` plumbing for `src/`, the six package imports, the invented seeds and hand counts, the tolerant readers the whole battery shares, the one shared table, and the base case | — |
+| `_surface.py` | — | `sys.path` plumbing for `src/`, the six package imports, the invented seeds and hand counts, the tolerant readers the whole battery shares (the baseline catalogue, a folder's rule recomputed from a readout, the declared starting stack), the shared tables, and the base case | — |
 | `_records.py` | — | the `records.md` readers FAM-6..FAM-16 assert through (version §7, pool §8, cell §9, matrix §10, rating §11, run record §12), the container-agnostic matrix doctorers, the process-wide scratch area the shared pool needs, and the version/table fixtures | — |
 | `test_fam01_surface.py` | FAM-1 | one case per entry point, all 49, in `e2e-surface.md` §3 order | 49 |
-| `test_fam02_invariance.py` | FAM-2 | the D-2 game, the D-3 action vocabulary and the information set, identical across the ladder | 11 |
+| `test_fam02_invariance.py` | FAM-2 | the D-2 game, the D-3 action vocabulary and the information set, identical across the ladder, and D-21's eleventh fact `hand_class` — `None` pre-flop, an integer 0..8 after it, carried by no encoding, and, over a walk of real hands, **not a constant**: the post-flop values include both high card (`0`) and a pair or better (D-21, ASM-30) | 14 |
 | `test_fam03_ladder.py` | FAM-3 | six rungs in brief §2's order; every adjacent and intra-rung pair; the one frozen pool both arms of R4, R5 and R6 declare and record; the **set** of learning rules a pair holds constant (D-19) | 19 |
 | `test_fam04_seeds.py` | FAM-4 | the seed contract of `protocol.md` §2 and §4 with the pool in the reproducible tuple | 13 |
-| `test_fam05_baselines.py` | FAM-5 | `random`, `always-call`, `oracle` as checkable rules (D-6, ASM-4) | 8 |
-| `test_fam06_pool.py` | FAM-6 | the bound M, the pinned baselines, `offer`'s eviction from an unfrozen window, a frozen pool holding still, R1's three-baseline pool, the membership's deterministic id, a version's `rule` and the id that certifies it, the pool's `rules`, and a second family rolling into and surviving a full window (D-19) | 17 |
+| `test_fam05_baselines.py` | FAM-5 | the six-name catalogue with its order and its `anchor` flags, `random`, `always-call` and `oracle` as checkable rules, and D-21's three folders folded exactly where their rule says on real decisions, never raising while a check/call is legal, deterministic and seed-free, with a name outside the catalogue refused by name (D-6, ASM-4, D-21, ASM-31, ASM-32) | 14 |
+| `test_fam06_pool.py` | FAM-6 | the bound M, the pinned baselines, `offer`'s eviction from an unfrozen window, a frozen pool holding still, R1's three-baseline pool, the membership's deterministic id, a version's `rule` and the id that certifies it, the pool's `rules`, a second family rolling into and surviving a full window (D-19), and the declaration's optional `baselines` key — none named holds D-6's three alone, the folders join pinned after them and move the id, and an uncatalogued name is refused by name, with a declared folder pinned through four offers exactly as D-6's three are (D-21, ASM-32) | 21 |
 | `test_fam07_scheduler.py` | FAM-7 | one cell at a time: hand accounting, seat alternation, both directions from one set of hands, the drawn opponent, and a cell's `rules` for its two members (D-19) | 10 |
-| `test_fam08_matrix.py` | FAM-8 | membership, K(K−1)/2 cells, one hand count, the baseline cells, the three refusals, and each member's rule with the matrix's `population` (D-19) | 10 |
-| `test_fam09_rating.py` | FAM-9 | one value and a 95% interval per member, Bradley-Terry, the baselines' zero anchor, the bounded member | 8 |
+| `test_fam08_matrix.py` | FAM-8 | membership, K(K−1)/2 cells, one hand count, the baseline cells, the three refusals, each member's rule with the matrix's `population` (D-19), and a table over a pool that declares D-21's folders — K(K−1)/2 cells over that membership, its folder cells included (ASM-33, D-21) | 11 |
+| `test_fam09_rating.py` | FAM-9 | one value and a 95% interval per member, Bradley-Terry, D-6's three anchored at zero, the bounded member, and the anchor of a table whose pool declares the folders — the three of D-6 and never a folder (ASM-17, ASM-32, D-21) | 9 |
 | `test_fam10_tables.py` | FAM-10 | the two budgets and their cell sizes, the live table's arithmetic, and the cost record | 5 |
 | `test_fam11_report.py` | FAM-11 | the seven evidence families, a named refusal for each missing one, R1's pool row, the single-variant axis row, and a pool family that carries the measured population's rules (D-19) | 13 |
 | `test_fam12_checkpoints.py` | FAM-12 | the M-retained-snapshots-plus-final-model rule, the decision boundary, the retained window, the shipped index, and the rule each checkpoint and each index entry records (D-19) | 8 |
@@ -62,8 +62,8 @@ the eighteen of `battery.md` §3, in its order.
 | `test_fam17_rules.py` | FAM-17 | the learning-rule catalogue D-19 adds: two named rules with their targets, one capacity and one contract between them, the declared default, a name outside the catalogue refused by name, a checkpoint's rule, a configuration that trains **two** rules, fairness on the rule axis, and the heterogeneous table that names its population | 10 |
 | `test_fam18_utilities.py` | FAM-18 | the utility catalogue D-20 adds: two named utilities with their rewards, one capacity and one contract between them, `net-chips` the declared default, a name outside the catalogue refused by name in a spec, a variant entry, a pool member and a `load` spec, a checkpoint's utility with a contradicting `load` refused, the shipped index whose every entry names a `utility` with one shipped version-1 container read as `net-chips` through `evaluation.policy_from`, a configuration that trains **two** utilities whose arms' curves differ, fairness on the `utility` axis, and the table that names both objectives | 13 |
 
-253 cases: FAM-1 49, FAM-2 11, FAM-3 19, FAM-4 13, FAM-5 8, FAM-6 17, FAM-7 10,
-FAM-8 10, FAM-9 8, FAM-10 5, FAM-11 13, FAM-12 8, FAM-13 6, FAM-14 11, FAM-15 5,
+268 cases: FAM-1 49, FAM-2 14, FAM-3 19, FAM-4 13, FAM-5 14, FAM-6 21, FAM-7 10,
+FAM-8 11, FAM-9 9, FAM-10 5, FAM-11 13, FAM-12 8, FAM-13 6, FAM-14 11, FAM-15 5,
 FAM-16 37, FAM-17 10, FAM-18 13.
 
 This directory is the harness's *consumer*, not its implementation: the `50 + 10×N` line
@@ -80,9 +80,14 @@ one baselines-plus-one-variant table and its rating once per process and shares 
 table is the one a **second** variant costs: two policies of two rules over the
 baselines alone, K = 5 and 10 cells — 1,200 hands, built once per process and shared by
 FAM-8, FAM-11 and FAM-17 (`shared_rule_league`), which is the smallest membership that
-holds both rules and the last table the battery can afford (`battery.md` §2, ASM-14). D-20's
+holds both rules (`battery.md` §2, ASM-14). D-20's
 `shared_utility_league` is its sibling on the other axis — the same K = 5 and 10 cells, built
-once and read by FAM-18.10 (`utilities.md` §9, D-20). Everything
+once and read by FAM-18.10 (`utilities.md` §9, D-20). D-21's `shared_folder_league` is the
+dearest of the four: a pool that declares the three folders is the flagged three plus three
+folders, and with one variant that is K = 7 and 21 cells — 2,520 hands, built once per
+process and read by the matrix case that counts a folder table's cells (FAM-8.11) and the
+rating case that asserts the anchor on a table holding folders (FAM-9.9) (`league.md` §4,
+`folders.md` §5, ASM-33, D-21).  Everything
 else the battery plays stays in the tens of hands per case (`battery.md` §2), and the
 timing cases assert that a cost record carries the hands counted and a per-hand cost or its
 reciprocal throughput — read by what the keys name, never by a literal spelling — and never
@@ -116,6 +121,18 @@ an instance that appears in no design document. The battery's own vocabulary:
   variant names `masked-arm`/`double-arm`, width 53, depth 3, seed set, pool id and
   baselines-only membership are the battery's own, and whose two variant entries agree on
   everything a pair must share and differ on `learning_rule` alone (D-19, `rules.md` §7);
+- the baseline catalogue of `protocol.md` §3 — `random`, `always-call`, `oracle` and
+  D-21's `fold-no-pair-or-face`, `fold-no-pair-or-better`, `fold-large-bet` — split into
+  `_surface.BASELINES` (all six, in catalogue order), `_surface.ANCHOR_BASELINES` (the
+  three of D-6, the rating's anchor) and `_surface.FOLDER_BASELINES` (D-21's three), so a
+  case reads the set its subject is about; and `always-raise-battery` as the invented name
+  **outside** the catalogue, refused by `agents.build_baseline` (FAM-5.14) and by
+  `evaluation.build_pool`'s optional `baselines` key (FAM-6.20) — the name is the
+  battery's own and no design document carries it (`folders.md` §2, `records.md` §8, D-21);
+- the seeds `6174`, `271828`, `90210`, `5150`, `131`, `4711`, `8086` and `314159` again as
+  `_surface.FOLDER_SEEDS`, the hands a folder is driven over — one walk per (opponent,
+  seat, seed), against `always-call` and against `random`, because a folder can fold only
+  where folding is legal (`folders.md` §2, §6, ASM-31);
 - the two utilities of `utilities.md` §2, `net-chips` and `stack-shortfall`, read off
   `agents.learners()` and never spelled twice — with `tournament-payout-battery` and
   `chips-per-hour-battery` as the invented names **outside** the catalogue, one for a learner
@@ -178,10 +195,11 @@ an instance that appears in no design document. The battery's own vocabulary:
 | FAM-16.36 | `harness.expect` | an invented observed value, judged under a kind `fixtures()` lists; an invented kind refused by name |
 | FAM-16.37 | `harness.timings` | the clock of a seed 90210 case driven through the driver |
 
-The twelve `fixed` rows are exempt (`battery.md` §4): the game of D-2, the three baselines
-of D-6, the six rungs of brief §2, the league of D-16, the enumerations (encodings, backends,
-action vocabulary), the device list and the protocol have one instance each, and it is the
-project's own. `features.observation_spec` is one of the twelve because an encoder exists
+The twelve `fixed` rows are exempt (`battery.md` §4): the game of D-2, the six baselines of
+D-6 and D-21, the six rungs of brief §2, the league of D-16, the enumerations (encodings,
+backends, action vocabulary), the device list and the protocol have one instance each, and it
+is the project's own — a baseline exists only by a catalogue name, so `agents.baselines` and
+`agents.build_baseline` are tested in FAM-5 and never blinded (`e2e-surface.md` §5). `features.observation_spec` is one of the twelve because an encoder exists
 only by one of the two declared encodings, so no invented instance of it can be built
 through the surface (`e2e-surface.md` §5); it is tested in FAM-1 and FAM-2, not blinded.
 
@@ -247,4 +265,21 @@ tolerant reader rather than a word this battery invented:
   `architecture`, `sizes`, `seed` — with the settings `ladder.md` §3 declares
   (`_surface.SurfaceCase.learner_spec`);
 - a transition list for `agents.learn` carries both observations, the chosen index, the
-  reward, the terminal flag and both legal masks (`_surface.SurfaceCase.transitions`).
+  reward, the terminal flag and both legal masks (`_surface.SurfaceCase.transitions`);
+- the baseline catalogue is read by shape, not by container: a mapping keyed by baseline
+  name with a record per name, or the sequence of records, both give one ordered
+  `(name, record)` pair per catalogue member (`_surface.baseline_catalogue`), so FAM-5.1
+  asserts the six names, their order, `params: 0` and the `anchor` flag however
+  `agents.baselines()` nests them (`e2e-surface.md` §3.3, protocol.md §3);
+- the starting stack a folder's inequality is judged against is read out of
+  `engine.game_config()` by what its key names — `starting_stack`, `starting stacks`, a
+  `stacks` pair — and never spelled as a `20` inside the battery
+  (`_surface.starting_stack`, `folders.md` §2, ASM-31);
+- a folder's rule is recomputed from the readout the folder was handed — the rank
+  characters of the two hole spellings, `hand_class`, and that stack — and compared with
+  the decision it made, so a case asserts the rule rather than a second copy of the code
+  (`_surface.folder_rule_folds`, `_surface.card_rank`, `folders.md` §2, §3, ASM-30);
+- a missing readout fact is an **absent surface name**, not a `KeyError` from inside the
+  battery: the case that needed it fails with the fact named
+  (`_surface.readout_fact`), because `e2e-surface.md` §2 makes the eleven keys the
+  contract (`battery.md` §1, D-11).

@@ -1,4 +1,4 @@
-# engine — the ten facts
+# engine — the eleven facts
 
 - **Owner:** `readout(hand)` — the information set of D-3: each fact’s derivation, its type, the one card spelling, and what the readout may never expose
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
@@ -15,9 +15,9 @@ caller cannot reach back into the handle through what it was handed.
 The acting seat is `seat_of(state.actor_index)` (`hand.md` §3). Both the seat and the hand’s street
 come from the state; the module keeps no notion of "whose turn" of its own.
 
-## 2. The ten keys — exactly these, and how each is derived
+## 2. The eleven keys — exactly these, and how each is derived
 
-The mapping has these ten keys and no others (`e2e-surface.md` §2, `L2 environment.md` §2). "Seat
+The mapping has these eleven keys and no others (`e2e-surface.md` §2, `L2 environment.md` §2). "Seat
 order" below always means engine seat order, `0` = button (`hand.md` §3).
 
 | Key | Type | Derivation |
@@ -32,6 +32,7 @@ order" below always means engine seat order, `0` = button (`hand.md` §3).
 | `limit` | `tuple[int, int]` | `(state.street.min_completion_betting_or_raising_amount, state.completion_betting_or_raising_count)` — the fixed bet size in force (2 on the pre-flop and flop, 4 on the turn and river) and the **bet-or-raise actions made so far this street** — a completion, a bet or a raise — 0 to 4 under ASM-6’s cap of four such actions a street: post-flop the opening bet plus three raises, pre-flop four raises after the posted blind, five bet levels — and the posted blind is never one of them, so a street’s first decision reads `0` (`e2e-surface.md` §2, `L2 environment.md` §2, ASM-6) |
 | `history` | `list[str]` | a **new list** of the handle’s applied actions, oldest first, and the empty list `[]` before the first one (`history.md` §1) |
 | `legal` | `tuple[str, ...]` | `legal_actions(hand)` — the same tuple the entry point returns, same value and same order (`stepping.md` §1) |
+| `hand_class` | `int` or `None` | `None` while fewer than five cards are known — before the flop, where no five-card hand exists — and from the flop onward the class of the acting seat's best five-card hand of `hole` plus `board`: `CLASS_OF[best.entry.label]` where `best = StandardHighHand.from_game_or_none(hole_cards, board_cards)`, 0 high card through 8 straight flush. **Not** `best.entry.index`, which is a four-digit strength, and neither a second evaluator nor a ranking written down here (ASM-30, `folders.md` §3, D-21) |
 
 Five bet levels exist pre-flop but `limit[1]` stops at `4`, because the posted blind is a level and not one of
 the four counted actions; at the cap the legal set holds no `raise` — only `fold` and `check-call`
@@ -42,6 +43,24 @@ Two shapes are deliberate and must not be "tidied":
 - `history` is a **`list`**, because the empty history is asserted equal to `[]` at the edge
   (FAM-16.2); a tuple would read `()` and fail there.
 - `board` is a **tuple** and may be empty; only its length is asserted, never its container.
+
+The eleventh fact is D-21's, and three things about its derivation are contract:
+
+- **It is the library's own evaluation, read off the library's own order.** `hand_class(hole, board)` is
+  `CLASS_OF[best.entry.label]` where `best = StandardHighHand.from_game_or_none(hole_cards, board_cards)` — the
+  search that tries the C(n, 5) five-card combinations of the known cards and keeps the greatest — and
+  `CLASS_OF = {label: position for position, label in enumerate(Label)}` is built from `pokerkit.lookups.Label`'s
+  declaration order, 0 high card through 8 straight flush. `best is None` exactly when fewer than five cards are
+  known, which is the pre-flop case, and `entry.index` is a **four-digit strength and not the class** (ASM-30,
+  `folders.md` §3, D-21).
+- **The board is materialised once**, `tuple(state.get_board_cards(0))`, because the library yields it as an
+  iterator and two facts read it: the `board` spelling and this one (`platform.md` §2).
+- **It is derived, and it widens nothing.** A function of `hole` and `board`, which the readout already carries, so
+  D-3's information set is unchanged — and no encoding carries it: `features.observation_spec`'s `fields`, both
+  203-slot layouts and every shipped checkpoint's encoding are untouched, and the map stays at 49 endpoints
+  (ASM-30, `folders.md` §3). It costs one search per post-flop readout, and that search is priced by C(known cards, 5):
+  2.1 µs on the flop, 34.5 µs on the turn, 101 µs on the river, nothing before the flop, and no equity sample at all
+  (`cost.md` §G6.1, D-21).
 
 ## 3. The one card spelling
 
@@ -68,7 +87,7 @@ The facts are closed. The mapping never carries, in any form:
 - the undealt deck, its order, or a board card the hand has not revealed — `board` is the cards
   already dealt to board `0` (`get_board_cards(0)`), and nothing else of the deck is read;
 - a rung, an encoding, a learner, an opponent, a seed or an episode count;
-- an eleventh key, since the invariance family compares the key set exactly (`battery.md` §3 FAM-2).
+- a twelfth key, since the invariance family compares the key set exactly (`battery.md` §3 FAM-2).
 
 `legal` and `history` are in the set because §2 puts them there; nothing else is added "for
 convenience". A `readout`-shaped helper that wants to report the pot odds, the number of outs, or
@@ -77,10 +96,11 @@ convenience". A `readout`-shaped helper that wants to report the pot odds, the n
 
 ## 5. What the battery may assert of the facts
 
-Driving only `new_hand`, `readout` and `legal_actions`: the key set is exactly the ten; the first
+Driving only `new_hand`, `readout` and `legal_actions`: the key set is exactly the eleven; the first
 decision of any seed reads `street == "preflop"`, `pot == 3`, `sum(stacks) == 37`,
 `stacks == (19, 18)`, `to_call == 1`, `seat == (0, True)`, `len(hole) == 2`, `len(board) == 0`,
-`history == []`; at every decision `pot + sum(stacks) == 40`; `len(board)` is always one of
-0, 3, 4, 5; the spellings in `hole` and `board` are two characters from the two declared alphabets;
-`readout(hand)["legal"] == legal_actions(hand)`; `readout` refuses a hand that is over; and two reads
-of one hand are equal while a read of the handle before a step is unchanged after it.
+`history == []` and `hand_class is None`; at every decision `pot + sum(stacks) == 40`; `len(board)` is
+always one of 0, 3, 4, 5, and `hand_class` is `None` while fewer than five cards are known and an
+integer 0–8 from the flop onward; the spellings in `hole` and `board` are two characters from the two
+declared alphabets; `readout(hand)["legal"] == legal_actions(hand)`; `readout` refuses a hand that is
+over; and two reads of one hand are equal while a read of the handle before a step is unchanged after it.

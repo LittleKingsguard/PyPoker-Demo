@@ -1,8 +1,10 @@
 # evaluation — module design (L3)
 
-- **Layer:** L3 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09 · **Rev 4:** D-20's utility
+- **Layer:** L3 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09 · **Rev 4:** D-20's utility
   beside D-19's rule — a member declares `utility`, a family holds one rule **and one utility**, the id digests both, and six
-  records name the utility (`utility.md`, §2–§4, §7)
+  records name the utility (`utility.md`, §2–§4, §7) · **Rev 5:** D-21's catalogue — `BASELINES` is the catalogue's `anchor: True`
+  set and `CATALOGUE` its six names, a declaration's `baselines` admits a folder after the three, `UnknownBaseline` refuses an
+  uncatalogued one, and `league()` gains `catalogue` (`declarations.md` §2–§4, `pool.md` §2, `errors.md` §2)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Realises:** `docs/L2/evaluation/surface.md` (the eleven entry points) and `docs/L2/evaluation/league.md` (the pool, the
   scheduler, the matrix, the rating, the two tables, the seven evidence families, the edge's contracts), with the rule itself
@@ -18,14 +20,14 @@
 
 ## 1. What this module is
 
-`evaluation` **is** the league (D-16): a bounded rolling pool of the model's last M = 5 versions plus the three pinned baselines, the scheduler that plays one cell at a time, the pairwise matrix of a membership, the Bradley-Terry rating fitted over it with hand-level bootstrap intervals, the two table budgets (`live`, `full`) and the complete per-rung report. The same pool is the training opposition and the evaluation opposition (`module-map.md` §6, ASM-19). It measures: it never trains, never edits a curve, never chooses a pool's membership.
+`evaluation` **is** the league (D-16): a bounded rolling pool of the model's last M = 5 versions plus the pinned baselines — the catalogue's flagged three and any folder a declaration names — the scheduler that plays one cell at a time, the pairwise matrix of a membership, the Bradley-Terry rating fitted over it with hand-level bootstrap intervals, the two table budgets (`live`, `full`) and the complete per-rung report. The same pool is the training opposition and the evaluation opposition (`module-map.md` §6, ASM-19, ASM-32). It measures: it never trains, never edits a curve, never chooses a pool's membership.
 
 ## 2. The documents, one per owner
 
 | Document | Owns | What it fixes |
 |---|---|---|
-| `declarations.md` | `protocol()`, `league()` | the two declarations key by key and in order; the seven families with their refusal words; the nine header items; `cell_count`; the table seed; the two budget rows |
-| `pool.md` | `build_pool`, `pool_members`, `offer`, `opponent` | the `Pool` value (§1), the declaration (§2), the read-back with its `rules` and `utilities` (§5), the draw (§7), the pool's refusals (§8), what is free (§9); §3, §4 and §6 keep a redirect |
+| `declarations.md` | `protocol()`, `league()` | the two declarations key by key and in order — `league()`'s seven keys with `catalogue` among them; the seven families with their refusal words; the nine header items; `cell_count`; the table seed; the two budget rows (declarations.md §2.2, §4) |
+| `pool.md` | `build_pool`, `pool_members`, `offer`, `opponent` | the `Pool` value (§1), the declaration and its optional `baselines` (§2), the read-back with its `rules` and `utilities` (§5), the draw (§7), the pool's refusals (§8), what is free (§9); §3, §4 and §6 keep a redirect |
 | `families.md` | the version window's **families** | the grouping and the **ordered window** (§1–§2), the **fair-share eviction** and the (m+1)th-family refusal (§3), the **id digest** that certifies each version's rule and utility (§4), `offer`'s rolling (§5), the refusals it adds (§6) |
 | `utility.md` | the utility a member was trained under | the catalogue through the granted arrow (§1), a **required** `utility` refused by name where a version declaration names none — the default speaking only for a variant entry and a learner spec (§2), the records that name one (§3), the three disagreements and their refusals (§4), what is free (§5) |
 | `scheduler.md` | `match`, `policy_from` | seat alternation, the **per-hand seeds** (§3), win/tie/loss from net chips, the seat split, zero-sum, how a side becomes a policy and the **two facts a checkpoint records** (§5–§5.1), refusals |
@@ -52,7 +54,7 @@
     policy_from(path)                         -> callable    # a policy, evaluation mode
     report(rung_name, record, matrix, rating) -> Mapping     # the per-rung report
 
-`Pool`, `_MemberPolicy`, `EvaluationError` and its thirty-eight subclasses, `seeds.py`'s five derivations and every
+`Pool`, `_MemberPolicy`, `EvaluationError` and its thirty-nine subclasses, `seeds.py`'s five derivations and every
 helper below an entry point are **not** surface (`e2e-surface.md` §1, `surface.md` §1). A pool and a policy are opaque;
 a policy this module builds carries its member's id, its parameter count, its rule and its utility, and no record
 returned here exposes the object itself.
@@ -61,9 +63,9 @@ returned here exposes the object itself.
 
     __init__.py      the eleven entry points, `__all__`, and nothing else (§3)
     errors.py        EvaluationError and its subclasses (errors.md §2)
-    declarations.py  M, BASELINES, TABLE_SEED, TABLES, FAMILIES, HEADER_ITEMS, RATING, protocol(), league(), cell_count()
+    declarations.py  M, BASELINES, CATALOGUE, TABLE_SEED, TABLES, FAMILIES, HEADER_ITEMS, RATING, protocol(), league(), cell_count()
     seeds.py         _seed, _hand_seed, _cell_seed, _member_seed, _bootstrap_seed, _draw_index
-    pool.py          Pool, build_pool, pool_members, offer, _families, _window_families, _evict, _window, _pool_id, _rule, _utility, _catalogue, _utility_catalogue, _pool_rules, _pool_utilities (pool.md, families.md, utility.md)
+    pool.py          Pool, build_pool, pool_members, offer, _families, _window_families, _evict, _window, _pool_id, _rule, _utility, _catalogue, _utility_catalogue, _declared_baselines, _pinned, _baseline_member, _pool_rules, _pool_utilities (pool.md, families.md, utility.md)
     policy.py        _MemberPolicy, _member_policy, _checkpoint_policy, _checkpoint_facts, _built_encoder, policy_from,
                      opponent, _side (§3, scheduler.md §5–§5.1)
     scheduler.py     _play_cell, match (scheduler.md)
@@ -80,16 +82,15 @@ Eleven files, one concern each; a twelfth needs a document here saying what it o
 and only the granted calls: `agents.baselines`, `build_baseline`, `as_policy`, `load`, `param_count`;
 `features.build_encoder`, `encode`; `engine.play_hand` (`module-map.md` §2). Never `pokerkit`, `torch`, `training`, `harness`
 or a `tests/` helper; never `agents.act` or `learn`; never `features.encodings()`. A recorded encoding name is checked by
-**building** it (`scheduler.md` §5.1). One carve-out: `tables.py`'s offline `__main__` also calls `agents.build_learner`
-for the artefact's variant (`league.md` §7, `tables.md` §2) — a call of the offline producer and of no entry point.
-`numpy` serves one thing, the bootstrap's generator (rating.md §4); the global `random` stream is never seeded or drawn
-from here (ASM-2).
+**building** it (`scheduler.md` §5.1). One carve-out: `tables.py`'s offline `__main__` also calls `agents.build_learner` for the
+artefact's variant (`league.md` §7, `tables.md` §2) — a call of the offline producer and of no entry point. `numpy` serves one
+thing, the bootstrap's generator (rating.md §4); the global `random` stream is never seeded or drawn from here (ASM-2).
 
 ## 6. Facts inherited from `engine`, `features` and `agents`, and not re-derived
 
 - `engine.play_hand(seed, seat0, seat1)` deals at that seed, drives the hand out and returns `records.md` §5's episode record, whose `payoffs` sum to zero; seat 0 holds the button and posts the small blind (`engine/surface.md` §4, §10), so a cell alternates seats by swapping the two policies it hands over.
 - A policy is `callable(readout, legal_actions)` returning one descriptor of `legal_actions`; an illegal descriptor is `engine`'s refusal and is never caught or repaired here (D-2, `e2e-surface.md` §2).
-- `agents.baselines()` names `random`, `always-call`, `oracle`, each with `params` `0`; `agents.build_baseline(name, seed)` returns a policy that never learns and whose state advances nowhere (`agents/surface.md` §11–§12, `learner.md` §5). A baseline's id is its name.
+- `agents.baselines()` names the catalogue's **six** — `random`, `always-call`, `oracle`, `fold-no-pair-or-face`, `fold-no-pair-or-better`, `fold-large-bet` — each with `params` `0`, a rule, and an `anchor` flag true for the first three and false for the folders; `agents.build_baseline(name, seed)` returns a policy that never learns and whose state advances nowhere (`agents/surface.md` §11–§12, `learner.md` §5, D-21). A baseline's id is its name.
 - `agents.load(None, path)` restores a member from its path alone; `agents.param_count(learner)` is its capacity; `agents.as_policy(learner, encoder, seed)` returns the snapshot policy a cell plays, and at the learner's own seed it decides as `act` does (`agents/surface.md` §9–§10, ASM-5).
 - `features.build_encoder(name)` takes `flat-numeric` then `card-tokens`, and `agents.as_policy` refuses an encoder whose kind or size contradicts the learner's (`features/surface.md` §3–§5): the recorded name is the encoder built for it, and a name it refuses is `UnknownEncoding` (`scheduler.md` §5.1).
 
@@ -104,7 +105,7 @@ from here (ASM-2).
 | 5 | Bradley-Terry by Hunter's MM iteration, tolerance `1e-10`, cap 10,000, bound `±10` (rating.md §2–§3) | closed-form updates need no learning rate and no gradient tuning | Newton/IRLS, which inverts a matrix per iteration for the same answer |
 | 6 | bootstrap: 200 per-cell multinomial resamples, seeded from the table seed, 2.5/97.5 percentiles widened to hold the value (rating.md §4) | the hand is the unit of evidence and a cell's counts are its hand outcomes | resampling cells, which resamples the membership instead of the measurement |
 | 7 | eleven files, one concern each (§4); the artefact at `tables/league-full.json` (tables.md §3) | one home per rule; the file is evidence and no entry point reads it | a twelfth entry point for the file, which D-12 forbids |
-| 8 | **39** error classes under `EvaluationError` — one base and thirty-eight subclasses, one per refusal family (errors.md §2) | a caller catches this module's refusals, never a `KeyError` from a bug | one class with a message, which no caller can route on |
+| 8 | **40** error classes under `EvaluationError` — one base and thirty-nine subclasses, one per refusal family (errors.md §2) | a caller catches this module's refusals, never a `KeyError` from a bug | one class with a message, which no caller can route on |
 | 9 | the **utility** is a catalogue member, held as the rule is: read through the granted arrow, refused by name where a version declaration names none — the default speaking only for a variant entry and a learner spec — and refused by name when uncatalogued (utility.md §1–§2) | D-20 makes the reward an axis, and a pool must be able to certify which objective each member was trained on (`records.md` §7, §8) | a scalar rescaling of the net chip delta, which changes no preference among equal-EV actions (D-20) |
 
 ## 8. Decisions a later module must not re-derive
@@ -114,7 +115,6 @@ from here (ASM-2).
 3. **Every seed this module derives is a derivation, never a draw**, and a member's policy seed is the one its own checkpoint records; no stream is seeded or read here (§5, scheduler.md §5.1).
 4. **One cell at a time, seats alternating, both directions from one set of hands** (scheduler.md §2).
 5. **A table's membership is the pool's members, then `variant-1`, `variant-2`** (matrix.md §1).
-6. **The anchor is re-applied every iteration**, so the three baselines' mean is exactly 0 — except on `rating.md` §3's one pinned-baseline table, where the pin is taken last and so displaces the mean it was applied after (rating.md §3).
-7. **The budget is arithmetic on K; a measured cost is recorded only where it was measured** (tables.md §1, §5, ASM-21).
-8. **Nothing here reduces a matrix to a ranking, and no rating is a claim of poker skill** (`league.md` §4, D-16).
-9. **A membership names its members once**: a version may not take one of the three baselines' names, and a table refuses a membership that is not distinct (pool.md §2, matrix.md §7).
+6. **The anchor is re-applied every iteration**, so the flagged three's mean is exactly 0 — never a folder D-21 adds — except on `rating.md` §3's one pinned-baseline table, where the pin is taken last and so displaces the mean it was applied after (rating.md §3, ASM-32).
+7. **The budget is arithmetic on K, and a measured cost is recorded only where it was measured** (tables.md §1, §5, ASM-21); **nothing here reduces a matrix to a ranking, and no rating is a claim of poker skill** (`league.md` §4, D-16).
+8. **A membership names its members once**: a version may not take one of the pool's pinned baseline names, and a table refuses a membership that is not distinct (pool.md §2, matrix.md §7, ASM-32).

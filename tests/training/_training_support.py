@@ -449,7 +449,17 @@ def error_class(name):
 
 
 def baseline_names():
-    """The three pinned baselines, in `agents.baselines()`'s order (`fairness.md` §5)."""
+    """The catalogue's **pinned** baselines, in `agents.baselines()`'s order.
+
+    A pool always holds the flagged three of D-6, so this is the set a membership, a run
+    record's rows and a fairness report name unless a declaration adds a folder
+    (`fairness.md` §5, ASM-32, D-21).
+    """
+    return pinned_baselines()
+
+
+def catalogue_names():
+    """The catalogue's six baseline names, in `agents.baselines()`'s order (D-21)."""
     catalogue = agents().baselines()
     if isinstance(catalogue, dict):
         return [str(name) for name in catalogue]
@@ -460,6 +470,36 @@ def baseline_names():
         else:
             names.append(str(entry))
     return names
+
+
+def _flag_of(record):
+    """One catalogue record's `anchor` flag, whatever container it arrives in."""
+    return bool(record.get("anchor")) if isinstance(record, dict) else False
+
+
+def pinned_baselines():
+    """The catalogue's `anchor`-flagged baselines: the three of D-6, in its order.
+
+    The pinned set a pool always holds and the set the rating is zeroed on — read off the
+    catalogue's own flag and never restated as a literal (`fairness.md` §5, `records.md`
+    §8, ASM-32, D-21).
+    """
+    catalogue = agents().baselines()
+    if not isinstance(catalogue, dict):
+        return baseline_names()
+    return [str(name) for name, record in catalogue.items() if _flag_of(record)]
+
+
+def folder_baselines():
+    """The catalogue's folding baselines: the names whose `anchor` flag is false (D-21).
+
+    A folder is a pool member only when a membership declaration names it, and it is
+    never an anchor (`records.md` §8, ASM-32, D-21).
+    """
+    catalogue = agents().baselines()
+    if not isinstance(catalogue, dict):
+        return []
+    return [str(name) for name, record in catalogue.items() if not _flag_of(record)]
 
 
 def learning_rules():
@@ -919,6 +959,20 @@ def with_pool(entry, pool_id):
         "frozen": True,
         "members": [],
     }
+    return copy
+
+
+def with_pool_baselines(configuration, names):
+    """A copy of a configuration whose pool declaration admits `names` beyond the pinned set.
+
+    `records.md` §8's optional `baselines` key is how a configuration declares D-21's
+    folders: the pool then pins them after the three anchor baselines, in the catalogue's
+    order (`build_pool`, `loop.md` §3, ASM-32, D-21).
+    """
+    copy = dict(configuration)
+    pool = dict(copy["pool"])
+    pool["baselines"] = list(names)
+    copy["pool"] = pool
     return copy
 
 

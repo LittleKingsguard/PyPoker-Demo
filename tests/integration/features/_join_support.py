@@ -75,8 +75,9 @@ SHAPES = {"flat-numeric": (203,), "card-tokens": (40,)}
 DTYPES = {"flat-numeric": "float32", "card-tokens": "int32"}
 VOCABULARIES = {"flat-numeric": None, "card-tokens": 96}
 
-# environment.md §2 (engine): the readout's closed ten facts, in the declared order,
-# and the nine an observation carries — the ten less `legal` (encodings.md §2).
+# environment.md §2 (engine): the readout's closed eleven facts, in the declared order,
+# and the nine an observation carries — the eleven less `legal` and less D-21's
+# `hand_class`, which no encoding carries (encodings.md §2, ASM-30, D-21).
 READOUT_FACTS = (
     "street",
     "seat",
@@ -88,8 +89,11 @@ READOUT_FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
 )
-CARRIED_FACTS = tuple(fact for fact in READOUT_FACTS if fact != "legal")
+CARRIED_FACTS = tuple(
+    fact for fact in READOUT_FACTS if fact not in ("legal", "hand_class")
+)
 
 # surface.md §2: the three-index vocabulary, and the spelling both modules share.
 ACTION_INDICES = (0, 1, 2)

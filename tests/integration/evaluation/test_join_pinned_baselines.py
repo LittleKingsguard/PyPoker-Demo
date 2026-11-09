@@ -1,15 +1,16 @@
-"""JOIN-EVL-3 — the three pinned baselines (D-6, ASM-4).
+"""JOIN-EVL-3 — the pinned baselines, and the folders a declaration may add (D-6, D-21).
 
-`agents.baselines()` names exactly `random`, `always-call` and `oracle`, and
-`agents.build_baseline(name, seed)` returns each as a policy of the protocol
-(`docs/L2/agents/surface.md` §11–§12, `docs/L1/protocol.md` §3).  `evaluation`'s
-pool always holds those three, never evicts them, and draws a baseline at the
-caller's seed, so a baseline column is the same rule at every call order and no
-cell's opponent drifts while the table is played (`docs/L2/evaluation/league.md`
-§1, §7, `docs/L1/league.md` §2).
+`agents.baselines()` names six — D-6's three, which are the catalogue's `anchor: True`
+members, and D-21's three folders.  `evaluation`'s pool always holds the flagged three,
+never evicts them, and draws a baseline at the caller's seed, so a baseline column is the
+same rule at every call order and no cell's opponent drifts while the table is played;
+a folder joins pinned, after them and in the catalogue's order, when — and only when — the
+membership declaration names it (`docs/L2/evaluation/league.md` §1, `docs/L2/evaluation/
+pool.md` §1, `docs/L1/records.md` §8, `docs/L1/league.md` §2, ASM-32, D-21).
 """
 
 import importlib.util
+import json
 import os
 import sys
 import unittest
@@ -24,32 +25,49 @@ else:
     _spec = importlib.util.spec_from_file_location(
         "evaluation_join_support", os.path.join(_HERE, "_join_support.py")
     )
-    J = importlib.util.module_from_spec(_spec)
-    sys.modules["evaluation_join_support"] = J
+    J = sys.modules["evaluation_join_support"]
     _spec.loader.exec_module(J)
 
 
 class PinnedBaselines(J.JoinCase):
-    """The catalogue's three names, present in every pool and never evicted."""
+    """The catalogue's six names, its flagged three, and the declaration that admits one."""
+
+    def catalogue(self):
+        return J.baselines()
 
     def names(self):
-        return [str(name) for name in J.baselines()]
+        """The catalogue's `anchor: True` members, in its order (ASM-32, D-21)."""
+        declared = self.catalogue()
+        return [str(name) for name, record in declared.items() if record.get("anchor")]
 
-    def test_join_evl_3_1_the_catalogues_three_are_every_pools_first_three(self):
-        """JOIN-EVL-3.1 the pool's baseline ids are exactly `agents.baselines()`'s names.
+    def folders(self):
+        """The catalogue's folding baselines, in its order (D-21)."""
+        declared = self.catalogue()
+        return [
+            str(name) for name, record in declared.items() if not record.get("anchor")
+        ]
 
-        `docs/L2/evaluation/pool.md` §2 step 5 and `docs/L2/evaluation/surface.md`
-        §6: the three baselines are added first, in `agents.baselines()`'s order,
+    def test_join_evl_3_1_the_catalogues_pinned_three_are_every_pools_first_three(self):
+        """JOIN-EVL-3.1 the pool's first baseline ids are the catalogue's flagged three.
+
+        `docs/L2/evaluation/pool.md` §1 and `docs/L2/evaluation/surface.md` §6:
+        the three anchor baselines are added first, in `agents.baselines()`'s order,
         each marked pinned with the `params` of `0` the catalogue declares — in
         every pool, R1's baselines-only pool included (`docs/L2/evaluation/league.md`
-        §1, `docs/L1/league.md` §2, D-16).
+        §1, `docs/L1/league.md` §2, ASM-16, ASM-32).
         """
         catalogue = self.names()
         self.assertEqual(
             catalogue,
             ["random", "always-call", "oracle"],
-            "agents.baselines() declares the three names of D-6 "
-            "(docs/L2/agents/surface.md §11)",
+            "agents.baselines() flags the three names of D-6 and no other "
+            "(docs/L2/agents/surface.md §11, ASM-32)",
+        )
+        self.assertEqual(
+            [str(name) for name in self.catalogue()],
+            catalogue + self.folders(),
+            "the catalogue is the anchored three and then D-21's three folders, in its "
+            "own order (docs/L1/protocol.md §3, D-21)",
         )
         empty = J.build_pool({"members": [], "m": J.league()["m"], "frozen": True})
         pools = {
@@ -61,8 +79,8 @@ class PinnedBaselines(J.JoinCase):
                 self.assertEqual(
                     J.names_of(readback)[:3],
                     catalogue,
-                    "%s must carry the catalogue's three baselines first, in its "
-                    "order (docs/L2/evaluation/pool.md §2, surface.md §6)"
+                    "%s must carry the catalogue's three pinned baselines first, in its "
+                    "order (docs/L2/evaluation/pool.md §1, surface.md §6)"
                     % (where,),
                 )
                 for name in catalogue:
@@ -82,8 +100,146 @@ class PinnedBaselines(J.JoinCase):
                     self.assertTrue(
                         bool(record.get("pinned")),
                         "the baselines are pinned in every pool "
-                        "(docs/L2/evaluation/pool.md §2 step 5, D-16)",
+                        "(docs/L2/evaluation/pool.md §1, D-16)",
                     )
+                self.assertEqual(
+                    J.names_of(readback)[:3],
+                    [name for name in J.names_of(readback) if name in catalogue],
+                    "a pool that declares no folder holds the three anchors and no "
+                    "other baseline (docs/L1/records.md §8, ASM-32, D-21): %r"
+                    % (J.names_of(readback),),
+                )
+
+    def test_join_evl_3_5_a_declaration_admits_a_folder_pinned_after_the_anchors(self):
+        """JOIN-EVL-3.5 a declaration's `baselines` key pins the folders it names after
+        the anchor three, and a declaration that names none keeps its membership, its
+        order and its id — the id the two shipped artefacts record.
+
+        `docs/L1/records.md` §8 makes `baselines` an optional key of the membership
+        declaration, `docs/L2/evaluation/pool.md` §1 makes a declared folder join pinned
+        in the catalogue's order, and `docs/L1/league.md` §2 / ASM-32 make a folder a
+        member and never an anchor — so the shipped pools, which declare no folder, cannot
+        move (D-21).
+        """
+        anchored = J.build_pool({"members": [], "m": J.league()["m"], "frozen": True})
+        baseline_record = J.pool_members(anchored)
+        declared = self.folders()
+        self.assertGreaterEqual(
+            len(declared), 3, "the catalogue carries D-21's three folders (D-21)"
+        )
+        self.assertEqual(
+            J.names_of(baseline_record),
+            self.names(),
+            "a declaration naming no folder holds the three anchors alone "
+            "(docs/L1/records.md §8, ASM-32): %r" % (J.names_of(baseline_record),),
+        )
+        named = J.build_pool(
+            {
+                "members": [],
+                "m": J.league()["m"],
+                "frozen": True,
+                "baselines": [declared[-1], declared[0]],
+            }
+        )
+        admitted = J.pool_members(named)
+        self.assertEqual(
+            J.names_of(admitted),
+            self.names() + [declared[0], declared[-1]],
+            "the declared folders join after the three anchors, in the catalogue's order "
+            "and not the declaration's (docs/L2/evaluation/pool.md §1, ASM-32, D-21): %r"
+            % (J.names_of(admitted),),
+        )
+        for name in (declared[0], declared[-1]):
+            with self.subTest(folder=name):
+                record = J.member_record(admitted, name)
+                self.assertTrue(
+                    bool(record.get("pinned")),
+                    "a declared folder is pinned like any baseline: eviction is the "
+                    "version window's (docs/L1/league.md §2, ASM-32, D-21): %r"
+                    % (record,),
+                )
+                self.assertEqual(
+                    int(record["params"]),
+                    0,
+                    "a folder declares no trainable parameter (records.md §9, ASM-10)",
+                )
+        self.assertNotIn(
+            declared[1],
+            J.names_of(admitted),
+            "a folder the declaration does not name is not a member: the catalogue's "
+            "names join by declaration and never silently (records.md §8, ASM-32, D-21): "
+            "%r" % (J.names_of(admitted),),
+        )
+        self.assertNotEqual(
+            str(admitted["id"]),
+            str(baseline_record["id"]),
+            "the id changes when and only when the membership does, so a pool that "
+            "admits a folder wears a different one (records.md §8, ASM-27, D-21)",
+        )
+
+    def test_join_evl_3_6_a_declaration_naming_no_folder_keeps_the_shipped_pool_id(self):
+        """JOIN-EVL-3.6 the anchors-only declaration digests to the id the shipped artefact records.
+
+        `docs/L1/records.md` §8 and ASM-27: a baseline's line of the digest is its bare
+        id, so a declaration that names no folder is the same payload it was before D-21 —
+        which is why `tables/league-full.json` and `checkpoints/evidence/r1-live.json`
+        keep the pool ids they record (`docs/L1/protocol.md` §5, D-21).
+        """
+        self.assertTrue(
+            os.path.exists(J.SHIPPED_PATH),
+            "the shipped `full` table is the file whose pool id this case reads "
+            "(docs/L1/league.md` §9, D-8): %r" % (J.SHIPPED_PATH,),
+        )
+        with open(J.SHIPPED_PATH, "r", encoding="utf-8") as handle:
+            shipped = json.load(handle)
+        anchored = J.build_pool({"members": [], "m": J.league()["m"], "frozen": True})
+        readback = J.pool_members(anchored)
+        self.assertEqual(
+            str(readback["id"]),
+            str(shipped["pool"]["id"]),
+            "a declaration that names no folder yields the id the shipped artefact "
+            "records, so neither shipped pool id changed (docs/L1/records.md §8, "
+            "docs/L1/protocol.md §5, ASM-27, D-21): %r against %r"
+            % (readback["id"], shipped["pool"]["id"]),
+        )
+        self.assertEqual(
+            J.names_of(readback),
+            [str(member["id"]) for member in shipped["pool"]["members"]],
+            "and the same ordered membership (docs/L1/records.md §8, ASM-32)",
+        )
+
+    def test_join_evl_3_7_an_unknown_declared_baseline_is_refused_by_name(self):
+        """JOIN-EVL-3.7 a `baselines` name the catalogue does not carry is refused by name.
+
+        `docs/L1/records.md` §8: the declaration admits the catalogue's names and nothing
+        else, so a name outside it is a row this module could not build and the refusal
+        names it (`docs/L2/evaluation/pool.md` §1, `docs/L3/evaluation/errors.md` §4,
+        ASM-32, D-21).
+        """
+        for invented in ("fold-on-a-pair", "oracle-plus", "always-fold"):
+            with self.subTest(name=invented):
+                with self.assertRaises(Exception) as caught:
+                    J.build_pool(
+                        {
+                            "members": [],
+                            "m": J.league()["m"],
+                            "frozen": True,
+                            "baselines": [invented],
+                        }
+                    )
+                message = str(caught.exception)
+                self.assertIn(
+                    invented,
+                    message,
+                    "the refusal names the baseline it could not admit "
+                    "(docs/L3/evaluation/errors.md §3, D-21): %r" % (message,),
+                )
+                self.assertIn(
+                    "build_pool",
+                    message,
+                    "the refusal names the entry point at fault "
+                    "(docs/L3/evaluation/errors.md` §3): %r" % (message,),
+                )
 
     def test_join_evl_3_2_offer_never_evicts_a_baseline(self):
         """JOIN-EVL-3.2 `offer` drops the oldest version and nothing else.
@@ -104,14 +260,14 @@ class PinnedBaselines(J.JoinCase):
         self.assertEqual(
             J.names_of(before)[:3],
             self.names(),
-            "the pool before the offer carries the three baselines first",
+            "the pool before the offer carries the three pinned baselines first",
         )
         self.assertEqual(
             J.names_of(after),
             self.names() + [J.VERSION_B, J.VERSION_C],
             "the window keeps its last m versions oldest to newest and the "
             "baselines are never evicted (docs/L2/evaluation/surface.md §7, "
-            "docs/L2/evaluation/pool.md §6, ASM-16)",
+            "docs/L2/evaluation/pool.md §3, ASM-16)",
         )
         self.assertEqual(
             J.names_of(J.pool_members(pool)),

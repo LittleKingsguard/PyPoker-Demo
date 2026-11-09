@@ -393,13 +393,18 @@ def variant_rule(entry):
 
 
 def version_members(row):
-    """The ids of a pool's version members, i.e. all but the three baselines."""
+    """The ids of a pool's version members, i.e. all but the catalogue's baselines.
+
+    The catalogue is six baselines since D-21 — the flagged three and the three folders —
+    and a folder is a baseline member exactly as ``always-call`` is, so a folder id is
+    never mistaken for a version's (`records.md` §8, ASM-32, D-21).
+    """
     return [member for member in member_ids(row)
             if not any(tok(name) in tok(member) for name in S.BASELINES)]
 
 
 def baseline_members(row):
-    """The ids of a pool's fixed baselines."""
+    """The ids of a pool's fixed baselines — the flagged three and any declared folder."""
     return [member for member in member_ids(row)
             if any(tok(name) in tok(member) for name in S.BASELINES)]
 
@@ -1091,12 +1096,13 @@ def bounded_matrix(hands=S.LIVE_CELL_HANDS):
     Built by hand to ``records.md`` §10's shape: a real table cannot be asked to
     produce a member without a finite maximum-likelihood rating on demand, and the
     fit must bound such a member rather than report an infinite value.  Its members
-    are the three fixed baselines and one invented version, so the rating's anchor
-    still exists, and every cell carries the one hand count the record declares, so
-    the record is a consistent table and not a doctored one.
+    are the three **anchor** baselines of D-6 and one invented version, so the rating's
+    anchor still exists and the record is a consistent table of K = 4 and six cells: a
+    folding baseline is a member of a pool only where a declaration names it, and this
+    declaration names none (`records.md` §8, §10, ASM-17, ASM-32, D-21).
     """
     champion = "version-nimbus"
-    members = list(S.BASELINES) + [champion]
+    members = list(S.ANCHOR_BASELINES) + [champion]
     button = hands // 2
 
     def direction(wins, losses, delta, held, other):

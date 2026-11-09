@@ -121,11 +121,43 @@ class ShippedArtefact(J.JoinCase):
             "the re-fitted rating's method is the file's "
             "(records.md §11, docs/L2/evaluation/rating.md §5)",
         )
-        self.assertEqual(
-            str(fitted["anchor"]),
-            str(shipped["anchor"]),
-            "the re-fitted rating's anchor is the file's (records.md §11)",
-        )
+        # The anchor is the same rule on both sides — the catalogue's flagged three's mean
+        # fixed at 0 — while the sentence that states it is the declaring build's: the
+        # shipped file was fitted before D-21 widened the catalogue, and D-21 does not
+        # re-baseline it (`docs/L1/protocol.md` §5, ASM-32, D-21).  So the tokens are
+        # compared and not the spelling, and the re-fit additionally names the three.
+        for side, anchor in (("the file's", shipped["anchor"]),
+                             ("the re-fitted", fitted["anchor"])):
+            text = str(anchor).lower()
+            for word in ("baseline", "0"):
+                with self.subTest(side=side, word=word):
+                    self.assertIn(
+                        word,
+                        text,
+                        "the anchor states that the baselines' mean is fixed at zero, on "
+                        "both sides (records.md §11, docs/L2/evaluation/"
+                        "declarations.md §2.2, ASM-32): %r" % (anchor,),
+                    )
+        catalogue = J.baselines()
+        for name, record in catalogue.items():
+            with self.subTest(anchor=str(name)):
+                if isinstance(record, dict) and record.get("anchor"):
+                    self.assertIn(
+                        str(name),
+                        str(fitted["anchor"]),
+                        "the re-fitted rating's anchor names the three baselines it zeroes "
+                        "the fit on, so a reader is told which members the scale is "
+                        "relative to (records.md §11, ASM-32, D-21): %r"
+                        % (fitted["anchor"],),
+                    )
+                else:
+                    self.assertNotIn(
+                        str(name),
+                        str(fitted["anchor"]),
+                        "a folding baseline is a member and a table row and is never in "
+                        "the anchor (ASM-32, docs/L1/folders.md §4, D-21): %r"
+                        % (fitted["anchor"],),
+                    )
         self.assertEqual(
             bool(fitted["bound_applied"]),
             bool(shipped["bound_applied"]),

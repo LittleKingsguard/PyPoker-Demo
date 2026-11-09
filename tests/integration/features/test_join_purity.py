@@ -156,8 +156,8 @@ class Purity(S.JoinCase):
                     self.assertEqual(
                         set(readout),
                         set(S.READOUT_FACTS),
-                        "the readout keeps its own ten facts through an encode "
-                        "(engine/environment.md §2, surface.md §6): %r"
+                        "the readout keeps its own eleven facts through an encode "
+                        "(engine/environment.md §2, surface.md §6, ASM-30): %r"
                         % (sorted(str(key) for key in readout),),
                     )
 

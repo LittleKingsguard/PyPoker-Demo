@@ -101,8 +101,8 @@ class ENG1Surface(S.EngineCase):
         )
         self.assertEqual(
             set(facts), set(S.FACTS),
-            "the mapping read from the advanced handle carries the ten facts, so both calls "
-            "took their declared argument kinds (readout.md §2, surface.md §5)",
+            "the mapping read from the advanced handle carries the eleven facts, so both "
+            "calls took their declared argument kinds (readout.md §2, surface.md §5)",
         )
         self.assertIsInstance(self.terminal(self.hand(S.SEED_A)), bool,
                               "is_terminal(hand) takes one hand handle")

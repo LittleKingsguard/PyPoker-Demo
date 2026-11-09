@@ -1,6 +1,6 @@
 # evaluation — the pool at the surface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** the four pool entry points of `e2e-surface.md` §3.4 — `build_pool`,
   `pool_members`, `offer` and `opponent`: each one's arguments, its returned record, its refusals and its
@@ -15,6 +15,10 @@
   **refused by name** (`MemberInvalid`, the missing key), never read as the catalogue's first; the declared default
   speaks only for a variant entry and a learner spec, and only a bare §7 record handed to `match` or `_side` is
   still read as silence, the container being the witness there (§1, §3, `utilities.md` §5, `records.md` §7, D-20)
+- **Rev 6:** D-21 reaches the declaration — an **optional** `baselines` key names the catalogue baselines a configuration
+  admits beyond the pinned three, a name outside the catalogue is `UnknownBaseline`, a declared folder joins pinned
+  **after** the three and in the catalogue's order, and `offer` reads its own baselines back so a window rolls and no
+  baseline moves (§1, §3, `records.md` §8, ASM-32)
 - **Read with:** `surface.md` §1–§2 (the shared rules and the member at this edge), `surface.md` §10 and
   §12 (`matrix`, `policy_from`), `rules.md` §2–§3 (the rule and the fair-share window), `docs/L3/evaluation/utility.md`
   (the utility rule at this edge) and `docs/L1/utilities.md` §5–§7
@@ -27,23 +31,29 @@ here, one owner per document, and `surface.md` §5–§8 keeps a redirect naming
 - **Signature:** `build_pool(declaration)`.
 - **Arguments:** `records.md` §8's declaration — `members` (the versions, by id, lineage, **rule** and
   **utility**), `m` (the bound) and `frozen` (whether it may change while it is used), all three **required**
-  (`records.md` §8, `records.md` §7, D-20). A version member's `rule` and `utility` are both **required of the
+  (`records.md` §8, `records.md` §7, D-20), plus one **optional** key: `baselines`, a sequence of the catalogue
+  baseline names the configuration admits beyond the pinned three — D-21's folders join by declaration and never
+  silently, and absent, `None` or empty means the pinned three alone (ASM-32, D-21, `league()`'s `catalogue`). A version member's `rule` and `utility` are both **required of the
   member record**, and one that names none is refused by name and never read as a declared default: the declared
   default speaks for a variant entry and a learner spec, never for a pool member (`utilities.md` §5, `records.md` §7).
 - **Returns:** a pool — the opaque value `pool_members`, `offer` and `opponent` take (`surface.md` §1). It
   holds the declared versions in **families** — one lineage chain each, its members under one rule **and one
   utility**, listed contiguously oldest to newest, the families in entry order — windowed to `m` by the **fair-share
-  eviction** rule `offer` uses (`rules.md` §3, `utilities.md` §8, ASM-26, `docs/L1/league.md` §2). The three
-  baselines are pinned first, and the pool carries the id `records.md` §8 requires, which digests each version's
-  `id`, its `rule` and its `utility` (`families.md` §4, `utilities.md` §7, ASM-27, D-20).
+  eviction** rule `offer` uses (`rules.md` §3, `utilities.md` §8, ASM-26, `docs/L1/league.md` §2). The baselines are pinned first: the
+  three the catalogue flags as anchors, then each declared folder, both in `agents.baselines()`'s order and never the
+  declaration's, so membership is 3–8 pinned baselines plus the window (`docs/L1/folders.md` §5, ASM-32, ASM-33). The pool carries the id `records.md` §8 requires, which digests each version's
+  `id`, its `rule` and its `utility` and each baseline's bare id — so a declaration naming no folder keeps the membership,
+  the order and the id it has today (`families.md` §4, `utilities.md` §7, ASM-27, D-20, D-21).
 - **Refusals:** a declaration missing one of §8's three keys, with that key named; an `m` that is not a
   positive integer or that exceeds the league's M, with the bound named (D-16, `docs/L1/league.md` §2); a
   declared member missing its `id`, its `lineage`, its `rule` or its `utility`, naming the member and the key —
   a `utility`'s absence refused exactly as a `rule`'s is (`records.md` §7, §8, `utilities.md` §5); a `rule` or
   a `utility` the catalogue does not carry, or one that is empty or holds the digest's separator, naming the
   member, the name and the catalogue (`rules.md` §2, `utilities.md` §5, ASM-27); two
-  declared members sharing one `id`, or a version declared under one of the three pinned baselines' names,
-  naming the member (`surface.md` §9, `records.md` §7, §8); a declared `path` that names no readable file,
+  declared members sharing one `id`, or a version declared under one of the names this pool pins,
+  naming the member (`surface.md` §9, `records.md` §7, §8); a declared baseline **name the catalogue does not carry**, or a
+  `baselines` value that is not a sequence of names — `UnknownBaseline` / `PoolDeclarationInvalid`, naming the name and the
+  catalogue, and naming an anchor is accepted and adds nothing, the three being members whether declared or not (ASM-32, D-21); a declared `path` that names no readable file,
   naming the member (`protocol.md` §5); a member list whose lineage does not order — two members descending
   from one, or a chain that reaches no start — naming the member (`records.md` §7, `docs/L1/league.md` §2); an
   offer that would open the **(m+1)th family**, naming the count and the bound (`rules.md` §3, ASM-26); a family
@@ -61,8 +71,9 @@ here, one owner per document, and `surface.md` §5–§8 keeps a redirect naming
 
 - **Signature:** `pool_members(pool)`.
 - **Arguments:** a pool from `build_pool` or `offer`.
-- **Returns:** `records.md` §8's pool record — `id`, `m`, `frozen`, `members`, `rules` and `utilities`: the three
-  baselines first, in `agents.baselines()`'s order, each marked `pinned` with the `params` of `0` the
+- **Returns:** `records.md` §8's pool record — `id`, `m`, `frozen`, `members`, `rules` and `utilities`: the
+  **pinned** baselines first, in `agents.baselines()`'s order (the flagged three, then any folder the declaration
+  named), each marked `pinned` with the `params` of `0` the
   catalogue declares, then the version window oldest to newest — each family contiguously, the families in
   entry order — each member the `records.md` §7 record its declaration carried; and `rules` and `utilities`, the
   **distinct** rules and utilities its version members declare, in the window's order, which are the two populations a
@@ -78,7 +89,8 @@ here, one owner per document, and `surface.md` §5–§8 keeps a redirect naming
 - **Arguments:** an unfrozen pool, and one version as a `records.md` §7 record — its `rule` and its `utility`
   included, both required of the record and neither read as a declared default (`records.md` §7, `utilities.md` §5).
 - **Returns:** the pool advanced: the version extends **one family** and joins that family's newest end,
-  the baselines are untouched, and the id is recomputed (`docs/L1/league.md` §2, ASM-18, `rules.md` §3). A
+  every baseline stays exactly where it was — the pool reads its own pinned members back, so a declared folder
+  rolls with the window untouched — and the id is recomputed (`docs/L1/league.md` §2, ASM-18, ASM-32, `rules.md` §3, D-21). A
   full window evicts **fair-share** — the oldest member of the family that holds the most — so no family is
   emptied while another holds two or more, and a window holding one family rolls as it always did
   (`rules.md` §3, ASM-26). A lineage that is **no member's `id`** opens a new family, which is how a second

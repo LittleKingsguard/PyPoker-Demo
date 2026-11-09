@@ -67,9 +67,10 @@ header family beside `game_config` (`protocol.md` §1, `surface.md` §1), so eve
 
     ("street", "seat", "hole", "board", "stacks", "pot", "to_call", "limit", "history")
 
-The readout's ten facts less `legal`, **in the readout's own order** (`README.md` §4,
-`encodings.md` §2). `legal` is not carried: a decision's legal set reaches a policy beside the
-observation, as `legal_indices`' mask (`vocabulary.md` §2, FAM-2.9–FAM-2.11).
+The readout's eleven facts less `legal` and D-21's derived `hand_class`, **in the readout's own
+order** (`README.md` §4, `encodings.md` §2, `folders.md` §3, ASM-30). Neither is carried: a decision's
+legal set reaches a policy beside the observation, as `legal_indices`' mask (`vocabulary.md` §2), and
+`hand_class` is a function of `hole` and `board`, which the nine below already carry (FAM-2.13).
 
 This tuple is also the **block order of both encodings** (§4): one order exists in the project for one
 fact set, so a reader who knows the field order knows where every fact sits in either representation
@@ -140,8 +141,8 @@ Four rules hold of this loop and are what makes "one design, two encodings" true
    `readout`, never a cached observation. FAM-16.9 compares two encodes of one readout value for value
    (`battery.md` §3).
 
-`legal` is in every readout and is never read: a key the encoding does not carry is **ignored and not
-refused** (`surface.md` §6). Any other extra key is ignored the same way.
+`legal` and `hand_class` are in every readout and are never read: a key the encoding does not carry is
+**ignored and not refused** (`surface.md` §6, `folders.md` §3). Any other extra key is ignored the same way.
 
 ## 6. `encodings()`
 

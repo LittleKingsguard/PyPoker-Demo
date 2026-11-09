@@ -1,9 +1,9 @@
 # agents — L2 integration interface
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
 - **Covers:** the ten entry points of `docs/L1/e2e-surface.md` §3.3 — one learner family, the learning-rule
-  catalogue and the three fixed baselines (D-6, ASM-7, D-19) — and the `agents` → `features` edge that
-  `module-map.md` §2 grants (D-3)
+  catalogue and the six fixed baselines: D-6's three and D-21's three folders (D-6, ASM-7, D-19, D-21) — and the
+  `agents` → `features` edge that `module-map.md` §2 grants (D-3)
 - **Reads:** `docs/L1/module-map.md` §1–§5 (rev 2's amended `agents` row in §2), `e2e-surface.md` §1, §2,
   §3.3, §3.4 and §5, `records.md` §1–§4, §6, §7, §9 and §12, `ladder.md` §1–§6, `protocol.md` §1–§5,
   `rules.md` §1–§8, `league.md` §2–§4, `battery.md` §3–§5, `assumptions.md` (ASM-2, ASM-4, ASM-5, ASM-7,
@@ -14,8 +14,8 @@
 ## 1. The one job
 
 `agents` is everything that chooses or learns an action: one learner family, the learning-rule catalogue it learns
-under, the terminal-reward utility catalogue whose reward its target carries, and the three fixed baselines
-(`module-map.md` §1, D-6, ASM-7, D-19, D-20). It acts and it learns; it never deals a
+under, the terminal-reward utility catalogue whose reward its target carries, and the six fixed baselines — D-6's
+three and D-21's three folders (`module-map.md` §1, D-6, ASM-7, D-19, D-20, D-21). It acts and it learns; it never deals a
 hand, never measures a match, never schedules an opponent and never writes a report (`module-map.md` §3). What a rung
 holds constant is the **set** of rules its variants declare and the **set** of utilities they name, beside the action vocabulary and the readout
 facts, so a rung-to-rung difference is never either axis's (D-3, ASM-7, ASM-12, `rules.md` §8, `utilities.md` §8, D-19, D-20).
@@ -25,7 +25,7 @@ facts, so a rung-to-rung difference is never either axis's (D-3, ASM-7, ASM-12, 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
 | `surface.md` | the callable surface | for each of the ten entry points: what it takes, what it returns, what it refuses, and its determinism (`e2e-surface.md` §3.3) |
-| `learner.md` | the learner family, the backend axis, the baselines, a version, and the contracts at this edge | the catalogue's two rules and the one contract they answer, and the R1↔R2 backend swap (§1–§2); the parameter budget (§3); `save`/`load` as a version under the rule and the utility it records (§4); the three baselines' rules (§5); the granted `features` edge and the sizing rule, and what `engine`, `training` and `evaluation` hold here (§6–§8); the battery invariants this module carries (§9) (D-7, D-6, ASM-5, ASM-10, ASM-25, D-19, D-20) |
+| `learner.md` | the learner family, the backend axis, the baselines, a version, and the contracts at this edge | the catalogue's two rules and the one contract they answer, and the R1↔R2 backend swap (§1–§2); the parameter budget (§3); `save`/`load` as a version under the rule and the utility it records (§4); the six baselines' rules and the `anchor` flag (§5); the granted `features` edge and the sizing rule, and what `engine`, `training` and `evaluation` hold here (§6–§8); the battery invariants this module carries (§9) (D-7, D-6, ASM-5, ASM-10, ASM-25, ASM-32, D-19, D-20, D-21) |
 | `utility.md` | the terminal-reward utility at this edge | the fifth catalogue `learners()` publishes (§1), the spec's optional `utility` and the declared default (§2), what a learner and a policy carry (§3), the container's field and the three format versions (§4), the four refusals side by side (§5) and what the surface does not become (§6) (`utilities.md` §2–§7, D-20) |
 
 ## 3. Boundaries

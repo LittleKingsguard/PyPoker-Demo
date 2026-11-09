@@ -134,8 +134,8 @@ class Refusals(S.JoinCase):
                     self.assert_refused(
                         lambda encoder=encoder, bad=bad: self.encode(encoder, bad),
                         "%r refuses a value that is not a readout mapping, because the "
-                        "readout arrives as a mapping of the ten facts and no entry point "
-                        "returns part of a record (surface.md §6, encodings.md §5)"
+                        "readout arrives as a mapping of the eleven facts and no entry "
+                        "point returns part of a record (surface.md §6, encodings.md §5)"
                         % (name,),
                         words=("readout",),
                     )

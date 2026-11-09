@@ -9,6 +9,7 @@ computes: it is data a resolver reads and a fairness report quotes.
 from collections.abc import Mapping
 
 import agents
+import evaluation
 
 from . import errors
 
@@ -99,8 +100,14 @@ AXES = (
     "utility",
 )
 
-#: The three pinned baselines, in `agents.baselines()`'s order (D-6, ASM-16).
-BASELINES = ("random", "always-call", "oracle")
+#: The **pinned** anchor baselines — the catalogue's `anchor: True` members — in the
+#: catalogue's order (D-6, ASM-16, ASM-32).  Read through the granted `evaluation.league`
+#: arrow, whose `baselines` is exactly that set, so this module holds no literal copy of
+#: the three and calls no `agents` entry point the map does not grant it
+#: (`module-map.md` §2, D-13, `folders.md` §4, D-21).  A folding baseline D-21 adds is
+#: never one of them: it is a pool member only when a configuration's membership
+#: declaration names it (`records.md` §8, D-21).
+BASELINES = tuple(evaluation.league()["baselines"])
 
 #: The seven settings both arms of one pair declare one value for: `learning_rule` and
 #: `utility` are not among them, because two arms may declare two catalogue members of

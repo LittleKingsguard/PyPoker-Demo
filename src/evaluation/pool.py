@@ -7,12 +7,16 @@ opaque: a caller only passes it back to `pool_members`, `offer`, `opponent` and 
 (`surface.md` §1).  Nothing here caches, registers or mutates: `offer` returns a new
 pool and leaves its argument unchanged.
 
-The baselines come first, in `agents.baselines()`'s order, each pinned with the `params`
-of `0` the catalogue declares; then the version window, grouped into **families** -- one
-lineage chain each, every member of it declaring one rule -- listed contiguously oldest
-to newest, the families in the order they entered the window (`families.md` §1-§3,
-ASM-26).  The window is bounded by `m`, and a full window evicts fair-share: the member
-that leaves is the oldest of the family that currently holds the most (`families.md` §3).
+The baselines come first, each pinned with the `params` of `0` the catalogue declares:
+the **flagged three** of `agents.baselines()` -- the catalogue's `anchor: True` members --
+in the catalogue's order, and then, only when the declaration's optional `baselines` key
+names them, D-21's folders, still in the catalogue's order.  Every one of them is pinned
+and never evicted, because eviction is the version window's (D-16, ASM-32, `records.md`
+§8, D-21).  Then comes the version window, grouped into **families** -- one lineage chain
+each, every member of it declaring one rule -- listed contiguously oldest to newest, the
+families in the order they entered the window (`families.md` §1-§3, ASM-26).  The window
+is bounded by `m`, and a full window evicts fair-share: the member that leaves is the
+oldest of the family that currently holds the most (`families.md` §3).
 
 Every version member declares its `rule` and its `utility`, the catalogue members it was
 trained under, read from `agents.learners()`'s two catalogues through the granted arrow
@@ -22,6 +26,7 @@ D-20).  The id is
 a baseline's id alone, a version's `id`, ``\\x1f``, then its `rule`, ``\\x1f``, then its
 `utility` -- so a baselines-only pool keeps the id it had and two pools of one membership
 under two estimators or two objectives do not wear one id (`families.md` §4, ASM-27).
+A declaration that names no folder therefore digests exactly as it did before D-21.
 """
 
 import hashlib
@@ -31,7 +36,7 @@ from collections.abc import Mapping
 
 import agents
 
-from .declarations import BASELINES, M
+from .declarations import BASELINES, CATALOGUE, M
 from .errors import (
     FamilyBoundExceeded,
     InvalidPool,
@@ -45,6 +50,7 @@ from .errors import (
     PoolFrozen,
     LineageNotExtended,
     RuleMismatch,
+    UnknownBaseline,
     UnknownRule,
     UnknownUtility,
     UtilityMismatch,
@@ -109,6 +115,51 @@ def _utility_catalogue():
     if isinstance(catalogue, Mapping):
         return tuple(str(name) for name in catalogue)
     return ()
+
+
+# ---------------------------------------------------------------------------
+# The pinned baselines of one membership (`records.md` §8, ASM-32, D-21)
+# ---------------------------------------------------------------------------
+def _declared_baselines(declaration):
+    """The catalogue names a declaration admits beyond the pinned set (`records.md` §8).
+
+    The optional `baselines` key is a sequence of catalogue names; absent, `None` or
+    empty means the flagged three and nothing else, so a pool built from such a
+    declaration keeps the membership, the order and the id it has today.  A name outside
+    the catalogue is refused **by name**, because a membership that named a rule which
+    does not exist would be a table row this module could not build; naming a pinned
+    anchor is accepted and adds nothing, the three being members whether a declaration
+    names them or not (ASM-32, D-21, `errors.md` §4).
+    """
+    declared = declaration.get("baselines")
+    if declared is None:
+        return ()
+    if isinstance(declared, (str, bytes)) or not hasattr(declared, "__iter__"):
+        raise PoolDeclarationInvalid(
+            "build_pool(baselines): the declared baselines must be a sequence of the "
+            "catalogue's names %r, got %r" % (CATALOGUE, declared)
+        )
+    names = []
+    for name in declared:
+        if not isinstance(name, str) or name not in CATALOGUE:
+            raise UnknownBaseline(
+                "build_pool(baselines): the baseline %r is not one of the catalogue's %r"
+                % (name, CATALOGUE)
+            )
+        if name not in names:
+            names.append(name)
+    return tuple(names)
+
+
+def _pinned(declared):
+    """The pinned baseline ids: the flagged three first, then the declared folders.
+
+    Both are in `agents.baselines()`'s order, so a pool's first members are the
+    catalogue's order and never the declaration's, and no baseline is ever evicted
+    (`records.md` §8, `league.md` §2, ASM-32, ASM-33, D-21).
+    """
+    admitted = set(declared) - set(BASELINES)
+    return tuple(BASELINES) + tuple(name for name in CATALOGUE if name in admitted)
 
 
 # ---------------------------------------------------------------------------
@@ -439,17 +490,19 @@ def _check_path(member):
 def build_pool(declaration):
     """One pool from one `records.md` §8 declaration (§5, `pool.md` §2).
 
-    The declaration's three keys are all required; `m` may be tighter than the league's
-    M and never wider; every version member declares its `rule` and its `utility`, each
-    refused by name when the catalogue does not carry it and the `utility` refused by name
-    when it is absent too, the pool being the only witness of the objective a member was
-    trained under; the versions are grouped into families and ordered by
+    The declaration's three keys are all required and its optional `baselines` key names
+    the catalogue baselines it admits beyond the flagged three; `m` may be tighter than
+    the league's M and never wider; every version member declares its `rule` and its
+    `utility`, each refused by name when the catalogue does not carry it and the `utility`
+    refused by name when it is absent too, the pool being the only witness of the objective
+    a member was trained under; the versions are grouped into families and ordered by
     their lineage links; the window is bounded to `m` by the fair-share eviction rule;
-    the three baselines are added first, pinned, and the id is computed.  A declaration
-    richer than the bound is windowed, never refused, unless it holds more families than
-    the bound allows (`errors.md` §5).  A declared `id` that is one of the three pinned
-    baselines' names is refused, because the baselines are prepended here and the
-    membership would then carry that id twice (`pool.md` §2 item 1, §8).
+    the pinned baselines are added first -- the flagged three and then any declared
+    folder, in the catalogue's order -- and the id is computed.  A declaration richer than
+    the bound is windowed, never refused, unless it holds more families than the bound
+    allows (`errors.md` §5).  A declared `id` that is one of the pinned baselines' names
+    is refused, because the baselines are prepended here and the membership would then
+    carry that id twice (`pool.md` §2 item 1, §8, ASM-32, D-21).
     """
     if not isinstance(declaration, Mapping):
         raise PoolDeclarationInvalid(
@@ -491,14 +544,18 @@ def build_pool(declaration):
             "build_pool(members): the members entry must be a sequence of member "
             "records, got %r" % (declared,)
         )
+    # The pinned set this declaration admits beyond the flagged three: read first, so a
+    # name the catalogue does not carry is refused before a version is checked
+    # (`records.md` §8, ASM-32, D-21).
+    pinned = _pinned(_declared_baselines(declaration))
     records = [_check_member(record, position) for position, record in enumerate(declared)]
     # A version declared under a pinned baseline's name: the baselines are prepended
     # below, so the membership would name that id twice (`pool.md` §2 item 1, §8).
     for member in records:
-        if member["id"] in BASELINES:
+        if member["id"] in pinned:
             raise MemberDuplicate(
-                "build_pool(member %r): %r is one of the three pinned baselines' names, "
-                "and a pool names one member once" % (member["id"], member["id"])
+                "build_pool(member %r): %r is one of the pinned baselines' names, and a "
+                "pool names one member once" % (member["id"], member["id"])
             )
     for member in records:
         _check_path(member)
@@ -515,7 +572,7 @@ def build_pool(declaration):
     families = _families(records)
     window = _window(families, bound, "build_pool")
 
-    members = tuple(_baseline_member(name) for name in BASELINES) + tuple(window)
+    members = tuple(_baseline_member(name) for name in pinned) + tuple(window)
     return Pool(_pool_id(members), bound, frozen, members)
 
 
@@ -692,5 +749,12 @@ def offer(pool, version):
     while sum(len(chain) for chain in chains) > pool.m:
         _evict(chains)
     window = [member for chain in chains for member in chain]
-    members = tuple(_baseline_member(name) for name in BASELINES) + tuple(window)
+    # The pool's pinned baselines are read back off its own members -- the flagged three
+    # always, plus whatever folder its declaration admitted, in the catalogue's order --
+    # so an offer rolls the version window and leaves every baseline exactly where it was
+    # (`pool.md` §6, ASM-16, ASM-32, D-21).
+    pinned = _pinned(
+        [member["id"] for member in pool.members if member.get("baseline")]
+    )
+    members = tuple(_baseline_member(name) for name in pinned) + tuple(window)
     return Pool(_pool_id(members), pool.m, pool.frozen, members)

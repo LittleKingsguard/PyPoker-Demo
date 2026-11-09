@@ -1,8 +1,9 @@
 # agents — the callable surface
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
 - **Owner of this file:** the surface — the ten module-level names of `src/agents/`, each with its argument
   contract, its return, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.3)
+- **Rev 9:** D-21 reaches this surface in three places and moves no signature: §11's `baselines` publishes **six** records instead of three — D-6's `random`, `always-call` and `oracle`, then D-21's `fold-no-pair-or-face`, `fold-no-pair-or-better` and `fold-large-bet` — each carrying an `anchor` flag, `True` for the first three and `False` for the folders, which is the set the rating is zeroed on; §12's `build_baseline` takes one of the six and refuses a name outside them, the folders folding only where `fold` is legal and never raising while check/call is legal (`folders.md` §2, ASM-31); and every policy's readout is now the **eleven** facts, `hand_class` accepted as `None` or an integer 0–8 and refused by name otherwise (`engine/environment.md` §2, ASM-30)
 - **Rev 8:** D-20 reaches this surface beside D-19 and in the same five places: §3's `learners` publishes a second catalogue, `utilities` (two members, each with its reward, `utilities.md` §2), §4 reads the spec's optional `utility` and refuses a name outside it, §8/§9's container is format version 3 with a required `utility` field while a version-1 or version-2 file is read as `net-chips`, and §10's policy carries `utility` beside `learning_rule`; the ten names keep their signatures and return shapes, so neither caller branches on a rule or a utility (`utility.md` §1–§6, `rules.md` §2–§8, D-19, D-20)
 - **Rev 6:** §1's seeding rule restated as *leaves the stream as found*, because `engine.equity` reseeds and restores the global stream inside its own call, so *never touches it* was unsatisfiable (ASM-2, `engine/surface.md` §11)
 - **Ceiling:** 275 lines. At the ceiling, split by owner — never append
@@ -14,21 +15,18 @@ contract (`e2e-surface.md` §1, brief §5). Seven rules are shared and are state
 
 - The ten names are fixed: L2 refines types, record keys, defaults and error classes and never adds,
   removes or renames an entry point (D-12, `e2e-surface.md` §1).
-- An invalid argument is refused by raising an error that names the violated contract; no entry point
-  coerces a value, substitutes a default, swallows an error or returns part of a record
-  (`e2e-surface.md` §2).
+- An invalid argument is refused by raising an error that names the violated contract; no entry point coerces a value,
+  substitutes a default, swallows an error or returns part of a record (`e2e-surface.md` §2).
 - **No entry point leaves the global `random` stream moved**, and none takes a seed for the deal: `engine.new_hand`
   is the single seeding point, every seed here is a learner's or a baseline's own, and `engine.equity` reseeds and
   restores that stream inside its own call (ASM-2, `engine/surface.md` §11).
 - **An answer depends on the deciding state and on the decision, not on call order.** A learner is complete when
-  it is built (§4), its schedule advances inside `learn` and nowhere else, and a policy's and a baseline's state
-  advances nowhere. The decision is the observation and the legal mask (§6, §10), and the exploration is drawn from
-  its own seeded generator keyed by that decision, so one state and one decision give one answer — the property
-  `save`/`load` is measured against (ASM-5, `protocol.md` §5, ASM-2).
+  it is built (§4), its schedule advances inside `learn` only, and a policy's and a baseline's state advances nowhere.
+  The decision is the observation and the legal mask (§6, §10), and the exploration is drawn from its own seeded
+  generator keyed by that decision, so one state and one decision give one answer (ASM-5, `protocol.md` §5, ASM-2).
 - A learner, an encoder and a policy are opaque values a caller only passes back; no caller inspects, compares,
   serialises or rebuilds one (`e2e-surface.md` §1, `features/surface.md` §1). Every other returned value is plain
-  data, and the catalogues of §3 and §11 are what a report's header quotes — a cell's parameter counts and the fixed
-  baselines' rules — because a header a third party cannot read is not evidence (`records.md` §9, `protocol.md` §1).
+  data, and the catalogues of §3 and §11 are what a report's header quotes (`records.md` §9, `protocol.md` §1).
 - A record returned here carries the keys `records.md` marks **required** and, beyond them, only this
   module's own keys, which no caller may depend on (`records.md` §1, §6, D-13).
 
@@ -214,18 +212,16 @@ built for are declared here, because a learner is sized and refused against this
   `utility`, or the representation and size an encoder it carries declares — naming that key and both values, never
   coercing the spec onto the parameters (`e2e-surface.md` §2, ASM-5, `utility.md` §4, §5). `sizes` never disagrees,
   `architecture` being authoritative, and with no encoder the representation comes from the file (`records.md` §3, §7).
-- **Determinism:** one checkpoint restored twice gives two learners that decide alike, and a restored
-  learner's next decision is the saved learner's next decision, because §1 makes a decision a function of
-  state and decision rather than of call order (`protocol.md` §5, ASM-5).
+- **Determinism:** one checkpoint restored twice gives two learners that decide alike, because §1 makes a decision a
+  function of state and decision rather than of call order (`protocol.md` §5, ASM-5).
 
 ## 10. `as_policy` — one learner as a policy (`general` row)
 
 - **Signature:** `as_policy(learner, encoder, seed)`.
 - **Arguments:** a learner; an encoder from `features.build_encoder`, with which the policy turns a readout into an
   observation — built by the caller, who may be `training` or `evaluation`, because `build_encoder` is not among
-  the five calls `module-map.md` §2 grants this module; and a seed, an integer, for the policy's own generator
-  (`e2e-surface.md` §3.3, `module-map.md` §2, `protocol.md` §4). For a learner restored by §9, the seed to pass is
-  the checkpoint's recorded seed, read beside the `path` from the version record (`records.md` §7, `learner.md` §4).
+  the five calls `module-map.md` §2 grants this module; and a seed, an integer, for the policy's own generator — for a
+  learner restored by §9, the seed its checkpoint records (`e2e-surface.md` §3.3, `module-map.md` §2, `records.md` §7).
 - **Returns:** a policy in the sense of `e2e-surface.md` §2 — a callable taking the readout and the legal
   descriptors and returning one of them (`e2e-surface.md` §2, `engine/environment.md` §6) — and carrying
   `learning_rule` and `utility`, the catalogue members its learner was built under and trained on: the two
@@ -242,34 +238,38 @@ built for are declared here, because a learner is sized and refused against this
 - **Determinism:** two policies built from one learner, one encoder and one seed answer the same decisions, the only
   randomness being the policy's own seeded generator keyed by the decision (§1, `protocol.md` §4, ASM-2).
 
-## 11. `baselines` — the three fixed baselines (`fixed` row)
+## 11. `baselines` — the six fixed baselines (`fixed` row)
 
 - **Signature:** `baselines()`.
-- **Arguments:** none: the three are D-6's, so there is no parameter by which the set can be varied, and nothing
-  to refuse (`e2e-surface.md` §3.3, D-6).
-- **Returns:** one mapping keyed by the three names — `random`, `always-call`, `oracle` — each value carrying
-  that baseline's name, the rule `protocol.md` §3 states for it, and its `params` of `0`, because a baseline has
-  no trainable parameter (`protocol.md` §3, `records.md` §9). The oracle's value also declares the sample count
-  its equity query uses — the count `build_baseline`'s `oracle` itself queries, so a caller that built the
-  baseline at one seed re-issues the same query, at that seed and at the declared count, and checks the
-  inequality itself; a re-issue at any other count is a different query and cannot falsify the rule (§12,
-  `learner.md` §5, `engine/surface.md` §11, ASM-4).
-- **Determinism and ordering:** two calls return equal records, in the order `random`, `always-call`,
-  `oracle`; the catalogue is plain data a report's header quotes (`protocol.md` §1, §3).
+- **Arguments:** none: they are D-6's three and D-21's three folders, so there is no parameter by which the set can be
+  varied, and nothing to refuse (`e2e-surface.md` §3.3, D-6, D-21).
+- **Returns:** one mapping keyed by the six names in `protocol.md` §3's order — `random`, `always-call`, `oracle`,
+  `fold-no-pair-or-face`, `fold-no-pair-or-better`, `fold-large-bet` — each value carrying that baseline's name, the
+  rule `protocol.md` §3 states for it, its `params` of `0`, because a baseline has no trainable parameter, and its
+  `anchor` flag: `True` for the three of D-6 and `False` for D-21's folders, which is the set the rating is zeroed on
+  (`protocol.md` §3, `records.md` §9, ASM-32, D-21). The oracle's value also declares the sample count its equity query
+  uses — the count `build_baseline`'s `oracle` itself queries, so a caller that built the baseline at one seed
+  re-issues the same query, at that seed and at the declared count, and checks the inequality itself; a re-issue at any
+  other count is a different query and cannot falsify the rule (§12, `learner.md` §5, `engine/surface.md` §11, ASM-4).
+- **Determinism and ordering:** two calls return equal records, in the order `random`, `always-call`, `oracle`,
+  `fold-no-pair-or-face`, `fold-no-pair-or-better`, `fold-large-bet`; the catalogue is plain data a report's header
+  quotes (`protocol.md` §1, §3).
 
 ## 12. `build_baseline` — one baseline as a policy (`fixed` row)
 
 - **Signature:** `build_baseline(name, seed)`.
-- **Arguments:** one of the three names §11 declares, and a seed for that baseline's own generator
+- **Arguments:** one of the six names §11 declares, and a seed for that baseline's own generator
   (`e2e-surface.md` §3.3, ASM-4).
 - **Returns:** a policy in the sense of `e2e-surface.md` §2 (ASM-4, `protocol.md` §3). Its rule is
   `learner.md` §5's; it receives only the readout and the legal descriptors, which is why the oracle asks
-  `engine.equity` with the readout it was handed rather than with a hand (`e2e-surface.md` §2,
-  `engine/surface.md` §11).
-- **Refusals:** a name the three do not include, with that name in the error (`e2e-surface.md` §2,
+  `engine.equity` with the readout it was handed rather than with a hand, and why `fold-large-bet` reads the declared
+  starting stack through `engine.game_config` rather than holding a copy of it (`e2e-surface.md` §2,
+  `engine/surface.md` §11, `folders.md` §2, ASM-31).
+- **Refusals:** a name the six do not include, with that name in the error (`e2e-surface.md` §2,
   `protocol.md` §3); a seed that is not an integer (ASM-2).
 - **Determinism:** one decision gives one descriptor, because no baseline advances any state; for `random` one seed
-  repeats its choices and two seeds differ (`protocol.md` §3), while `always-call` and `oracle` are functions of the
-  decision alone. The draw is keyed by the decision as a learner's exploration is, since a uniform draw over a
-  decision's legal indices cannot come from a stream position (§1, `protocol.md` §3, §4, ASM-4). A baseline
-  never learns, and its policy carries no `learning_rule` and no `utility` (D-6, `e2e-surface.md` §2, D-19, D-20).
+  repeats its choices and two seeds differ (`protocol.md` §3), while `always-call`, `oracle` and the three folders are
+  functions of the decision alone — a folder decides identically at one seed twice and at two different seeds. The draw
+  is keyed by the decision as a learner's exploration is, since a uniform draw over a decision's legal indices cannot
+  come from a stream position (§1, `protocol.md` §3, §4, ASM-4). A baseline never learns, and its policy carries no
+  `learning_rule` and no `utility` (D-6, `e2e-surface.md` §2, D-19, D-20).

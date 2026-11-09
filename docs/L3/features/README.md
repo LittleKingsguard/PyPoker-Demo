@@ -4,10 +4,10 @@
 - **Realises:** `docs/L2/features/surface.md` (the seven entry points, their refusals and their ordering) and
   `docs/L2/features/encodings.md` (the two encodings, the nine carried fields, the contracts at the engine
   and `agents` edges)
-- **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.2, §5, `docs/L1/records.md` §1, §2, §4, §6,
-  `docs/L1/ladder.md` §2–§5, `docs/L1/module-map.md` §2–§3, `docs/L1/battery.md` §2–§4,
-  `docs/L1/assumptions.md` (ASM-2, ASM-6, ASM-7, ASM-9, ASM-10), `strata/decisions.md` (D-1, D-2, D-3,
-  D-12, D-13, D-15); and, as inherited fact and never as code, `docs/L3/engine/README.md` §4,
+- **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.2, §5, `docs/L1/folders.md` §3, `docs/L1/records.md` §1,
+  §2, §4, §6, `docs/L1/ladder.md` §2–§5, `docs/L1/module-map.md` §2–§3, `docs/L1/battery.md` §2–§4,
+  `docs/L1/assumptions.md` (ASM-2, ASM-6, ASM-7, ASM-9, ASM-10, ASM-30), `strata/decisions.md` (D-1, D-2,
+  D-3, D-12, D-13, D-15, D-21); and, as inherited fact and never as code, `docs/L3/engine/README.md` §4,
   `docs/L3/engine/readout.md` §2–§3, `docs/L3/engine/history.md` §1, `docs/L3/engine/actions.md` §1–§2
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Implements:** `src/features/` (written by L4, never by L3). `tests/features/` is this design's unit
@@ -78,7 +78,7 @@ argument — is `docs/L2/features/surface.md` §1 and is not restated here.
   `engine.apply_action` accepts, in ascending index order, at most one per index
   (`docs/L3/engine/actions.md` §1, `docs/L3/engine/stepping.md` §1). That is why
   `legal_indices` is positional and never a lookup (`vocabulary.md` §2).
-- **The readout's value shapes** — the exact types `encode` reads, and the only ten keys that exist:
+- **The readout's value shapes** — the exact types `encode` reads, and the only eleven keys that exist:
 
 | Key | The value this module receives |
 |---|---|
@@ -92,6 +92,7 @@ argument — is `docs/L2/features/surface.md` §1 and is not restated here.
 | `limit` | `tuple[int, int]`: the bet size in force (2 or 4), the bet-or-raise actions made this street (0–4, the cap of ASM-6) |
 | `history` | `list[str]`: oldest first, empty before the first action, at most 23 entries |
 | `legal` | `tuple[str, ...]`: carried by the readout and **not** carried by an observation |
+| `hand_class` | `int` or `None`: the acting seat's best five-card hand of `hole` plus `board`, `None` before the flop — a derived fact **no** encoding carries (`encodings.md` §2, `folders.md` §3, ASM-30) |
 
 ## 5. Decisions a later module must not re-derive
 
@@ -104,8 +105,8 @@ argument — is `docs/L2/features/surface.md` §1 and is not restated here.
    encode path — a per-encoding function, a subclass, or a fork of the module — is a D-3 violation
    and the unit battery holds this.
 3. **The block order is the field order.** In both encodings the blocks appear in the order of the
-   spec's `fields`, which is the readout's own order less `legal`. One order exists in the project for
-   one fact set (`encoder.md` §3).
+   spec's `fields`, which is the readout's own order less `legal` and `hand_class`. One order exists in the
+   project for one fact set (`encoder.md` §3).
 4. **The pad is id `0`, and only the board and the history pad.** No other block may emit `0`
    (`card-tokens.md` §3).
 5. **`flat-numeric` never buckets an amount; `card-tokens` always does.** The dense encoding divides

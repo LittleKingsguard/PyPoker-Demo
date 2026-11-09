@@ -1,6 +1,6 @@
 # engine — L2 integration interface
 
-- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09
 - **Covers:** the nine entry points of `docs/L1/e2e-surface.md` §3.1 and the environment they expose (D-2, ASM-2)
 - **Reads:** `docs/L1/module-map.md` §2–§3, `e2e-surface.md` §1, §2, §3.1 and §5, `records.md` §1 and §5, `ladder.md` §4, `protocol.md` §2–§4, `league.md` §3, `battery.md` §3–§4, `assumptions.md` (ASM-6, ASM-12), `strata/platform.md`
 - **Ceiling:** 60 lines. At the ceiling, split by owner — never append
@@ -20,7 +20,7 @@ game's (D-2, D-3).
 | Document | The owner of that question | What it fixes |
 |---|---|---|
 | `surface.md` | the callable surface | for each of the nine entry points: what it takes, what it returns, what it refuses, and its ordering and determinism guarantee (`e2e-surface.md` §3.1) |
-| `environment.md` | the environment, and its callers | how a hand is dealt, advanced, ended and paid; the ten readout facts and what they must never expose; the episode record; `equity`; seeding and the sequential rule; the contracts `features`, `agents`, `evaluation` and `training` hold at this edge; the battery invariants this module carries (`battery.md` §3) |
+| `environment.md` | the environment, and its callers | how a hand is dealt, advanced, ended and paid; the eleven readout facts and what they must never expose; the episode record; `equity`; seeding and the sequential rule; the contracts `features`, `agents`, `evaluation` and `training` hold at this edge; the battery invariants this module carries (`battery.md` §3) |
 
 ## 3. Boundaries
 
@@ -47,7 +47,7 @@ hands and the sample counts are the caller's to invent, and every valid instance
 ## 5. What is left to L3
 
 This document stops at the entry point. `role_l3_designer` owns the module design: the hand's data
-structure and its wrapper over a `pokerkit` state, how the ten facts are assembled and which card
+structure and its wrapper over a `pokerkit` state, how the eleven facts are assembled and which card
 spelling they use, how `equity` obtains its sample and leaves the global stream where it found it,
 the error classes the refusals raise, and the file layout under `src/engine/` (D-1, `module-map.md` §5). Every
 one of those is named as free here and is designed there, not here (D-12, D-13).

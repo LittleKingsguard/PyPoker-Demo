@@ -1,6 +1,6 @@
 # training — module design (L3)
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09 · **Rev 7** grants the utility catalogue, the `utility` field and the reward transform `reward.md` owns
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09 · **Rev 7** grants the utility catalogue, the `utility` field and the reward transform `reward.md` owns · **Rev 8** forwards a configuration's declared `baselines` and reads one `baselines` row per baseline the pool holds (D-21)
 - **Owner:** the module — what it is, the document map, the six names, the layout of `src/training/`, the import boundary, the facts it inherits, and the decisions a later module must not re-derive; Rev 4 grants the `agents.learners()` read and the forwarded rule (D-19), Rev 5 declares each shipped artefact's `rule`, and Rev 6/7 add the utility axis end to end (D-20)
 - **Realises:** `docs/L2/training/surface.md` (the six entry points) and `docs/L2/training/loop.md` (the registry as data, the one loop, what a comparison holds constant, budgets, the checkpoints, the contracts at this edge)
 - **Reads:** `docs/L1/e2e-surface.md` §1, §2, §3.5, §5, `records.md` §1–§5, §7–§8, §12, `ladder.md` §1–§6, `protocol.md` §1–§6, `league.md` §1–§7, `module-map.md` §1–§5, `utilities.md` §1–§9, `assumptions.md` (ASM-2, ASM-5, ASM-7–ASM-10, ASM-12, ASM-14, ASM-16, ASM-18, ASM-25, ASM-27–ASM-29),
@@ -15,13 +15,14 @@
 
 ## 1. What this module is
 
-`training` **is** the rung registry plus the one training loop every rung is a configuration of (D-3): it declares the lineage it
-inherits, freezes the pool that lineage yields before a variant trains, draws each hand's opponent from that pool, plays through
-`engine` on an observation from `features` and a decision and update from `agents`, builds each variant under the rule and the utility it
-declares, and returns the run record (`module-map.md` §1, §3, D-16, D-19, D-20). It claims no result, measures no cell, fits no rating
-and never chooses the membership (D-16, ASM-16), so a rung-to-rung difference belongs to the configuration and a seventh configuration runs
-without new code (D-3, FAM-15). Its other two owned paths are data — `notebooks/`, one thin notebook per rung calling declared entry points
-only (D-5, `ladder.md` §7), and `checkpoints/`, the shipped models and the intra-run snapshots the pool is a view over (ASM-18).
+`training` **is** the rung registry plus the one training loop every rung is a configuration of (D-3): it declares the lineage it inherits,
+freezes the pool that lineage yields before a variant trains — the catalogue's pinned baselines plus whatever `baselines` names it declares —
+draws each hand's opponent from that pool, plays through `engine` on an observation from `features` and a decision and update from `agents`,
+builds each variant under the rule and the utility it declares, and returns the run record (`module-map.md` §1, §3, D-16, D-19, D-20, D-21).
+It claims no result, measures no cell, fits no rating and never chooses the membership (D-16, ASM-16, ASM-32), so a rung-to-rung difference
+belongs to the configuration and a seventh configuration runs without new code (D-3, FAM-15). Its other two owned paths are data — `notebooks/`,
+one thin notebook per rung calling declared entry points only (D-5, `ladder.md` §7), and `checkpoints/`, the shipped models and the intra-run
+snapshots the pool is a view over (ASM-18).
 
 ## 2. The documents, one per owner
 
@@ -58,43 +59,42 @@ only (D-5, `ladder.md` §7), and `checkpoints/`, the shipped models and the intr
 
     __init__.py     the six entry points, __all__, and nothing else (§3)
     errors.py       TrainingError and its subclasses (errors.md §2)
-    declarations.py SEEDS, LIVE_BUDGET, PARAM_BUDGET, HYPER, LEARNING_RULE, UTILITY, learning_rules(), utilities(), TABLE, DEVICE, RETAINED, SNAPSHOTS, RUNGS, PAIR_SETTINGS
+    declarations.py SEEDS, LIVE_BUDGET, PARAM_BUDGET, HYPER, LEARNING_RULE, UTILITY, BASELINES, learning_rules(), utilities(), TABLE, DEVICE, RETAINED, SNAPSHOTS, RUNGS, PAIR_SETTINGS
     registry.py     rungs(), rung(), _configuration(), _pool_entry(), _window(), RUNG_NAMES (registry.md)
     seeds.py        _derive(), _deal_seed(), _opponent_seed() (seeds.md)
     policies.py     _learner_policy() (episode.md §2)
     episode.py      _seat(), _transitions(), REWARDS, _reward_token(), _reward_function(), _chips_in_play(), _shortfall(), _net_chips(), _stack_shortfall() (episode.md, reward.md)
     curves.py       _Curve, _axis(), _spread() (curves.md)
-    loop.py         run(), _train_variant_seed(), _timings(), _record(), _declared_rule(), _trained_rule(), _declared_utility(), _trained_utility(), _member_rules(), _member_utilities() (loop.md)
-    fairness.py     fairness(), _sides(), _axis(), _differences(), _constants(), _rule(), _utility(), _rule_set(), _utility_set() (fairness.md)
+    loop.py         run(), _train_variant_seed(), _timings(), _record(), _pool(), _pool_baselines(), _header(), _declared_rule(), _trained_rule(), _declared_utility(), _trained_utility(), _member_rules(), _member_utilities() (loop.md)
+    fairness.py     fairness(), _sides(), _axis(), _differences(), _constants(), _rule(), _utility(), _rule_set(), _utility_set(), _member_ids(), _catalogue() (fairness.md)
     devices.py      devices(), _gpu(), _probe(), _opened(), _unopened(), _denied(), _close(), _errno(), _backend(), _PROBED, _BACKEND (devices.md §1–§2)
     layout.py       ROOT, CHECKPOINT_ROOT, OVERRIDE, _write_root(), _write_path(), _final_path(),
                     _snapshot_path(), _prepare(), _relative(), _resolve(), _resolved() (checkpoints.md §1–§2)
     index.py        checkpoints(), SHIPPED, SHIPPED_RULES, SHIPPED_UTILITIES, SHIPPED_FINALS, SHIPPED_WINDOWS, _entries(), _window_members() (checkpoints.md §4)
 
-`RETAINED` is M = 5 and `SNAPSHOTS` is 10 — ASM-18's two numbers, in one place. Thirteen files, one concern each, and the private
-names in `declarations.py`, `registry.py`, `seeds.py`, `episode.py`, `curves.py`, `layout.py`, `index.py` and `fairness.py` are contract
-for `tests/training/`; `learning_rules()` and `utilities()` are the two reads of the catalogue `agents.learners()` publishes (`rules.md` §2, `utilities.md` §2, D-19, D-20).
+`RETAINED` is M = 5 and `SNAPSHOTS` is 10 — ASM-18's two numbers, in one place. Thirteen files, one concern each, and the private names in `declarations.py`, `registry.py`, `seeds.py`, `episode.py`, `curves.py`, `layout.py`, `index.py` and `fairness.py` are contract for `tests/training/`; `learning_rules()` and `utilities()` are the two reads the catalogue `agents.learners()` publishes, and `BASELINES` is the pinned set read through `evaluation.league()` (`rules.md` §2, `utilities.md` §2, ASM-32, D-19, D-20, D-21).
 
 ## 5. The import boundary (D10)
 
-`training` imports the standard library (`collections.abc`, `copy`, `errno`, `hashlib`, `os`, `statistics`, `time`) and exactly the
-granted calls (`module-map.md` §2, D-13):
+`training` imports the standard library (`collections.abc`, `copy`, `errno`, `hashlib`, `os`, `statistics`, `time`) and exactly the granted calls (`module-map.md` §2, D-13):
 
     evaluation  protocol, league, build_pool, pool_members, opponent  — never match, matrix, rating, report, offer, policy_from
     agents      learners, build_learner, act, learn, save             — never as_policy, load, param_count, baselines
     features    build_encoder, encode, observation_spec, legal_indices, decode_action  — never encodings(), action_space()
     engine      game_config, new_hand, play_hand, payoffs             — never readout, legal_actions, apply_action, is_terminal
 
+`declarations.BASELINES` is `evaluation.league()`'s `baselines` — the catalogue's `anchor: True` set, in the catalogue's order — so the pinned set is never a literal, no `baselines` call is added to the boundary, and a folder joins a pool only when a `pool` entry names it (`folders.md` §4, ASM-32, D-21).
+
 Never `harness`, never `pokerkit`, and no numerical library at module scope: the one conditional import in the module is `devices.py`'s backend probe, which imports `torch` **only after** a **read-write** open of a GPU device node has succeeded, once per process, and reports the operation, the errno and the platform situation the backend's own refusal leaves it in (`devices.md` §2, Rev 3, measured). The learner's side of a hand is a policy **assembled here** from `features.encode` + `features.legal_indices` + `agents.act` + `features.decode_action`, because `agents.as_policy` is not this module's to call (`episode.md` §2). `statistics` serves the curve (`curves.md` §3), and no call here seeds or advances the global `random` stream; only dealing moves it (ASM-2).
 
 ## 6. Facts inherited from the four modules this one calls
 
 - `engine.play_hand(seed, seat0, seat1)` deals at that seed and returns `records.md` §5's episode record; seat 0 holds the button in **every** hand, so seats alternate by swapping the policies (ASM-12, `engine/surface.md` §4, §10, `league.md` §3).
-- `features.legal_indices` is **position-aligned** with its argument, so a chosen descriptor becomes its vocabulary index by position and
-  no second legality channel is invented; `agents.act` returns a mapping whose `action` is the chosen index; `agents.learn` consumes the
-  caller's order, returns `td_error` and reads the reward it is handed, whatever utility produced it; `agents.save` writes exactly the path
-  given and invents no directory; `evaluation.build_pool` freezes one declaration and `pool_members` reads back `id`, `m`, `frozen` and
-  the members with the three baselines (`agents/surface.md` §6, §7, `features/surface.md` §8, §9, `evaluation/surface.md` §5, D-20).
+- `features.legal_indices` is **position-aligned** with its argument, so a chosen descriptor becomes its vocabulary index by position and no
+  second legality channel is invented; `agents.act` returns a mapping whose `action` is the chosen index; `agents.learn` consumes the caller's
+  order, returns `td_error` and reads the reward it is handed, whatever utility produced it; `agents.save` writes exactly the path given and
+  invents no directory; `evaluation.build_pool` freezes one declaration — a `pool` entry's `baselines` forwarded as it stands — and `pool_members`
+  reads back `id`, `m`, `frozen` and the pinned baselines, the anchor three and any declared folder (`agents/surface.md` §6, §7, `evaluation/surface.md` §5, ASM-32, D-21).
 
 ## 7. The decisions this design fixed, each with the alternative it rejected
 
@@ -116,5 +116,5 @@ Never `harness`, never `pokerkit`, and no numerical library at module scope: the
 
 1. **A rung is a row of data and `run` is the only path into the loop**; `rung(name)` never resolves a configuration (D-3).
 2. **The interval is `budget // 10`, and every seed is a `hashlib` derivation of `(seed, index)` and never a draw** (seeds.md §2).
-3. **A transition's `action` is an index, a terminal transition carries its own `next_legal`, and the terminal reward is the utility's** — `0.0` at every other decision, and no arithmetic in `learner.py` reads a utility (episode.md §3–§4, reward.md §1, §5, D-20).
-4. **The record names the retained five and the final model, carries one pool id — the declared one — and states each variant's rule and utility plus the run's `rules` and `utilities` sets** (loop.md §3, D-19, D-20).
+3. **A transition's `action` is an index, a terminal transition carries its own `next_legal`, and the terminal reward is the utility's** — `0.0` elsewhere, and no arithmetic in `learner.py` reads a utility (episode.md §3–§4, reward.md §1, §5, D-20).
+4. **The record names the retained five and the final model, carries one pool id — the declared one — and states each variant's rule and utility plus the run's `rules` and `utilities` sets** (loop.md §3, D-19, D-20); **a pool's pinned set is the catalogue's `anchor: True` members read off the flag plus the folders a declaration's `baselines` names, and no count here is a hard-coded three** (registry.md §3, loop.md §4, fairness.md §5, ASM-32, D-21).

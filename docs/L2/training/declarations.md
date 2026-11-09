@@ -1,6 +1,6 @@
 # training — what a configuration declares, and what the run honours
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-08
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
 - **Owner of this file:** every key of `ladder.md` §3's schema read against the one loop's own behaviour (§1), the
   rule that keeps a discarded declaration out of a run (§2), the refusals it raises and what each message names (§3),
   the declarations a matched pair must share (§4), and why this module refuses a `hyper` block instead of learning to
@@ -20,7 +20,7 @@ named as refused in §2.
 | The key | What a run does with it |
 |---|---|
 | `name` | read: the record's `rung` (`surface.md` §4) |
-| `variants`, `pool` | read: the pool's `members`, `m` and `frozen` go to `evaluation.build_pool`, and its `id` and `lineage` are carried in the record (`loop.md` §3 step 2) |
+| `variants`, `pool` | read: the pool's `members`, `m` and `frozen` go to `evaluation.build_pool`, its optional `baselines` key is forwarded as it stands — a name the catalogue lacks is that entry point's `UnknownBaseline`, naming it, never this module's substitution — and its `id` and `lineage` are carried in the record (`loop.md` §3 step 2, `records.md` §8, ASM-32, D-21) |
 | `seeds`, `samples`, `device`, `table` | read, at the configuration and then at its first variant entry, and recorded (`surface.md` §4) |
 | variant `name`, `backend`, `encoding`, `architecture` | read: `kind`, `width`, `depth` and `sparsity` build the learner, and `residual` is forwarded to `agents.build_learner`, whose kind decides (`surface.md` §4.2, `agents/surface.md` §3) |
 | variant `param_budget`, `samples`, `seeds`, `device`, `table` | read: the declared budget the `params` block reports, and the defaults `surface.md` §4 names |

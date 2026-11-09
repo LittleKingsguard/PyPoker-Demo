@@ -1,6 +1,6 @@
 # training — the one loop
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09 · **Rev 7** forwards a variant's `utility` to `agents.build_learner` and to the transition step, and records it per variant, per pool member and as the run's `utilities` set (§1 steps 3 and 6, §3–§4, D-20)
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09 · **Rev 7** forwards a variant's `utility` to `agents.build_learner` and to the transition step, and records it per variant, per pool member and as the run's `utilities` set (§1 steps 3 and 6, §3–§4, D-20) · **Rev 8** forwards a `pool` entry's `baselines` and reads one `baselines` row per baseline the frozen pool holds (§1 step 2, §3–§4, D-21)
 - **Owner:** `run()` — the nine steps every rung is a configuration of (§1), the per-pair pass (§2), the run record key by key
   (§3), the sub-records it carries (§4), the arguments and their defaults (§5), the refusals (§6), determinism (§7); Rev 2 refuses
   the declarations a run would not use and reports the declared `param_budget` (§3–§4); Rev 3 reads the `hyper` block and the
@@ -23,9 +23,9 @@ document (`loop.md` §3, FAM-15.1). Steps 3–8 repeat per variant and per seed;
    carries, and the `snapshot_every` of either level, each at both levels (§2) — and, for two entries, the **five** settings both arms
    must share (§6); then the pool, at step 2. No step after this one sees a configuration this one refused (`errors.md` §2).
 2. **Freeze the pool before the first hand.** The declaration is `{"members": <config["pool"]["members"] filtered to versions
-   whose `path` names a readable file>, "m": config["pool"]["m"], "frozen": config["pool"]["frozen"]}`; it goes to
-   `evaluation.build_pool` and `evaluation.pool_members` reads the membership back. No snapshot of this run enters it, and rolling is
-   `evaluation.offer` between runs (D-16, ASM-16, `registry.md` §3).
+   whose `path` names a readable file>, "m": config["pool"]["m"], "frozen": config["pool"]["frozen"]}`, plus `"baselines"` — named catalogue
+   baselines the configuration admits — when its `pool` entry declares one, forwarded as it stands and never defaulted here; it goes to
+   `evaluation.build_pool` and `evaluation.pool_members` reads the membership back. No snapshot of this run enters it (D-16, ASM-16, ASM-32, `registry.md` §3, D-21).
 3. **Build the variant under the rule and the utility it declares.** `features.build_encoder(entry["encoding"])`, then
    `features.observation_spec(encoder)` as the cross-check: `spec["representation"]` must equal the entry's `encoding`, or the run
    refuses naming both (`surface.md` §4, `features/surface.md` §5). Per seed, `agents.build_learner({"backend", "architecture",
@@ -97,12 +97,11 @@ refuses a path whose parent is missing (`agents/surface.md` §8, `checkpoints.md
 
 `records.md` §12's thirteen **required** keys — `variants` among them, and `rules` and `utilities` since D-19 and D-20 — and then this
 module's own evidence keys, `header`, `baselines` and `axis row` (`surface.md` §4, `utilities.md` §7):
-
 | Key | Content |
 |---|---|
 | `rung` | the rung name, or the unregistered configuration's own `name` (`records.md` §12) |
 | `curves` | variant → seed → `{samples, td_error, spread}` — the ten snapshot steps, the mean absolute `td_error` of each interval, the spread across seeds (`curves.md` §5) |
-| `pool` | `{id, lineage, m, frozen, members, rules, utilities}`: the **declared** id, the read-back `m`, `frozen` and ordered members — the three pinned baselines first, then the version window — and `rules` and `utilities`, the distinct rules and utilities those version members declare (`records.md` §8, §12, `registry.md` §3, D-19, D-20) |
+| `pool` | `{id, lineage, m, frozen, members, rules, utilities}`: the **declared** id, the read-back `m`, `frozen` and ordered members — the pool's **pinned** baselines first (the anchor three, then any declared folder), then the version window — and `rules` and `utilities`, the distinct rules and utilities those version members declare (`records.md` §8, §12, `registry.md` §3, ASM-32, D-19, D-20, D-21) |
 | `checkpoints` | variant → seed → `{snapshots: [<the retained five paths>], final: <that pair's final model>}`, each path `layout._relative` of what `agents.save` was handed: repository-relative with POSIX separators inside the repository root and **unchanged — absolute — outside it** (`checkpoints.md` §2, `write-root.md` §5) |
 | `seeds` | the seed set the run used, after §5's default |
 | `budget` | the hands per variant per seed the run used, after §5's default |
@@ -116,8 +115,7 @@ module's own evidence keys, `header`, `baselines` and `axis row` (`surface.md` �
 
 **One id per record, and it is the declared one** (D3): `pool.id` is `config["pool"]["id"]` — for a registry rung the read-back id of
 the membership, for a custom configuration its own `"pool-r7"`-style id — and the read-back digest id is **not** carried anywhere in the
-record, because `tests/e2e/_surface.py`'s `pool_identity` reads every `id` a record declares and two ids in one two-variant record fail
-FAM-3.18 (`loop.md` §2, ASM-16).
+record, because `tests/e2e/_surface.py`'s `pool_identity` reads every `id` a record declares and two ids in one two-variant record fail FAM-3.18 (ASM-16).
 
 ## 4. The sub-records, in the shape their readers expect
 
@@ -131,12 +129,14 @@ FAM-3.18 (`loop.md` §2, ASM-16).
 - `variants[i] = {name, backend, encoding, architecture, learning_rule, utility, samples, snapshot_every}` — `architecture` the entry's
   record copied verbatim, `samples` its declared budget (the run's hands when the entry declares none), `snapshot_every` the interval the
   run used, and `learning_rule`/`utility` **the member of each axis the learner was built under**: the entry's, else its configuration's,
-  else the catalogue's first, which is what `agents` built when the entry named neither, so a reader rebuilds that learner
-  (`rules.md` §4, `utilities.md` §5, D-19, D-20).
+  else the catalogue's first, which is what `agents` built when the entry named neither (`rules.md` §4, `utilities.md` §5, D-19, D-20).
 - `rules = [<one rule per distinct estimator trained>]` and `utilities = [<one utility per distinct objective trained>]` — the sets the
   per-variant rows name, in declaration order and deduped, so `records.md` §12's `rules` and `utilities` are read off the record itself;
-  `pool.rules` and `pool.utilities` are the same sets for the opposition, off the members' own fields
-  (`records.md` §8, §12, `rules.md` §7, `utilities.md` §7, D-19, D-20).
+  `pool.rules` and `pool.utilities` are the same sets for the opposition, off the members' own fields (`records.md` §8, §12, `rules.md` §7, `utilities.md` §7, D-19, D-20).
+- `baselines` and `header` — `_pool_baselines(pool_record)` reads the baseline ids the frozen pool **actually holds** off its own members,
+  so `baselines["rows"]` is one `{member, hand count, pinned: True, measured: False}` row per baseline the pool holds — the anchor three
+  and any declared folder, in the pool's order — and the header's `parameter counts` carry a declared `0` for each of those names: no
+  count here is a hard-coded three (`records.md` §8, `protocol.md` §3, ASM-32, D-21, `evaluation/surface.md` §13).
 
 ## 5. The arguments, and what an omitted one means (D3)
 
@@ -148,7 +148,7 @@ FAM-3.18 (`loop.md` §2, ASM-16).
 - `device` omitted → the configuration's `device`, else `devices()["default"]`, which is `"cpu"`; a named device must be one
   `devices()["available"]` lists, or the run refuses naming it (`devices.md` §1, D-8).
 - `snapshot_every` and `table` are read from the configuration and are never arguments: the interval is `budget // 10` (§2) and a
-  missing `table` is recorded as `live`; `learning_rule` and `utility` are read from the declaration too (`utilities.md` §5, D-20).
+  missing `table` is recorded as `live`; `learning_rule`, `utility` and a `pool` entry's `baselines` are read from the declaration too (`utilities.md` §5, D-20, D-21).
 
 ## 6. The refusals of this document
 
@@ -185,6 +185,6 @@ different membership a different pool id (FAM-4.9); the **timings** are the one 
 The loop's control structure, whether the per-pair pass is a generator or a list, how the snapshot count is tracked, the name and shape
 of the resolve step's declaration checks, how a variant's rule and utility are resolved from its entry and its configuration, and where
 the `param_budget` validation sits (at step 1 and inside `_param_budget`); and every private name other than `_train_variant_seed`,
-`_timings` and `_record`, whose signatures are contract for `tests/training/` (`README.md` §4). Not L4's: §1's order, the nine steps'
-content, the `budget // 10` interval, the record's thirteen keys, the one-id rule, both members forwarded and built under, the four
-timing key names, the order §1 step 1 refuses in and the message texts (`guardrails.md` G21–G23).
+`_timings`, `_record` and `_pool_baselines`, whose signatures are contract for `tests/training/` (`README.md` §4). Not L4's: §1's order, the nine steps' content,
+the `budget // 10` interval, the record's thirteen keys, the one-id rule, both members forwarded and built under, the four timing key names,
+one `baselines` row per baseline the pool holds with its declared `0`, the order §1 step 1 refuses in and the message texts (`guardrails.md` G21–G23).

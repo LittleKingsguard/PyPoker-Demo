@@ -35,11 +35,12 @@ with the matrix's membership, so a hand-built table may list its pair in either 
 so a tie is a half-win to each side and the cell's total is its hands (`league.md` §4, ASM-17). A member's win mass
 is `W_a = Σ_b w_ab` and its expected win mass is `E_a = Σ_b n_ab · s_a / (s_a + s_b)`.
 
-**The anchor** is the three baselines' mean fixed at **0** (`league.md` §4, ASM-17). It is applied as a shift after
+**The anchor** is the mean of the **pinned three** fixed at **0** — the catalogue's `anchor: True` members,
+`random`, `always-call` and `oracle` (`league.md` §4, ASM-17, ASM-32, D-21). It is applied as a shift after
 every iteration — `c = (θ_random + θ_always-call + θ_oracle) / 3`, then `θ_i ← θ_i − c` for every member — because the
 likelihood is invariant to adding one constant to every `θ` and the shift therefore changes no probability while it
-pins the scale (`records.md` §11, D-16). The three baseline positions are found by **id equality** with
-`agents.baselines()`'s names, which is why a baseline's member id is its name (`pool.md` §2).
+pins the scale (`records.md` §11, D-16). Its positions are `declarations.BASELINES`' own, found by **id equality** with
+the catalogue's names (`pool.md` §2); a folder D-21 adds has no `anchor` flag, is fitted as an ordinary member and never moves the scale (`docs/L1/folders.md` §4).
 
 ## 3. The solver, the tolerance and the bound
 
@@ -109,7 +110,7 @@ repeated, and the interval is the 2.5th to 97.5th percentile of the resulting va
 |---|---|
 | `values` | keyed by member id, in `members` order, one entry each: `{"value": float, "interval": (lower, upper), "hands": int, "bounded": bool}` |
 | `method` | the `str` `Bradley-Terry` — the same string `protocol()["rating"]["method"]` declares (`declarations.md` §2.2) |
-| `anchor` | `declarations.md` §2.2's sentence, written there as `the three baselines' mean fixed at 0` — §2.2 is its one home, and `league()["rating"]` carries the same `str` |
+| `anchor` | `declarations.md` §2.2's sentence, written there as `the mean of the three anchor baselines fixed at 0 — random, always-call, oracle` — §2.2 is its one home, built from `BASELINES`, and `league()["rating"]` carries the same `str` |
 | `bound_applied` | `True` iff §3's bound changed a value — a clamp at step 3 or a pin at step 4; a `bool` |
 | `bootstrap_seed` | the integer §4's generator was built from |
 | `converged` | `True` iff §3 step 5 stopped on `TOLERANCE`; a `bool` |
@@ -138,13 +139,12 @@ of hands behind the value (`records.md` §11, FAM-9.5). `bounded` repeats `bound
 A `table` label's **value** is not re-judged here: `matrix` refused anything but `live` or `full` when it built the
 record (`matrix.md` §7), and `rating` fits a hand-built record by the rules above and nothing else (`surface.md` §11). A
 cell whose two directions disagree with its hand count is not refused either: §2's `n_ij` is the observed total, so the
-fit reads what the record says instead of repairing it — refusing more than `surface.md` §11 refuses is a defect, so a
-battery may hand any valid table, hand-built ones included.
+fit reads what the record says instead of repairing it — and a membership of K members is fitted as it stands, so
+refusing more than `surface.md` §11 refuses is a defect, and a battery may hand any valid table, hand-built ones included.
 
 ## 7. What is deliberately free
 
 - the container of `values` — a mapping keyed by member id (this design's choice) or a sequence of entries each
-  carrying its member's id (`records.md` §11 fixes one entry per matrix member, not the container);
-- the dtype of the returned numbers beyond being plain `float`s, the sign convention of the interval's two ends, and
-  the arithmetic order inside a step (a different order moves the last bits, not the answer);
+  carrying its member's id (`records.md` §11 fixes one entry per matrix member, not the container); the dtype of the returned
+  numbers beyond being plain `float`s; the sign convention of the interval's two ends; and the arithmetic order inside a step;
 - whether the 200 replicates are collected or reduced as they are drawn — only `RESAMPLES`, §4's draws and percentiles are contract.

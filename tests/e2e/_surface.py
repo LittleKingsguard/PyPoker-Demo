@@ -85,7 +85,48 @@ FULL_CELL_HANDS = 1500
 
 FLAT = "flat-numeric"
 TOKENS = "card-tokens"
-BASELINES = ("random", "always-call", "oracle")
+
+# The baseline catalogue `protocol.md` §3 publishes, in catalogue order: D-6's three fixed
+# rules first, then D-21's three simple folders (`e2e-surface.md` §3.3, D-6, D-21).  A case
+# about the *catalogue* reads all six; a case about a pool's pinned membership, a matrix's
+# baseline rows or the rating's anchor reads :data:`ANCHOR_BASELINES`, because the three of
+# D-6 are the only ones pinned by every pool and zeroed by the fit (`protocol.md` §3,
+# `records.md` §8, §11, ASM-32).
+BASELINES = (
+    "random",
+    "always-call",
+    "oracle",
+    "fold-no-pair-or-face",
+    "fold-no-pair-or-better",
+    "fold-large-bet",
+)
+
+# The catalogue's `anchor: True` members — D-6's three fixed rules.  They are pinned in
+# every pool whether a declaration names them or not, and they are the rating's anchor; a
+# folding baseline is never one (`protocol.md` §3, `league.md` §2, §5, ASM-32).
+ANCHOR_BASELINES = BASELINES[:3]
+
+# D-21's three folding baselines, in catalogue order: members and table rows only when a
+# configuration's membership declaration names them, and never the anchor (D-21,
+# `folders.md` §2, §4).
+FOLDER_BASELINES = BASELINES[3:]
+
+# One invented baseline name the catalogue does **not** carry, for the refusals
+# `agents.build_baseline` and `evaluation.build_pool` owe a name outside it
+# (`folders.md` §2, `records.md` §8, `protocol.md` §3).  It is the battery's own; no
+# document in `docs/L1/` carries it (`battery.md` §4).
+UNKNOWN_BASELINE = "always-raise-battery"
+
+# The rank alphabet of the one card spelling (`docs/L3/engine/readout.md` §3) and the
+# ranks D-21 pins as face cards, J, Q, K **or A** (`folders.md` §2, ASM-30).  A folder case
+# recomputes its rule from the readout's own spellings through these two, so the case
+# holds no copy of a rank.
+RANKS = "23456789TJQKA"
+FACE_RANKS = ("J", "Q", "K", "A")
+
+# The invented seeds a folder case drives its hands at: one hand per (opponent, seat, seed)
+# (`folders.md` §2, §6, `battery.md` §4).
+FOLDER_SEEDS = (SEED_A, SEED_B, SEED_C, SEED_D, SEED_E, SEED_F, SEED_G, SEED_H)
 
 # The learning-rule catalogue `rules.md` §2 publishes: two members, the first of which is
 # the declared default of §4.  A case that needs "one architecture, two rules" reads the
@@ -119,6 +160,10 @@ UTILITY_DEPTH = 3
 # The seven evidence families of protocol.md §1, under the design's own names.
 FAMILIES = ("curves", "pool", "matrix", "rating", "baselines", "axis row", "header")
 
+# The readout facts of `e2e-surface.md` §2 — the information set D-3 holds fixed across
+# the ladder.  Eleven keys: D-21 added the eleventh, `hand_class`, a **derived** fact (the
+# class of the acting seat's best five-card hand of hole plus board, `None` before the
+# flop) that no encoding carries (`folders.md` §3, ASM-30, D-21).
 READOUT_FACTS = (
     "street",
     "seat",
@@ -130,6 +175,7 @@ READOUT_FACTS = (
     "limit",
     "history",
     "legal",
+    "hand_class",
 )
 # A checkpoint is a file whose name says so; `.gitignore` already declares the
 # project's checkpoint suffixes, so the battery requires one of these and no
@@ -530,6 +576,129 @@ def seat_split(obj):
     return found
 
 
+def readout_fact(readout, key):
+    """One readout fact, or a clear failure naming the fact the readout does not carry.
+
+    ``e2e-surface.md`` §2 makes the readout's keys exactly the eleven facts, so a fact a
+    case needs and the readout lacks is an **absent surface name** and not a
+    ``KeyError`` thrown from inside the battery: the case that needed it fails with what
+    is missing, and the battery itself stays sound (``battery.md`` §1, D-11).
+    """
+    if not is_mapping(readout):
+        raise AssertionError(
+            "engine.readout must return a mapping in the sense of e2e-surface.md §2; it "
+            "returned %r" % (type(readout).__name__,)
+        )
+    if key not in readout:
+        raise SurfaceAbsent(
+            "surface absent: engine.readout does not carry the %r fact of "
+            "e2e-surface.md §2 (it carries %r)"
+            % (key, sorted(str(name) for name in readout))
+        )
+    return readout[key]
+
+
+def seat_of(readout):
+    """The acting seat's index, read off the readout's ``seat`` fact.
+
+    ``e2e-surface.md`` §2 makes the fact "the acting seat, and whether it is the button" —
+    a pair whose first entry is the index — and ``seat_of`` reads that index so a case can
+    give one seat a policy and the other seat another (``folders.md`` §2).
+    """
+    seat = readout_fact(readout, "seat")
+    if isinstance(seat, (list, tuple)) and seat:
+        return int(seat[0])
+    if is_count(seat):
+        return int(seat)
+    values = numbers(seat)
+    if values:
+        return int(values[0])
+    raise AssertionError(
+        "the readout's `seat` fact must name the acting seat; it gave %r" % (seat,)
+    )
+
+
+def card_rank(spelling):
+    """The rank character of the one card spelling (`docs/L3/engine/readout.md` §3).
+
+    A card is two characters, rank first, from ``RANKS``; a case that recomputes a
+    folder's rank test reads the rank here and never spells a card of its own second time
+    (``folders.md`` §2, ASM-30).
+    """
+    text = str(spelling)
+    if not text or text[0] not in RANKS:
+        raise AssertionError(
+            "engine's card spelling is two characters, rank first from %r; the readout "
+            "gave %r (`docs/L3/engine/readout.md` §3)" % (RANKS, spelling)
+        )
+    return text[0]
+
+
+def starting_stack(config):
+    """The starting stack `engine.game_config()` declares, read tolerantly.
+
+    ``e2e-surface.md`` §3.1 fixes the game's stacks as 20 and leaves the declaration's key
+    spelling to the implementation, so the number is read by what its key names —
+    ``starting_stack``, ``starting stacks``, a ``stacks`` pair — and never spelled here
+    (``folders.md`` §2, ASM-31).
+    """
+    found = []
+    if is_mapping(config):
+        for key, value in config.items():
+            if "stack" in _family_token(key):
+                found.extend(numbers(value))
+    candidates = [
+        int(number) for number in found
+        if _is_number(number) and float(number).is_integer() and number > 0
+    ]
+    if not candidates:
+        raise AssertionError(
+            "engine.game_config() must declare the fixed game's starting stack "
+            "(e2e-surface.md §3.1); it declared %r" % (config,)
+        )
+    return max(candidates)
+
+
+def folder_rule_folds(name, readout, stack):
+    """Whether D-21's rule for the folder ``name`` folds at this readout, recomputed.
+
+    The predicate is derived from the readout's own facts — the rank characters of the two
+    hole spellings, ``hand_class``, and the declared starting stack — so a case that
+    compares it with the decision the folder actually made catches a folder that folded
+    one decision early or late, on the wrong street, or on the wrong comparison
+    (``folders.md`` §2, §3, D-21).
+
+    Legality is **not** part of the predicate: ``folders.md`` §2 makes a folder fold only
+    where folding is legal, and a case checks that half separately (ASM-31).
+    """
+    street = str(readout_fact(readout, "street")).strip().lower()
+    if name == "fold-no-pair-or-face":
+        # Pre-flop only: unpaired hole cards and neither card a face card
+        # (J, Q, K or A).  From the flop onward it never folds (D-21, folders.md §2).
+        if street != "preflop":
+            return False
+        ranks = [card_rank(card) for card in readout_fact(readout, "hole")]
+        return (
+            len(ranks) == 2
+            and ranks[0] != ranks[1]
+            and not (set(ranks) & set(FACE_RANKS))
+        )
+    if name == "fold-no-pair-or-better":
+        # Flop, turn and river only: a high-card-only best five (hand_class 0).  Before
+        # the flop `hand_class` is `None` and there is no five-card hand to judge
+        # (folders.md §3, ASM-30).
+        if street == "preflop":
+            return False
+        return readout_fact(readout, "hand_class") == 0
+    if name == "fold-large-bet":
+        # Any street: a call worth more than half the declared starting stack
+        # (D-21, folders.md §2, ASM-31).
+        return 2 * int(readout_fact(readout, "to_call")) > int(stack)
+    raise AssertionError(
+        "%r is not one of D-21's three folders %r" % (name, FOLDER_BASELINES)
+    )
+
+
 def is_pool_record(value):
     """Whether a mapping is a pool record: it carries members and its bound or frozen flag.
 
@@ -745,6 +914,64 @@ def action_vocabulary(space):
 def _family_token(text):
     """A family name reduced to its letters and digits: ``axis row`` == ``axis_row``."""
     return "".join(ch for ch in str(text).lower() if ch.isalnum())
+
+
+def _baseline_name(record):
+    """The catalogue name one baseline record states of itself, or ``None``."""
+    if not is_mapping(record):
+        return None
+    for key, value in record.items():
+        token = _family_token(key)
+        if token in ("name", "baseline", "id", "member") and isinstance(value, str):
+            return value
+    for key, value in record.items():
+        if "name" in _family_token(key) and isinstance(value, str):
+            return value
+    return None
+
+
+def baseline_catalogue(declared):
+    """The baseline catalogue ``agents.baselines()`` publishes, as ordered pairs.
+
+    ``protocol.md`` §3 makes the catalogue **six** members in catalogue order, each
+    carrying its rule, its ``params: 0`` and its ``anchor`` flag — true for D-6's three,
+    false for D-21's folders (`e2e-surface.md` §3.3, ASM-32, D-21).  The container's shape
+    is the implementation's freedom: a mapping keyed by baseline name with a record per
+    name, or the sequence of records.  Either is read one member per name, so a case
+    asserts the *catalogue* and never a container this battery made up.
+
+    Returns ``[(name, record), ...]`` in the order the catalogue declares them, which is
+    the order the pool's pinned baselines and the matrix's rows follow (`records.md` §8).
+    """
+    pairs = []
+    if is_mapping(declared):
+        items = list(declared.items())
+        if items and all(is_mapping(value) for _key, value in items):
+            for key, record in items:
+                pairs.append((_baseline_name(record) or str(key), record))
+            return pairs
+        for key, value in items:
+            if _family_token(key) in ("baselines", "catalogue", "records", "members",
+                                      "names"):
+                return baseline_catalogue(value)
+    elif isinstance(declared, (list, tuple)):
+        for item in declared:
+            if is_mapping(item):
+                pairs.append((_baseline_name(item), item))
+            elif isinstance(item, str):
+                pairs.append((item, {}))
+    if not pairs:
+        raise AssertionError(
+            "agents.baselines() publishes the six-member catalogue of protocol.md §3, each "
+            "member with its rule, its `params` and its `anchor` flag (e2e-surface.md "
+            "§3.3, D-6, D-21); it published %r" % (declared,)
+        )
+    return pairs
+
+
+def baseline_catalogue_names(declared):
+    """The catalogue's member names, in the order it declares them (``protocol.md`` §3)."""
+    return [name for name, _record in baseline_catalogue(declared)]
 
 
 def rule_catalogue(declared):
@@ -1663,6 +1890,38 @@ def shared_utility_league(case):
     return value
 
 
+def shared_folder_league(case):
+    """One table over a pool that **declares D-21's three folders**, built once.
+
+    The membership a configuration that declares the folders tables: the flagged three,
+    the three folders the declaration names, and the rung's one variant — K = 7, so 21
+    cells at the live budget's 120 hands (``league.md`` §4, §6, ASM-33, D-21).  It is the
+    smallest table whose pool holds the folders, and it is built once and shared by the
+    two facts that need it — the matrix's arithmetic over that membership (FAM-8) and the
+    rating's anchor on a table that holds folders (FAM-9) — because the league is
+    deterministic from its membership and its table seed (ASM-2) and no second case should
+    pay for the same table (``battery.md`` §2).
+
+    Its one variant is a learner in evaluation mode, so the table's trained column is the
+    battery's own variant and never an anchor (D-16).
+    """
+    if "folder_league" in _SHARED:
+        return _SHARED["folder_league"]
+    pool = case.folders_pool()
+    variant = case.variant_policy()
+    matrix = case.ep("evaluation", "matrix")(pool, [variant], "live")
+    rating = case.ep("evaluation", "rating")(matrix)
+    value = {
+        "pool": pool,
+        "members": case.members(pool),
+        "variant": variant,
+        "matrix": matrix,
+        "rating": rating,
+    }
+    _SHARED["folder_league"] = value
+    return value
+
+
 # --------------------------------------------------------------------------
 # The base case the battery is written on
 # --------------------------------------------------------------------------
@@ -2054,6 +2313,53 @@ class SurfaceCase(unittest.TestCase):
             hand = engine.apply_action(hand, action)
         return walk
 
+    def seated_walk(self, seed=SEED_A, policies=None, limit=240):
+        """Drive one hand with **one policy per seat**, through the engine's entry points.
+
+        ``policies`` maps a seat index to the policy that plays it; the acting seat is the
+        readout's own ``seat`` fact (``e2e-surface.md`` §2), so one seat can hold a folder
+        while the other holds the opponent it is measured against — which is how D-21's
+        folders are driven on real decisions (``folders.md`` §2, §6).  Returns
+        ``[(seat, readout, legal, action, index)]`` for each decision until the hand is
+        terminal.
+        """
+        engine = self.mod("engine")
+        if policies is None:
+            policies = {"default": self.baseline("always-call", SEED_D)}
+        hand = engine.new_hand(seed)
+        walk = []
+        while len(walk) < limit and not engine.is_terminal(hand):
+            readout = engine.readout(hand)
+            legal = engine.legal_actions(hand)
+            seat = seat_of(readout)
+            policy = policies[seat] if seat in policies else policies["default"]
+            action = policy(readout, legal)
+            walk.append((seat, readout, legal, action, self.chosen_index(legal, action)))
+            hand = engine.apply_action(hand, action)
+        return walk
+
+    def folder_walk(self, folder, opponent, seed=SEED_A, seat=0):
+        """Every decision one folder makes in one hand, as ``seat``'s policy.
+
+        The folder is built through ``agents.build_baseline`` and every other seat is
+        played by ``opponent``'s baseline, so the hand is a real one and the decisions
+        returned are the folder's own (``folders.md`` §2, §6).  ``opponent`` is a
+        catalogue name: ``always-call`` for the ordinary walks, ``random`` where a case
+        needs an opponent that bets, because a folder can fold only where folding is legal
+        and a check is not a fold (``folders.md`` §2, ASM-31).
+
+        Returns ``[(readout, legal, action, index)]``, in the order the folder decided.
+        """
+        policies = {
+            seat: self.baseline(folder, SEED_D),
+            "default": self.baseline(opponent, SEED_G),
+        }
+        return [
+            (readout, legal, action, index)
+            for decided_seat, readout, legal, action, index in self.seated_walk(seed, policies)
+            if decided_seat == seat
+        ]
+
     def transitions(self, seed=SEED_C, limit=6):
         """Transition records for ``agents.learn``, built from a driven hand.
 
@@ -2133,7 +2439,7 @@ class SurfaceCase(unittest.TestCase):
         }
 
     def membership(self, tags=("kestrel",), frozen=True, width=None, depth=None,
-                   rule=None, utility=None):
+                   rule=None, utility=None, baselines=()):
         """An invented pool declaration, in the shape ``records.md`` §8 pins.
 
         A declaration is ``members`` (the versions, by id and lineage), ``m`` (the
@@ -2141,28 +2447,47 @@ class SurfaceCase(unittest.TestCase):
         belongs to the one league of D-16 and is not the battery's to choose
         (``league.md`` §2).  ``utility`` is handed to each version, so a membership can
         declare a family trained on one utility's reward (``records.md`` §7, D-20).
+
+        ``baselines`` is §8's **optional** key — the catalogue names a configuration
+        admits beyond the flagged three, which is how D-21's folders join a membership
+        (``records.md`` §8, ASM-32, D-21).  It is omitted when empty, so a declaration
+        that names no folder is exactly the declaration this battery declared before
+        D-21 and keeps the membership and the id it had.
         """
-        return {
+        declaration = {
             "members": [self.version(tag, width, depth, rule, utility) for tag in tags],
             "m": LEAGUE_BOUND,
             "frozen": bool(frozen),
         }
+        if baselines:
+            declaration["baselines"] = list(baselines)
+        return declaration
 
     def pool(self, tags=("kestrel",), frozen=True, width=None, depth=None, rule=None,
-             utility=None):
+             utility=None, baselines=()):
         """A pool through ``evaluation.build_pool`` (``e2e-surface.md`` §3.4).
 
         ``tags`` is either the invented version tags to declare, or a ready declaration
-        in the shape ``records.md`` §8 pins (``members``, ``m``, ``frozen``) — a case that
-        brings its own lineage, its own snapshots or its own bound hands the declaration
-        over rather than a list of tags, and both routes reach ``build_pool`` with a
-        declaration and never with a tag list read back out of one.
+        in the shape ``records.md`` §8 pins (``members``, ``m``, ``frozen``, and the
+        optional ``baselines`` this battery's own declarations add) — a case that brings
+        its own lineage, its own snapshots, its own bound or its own declared folders
+        hands the declaration over rather than a list of tags, and both routes reach
+        ``build_pool`` with a declaration and never with a tag list read back out of one.
         """
         declaration = (
             tags if is_mapping(tags)
-            else self.membership(tags, frozen, width, depth, rule, utility)
+            else self.membership(tags, frozen, width, depth, rule, utility, baselines)
         )
         return self.ep("evaluation", "build_pool")(declaration)
+
+    def folders_pool(self):
+        """The pool a configuration that declares D-21's three folders builds.
+
+        The flagged three are members whether a declaration names them or not, and the
+        declared folders join pinned after them, so this pool is six members and no
+        version (``records.md`` §8, `league.md` §2, ASM-32, D-21).
+        """
+        return self.pool(tags=(), frozen=True, baselines=FOLDER_BASELINES)
 
     def baselines_pool(self):
         """The pool a first rung has: the three baselines and no version.
@@ -2293,7 +2618,8 @@ class SurfaceCase(unittest.TestCase):
                 # (records.md §7, §8; utilities.md §5).
                 "utility": spec.get("utility") or UTILITY_DEFAULT,
             })
-        members += [{"id": name, "baseline": True, "pinned": True} for name in BASELINES]
+        members += [{"id": name, "baseline": True, "pinned": True}
+                    for name in ANCHOR_BASELINES]
         identifier = "pool-" + ("-".join(tags) if tags else "baselines")
         return {"id": identifier, "m": LEAGUE_BOUND, "frozen": True, "members": members}
 
@@ -2305,7 +2631,7 @@ class SurfaceCase(unittest.TestCase):
         parameter counts of every member, the sample budget, the cell size, the seed
         set, the table seed, the device and the checkpoint paths.
         """
-        counts = {name: 0 for name in BASELINES}
+        counts = {name: 0 for name in ANCHOR_BASELINES}
         counts["variant"] = VERSION_WIDTH
         return {
             "game": self.ep("engine", "game_config")(),
@@ -2349,8 +2675,14 @@ class SurfaceCase(unittest.TestCase):
         if "rating" in include and rating is not None:
             record["rating"] = rating
         if "baselines" in include:
+            # `protocol.md` §1: every baseline row of the catalogue **the run's
+            # configuration declares** inside the matrix — always D-6's three, and D-21's
+            # folders only where a membership declaration names them.  The records the
+            # battery completes here declare no folder, so their row list is the flagged
+            # three (`records.md` §8, ASM-32, D-21).
             record["baselines"] = {
-                "rows": [{"member": name, "hand count": cell_hands} for name in BASELINES]
+                "rows": [{"member": name, "hand count": cell_hands}
+                         for name in ANCHOR_BASELINES]
             }
         if "axis row" in include:
             record["axis row"] = axis_row

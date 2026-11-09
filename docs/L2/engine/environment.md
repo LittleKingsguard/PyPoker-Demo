@@ -1,7 +1,7 @@
 # engine — the environment, and the contracts at its edge
 
-- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-05
-- **Owner of this file:** the environment — one hand's life and the facts it exposes (§1–§4) — and the contracts this module's four callers hold at its edge (§5–§6), with the battery invariants this module carries (§7) (D-2, D-3, D-13)
+- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
+- **Owner of this file:** the environment — one hand's life and the facts it exposes (§1–§4) — and the contracts this module's four callers hold at its edge (§5–§6), with the battery invariants this module carries (§7) (D-2, D-3, D-13, D-21)
 - **Ceiling:** 130 lines. At the ceiling, split by owner — never append
 
 ## 1. A hand's life: dealt, advanced, ended, paid
@@ -19,7 +19,7 @@
 
 The readout is a function of the hand alone: it takes no rung, encoder, learner, opponent or seed, so
 what an agent may know cannot differ between rungs (D-3, `e2e-surface.md` §2). It holds exactly these
-ten keys (D-3, `battery.md` §3 FAM-2):
+eleven keys (D-3, `battery.md` §3 FAM-2):
 
 | Key | Content, and the shape a caller may rely on |
 |---|---|
@@ -33,6 +33,7 @@ ten keys (D-3, `battery.md` §3 FAM-2):
 | `limit` | the fixed bet size in force and **the bet-or-raise actions made so far on this street** — 0 to 4 under the cap of ASM-6; a posted blind is not one of them, so a street's first decision reads none made, and a caller reads the bet size numerically (2 on the preflop and the flop, 4 on the turn and the river) (`e2e-surface.md` §2, ASM-6) |
 | `history` | a list of this hand's public actions, one per applied action, printing stably so two records of one deal compare, and empty — the empty list — before the first one (`e2e-surface.md` §2, `battery.md` §3 FAM-16) |
 | `legal` | the ordered descriptors `legal_actions` returns for the same hand, in the same order (`e2e-surface.md` §2) |
+| `hand_class` | the acting seat's best five-card hand of hole plus board as an integer — 0 high card, 1 one pair, 2 two pair, 3 three of a kind, 4 straight, 5 flush, 6 full house, 7 four of a kind, 8 straight flush — and `None` before the flop, where fewer than five cards are known; a **derived** fact of `hole` and `board`, so the information set is no wider, and no encoding carries it (`e2e-surface.md` §2, ASM-30, D-21) |
 
 The second `limit` entry is a count of **bet-or-raise actions** — a completion, a bet or a raise — and never of
 raises after an opening bet: ASM-6's cap is four such actions a street, the opening bet plus three raises on a
@@ -42,13 +43,13 @@ one of them, which is why a street's first decision reads `limit[1] == 0` (`e2e-
 A card is a value that names a rank and a suit, compares by value and prints stably; one spelling is
 used in `hole`, in `board` and in `history`, and which spelling that is is L3's (D-1, `e2e-surface.md` §2).
 
-The readout never carries a fact outside those ten, and in particular never does the following
+The readout never carries a fact outside those eleven, and in particular never does the following
 (D-3, `battery.md` §3 FAM-2):
 
 - never the non-acting seat's hole cards, in any form (`e2e-surface.md` §2, D-3);
 - never the undealt deck, its order, or a board card the hand has not yet revealed (D-3, `e2e-surface.md` §2);
 - never a rung, an encoding, a learner, an opponent, a seed or an episode count, because the information set is the same for every rung (D-3, `ladder.md` §4);
-- never an eleventh key, since the set of facts is closed and the invariance family compares it exactly (D-3, `battery.md` §3 FAM-2).
+- never a twelfth key, since the set of facts is closed and the invariance family compares it exactly (D-3, `battery.md` §3 FAM-2).
 
 ## 3. `play_hand` — the episode record
 
@@ -64,7 +65,7 @@ Each decision carries the five facts `records.md` §5 requires, and this module 
 them is at the edge (`records.md` §5, `battery.md` §3 FAM-16):
 
 - `seat`, the decision's own acting seat, in the shape of §2's `seat` fact;
-- `readout`, the whole ten-fact mapping of §2 for that decision, so an encoder can encode a decision after the hand is over (D-3, `records.md` §5);
+- `readout`, the whole eleven-fact mapping of §2 for that decision, so an encoder can encode a decision after the hand is over (D-3, `records.md` §5);
 - `legal`, that decision's ordered descriptor list, and `action`, the descriptor the policy returned and the engine applied (`e2e-surface.md` §2);
 - `reward`, the seat's net chip delta for the completed hand at that seat's last decision, and zero at every other decision (ASM-12, `records.md` §5).
 
@@ -96,10 +97,11 @@ Each caller's obligation is stated as what it may rely on from this module, not 
 its internals (`module-map.md` §2, D-13):
 
 - `features` encodes a readout and nothing else, so the readout is self-contained: an encoder that needed the hand could not be written against §2 (D-3, `e2e-surface.md` §2).
-- `features.observation_spec`'s `fields` is a subset of §2's ten names, so those names are the edge's shared vocabulary and may be neither renamed nor extended (D-3, `battery.md` §3 FAM-2).
+- `features.observation_spec`'s `fields` is a subset of §2's eleven names — nine facts today, and never `hand_class`, which no encoding carries — so those names are the edge's shared vocabulary and may be neither renamed nor extended (D-3, ASM-30, `battery.md` §3 FAM-2).
 - `features.legal_indices` maps this module's descriptor sequence to indices position by position, and `features.decode_action` returns a descriptor `apply_action` accepts, which is why a descriptor is hand-independent and compares by value (`e2e-surface.md` §2, D-2).
 - `agents.as_policy`, `agents.build_baseline`, `evaluation.policy_from` and `harness.seam` all return a callable taking the readout and the legal descriptors and returning one member of that list; `play_hand` accepts that protocol and knows none of those builders by name (`e2e-surface.md` §2, D-13).
 - The oracle baseline reads `pot` and `to_call` from the readout and asks `equity` with the readout it was handed, which is why `equity` accepts one (ASM-4, `protocol.md` §3).
+- `agents`' folding baselines read the readout and nothing below it: `hand_class` for `fold-no-pair-or-better`, a card's rank character for `fold-no-pair-or-face`, and `game_config`'s declared starting stack for `fold-large-bet` — never a second hand evaluator and never a copy of a game parameter (`folders.md` §2, ASM-30, ASM-31, D-21).
 - `evaluation.match` plays a cell through `new_hand` and `play_hand` one hand at a time, alternates seats by swapping the two policies, and reads `payoffs` for the chip deltas; the cell, its hand count, its seat split and its opponent are `evaluation`'s and never this module's (D-16, `league.md` §3).
 - `training.run` draws each training hand's deal and its opponent's play the same way, so a run's data is a sequence of `play_hand` calls at the run's own seeds (D-16, `module-map.md` §2).
 
@@ -112,7 +114,7 @@ what FAM-1, FAM-2, FAM-4 and FAM-16 require of this module (`battery.md` §3, D-
 | Family | What it asserts | Carried by |
 |---|---|---|
 | FAM-1 | the nine names exist, are callable, and a minimal call returns the declared kind | all nine (`e2e-surface.md` §3.1, `battery.md` §3) |
-| FAM-2 | the game is one deterministic declaration; a first decision reads preflop with a pot of 3, stacks summing to 37 and a call of 1; the readout holds exactly the ten facts; every legal descriptor has one index and `decode_action`'s descriptor is accepted | `game_config`, `readout`, `legal_actions`, `apply_action` (`battery.md` §3, §2) |
+| FAM-2 | the game is one deterministic declaration; a first decision reads preflop with a pot of 3, stacks summing to 37 and a call of 1; the readout holds exactly the eleven facts; every legal descriptor has one index and `decode_action`'s descriptor is accepted | `game_config`, `readout`, `legal_actions`, `apply_action` (`battery.md` §3, §2) |
 | FAM-4 | one seed deals one hand twice, another seed another hand, a deal ignores earlier hands, `new_hand` seeds the global random, and one seed with one policy pair gives one episode | `new_hand`, `play_hand` (`battery.md` §3, ASM-2) |
 | FAM-16 | eight invented instances — an invented seed, a first decision, a descriptor list, one applied action, a hand played out, its payoffs, its episode and an equity estimate | `new_hand`, `readout`, `legal_actions`, `apply_action`, `is_terminal`, `payoffs`, `play_hand`, `equity` (`battery.md` §4, D-15) |
 | FAM-5 | at the edge of this module: the oracle's pot-odds decision agrees with `equity` at the decision it was taken at | `equity`, `readout` (`battery.md` §3, ASM-4) |

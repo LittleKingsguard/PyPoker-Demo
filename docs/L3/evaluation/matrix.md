@@ -14,15 +14,16 @@ two-variant rung (`league.md` §3, ASM-14). `_membership(pool, variants)` return
 
     <the pool record's members, in pool_members's order>   then   "variant-1", "variant-2"   (argument order)
 
-The pool's order is `records.md` §8's — the three baselines first, in `agents.baselines()`'s order, then the window oldest
-to newest (`pool.md` §5). A variant is named `variant-1` or `variant-2` by its position in the argument list **whatever it
+The pool's order is `records.md` §8's — the **pinned** baselines first, in `agents.baselines()`'s order: the flagged three,
+then any folding baseline the declaration named, then the window oldest
+to newest (`pool.md` §5, ASM-32, D-21). A variant is named `variant-1` or `variant-2` by its position in the argument list **whatever it
 carries**: a variant is the rung's own policy, named by the slot it was handed in, so one pool and one variant list have
 one membership (`surface.md` §10). The pool must be **frozen**: a pool that may still change is no table (`surface.md` §10, ASM-16).
-
+Nothing here assumes the pool holds three baselines and a window: `K` is whatever it holds, plus `V` (`docs/L1/folders.md` §4, ASM-33).
 ## 2. The pairs, and the order the cells are played in
 
-The cells are exactly the `K(K−1)/2` unordered pairs — 6, 36 or 45 — one cell per pair and no repeat
-(`league.md` §3, ASM-14). `_pairs(k)` enumerates them lexicographically by membership position:
+The cells are exactly the `K(K−1)/2` unordered pairs — 6, 36 or 45, and 66 or 78 when D-21's three folders are declared —
+one cell per pair and no repeat (`league.md` §3, ASM-14, ASM-33, D-21). `_pairs(k)` enumerates them lexicographically by membership position:
 
     for i in range(k):
         for j in range(i + 1, k):
@@ -43,13 +44,12 @@ and derives both seeds from it, through `seeds.py`'s one digest (`scheduler.md` 
     member_seed[p]   = seeds._member_seed(table_seed, p)           # a baseline at position p — and only a baseline
 
 So a table is reproduced from its table seed, its membership and its budget: the cells depend on the seed and the
-pair positions only, the three baselines' policies on the seed and their positions only, and a version's policy on the
+pair positions only, the baselines' policies on the seed and their positions only, and a version's policy on the
 two facts its own checkpoint records (§4). Nothing here reads the global `random` stream (`scheduler.md` §3, ASM-2). The
 record carries the seed as `table_seed`, which is also what `rating` seeds its bootstrap from (`rating.md` §4). **One
 measured exception**, recorded at `docs/L2/evaluation/league.md` §7: a cell that pairs the `oracle` is not reproduced
 across processes, because the equity estimate it queries samples a run-out deck whose order is a per-interpreter hash
-order — so two runs of one producer at one seed gave different counts in the two oracle cells while the four cells
-pairing no `oracle` were identical.
+order — so two runs of one producer at one seed gave different counts in the two oracle cells while the others were identical.
 
 ## 4. How each member's policy is built
 
@@ -58,13 +58,13 @@ appears in, so one member is one player throughout a table (`scheduler.md` §5):
 
 | Member | Its policy | Its seed |
 |---|---|---|
-| a baseline (`random`, `always-call`, `oracle`) | `agents.build_baseline(name, member_seed[p])` | `member_seed[p]` — the table seed and the member's **position** (§3) |
+| a baseline (any `agents.baselines()` name the pool pins) | `agents.build_baseline(name, member_seed[p])` | `member_seed[p]` — the table seed and the member's **position** (§3) |
 | a version (a pool member with a `path`) | `policy._member_policy(record)` — i.e. `policy_from`'s builder | the seed its **checkpoint records** (`scheduler.md` §5.1, `surface.md` §10, §12) |
 | a variant (the rung's policy) | the callable it was handed as, unchanged | the caller's; it is already built (`scheduler.md` §5) |
 
-The three baseline cells are in the table like every other cell, and the baselines' policies are built at the
-derived seeds, so their three mutual cells are as reproducible as any other and no model influences them
-(`league.md` §3, `protocol.md` §3). A version's policy is built at its checkpoint's own seed and not at the table's:
+Every baseline cell is in the table like every other cell — the flagged three's and a declared folder's alike — and the baselines' policies are built at the
+derived seeds, so their mutual cells are as reproducible as any other and no model influences them (`league.md` §3, D-21). A
+version's policy is built at its checkpoint's own seed and not at the table's:
 the member is the same player in two tables, which is what makes one checkpoint one row (`protocol.md` §5). **Every
 member's rule and utility are resolved in this same pass, with its side** — `_side` returns both beside the policy
 (`scheduler.md` §5), so §5's `rules`, `utilities`, `population`, `utility_population` and `member_records` come off the
@@ -114,8 +114,8 @@ know — a member's status belongs in the producer's own provenance block, not i
 `league()["tables"][table]["hands_per_cell"]` — 120 and 1500 — and nothing else (`league.md` §5, ASM-14). One
 membership, two cell sizes: the live table is the full table's skeleton read coarsely, so a live order is a demonstration
 and the full table with its intervals is what a claim rests on (`league.md` §5, D-16). Every cell is played at that one
-count, the three baseline cells included, so no member's row is measured more precisely than another's (`league.md` §3),
-and a table plays `cell_count × hands_per_cell` hands — 720, 4,320 or 5,400 live, 9,000, 54,000 or 67,500 full (`tables.md` §1).
+count, every baseline cell included, so no member's row is measured more precisely than another's (`league.md` §3), and a
+table plays `cell_count × hands_per_cell` hands — 720, 4,320 or 5,400 live and 9,000, 54,000 or 67,500 full, or `docs/L1/folders.md` §5's 7,920/9,360 and 99,000/117,000 with the folders declared (ASM-33, `tables.md` §1).
 
 ## 7. Refusals, in this order
 
@@ -146,5 +146,5 @@ checkpoint's recorded seed, `EVL-4.8` drives the guard and `EVL-4.9` the member 
   enumeration order is what is fixed, not the type (`records.md` §10);
 - whether the cells are built lazily and collected, or played into a list — only that every cell is played at the
   table's one hand count and that two cells are never interleaved (`scheduler.md` §1);
-- the repr of a member record for a variant beyond §5's five keys. `pool` is **the pool record's `id` string** and nothing
+- the repr of a member record for a variant beyond §5's five keys; `pool` is **the pool record's `id` string** and nothing
   else, because `pool_identity` must not mistake a member's id for the pool's (`README.md` §6).

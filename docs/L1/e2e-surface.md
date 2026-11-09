@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 end-to-end I/O surface
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-09
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
 - **Purpose:** the entry points the L1 e2e battery drives, named precisely enough to call (brief §5)
 - **Ceiling:** 160 lines. At the ceiling, split by owner — never append
 
@@ -28,12 +28,13 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 | `limit` | the fixed bet size in force and the bet-or-raise actions made this street — 0 to 4, the cap in bet-and-raise actions of ASM-6, not a count of raises after an opening bet |
 | `history` | the ordered public actions of this hand |
 | `legal` | the legal action descriptors, in the engine's order |
+| `hand_class` | the acting seat's best five-card hand of hole plus board as an integer — 0 high card, 1 one pair, 2 two pair, 3 three of a kind, 4 straight, 5 flush, 6 full house, 7 four of a kind, 8 straight flush — and `None` before the flop, where fewer than five cards are known (`folders.md` §3, ASM-30, D-21). A derived fact of factors already present, not a wider information set, and no encoding carries it |
 
 **Observation spec.** `features.observation_spec(encoder)` declares `representation` (`flat-numeric` for R1/R2, `card-tokens` for R3–R6), `fields` (the subset of the readout facts the encoding carries), `vocabulary` (the token-id cardinality a learner is sized from, and null for the flat encoding), and the shape and dtype of one observation. `fields` is identical for every encoding: the ladder never changes what the agent may know, only how it is represented (D-3). A fact's *value* is `engine`'s spelling of it and `features` encodes it as given, so no second spelling of the deal exists in the project (D-2, D-13).
 
 **Action vocabulary.** `features.action_space()` is fixed for the whole ladder: three indices — `0` fold, `1` check/call, `2` raise. An action descriptor is the vocabulary's own name — `fold`, `check-call` or `raise` — and carries no amount: `engine` resolves a raise to its minimum legal completion, which fixed-limit makes unique. `features.legal_indices` returns the indices in the descriptors' order, one per descriptor, and `decode_action` maps an index back to the descriptor `engine.apply_action` accepts. The vocabulary is the game's, not a rung's (D-2).
 
-**Pool.** A pool is an ordered member list plus its bound. A member is either a `version` — a checkpoint of a run, carrying an id, the lineage it came from, its path, the **rule** it was trained under and the **utility** whose reward it was trained on — or one of the three fixed baselines, which carries neither. A pool holds at most M versions and always holds the baselines, which are never evicted; a frozen pool's membership does not change while it is used (D-16, ASM-16, D-20). Versions are grouped into families — one lineage chain each, all its members under one rule and one utility — and a full window evicts fair-share, so no family is emptied while another holds two or more (D-19, ASM-26). The same pool object is the training opposition and the evaluation opposition (D-16).
+**Pool.** A pool is an ordered member list plus its bound. A member is either a `version` — a checkpoint of a run, carrying an id, the lineage it came from, its path, the **rule** it was trained under and the **utility** whose reward it was trained on — or one of the catalogue's fixed baselines, which carries neither: the three of D-6 always, and the three folders of D-21 when the declaration names them (D-16, D-21). A pool holds at most M versions and always holds the baselines, which are never evicted; a frozen pool's membership does not change while it is used (D-16, ASM-16, D-20). Versions are grouped into families — one lineage chain each, all its members under one rule and one utility — and a full window evicts fair-share, so no family is emptied while another holds two or more (D-19, ASM-26). The same pool object is the training opposition and the evaluation opposition (D-16).
 
 **Utility.** `agents.learners()` publishes the utility catalogue a learner spec selects from: `net-chips`, the seat's unshaped net chip delta and the declared default, and `stack-shortfall`, the delta of the squared stack shortfall over the chips in play, normalised by the shortfall a hand begins with — each stated with the reward it delivers, both consuming one `hyper` declaration and one state layout (`utilities.md` §2, §3, D-20). A spec naming none builds the catalogue's **first** member, and a name outside the catalogue is refused by name — in a spec, a variant entry, a pool member and a `load` spec alike. The reward is terminal only and the TD bootstrap stays the rule's business, so a caller never branches on a utility to learn (D-19, D-20).
 
@@ -41,7 +42,7 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 
 **Cell.** A cell is one unordered pair of members played at one hand count, with seats alternating across hands, and reported in both directions: each member's wins, ties, losses, mean chip delta per hand and seat split (D-16, ASM-14). Every cell of one table is played at the same hand count, the three baseline cells included, so no member's row is measured more precisely than another's (D-16).
 
-**Rating.** A rating is fitted over a matrix, yields one value and a 95% confidence interval per member, and is anchored so the three baselines sit at zero: a rating therefore reads as a distance from the only fixed standard in the table (D-16, ASM-17). A rating is a statement about the table's named members and never a claim of poker skill (D-16).
+**Rating.** A rating is fitted over a matrix, yields one value and a 95% confidence interval per member, and is anchored so the **three anchor baselines of D-6** sit at zero — the catalogue's `anchor` flag, never a folding baseline D-21 adds: a rating therefore reads as a distance from the only fixed standard in the table (D-16, ASM-17, ASM-32). A rating is a statement about the table's named members and never a claim of poker skill (D-16).
 
 **Table budgets.** `live` and `full` are the two table budgets: one membership, two hand counts per cell. The live table is produced during a talk; the full table is precomputed offline and shipped under `tables/` (D-16, D-8, ASM-14).
 
@@ -89,16 +90,16 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 | `save` | learner, path | the written checkpoint path; the container records the rule and the utility beside the seed and the encoding (D-19, D-20) | general |
 | `load` | learner spec, path | the restored learner, under the rule and utility its container records; a spec carrying a rule or a utility the file contradicts is refused naming both | general |
 | `as_policy` | learner, encoder, seed | a policy in the sense of §2, carrying the rule and the utility its learner was built under | general |
-| `baselines` | — | the three fixed names: `random`, `always-call`, `oracle` (D-6) | fixed |
-| `build_baseline` | baseline name, seed | a policy in the sense of §2 (ASM-4) | fixed |
+| `baselines` | — | the six fixed names of `protocol.md` §3 — `random`, `always-call`, `oracle`, `fold-no-pair-or-face`, `fold-no-pair-or-better`, `fold-large-bet` — each carrying its rule, `params: 0` and an `anchor` flag that is true for the three of D-6 and false for D-21's folders (D-6, D-21) | fixed |
+| `build_baseline` | baseline name, seed | a policy in the sense of §2 (ASM-4); a folder folds only where folding is legal and never raises while check/call is legal (`folders.md` §2, ASM-31) | fixed |
 
 ### 3.4 `evaluation` — 11
 
 | Entry point | Inputs | Returns | Kind |
 |---|---|---|---|
 | `protocol` | — | the evidence contract a report is judged against: the seven families of `protocol.md` §1, the seed set, the required header (D-6, D-16) | fixed |
-| `league` | — | the league's parameters: M, the three pinned baselines, the cell count for a given membership, the live and full cell sizes, the table seed, the rating method (D-16, ASM-14) | fixed |
-| `build_pool` | a membership declaration (versions with lineage, rule and utility, plus M and whether the pool is frozen) | a pool in the sense of §2; the baselines are added and pinned, and a version's rule or utility is refused if the catalogue does not carry it (D-16, ASM-16, ASM-26, D-20) | general |
+| `league` | — | the league's parameters: M, the three pinned anchor baselines and the catalogue names a declaration may add, the cell count for a given membership, the live and full cell sizes, the table seed, the rating method (D-16, ASM-14, ASM-32, D-21) | fixed |
+| `build_pool` | a membership declaration (versions with lineage, rule and utility, plus M, whether the pool is frozen, and the catalogue baseline names it declares beyond the three of D-6) | a pool in the sense of §2; the three anchor baselines are added and pinned, each declared folder joins pinned alongside them, and a version's rule or utility or a declared baseline name the catalogue does not carry is refused by name (D-16, ASM-16, ASM-26, D-20, ASM-32, D-21) | general |
 | `pool_members` | pool | the ordered members with their metadata — each version's rule and utility included — the `rules` and `utilities` the pool holds, and the bound M the pool holds to (D-19, D-20) | general |
 | `offer` | pool, one version | the pool advanced by one version: the version extends one family and a full window evicts fair-share, so no family is emptied while another holds two or more, and a version whose rule or utility differs from its family's is refused (D-19, D-20, ASM-18, ASM-26) | general |
 | `opponent` | pool, seed | one policy drawn from the pool, for one training hand | general |
@@ -150,6 +151,6 @@ The ceiling column is `50 + 10×N` (brief §5); `modules.json` carries the `endp
 
 ## 5. General-purpose surfaces and the blind instance
 
-A row marked `general` is defined for any valid instance; a row marked `fixed` has one instance that is the project's whole point (the one game of D-2, the two encodings of D-3, the three baselines of D-6, the six rungs of brief §2, the one league of D-16, the two learning rules of D-19 and the two utilities of D-20). The battery's blind instance rule applies to the `general` rows only: for each of them the test writer authors at least one case whose instance appears in no design document, invented from this surface alone (D-15, examiner.md §3). A row is `fixed` when no instance of it can be invented through the declared surface — an encoder exists only by one of the two declared encodings, so `observation_spec` is a fixed row and is tested, not blinded.
+A row marked `general` is defined for any valid instance; a row marked `fixed` has one instance that is the project's whole point (the one game of D-2, the two encodings of D-3, the six baselines of D-6 and D-21, the six rungs of brief §2, the one league of D-16, the two learning rules of D-19 and the two utilities of D-20). The battery's blind instance rule applies to the `general` rows only: for each of them the test writer authors at least one case whose instance appears in no design document, invented from this surface alone (D-15, examiner.md §3). A row is `fixed` when no instance of it can be invented through the declared surface — an encoder exists only by one of the two declared encodings, so `observation_spec` is a fixed row and is tested, not blinded.
 
 There are 37 `general` rows — 8 in `engine`, 3 in `features`, 7 in `agents`, 9 in `evaluation`, 4 in `training`, 6 in `harness` — so the battery carries at least 37 blind instances. One case may name one `general` row as its subject and exercise other rows as a path; being the subject is what counts.

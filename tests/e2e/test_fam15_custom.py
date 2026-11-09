@@ -142,7 +142,7 @@ class FAM15Custom(S.SurfaceCase):
             "the pool carries the two invented versions the declaration names "
             "(records.md §8): %r" % (members,),
         )
-        for baseline in S.BASELINES:
+        for baseline in S.ANCHOR_BASELINES:
             self.assertIsNotNone(
                 R.baseline_member(members, baseline),
                 "the baselines are added and pinned for an invented membership too "

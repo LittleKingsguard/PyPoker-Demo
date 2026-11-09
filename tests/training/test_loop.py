@@ -67,11 +67,13 @@ from _training_support import (
     custom_run,
     curve_block,
     fallback_run,
+    folder_baselines,
     learning_rules,
     member_ids,
     one_seed_run,
     other_seed_run,
     pair_run,
+    pinned_baselines,
     registry_run,
     repeated_run,
     repo_relative,
@@ -90,6 +92,7 @@ from _training_support import (
     utility_set,
     variant_entries,
     variant_name,
+    with_pool_baselines,
     write_root,
     write_tree,
 )
@@ -532,8 +535,8 @@ class RunTest(TrainingCase):
                             % (root, declared, absolute),
                         )
 
-    def test_trn_2_8_the_pool_is_frozen_with_one_id_and_the_three_baselines(self):
-        """TRN-2.8 `pool` carries the declared id, the read-back `m` and `frozen`, and the ordered members with the three pinned baselines (loop.md §3, records.md §8, ASM-16, FAM-3.17)."""
+    def test_trn_2_8_the_pool_is_frozen_with_one_id_and_the_pinned_baselines(self):
+        """TRN-2.8 `pool` carries the declared id, the read-back `m` and `frozen`, and the ordered members with the three pinned baselines — and no folder, because the six registry rows declare none (loop.md §3, records.md §8, ASM-16, ASM-32, FAM-3.17, D-21)."""
         record = one_seed_run()
         pool = as_mapping(record["pool"], "'pool'")
         for key in ("id", "m", "frozen", "members"):
@@ -561,18 +564,89 @@ class RunTest(TrainingCase):
             "(loop.md §1 step 2, ASM-16)",
         )
         ids = member_ids(pool["members"])
-        for baseline in baseline_names():
+        for baseline in pinned_baselines():
             self.assertIn(
                 baseline,
                 ids,
-                "the three pinned baselines are pool members, in agents.baselines()'s "
-                "order (records.md §8, fairness.md §5): %r" % (ids,),
+                "the three pinned baselines are pool members, first and in "
+                "agents.baselines()'s order (records.md §8, fairness.md §5, ASM-32): %r"
+                % (ids,),
             )
+        for folder in folder_baselines():
+            self.assertNotIn(
+                folder,
+                ids,
+                "a folding baseline joins a pool only when the membership declaration "
+                "names it, and no registry row names one (records.md §8, ASM-32, D-21): "
+                "%r" % (ids,),
+            )
+        self.assertEqual(
+            ids[: len(pinned_baselines())],
+            pinned_baselines(),
+            "the pinned baselines come first, in the catalogue's order (records.md §8, "
+            "league.md §2): %r" % (ids,),
+        )
         self.assertEqual(
             as_text(pool["id"], "pool.id"),
             as_text(training().rung("R1")["pool"]["id"], "the declared pool id"),
             "the declared id is the read-back id of the membership, and the run record "
             "carries it and no second one (registry.md §5, surface.md §3.1, FAM-4.7)",
+        )
+
+    def test_trn_2_20_a_configuration_that_declares_folders_admits_them_pinned(self):
+        """TRN-2.20 a configuration whose pool entry names D-21's folders trains against a pool that pins them after the three anchor baselines, and its record's `baselines` rows, header counts, membership and id all describe the members it actually holds (loop.md §3, records.md §8, §12, ASM-32, D-21)."""
+        declared = list(folder_baselines())
+        self.assertTrue(declared, "the catalogue carries at least one folding baseline")
+        plain = custom_run()
+        named = training().run(
+            with_pool_baselines(custom_configuration(), declared),
+            (CUSTOM_SEED,),
+            TINY_BUDGET,
+        )
+        pool = as_mapping(named["pool"], "'pool'")
+        ids = member_ids(pool["members"])
+        self.assertEqual(
+            ids,
+            pinned_baselines() + declared,
+            "the anchor three come first and the declared folders follow them in the "
+            "catalogue's order, all pinned (records.md §8, ASM-32, ASM-33, D-21): %r"
+            % (ids,),
+        )
+        self.assertNotEqual(
+            ids,
+            member_ids(as_mapping(plain["pool"], "'pool")["members"]),
+            "the membership a folder-bearing declaration freezes is not the anchors-only "
+            "one, so the record describes the members it actually held (records.md §8, "
+            "ASM-32, D-21)",
+        )
+        rows = [
+            as_text(row.get("member", ""), "a baseline row")
+            if isinstance(row, dict)
+            else as_text(row, "a baseline row")
+            for row in as_sequence(
+                as_mapping(named["baselines"], "'baselines'").get("rows"), "the rows"
+            )
+        ]
+        self.assertEqual(
+            rows,
+            pinned_baselines() + declared,
+            "the run declares one row per baseline the pool holds, so a declared folder "
+            "is a row of its own record (records.md §12, protocol.md §3, D-21): %r"
+            % (rows,),
+        )
+        counts = as_mapping(named["header"], "'header'").get("parameter counts")
+        for baseline in pinned_baselines() + declared:
+            self.assertIn(
+                baseline,
+                counts,
+                "the header's parameter counts name every baseline the pool holds, at the "
+                "declared 0 (protocol.md §1, ASM-10, ASM-32, D-21): %r" % (counts,),
+            )
+        self.assertNotIn(
+            declared[0],
+            as_mapping(plain["header"], "'header'").get("parameter counts"),
+            "a configuration that declares no folder reports none, so the record "
+            "describes the membership it had (records.md §8, D-21)",
         )
 
     def test_trn_2_16_the_pool_block_carries_the_set_its_members_declare(self):

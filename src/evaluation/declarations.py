@@ -19,13 +19,25 @@ import agents
 
 from .errors import InvalidMembership
 
-#: M, the window's bound: a pool holds at most this many versions plus the three
-#: pinned baselines (`league.md` §2, ASM-14).
+#: M, the window's bound: a pool holds at most this many versions plus the catalogue's
+#: pinned baselines (`league.md` §2, §4, ASM-14, ASM-33).
 M = 5
 
-#: The three pinned baselines, in `agents.baselines()`'s order (D-6, `agents/surface.md`
-#: §11); a baseline's id is its name (`pool.md` §2 step 5).
-BASELINES = tuple(agents.baselines())
+#: The catalogue as `agents.baselines()` declares it: read once here, so the names below
+#: and their `anchor` flags come from the catalogue and never from a copy of it
+#: (`module-map.md` §2, D-13, ASM-32).
+_DECLARED = agents.baselines()
+
+#: The catalogue's six names, in `agents.baselines()`'s order (D-6, D-21,
+#: `agents/surface.md` §11); a baseline's id is its name (`pool.md` §2 step 5).  This is
+#: the names a membership declaration may add beyond the pinned set (`records.md` §8).
+CATALOGUE = tuple(_DECLARED)
+
+#: The pinned set: the catalogue's `anchor: True` members — the three baselines of D-6 —
+#: read off the catalogue's own flag and never copied as a literal list.  They are
+#: members of every pool, and they are the rating's anchor; a folding baseline D-21 adds
+#: is neither (`protocol.md` §3, `league.md` §5, ASM-32, `folders.md` §4).
+BASELINES = tuple(name for name in CATALOGUE if _DECLARED[name].get("anchor"))
 
 #: The league's one table seed -- the design revision's own date, so the number is
 #: recognisable as the league's and is no battery instance (`declarations.md` §6).
@@ -73,11 +85,15 @@ TABLE_BUDGETS = ("live", "full")
 SEED_SET = (0, 1, 2)
 
 #: The rating row: the method, the interval's level and the anchor -- one value, equal
-#: in `protocol()` and in `league()` (`declarations.md` §2.2, ASM-17).
+#: in `protocol()` and in `league()` (`declarations.md` §2.2, ASM-17).  The anchor names
+#: the **flagged three** it zeroes the fit on, spelled from the catalogue's own pinned
+#: set, so a reader is told which baselines the scale is relative to and a folder is
+#: never among them (ASM-32, `folders.md` §4, D-21).
 RATING = {
     "method": "Bradley-Terry",
     "confidence": 0.95,
-    "anchor": "the three baselines' mean fixed at 0",
+    "anchor": "the mean of the three anchor baselines fixed at 0 — %s"
+    % (", ".join(BASELINES),),
 }
 
 #: One record per family: the content items its value must carry and the exact word a
@@ -165,13 +181,15 @@ def protocol():
 
 
 def league():
-    """The league's parameters: M, the baselines, the two budgets, `cell_count`, the seed.
+    """The league's parameters: M, the baselines, the catalogue, the budgets, `cell_count`.
 
-    One mapping read under exactly six keys, in `declarations.md` §4's order.  It carries
-    **no per-hand cost figure**: ASM-21 ratifies the measured cost and supersedes
-    ASM-15's 40 ms bound, so what this declares is the budget's arithmetic on K and
-    nothing a stopwatch produced -- a measured cost lives in a run record's `timings`
-    and in the shipped artefact's cost block (`tables.md` §5, G19).
+    One mapping read under exactly seven keys, in `declarations.md` §4's order: `m`, the
+    **pinned** `baselines` (the flagged three), `catalogue` (the six names a membership
+    declaration may add beyond them), `tables`, `cell_count`, `table_seed` and `rating`.
+    It carries **no per-hand cost figure**: ASM-21 ratifies the measured cost and
+    supersedes ASM-15's 40 ms bound, so what this declares is the budget's arithmetic on K
+    and nothing a stopwatch produced -- a measured cost lives in a run record's `timings`
+    and in the shipped artefact's cost block (`tables.md` §5, G19, D-21).
     """
     tables = {}
     for budget in TABLE_BUDGETS:
@@ -184,6 +202,7 @@ def league():
     return {
         "m": M,
         "baselines": tuple(BASELINES),
+        "catalogue": tuple(CATALOGUE),
         "tables": tables,
         "cell_count": cell_count,
         "table_seed": TABLE_SEED,
