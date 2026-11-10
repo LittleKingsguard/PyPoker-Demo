@@ -784,3 +784,37 @@ that makes folding correct.
 
 Rejected: seating a scripted raiser baseline instead — it would test folding without fixing the league,
 and D-21's baselines are meant to be fixed rules, not stand-ins for trained opponents.
+
+---
+
+## D-33 — Widen the history per shape, then test a six-seat no-limit table
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Widen and then run test with six-seat game containing both folders and
+raisers in pool"
+
+**Decision:** supersedes D-32's open question and D-23's refusal of six-player seating for this test.
+
+1. **Widen the history block per shape.** The fixed-limit shape keeps its 24 slots; the no-limit shape
+   gets the capacity its uncapped betting needs. Accepting the consequence the design tried to avoid:
+   the sized shape's layout width, head width, `param_count` and containers are that shape's own, and
+   the default shape is untouched.
+2. **A third game shape: six-seat no-limit, 100-chip stacks, blinds 1/2.** The learner is one seat and
+   the other five are drawn per hand from the pool, which holds **both folders and raisers** — the
+   folders from D-21 and trained raisers as version members. This is what makes folding correct: a raise
+   from a strong-hand opponent is the situation the earlier pools never presented.
+3. **The test's evidence is the greedy census and the chips**, because the question is behavioural —
+   does the learner fold when folding pays? The pairwise matrix and the Bradley-Terry rating stay
+   pairwise and **refuse a six-seat table**; no league table is built for this shape in this pass.
+4. Phase 1's fixed-limit artefacts — 18 containers, the evidence bundle, the full table, six rungs and
+   both deep runs — remain untouched and are never compared across shapes.
+
+Rejected: coarsening or truncating the history (D-32's alternatives — the first throws away the
+resolution the sizing design exists for, the second changes the observation silently); and a scripted
+raiser baseline as a stand-in for trained opposition, which would test folding without building the
+league that must supply it (D-32).
+
+**Gate (D-10):** a second and third declared shape plus an N-seat game is a major expansion. The
+findings of D-24's and D-28's gates on multi-seat and sized actions are cited as the requirement list;
+any departure from them needs its own review. The overnight run stays gated on the test's result.
