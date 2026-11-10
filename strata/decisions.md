@@ -553,3 +553,33 @@ the bettor's seat, and an acceptance threshold with a metric and sample size nam
 plus an L0 decision on the sized action's path through the vocabulary, record and encoding, which is a
 50-endpoint surface change. Rejected: building the shape and reading the census afterwards, which is
 how this record's error would repeat at the level of a twelve-hour run (D-3, D-6, D-10).
+
+---
+
+## D-26 — The no-limit sizing gradient is confirmed; the build is justified on a pinned criterion
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed" — proceeding with the corrected instrument D-25 required.
+
+**Decision:** D-25's retraction is **superseded**. The corrected paired measurement — four sizes,
+1,000 paired hands, seats alternating — finds a resolvable, monotone price for bet size against a
+folding opponent: **¼ pot beats ½ pot by +2.03 ± 0.62** chips/hand, and **a full pot loses 7.28 ± 2.21**
+against ½ pot, with nothing resolvable against a caller. Two of my own errors produced the earlier
+figures (independent intervals on paired data; a sign bug that negated half the paired differences),
+both recorded in `nolimit-probe.md` rather than quietly fixed.
+
+So the no-limit shape has the one thing Phase 1's game never had: **a decision with a measured price**.
+The build is therefore justified — on conditions, because D-24's FAIL stands until they are met:
+
+- **A pinned acceptance criterion, fixed before any run**: the metric (an amount-conditioned action
+  distribution, not a three-descriptor census that cannot see size), the seed set, the sample size,
+  the threshold, and who computes the verdict. Variety must be measurable from a recorded amount,
+  which means the sized action has to reach the transition record and the report.
+- **The sized-action path decided as a surface change**: the vocabulary, the transition record, the
+  encoding's treatment of size, and the learner's head — a 50-endpoint decision, taken on its merits
+  with its rejected alternative, not as a side effect of a demo.
+- **The pool must carry folders into the no-limit run**, since the gradient is folder-borne; a
+  baselines-only pool would hold no opponent the price applies to.
+- The overnight run is authorised **after** a live-budget check shows the pinned criterion met, and
+  not before (D-10, D-6).
