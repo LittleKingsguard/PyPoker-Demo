@@ -1,40 +1,35 @@
-# Does no-limit make bet sizing matter? Probe · 2026-11-07
+# Does no-limit make bet sizing matter? Probe, and its retraction · 2026-11-07
 
-No-limit heads-up in the probe harness (pokerkit directly), blinds 1/2, 100-chip stacks, 400 hands per
-cell, seats alternating, sizing as a pot fraction. The fixed-limit game this project shipped is
-EV-neutral across actions (`r2-plateau-diagnosis.md`); the question here is whether no-limit is not.
+No-limit heads-up in the probe harness, blinds 1/2, 100-chip stacks, sizing as a pot fraction, D-21's
+folder as the opponent. **The headline this record first carried does not survive a paired test**, and
+the gate (`D-25`) forced the corrected arithmetic.
 
-| cell | bettor's chips/hand | folds by the folder |
-|---|---|---|
-| **pot-bet vs folder** | **−6.582 ± 4.656** | 306 |
-| **half-pot vs folder** | **−0.802 ± 1.521** | 306 |
-| pot-bet vs caller | −1.750 ± 9.847 | — |
-| half-pot vs caller | −0.560 ± 3.151 | — |
-| folder vs caller | −0.147 ± 0.181 | 81 |
+## What was first reported, and why it was wrong
 
-## Sizing now has consequences
+Against the same folder, 400 hands each: pot-bet **−6.582 ± 4.656**, half-pot **−0.802 ± 1.521** — read
+as a ~5.8 chips/hand size effect. Both cells reported **exactly 306 folds**, which is the tell: they
+ran on the *same* deals, so the two intervals were not independent and their non-overlap is not a
+test. Comparing two independent intervals on paired data overstates significance.
 
-The same bettor, the same folding opponent, two sizes: **−6.6 ± 4.7 at one pot against −0.8 ± 1.5 at
-half a pot** — a ~5.8 chips/hand difference that clears its interval. In the fixed-limit game the
-identical comparison was inside noise because a four-bet cap made every size the same size. This is
-the first measured quantity in the project that *rewards a decision*: over-betting into a disciplined
-folder is punished, restraint pays, and the gradient the learner needs finally exists.
+## The paired measurement
 
-Why the sign is negative for the bettor: the folder continues only with a pair or better, so a pot
-bet is called exactly when the bettor is behind and folds out everything it beats — the classic price
-of betting into a folder with a wide range.
+Same deals, seats alternating, 600 paired hands, difference taken per hand:
 
-## What it costs to have it in the product
+**pot-bet minus half-pot = −0.907 ± 3.026 chips/hand**, and only **93 of 600** hands differ at all
+(the other 507 produce the same payoff, because the folder folds in both runs or both reach the same
+showdown).
 
-The action vocabulary is three indices today (`fold`, `check-call`, `raise` at the minimum legal
-completion). No-limit needs a *size* in the action: an extra dimension in the vocabulary, in the
-record, in every policy's decision, and in the encoder if the size is to be seen at all; plus the
-engine variant (`NoLimitTexasHoldem`), the legal-amount facts in the readout, and a decision about
-whether sizes are a discrete ladder (half/full pot, all-in) or a regression head.
+So the size effect is real in direction and **not resolvable**: −0.91 with a ±3.03 interval. In
+fixed-limit the comparison was inside noise; here it is also inside noise, with a larger variance
+(σ ≈ 37 on the difference against ≈2 in the fixed game).
 
-## Caveat on the probe itself
+## What survives
 
-Three defects before it ran clean, all mine, all caught by assertions added after the first two: a
-policy's `fold` executed as a call, a counter attribute on one policy only, and two illegal actions
-(folding when checking was free; a bet above the maximum completion). Probe code has no battery; the
-product's batteries exist for this (D-11) and the harness should keep the assertions.
+- The *mechanism* is visible in the 15 % of hands that differ: over-betting into a disciplined folder
+  can be punished, because the folder continues only with a pair or better.
+- Nothing measured here supports spending an overnight run, and D-24's conditional — "if it shows
+  positive outcomes for fold/raise + call variety" — is **not met**.
+- The probe's own defects (three before it ran clean, no per-hand deltas kept, no battery) plus this
+  arithmetic error mean the no-limit direction needs a *fixed instrument* before any build: per-hand
+  paired deltas kept and reported, several seeds and seat blocks, more than two sizes, and a learner —
+  not a fixed policy — in the bettor's seat (D-25).

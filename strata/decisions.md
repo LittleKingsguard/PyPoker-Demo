@@ -484,3 +484,72 @@ premise, which this probe has now done.
 **What this leaves.** The untried lever with a mechanism behind it is the **game's structure**, not the
 table's size: deeper stacks so bets have leverage, or no-limit where a bet can threaten a whole stack
 (D-4). That is where the next gated change should go (D-6).
+
+---
+
+## D-24 — No-limit as a second declared game shape, with action variety as its test
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed and if it shows positive outcomes for fold/raise + call variety
+start overnight training run"
+
+**Decision:** Heads-up **no-limit** Hold'em becomes a declared second game shape beside D-2's
+fixed-limit one, which stays Phase 1's evidence and is not re-measured. The probe measured why it is
+worth having: the same bettor against the same folder scores **−6.58 ± 4.66** at one pot and
+**−0.80 ± 1.52** at half a pot, a size-dependent difference that clears its interval where the
+fixed-limit comparison was inside noise (`nolimit-probe.md`). No-limit is the first configuration in
+this project in which a decision has a measurable price.
+
+- **The test is variety, not a curve.** The shape is judged successful when a trained learner's play
+  shows **fold, raise and check-call all materially present and situation-dependent** — not the single
+  mode every fixed-limit run collapsed into. A learner stuck at ~90 % one action fails the test
+  whether or not its chips move.
+- **If it passes, an overnight deep run follows** at the shipped budget; if it fails, the failure is
+  recorded and the run is not spent.
+- The **sizing abstraction is a design decision to be recorded with its rejected alternative**: a
+  discrete ladder of bet sizes against a regression head, with the observation's treatment of size
+  decided explicitly rather than inherited.
+- Two seats stay: the matrix, the Bradley-Terry rating and the pool keep their shapes, so every
+  Phase 1 artefact stays comparable within its own game and is never compared across the two.
+
+Rejected: promoting no-limit by silently changing D-2's game (it would orphan every shipped figure);
+and building a continuous bet-size head first (the action space, the encoding and the learner's output
+would all change at once, and D-3 has no way to attribute the result).
+
+**Gate (D-10):** a new declared shape and a Phase 2 scope promotion, so it goes to `role_l0_validity`
+and `role_l0_critique` before design work; their findings are dispositioned here or in a following row.
+
+---
+
+## D-25 — No-limit is not built; the probe's gradient is retracted
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed and if it shows positive outcomes for fold/raise + call variety
+start overnight training run" — a conditional.
+
+**Disposition:** The condition is **not met**, so the overnight run is not started and D-24's shape is
+not built.
+
+- The gate returned `FAIL` (validity) and `ADJUDICATION` (critique). Validity's root cause: the change
+  is judged by a criterion with no pinned observable, threshold, opponent, seed set or stratum, on a
+  shape whose sized action **no record, encoder, vocabulary or learner can carry** (the readout's
+  eleven facts have no legal amounts; `raise` means the minimum completion, unique only in
+  fixed-limit; a learner is three-valued by contract; a transition's action is an index and an episode
+  decision "carries no amount"; history is 24 slots derived from the fixed-limit cap; the amount
+  divisors assume a 40-chip game).
+- The probe's headline is **retracted**: the two size cells ran on the same deals and their
+  non-overlap was read as significance. Paired on the same deals over 600 hands the difference is
+  **−0.907 ± 3.026** chips/hand, with only 93 of 600 hands differing at all. There is no resolvable
+  sizing gradient to justify hours.
+- The criterion itself was also wrong as written: a three-descriptor census scores a minimum raise and
+  a pot bet identically, so it cannot test sizing at all; and the ~90 % threshold it implied is
+  straddled by recorded results (87 % read as failure, 74 % read as "not selective play").
+
+**What it would take to revisit:** a fixed instrument first — per-hand paired deltas kept and
+reported, several seeds and seat blocks, more than two sizes, a learner rather than a fixed policy in
+the bettor's seat, and an acceptance threshold with a metric and sample size named before the run —
+plus an L0 decision on the sized action's path through the vocabulary, record and encoding, which is a
+50-endpoint surface change. Rejected: building the shape and reading the census afterwards, which is
+how this record's error would repeat at the level of a twelve-hour run (D-3, D-6, D-10).
