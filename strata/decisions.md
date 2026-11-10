@@ -456,3 +456,31 @@ without being re-measured. A run at the shipped budget is hours per configuratio
 **Gate (D-10):** this changes a decision row and adds a declared game shape, so it goes to
 `role_l0_validity` and `role_l0_critique` before design work. Their findings are dispositioned into
 this row or a following one.
+
+---
+
+## D-23 — Six-player seating is not adopted; the probe refuted its premise
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** the disposition option chosen for D-22 — "Settle the hypothesis in the
+probe harness first".
+
+**Decision:** D-22's six-seat shape is **not adopted** for Phase 1. Heads-up remains the game of D-2,
+and every shipped artefact keeps its meaning. The probe settled the premise, and it failed:
+
+- aggression against a folder is **worse** than against a caller heads-up (−0.29 / −0.91 chips/hand in
+  two seed blocks), because a folder only puts money in ahead while a bluff earns nothing from it;
+- six seats does not improve that (−1.89 ± 1.97 against five folders), since a bluff must buy five
+  folds, and the payoff does not cover it;
+- six seats widens variance until nothing resolves: identical policies in different seats measured
+  **+1.96 and −2.63** chips/hand, so a 0.3-chip edge needs ≈40,000 hands per cell.
+
+Rejected: building the six-seat shape and re-measuring after (the gate's FAIL stands on its own —
+encodings refuse three seats, equity is two-handed, the matrix is pairwise, and all 18 checkpoints
+carry the two-seat encoding); and taking the seats as a Phase 2 shape without first testing the
+premise, which this probe has now done.
+
+**What this leaves.** The untried lever with a mechanism behind it is the **game's structure**, not the
+table's size: deeper stacks so bets have leverage, or no-limit where a bet can threaten a whole stack
+(D-4). That is where the next gated change should go (D-6).
