@@ -583,3 +583,76 @@ The build is therefore justified — on conditions, because D-24's FAIL stands u
   baselines-only pool would hold no opponent the price applies to.
 - The overnight run is authorised **after** a live-budget check shows the pinned criterion met, and
   not before (D-10, D-6).
+
+---
+
+## D-27 — The no-limit shape's acceptance criterion, pinned before any run
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Continue. If everything's green proceed to the overnight run without
+asking for permission, it's 2AM"
+
+**Decision:** The sized-action shape is built **with a discrete sizing ladder**, and the criterion that
+authorises the overnight run is fixed here, before the build and before any number exists:
+
+- **The game**: heads-up no-limit Hold'em, blinds 1/2, **100-chip starting stacks**, one blind level.
+  Rejected: keeping D-2's 20 chips, where one pot-sized bet is all-in and a size has no room to matter.
+- **The vocabulary**: `fold`, `check-call`, and raises at **½ pot, 1 pot, all-in** (plus the minimum
+  legal completion where that is the only legal raise), each masked by legality so an illegal size is
+  never offered. Rejected: a continuous bet-size regression head, which changes the head's type, breaks
+  ASM-10's matched-parameter comparison with the fixed-limit rungs, and cannot be attributed by D-3.
+- **The metric**: an **amount-conditioned action census** computed from the run record's own episode
+  decisions, which therefore requires the record to carry the chosen amount. A three-descriptor census
+  scores a minimum raise and a pot bet alike and cannot pass judgement here (D-25).
+- **The sample**: five seeds (0–4) × 1,000 hands, so ≥5,000 hands and ≥10,000 decisions.
+- **PASS** requires all three: every class in {fold, check-call, raise} is **≥3 %** of decisions; **no
+  single class exceeds 60 %**; and **at least two distinct raise sizes** each reach 3 %. Anything else
+  is FAIL, including a run whose chips improve.
+- **The verdict is computed by a script from the artefacts**, never read by eye, and is recorded either
+  way. A PASS authorises the overnight run at the shipped budget; a FAIL does not, and the record says
+  why (D-6, D-10, D-25).
+
+**Gate (D-10):** a new game shape plus a surface change (vocabulary, record, encoding, learner head), so
+it goes to `role_l0_validity` and `role_l0_critique` before design. Their findings are dispositioned in
+this row or a following one; the criterion above is not theirs to move.
+
+---
+
+## D-28 — D-27's criterion is withdrawn; the sized-action build is blocked
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Continue. If everything's green proceed to the overnight run without
+asking for permission, it's 2AM" — a conditional, and the condition is not met.
+
+**Disposition:** The gate returned `FAIL` (validity) and `ADJUDICATION` (critique). D-27's criterion is
+**withdrawn** and no build or run is authorised. Two of its defects are mine and fatal:
+
+1. **The criterion is satisfiable without learning.** Exploration is uniform over the legal mask from
+   ε = 1.0, annealed to 0.05 only after 2,000 decisions; at 1,000 hands per seed almost the whole
+   sample sits on that ramp, so every action class and every size clears a 3 % threshold **by
+   construction** from forced exploration. A census of the behaviour policy cannot distinguish a
+   learner that found a size from one that learned nothing. The metric must read the **greedy** policy,
+   with exploration off, or it measures the exploration schedule.
+2. **The sizing ladder is wrong in two ways.** Its rungs were ½ pot, 1 pot and all-in — the probe's
+   measured winner (a small bet, +0.33 ± 0.45) is absent, so "two distinct sizes ≥3 %" is satisfiable
+   only with the sizes that measured negative. Worse, the probe's own fractions collapse under the
+   minimum-raise clamp: at a 3-chip pot, int(3 × ¼) is below the minimum completion, so "¼ pot" and
+   "½ pot" both bet the minimum raise most of the time and differ only once the pot is large. The
+   ladder must be defined in **legal amounts**, not nominal pot fractions.
+
+Also recorded from the gate, independent of the above: the sized action has **no path through any
+declared artefact** — no no-limit `game_config` row, no legal-amount fact (the readout's eleventh facts
+are closed, and `pot + stacks == 40` is an asserted invariant), a three-index vocabulary that **an
+existing e2e case forbids widening**, no chosen amount in the episode or transition record, **no
+episode decisions in the run record at all**, and a three-wide output head hard-coded in both backends.
+And this row names what D-27 should have named: it supersedes D-2's single game, D-3's "changing the
+game is Phase 2+", D-4's Phase 2 placement and ASM-6's rejected 100-chip alternative — otherwise they
+stay ACTIVE and false, which the log's own rule forbids.
+
+**To revisit**, in this order: pin the ladder in legal amounts and measure it *paired and greedy*;
+make the metric read a greedy policy with a per-seed breakdown, since the seed lottery dominates
+(`attractor-sweep.md`); decide the sized action's full artefact path (vocabulary, record, encoding,
+head, endpoint count); and only then authorise a build — with the overnight run still gated on a
+live-budget pass (D-6, D-10, D-25, D-26).
