@@ -656,3 +656,35 @@ make the metric read a greedy policy with a per-seed breakdown, since the seed l
 (`attractor-sweep.md`); decide the sized action's full artefact path (vocabulary, record, encoding,
 head, endpoint count); and only then authorise a build — with the overnight run still gated on a
 live-budget pass (D-6, D-10, D-25, D-26).
+
+---
+
+## D-29 — The sized-action path goes to design; the run stays gated
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Then continue. This is a looping preset for a reason"
+
+**Disposition of the gate:** both reviews returned red (`FAIL` validity, `ADJUDICATION` critique) and
+their findings are accepted, including three against my own work: the ladder record's non-monotonicity
+claim was false (1× −8.89, 2× −7.77, 4× and all-in −5.54 is monotone above the minimum), the rungs'
+amount sets **overlap** so an amount-conditioned census cannot attribute a recorded amount, and the
+"variety" criterion ran opposite to the measurement until a learner was actually put in the seat.
+
+**New evidence that changes the disposition:** a tabular Q-learner in the bettor's seat, trained 20,000
+probe hands and evaluated greedily, reaches **+0.36 ± 0.20** chips/hand against the folder — within 0.3
+of the best fixed policy, +0.68 ± 0.21 — with a **mixed** distribution of call 40 %, min-raise 32 %,
+1× 27 %, and zero folds and zero over-bets. So the price is learnable quickly, variety is attainable,
+and the fear that learning would collapse play onto one size (critique F5) is not borne out
+(`sized-learner.md`).
+
+**Decision:** the sized-action **artefact path is authorised for design only** (L1), with the gate's
+findings as its requirement list — a declared game shape beside D-2's; run-level retention of the
+episode decisions a census must read; an exploration-off evaluation surface; a shape-dependent
+vocabulary with **non-overlapping** amount rungs; the chosen amount in the record and attributable to
+one descriptor; the encoding seeing size only where the shape's price requires it; the head width a
+declared per-shape property; the 18 checkpoints, the evidence bundle and the full table staying
+fixed-limit and never compared across shapes; and D-2, D-3, D-4 and ASM-6 **superseded by name**.
+
+**Still gated:** no overnight run until an acceptance criterion is pinned (amount-attributable, greedy,
+per-seed) and a live-budget pass meets it (D-6, D-28).
