@@ -415,9 +415,44 @@ give aggression something to win, which is what makes bluffing, position and bet
 and it is the precondition for the Phase 2 opponent-modelling objective (D-9) being more than a
 diagram.
 
-**Consequences the design must carry.** `fold-no-pair-or-better` needs a hand-strength fact that the
-readout does not expose today, so either `engine`'s readout gains one or `features` gains an
-evaluator — `agents` must not import `pokerkit` (D-13). Baseline count changes pool membership and
-therefore K and the K(K−1)/2 cell count, so the table's cost moves with it (ASM-14). The e2e battery's
-baseline family asserts three and must be extended, never weakened. The shipped artefacts were
-measured over a three-baseline pool and are not re-baselined by this row.
+**Consequences the design must carry.** `fold-no-pair-or-better` needs a hand-strength fact the readout
+does not expose, so either the readout gains one or `features` gains an evaluator — `agents` must not
+import `pokerkit` (D-13). The baseline count changes pool membership and so K and the K(K−1)/2 cells
+(ASM-14); the e2e baseline family asserts three and must be extended, never weakened; and the shipped
+artefacts, measured over a three-baseline pool, are not re-baselined by this row.
+
+---
+
+## D-22 — A six-player table drawn from the pool
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Run it as a six-player table, drawing from the pool"
+
+**Decision:** The unit's game gains a multi-seat configuration. A run may seat **six players** — one
+learner and five opponents drawn from the pool — instead of the heads-up table of D-2. This supersedes
+D-2's "heads-up fixed-limit Hold'em" as the *only* seat count; heads-up does not disappear, it becomes
+the smaller of two declared shapes, and every artefact already shipped remains a heads-up measurement.
+
+- The opponents are pool members: the pinned baselines (D-6) and any declared folders (D-21), plus
+  version members where a configuration declares them. Five opponents are drawn per hand, without
+  replacement, so a seat never faces itself.
+- Seats rotate: the learner must not be locked to one position, since position is a real and unequal
+  advantage in a multi-way pot.
+- The league's instrument changes shape with the game: a pairwise matrix stays the head-to-head
+  record, but a six-way hand produces a **placement**, not a pair, so the rating needs a
+  permutation model (Plackett-Luce or equivalent) beside Bradley-Terry, and the report must say which
+  it used.
+- The measurement that motivated this — a two-player game being a coin flip for non-folding strategies
+  — was probed and did **not** resolve on player count alone (`multiway-probe.md`); what six seats
+  genuinely add is *more folding opponents simultaneously*, which is what the user asked for.
+
+**Cost, before it is spent.** The oracle's equity becomes N-way and one 6-way call at 60 samples
+already costs 0.12 s; the encoding's two stack slots and two seat flags grow with the table; every
+table is K(K−1)/2 cells today and N-way placements tomorrow; 268 e2e cases assume two seats; and every
+artefact measured under D-2 stays a heads-up measurement, so nothing is comparable across the change
+without being re-measured. A run at the shipped budget is hours per configuration.
+
+**Gate (D-10):** this changes a decision row and adds a declared game shape, so it goes to
+`role_l0_validity` and `role_l0_critique` before design work. Their findings are dispositioned into
+this row or a following one.
