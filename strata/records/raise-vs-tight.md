@@ -35,6 +35,3 @@ Against the tighter opponent the drift is larger (≈1.5 chips/hand, ≈68 hands
    minimum).
 3. **Variety is therefore the wrong test for this pool.** An agent that mixes in big raises loses games;
    the criterion that demanded spread was measuring a preference the game punishes (D-31).
-
-Caveats (D-6): scripted bettors, one stack depth (100), blinds 1/2, and opponents that never raise —
-the 100 % belongs to an opponent that is *only* a folder, which no real pool member is every hand.
