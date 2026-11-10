@@ -6,8 +6,10 @@ sizing record it carries (`architecture.md` §6) is what `act`, `learn`, `as_pol
 `save` and `load` check an argument against, and the schedule position is the only
 state `learn` advances.
 
-Every refusal is raised before the first mutation, so a refused batch leaves the
-learner bit-identical (`errors.md` §1, §4).
+Every *validation* refusal is raised before the first mutation, so a refused batch
+leaves the learner bit-identical (`errors.md` §1, §4).  The one exception is the
+divergence refusal, which reports the state the steps before it left while the
+position stays put (`divergence.md` §2, §4).
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from .errors import (
     InvalidSeed,
     InvalidSetting,
     InvalidSpec,
+    LearningDiverged,
     UnknownArchitecture,
     UnknownBackend,
     UnknownRule,
@@ -637,7 +640,7 @@ def learn(learner, transitions):
     discount = float(declarations.HYPER["discount"])
     interval = int(declarations.HYPER["target_update_interval"])
     total = 0.0
-    for record in records:
+    for index, record in enumerate(records):
         scored, cache = backend.forward(
             held.state, held.layout, record["observation"], need_cache=True
         )
@@ -662,8 +665,8 @@ def learn(learner, transitions):
                     record["next_observation"],
                     need_cache=False,
                 )
-                index = rule._tie_break(online, record["next_legal"])
-                bootstrap = float(successor[index])
+                chosen = rule._tie_break(online, record["next_legal"])
+                bootstrap = float(successor[chosen])
             else:
                 # `masked-q-learning`, the catalogue's first member and the only other
                 # one: the masked maximum of the target copy's values (`rule.md` §2).
@@ -672,8 +675,28 @@ def learn(learner, transitions):
                 )
             target = record["reward"] + discount * bootstrap
         delta = target - float(scored[record["action"]])
+        # GUARD 1 (`divergence.md` §2): a non-finite td_error refuses **before** |td|
+        # is accumulated and before the step, naming the transition and the value.
+        if not numpy.isfinite(delta):
+            raise LearningDiverged(
+                "learn(transitions): transition index %d computed a non-finite "
+                "td_error and the learner has diverged, got %r"
+                % (index, float(delta))
+            )
         total += abs(delta)
         backend.apply(held.state, held.layout, cache, record["action"], delta, rate)
+        # GUARD 2 (`divergence.md` §2): a step that left any of the whole 2·P array
+        # non-finite refuses **after** it and before the counter moves, naming the
+        # transition and the first parameter index out of range.
+        values = backend.parameters(held.state)
+        finite = numpy.isfinite(values)
+        if not finite.all():
+            slot = int(numpy.argmax(~finite))
+            raise LearningDiverged(
+                "learn(transitions): transition index %d drove parameter index %d out "
+                "of finite range and the learner has diverged, got %r"
+                % (index, slot, float(values[slot]))
+            )
         held.counter += 1
         if held.counter >= interval:
             backend.copy_online_to_target(held.state, held.layout)

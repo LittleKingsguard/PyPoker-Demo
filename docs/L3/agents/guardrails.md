@@ -3,7 +3,7 @@
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and test
 - **Ceiling:** 165 lines. At the ceiling, split by owner — never append
 - **Read with:** all of `README.md`, `rule.md`, `utility.md`, `architecture.md`, `backends.md`, `checkpoint.md`,
-  `restore.md`, `baselines.md`, `errors.md`
+  `restore.md`, `baselines.md`, `errors.md`, `divergence.md`
 
 Each note is a place where a plausible implementation breaks a contract the unit battery (`tests/agents/`, cases
 `AGT-<family>.<k>`) or the L1 battery (`tests/e2e/`) asserts; a note's **Unverified** clause names what no case drives.
@@ -123,9 +123,9 @@ Caught by: `test_checkpoint.py::test_agt7_5_a_disagreeing_spec_is_refused_naming
 
 ## G14 — Refuse exactly what the contract refuses, before writing anything
 
-Every refusal of `errors.md` §2–§3 and no other, each checked before the first mutation, copy and file handle
+Every refusal of `errors.md` §2–§3 and no other, each checked before the copy, the handle or the step it guards
 (`errors.md` §4). Both directions fail: too few — a `KeyError` escapes for an `InvalidSpec`; too many — a valid instance
-is refused.
+is refused. The divergence refusal is raised mid-update and clips nothing (`divergence.md` §4, AGT-16.1–16.7).
 
 Caught by: AGT-11.g14b (`a_refused_batch_leaves_the_learner_as_it_was`), AGT-3.3–3.11 (`test_build_learner.py`),
 `test_act.py::test_agt5_5_the_refusals`, `test_learn.py::test_agt6_5_the_refusals`, AGT-7.5–7.7 (`test_checkpoint.py`),

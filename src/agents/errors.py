@@ -1,6 +1,6 @@
 """The refusal hierarchy of `agents` (`docs/L3/agents/errors.md` §2).
 
-One base and eighteen subclasses, one per refusal family of
+One base and nineteen subclasses, one per refusal family of
 `docs/L2/agents/surface.md` §4-§12: a caller catches `AgentsError` when it wants to
 know that *this* module refused it, and never has to catch a `KeyError` from a
 mistyped record key, a `numpy` `ValueError` or a `torch` error that escaped.
@@ -87,3 +87,7 @@ class CheckpointUnreadable(AgentsError):
 
 class CheckpointMismatch(AgentsError):
     """`load`: the spec disagrees with the file on a compared key."""
+
+
+class LearningDiverged(AgentsError):
+    """`learn`, `decide`, `_tie_break`: the learner's own state went non-finite (divergence.md §2)."""

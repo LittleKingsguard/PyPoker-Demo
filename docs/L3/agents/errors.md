@@ -1,7 +1,7 @@
 # agents — refusals
 
-- **Owner:** the error classes and the message grammar every refusal of this module follows, the canonical
-  message per refusal of `docs/L2/agents/surface.md` §4–§12, and what is deliberately *not* refused
+- **Owner:** the error classes and the message grammar every refusal of this module follows, the canonical message per
+  refusal of `docs/L2/agents/surface.md` §4–§12 and of `divergence.md`'s, and what is deliberately *not* refused
 - **Ceiling:** 130 lines. At the ceiling, split by owner — never append
 
 ## 1. Why a hierarchy
@@ -9,51 +9,45 @@
 `docs/L2/agents/surface.md` §1: *an invalid argument is refused by raising an error that names the violated
 contract; no entry point coerces a value, substitutes a default, swallows an error or returns part of a record*.
 The error is therefore the only reporting channel: nothing comes back as a failure record, nothing is logged and
-continued, and no refused call has an observable effect — `learn` validates the batch before its first step, `save`
-before it opens a handle, `act` before it computes a value (`rule.md` §3, `checkpoint.md` §3). A hierarchy lets a
-caller catch "this module refused me" without catching a `TypeError` from a bug in it.
+continued, and no validation refusal has an observable effect — `learn` validates the batch before its first step,
+`save` before it opens a handle, `act` before it computes a value (`rule.md` §3, `checkpoint.md` §3). A hierarchy
+lets a caller catch "this module refused me" without catching a `TypeError` from a bug in it.
 
 ## 2. The classes — `src/agents/errors.py`
 
     class AgentsError(Exception)             # base of every refusal of this module
     class InvalidLearner(AgentsError)        # param_count, act, learn, save, as_policy: not a learner
-    class InvalidSpec(AgentsError)           # build_learner: not a mapping, a missing required key, a bare
-                                             #   kind name with no sizes carrying width and depth
+    class InvalidSpec(AgentsError)           # build_learner: not a mapping, a missing key, a bare kind with no sizes
     class UnknownBackend(AgentsError)        # build_learner: not one of learners()['backends']
     class UnknownArchitecture(AgentsError)   # build_learner: not one of learners()['architectures']
     class UnknownRule(AgentsError)           # build_learner, load: not one of learners()['learning_rules']
     class UnknownUtility(AgentsError)        # build_learner, load: not one of learners()['utilities']
-    class InvalidSetting(AgentsError)        # build_learner: width/depth not a positive integer, sparsity
-                                             #   outside [0, 1]
+    class InvalidSetting(AgentsError)        # build_learner: width/depth not positive integers, sparsity outside [0,1]
     class InvalidSeed(AgentsError)           # build_learner, as_policy, build_baseline: not an integer
     class InvalidEncoder(AgentsError)        # build_learner, as_policy: not an encoder features built
-    class EncoderMismatch(AgentsError)       # build_learner, as_policy: the encoder's kind or size
-                                             #   contradicts the learner's, naming both
-    class InvalidObservation(AgentsError)    # act, learn: shape, dtype, family or finiteness contradicts
-                                             #   the learner's, naming both
-    class InvalidMask(AgentsError)           # act, learn: a mask that is empty, repeats an index, or holds
-                                             #   an index outside {0, 1, 2}
-    class InvalidBatch(AgentsError)          # learn: an empty batch, a transition missing a required key,
-                                             #   or an action outside that transition's legal mask
+    class EncoderMismatch(AgentsError)       # build_learner, as_policy: encoder kind/size contradicts the learner's
+    class InvalidObservation(AgentsError)    # act, learn: shape/dtype/family/finiteness contradicts the learner's
+    class InvalidMask(AgentsError)           # act, learn: an empty mask, a repeated index, an index outside {0,1,2}
+    class InvalidBatch(AgentsError)          # learn: an empty batch, a missing key, an action outside its own mask
     class InvalidReadout(AgentsError)        # a policy: not a mapping, or a fact it needs missing or malformed
     class UnknownBaseline(AgentsError)       # build_baseline: a name the six do not include
     class CheckpointUnwritable(AgentsError)  # save: a path that is not a writable file location
     class CheckpointUnreadable(AgentsError)  # load: missing, unreadable, or a form this module does not read
     class CheckpointMismatch(AgentsError)    # load: the spec disagrees with the file on a compared key
+    class LearningDiverged(AgentsError)      # learn, act, a policy: the state went non-finite, raised by decide/
+                                             #   _tie_break (divergence.md §2)
 
-Eighteen subclasses, one per refusal family of `surface.md` §4–§12. They are **not** module-level names of the
-`agents` package — below an entry point is not surface (`README.md` §3, `e2e-surface.md` §1) — and a battery asserts
-the *behaviour*, never the class, which is this module's freedom (`docs/L3/features/errors.md` §2).
+Nineteen subclasses, one per refusal family of `surface.md` §4–§12 and one for the divergence refusal
+(`divergence.md` §1). They are **not** module-level names of the `agents` package — below an entry point is not surface
+(`README.md` §3, `e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class, which is this module's
+freedom (`docs/L3/features/errors.md` §2).
 
 ## 3. The message grammar
 
-Every message has the form
-
-    "<entry point>(<argument or field>): <the violated contract>, got <what was passed>"
-
-so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a
-key a record is missing — the message names the missing key instead of inventing a `got` clause. L4 follows these
-spellings, and the unit battery matches them tolerantly (the entry point's name, the key's name, and the value):
+Every message has the form `"<entry point>(<argument or field>): <the violated contract>, got <what was passed>"`, so
+the contract is named in the design's own words and the offending value is visible; where nothing was passed — a key a
+record is missing — the message names the missing key instead of inventing a `got` clause. L4 follows these spellings,
+and the unit battery matches them tolerantly (the raising site's name, the key's name, and the value):
 
 | Where | Message |
 |---|---|
@@ -89,8 +83,10 @@ spellings, and the unit battery matches them tolerantly (the entry point's name,
 | a policy's readout | `policy(readout): the readout is missing 'to_call', which the rule needs` |
 | a malformed readout | `policy(readout): the readout's 'stacks' must be one number per seat, got (1, 2, 3)`; and `'hole'` must be two cards, got 1; and `'hand_class'` must be None or an integer 0-8, got 9 |
 | `build_baseline` name | `build_baseline(name): the name must be one of ('random', 'always-call', 'oracle', 'fold-no-pair-or-face', 'fold-no-pair-or-better', 'fold-large-bet'), got 'gto'` |
+| `learn`, a non-finite td_error, and a step that left a parameter non-finite (`divergence.md` §2–§3) | `learn(transitions): transition index 41 computed a non-finite td_error and the learner has diverged, got nan`; `learn(transitions): transition index 41 drove parameter index 118 out of finite range and the learner has diverged, got nan` |
+| the decision: `act`, every policy, and `learn`'s bootstrap — one raise per site (`divergence.md` §2–§3) | `decide(values): the masked value at index 2 is not finite and the learner has diverged, got nan`; `_tie_break(values): the masked value at index 2 is not finite and the learner has diverged, got nan` |
 
-Three properties the battery relies on: the message always contains the entry point's own name, the name of the
+Three properties the battery relies on: the message always contains the raising site's own name, the name of the
 argument or key at fault, and the offending value; it never claims a value was accepted
 (`docs/L3/features/errors.md` §3); and a refusal raised while a policy works is **this** module's, named
 `policy(readout)`, since a `features` error escaping `features.encode` would carry another module's class (§2).
@@ -115,6 +111,9 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
   ignored but a malformed one is refused rather than defaulted (`baselines.md` §1);
 - a **batch longer or shorter than `batch_size`**, a batch of one, and a transition whose `terminal` is true and
   whose `next_observation` equals its `observation` (`rule.md` §3);
+- a **non-finite `reward`, and a non-finite parameter a container carries**: the batch passes validation and `load`
+  reads the file as it always did, so what a step or a decision produced is refused at that site instead
+  (`divergence.md` §1, §4);
 - **`sparsity` of exactly `0` or `1`**, and a width or depth of `1` (`architecture.md` §3);
 - two learners from one spec, a learner saved twice, a checkpoint loaded twice, and a policy kept for a long
   time: the module keeps no cache and no registry (`surface.md` §4, §8).
@@ -126,4 +125,5 @@ key, or a value the contract forbids (`surface.md` §1).
 
 FAM-1.17–1.26 assert only that each name is callable with a valid instance; the refusals are asserted by the blind
 instances and by this design's unit battery (`battery.md` §3–§4). A message that omits the entry point, the key at
-fault or the offending value passes the L1 battery and fails the unit battery, so §3 exists (`guardrails.md`).
+fault or the offending value passes the L1 battery and fails the unit battery, so §3 exists (`guardrails.md`), and
+AGT-16.1–16.6 assert this §3's last two rows (`divergence.md` §5, `tests/agents/test_divergence.py`).

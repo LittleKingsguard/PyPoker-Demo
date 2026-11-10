@@ -1,6 +1,6 @@
 # agents — module design (L3)
 
-- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
+- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-10
 - **Realises:** `docs/L2/agents/surface.md` (the ten entry points, their arguments, returns and refusals) and
   `docs/L2/agents/learner.md` (both catalogues and the one contract each one's members answer, the edges)
 - **Reads:** `docs/L1/e2e-surface.md` §1–§3.3, §5, `records.md` §2–§4, §6, §7, §9, `ladder.md` §2, §3, §5, §6,
@@ -26,14 +26,14 @@ vocabulary and the readout facts are fixed for the ladder, so a rung difference 
 
 | Document | Owner of that question | What it fixes |
 |---|---|---|
-| `rule.md` | the catalogue of two rules | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns (D-19, ASM-7, ASM-12) |
+| `rule.md` | the catalogue of two rules | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the two **divergence guards** that sit in that order (`divergence.md` §2); the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns (D-19, ASM-7, ASM-12) |
 | `utility.md` | the catalogue of two utilities | each utility's `reward` and `normaliser`, the declared default, the one contract both answer, the arithmetic's four scores, where the transform is applied and where it is not, what a learner and a policy carry, and the `UnknownUtility` refusal (D-20, ASM-12, ASM-28) |
 | `architecture.md` | the seven kinds | each kind's layer stack, how `width`/`depth`/`sparsity`/`residual` are read, the **one initialisation order**, the **parameter formula**, and the sizing contract (D-3, ASM-10) |
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |
 | `checkpoint.md` | a version | what a restore recovers, the **exact bytes** of the container, format version 3 and the three version rules, the `utility` field written beside `learning_rule`, and `save`/`load`'s refusals (D-16, ASM-5, ASM-18, D-19, D-20) |
 | `restore.md` | a restore's promise | the loss-free equality stated testably, why the file must carry more than the parameters, where the promise is asserted by a case, and what is left to L4 (D-16, ASM-5, ASM-20) |
 | `baselines.md` | the six fixed rules | `random`'s keyed uniform draw, `always-call`'s procedure, `oracle`'s pot-odds inequality at **257** samples, the three folders' predicates under one legality rule, the blindness, the `baselines()` record and the `anchor` flag that keeps the rating's scale (D-6, ASM-4, ASM-31, ASM-32, D-21) |
-| `errors.md` | refusals | the hierarchy, the message grammar, the canonical message per refusal of `surface.md` §4–§12, and what is deliberately *not* refused |
+| `errors.md` | refusals | the hierarchy, the message grammar, the canonical message per refusal of `surface.md` §4–§12 and of `divergence.md`'s, and what is deliberately *not* refused — the learner's own divergence being `divergence.md`'s: its nineteenth class, its two sites and guards, its four messages and the cases that catch them (D-19, D-20) |
 | `guardrails.md` | L4 | one numbered note per risk this design identified, in the order they bite, each naming the test that catches it |
 
 ## 3. The ten names
@@ -59,13 +59,13 @@ substituted default, no swallowed error, no global `random` (ASM-2) — are L2's
 ## 4. The layout of `src/agents/`
 
     __init__.py       the ten entry points, `__all__`, and nothing else (§3)
-    errors.py         AgentsError and its eighteen subclasses (errors.md §2)
+    errors.py         AgentsError and its nineteen subclasses (errors.md §2, divergence.md §1)
     declarations.py   BACKENDS, ARCHITECTURES, LEARNING_RULES, UTILITIES, KINDS, HYPER — the one catalogue (§5)
     model.py          the kinds' stacks, the parameter formula, the initialisation order (arch. §2–§5)
-    rule.py           epsilon, the keyed draw, the tie-break, the TD aim, the semi-gradient step (rule.md)
+    rule.py           epsilon, the keyed draw, the tie-break, the TD aim, the step, both guards (rule.md, divergence.md)
     numpy_backend.py  the forward and backward arithmetic in NumPy (backends.md §2)
     torch_backend.py  the same arithmetic in PyTorch, and the only `import torch` in the project (§6)
-    learner.py        Learner, build_learner, param_count, act, learn (rule.md, architecture.md)
+    learner.py        Learner, build_learner, param_count, act, learn, both guards (rule.md, architecture.md)
     checkpoint.py     save, load, the zip container and its metadata (checkpoint.md §2–§3)
     policy.py         as_policy and the frozen snapshot (rule.md §7)
     baselines.py      baselines, build_baseline, the six rules and the anchor set (baselines.md §1–§9)
@@ -114,7 +114,7 @@ the encoder always arriving from the caller (D-13). `torch` is imported inside `
 2. **An answer depends on the state and the decision, not on call order**: the key is a function of seed,
    observation and mask, the schedule advances only inside `learn`, a policy's state advances nowhere.
 3. **The tie-break is total and backend-independent**: the smallest masked index within `1e-9` relative of
-   the masked maximum (`rule.md` §5, `backends.md` §3).
+   the masked maximum, and a non-finite masked value refuses (`rule.md` §5, `backends.md` §3, `divergence.md` §2).
 4. **One initialisation order**, worked by NumPy for both backends: He-normal weights, zero biases (arch §4).
 5. **The parameter count is one formula**; the target copy, the masks and the schedule are excluded (ASM-10).
 6. **A checkpoint is a zip of two members**, written through an open file handle (`checkpoint.md` §2).

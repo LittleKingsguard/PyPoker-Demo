@@ -10,10 +10,12 @@ came before it, so nothing here advances and nothing here is cached (`surface.md
 from __future__ import annotations
 
 import hashlib
+import math
 
 import numpy
 
 from . import declarations
+from .errors import LearningDiverged
 
 #: `rule.md` §5's design constant: the relative tolerance, with an absolute floor,
 #: inside which the smallest masked index wins (`backends.md` §3).
@@ -69,9 +71,21 @@ def _draws(seed, family, observation, mask):
     return float(generator.random()), float(generator.random())
 
 
+def _finite(values, members, site):
+    """`divergence.md` §2: the masked values are finite, or the refusal naming the first that is not."""
+    for index in members:
+        value = float(values[index])
+        if not math.isfinite(value):
+            raise LearningDiverged(
+                "%s(values): the masked value at index %d is not finite and the "
+                "learner has diverged, got %r" % (site, int(index), value)
+            )
+
+
 def _tie_break(values, mask):
     """`rule.md` §5: the smallest masked index within `tol` of the masked maximum."""
     members = list(mask)
+    _finite(values, members, "_tie_break")
     best = max(values[index] for index in members)
     tolerance = TOLERANCE * max(1.0, abs(best))
     return int(min(index for index in members if values[index] >= best - tolerance))
@@ -80,6 +94,7 @@ def _tie_break(values, mask):
 def decide(seed, family, position, values, observation, mask):
     """`rule.md` §4's decision: the exploring arm or §5's greedy one, one index."""
     members = tuple(mask)
+    _finite(values, members, "decide")
     exploring, uniform = _draws(seed, family, observation, members)
     if exploring < _epsilon(position):
         return int(members[min(int(uniform * len(members)), len(members) - 1)])

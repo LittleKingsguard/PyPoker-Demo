@@ -1,11 +1,11 @@
 # agents — the callable surface
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-10
 - **Owner of this file:** the surface — the ten module-level names of `src/agents/`, each with its argument
   contract, its return, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.3)
+- **Rev 10:** a measured defect (`strata/records/lr-probe.md`) gives this surface one refusal that is not an argument contract — a non-finite td_error, a non-finite parameter, or a non-finite value in a decision's masked set is refused by name instead of reaching the tie-break — so §1, §6, §7 and §10 point at its new owner, `divergence.md`, and the ten signatures, the six hyper-declarations, the two rules, the two utilities and the finite path are unchanged (D-19, D-20)
 - **Rev 9:** D-21 reaches this surface in three places and moves no signature: §11's `baselines` publishes **six** records instead of three — D-6's `random`, `always-call` and `oracle`, then D-21's `fold-no-pair-or-face`, `fold-no-pair-or-better` and `fold-large-bet` — each carrying an `anchor` flag, `True` for the first three and `False` for the folders, which is the set the rating is zeroed on; §12's `build_baseline` takes one of the six and refuses a name outside them, the folders folding only where `fold` is legal and never raising while check/call is legal (`folders.md` §2, ASM-31); and every policy's readout is now the **eleven** facts, `hand_class` accepted as `None` or an integer 0–8 and refused by name otherwise (`engine/environment.md` §2, ASM-30)
-- **Rev 8:** D-20 reaches this surface beside D-19 and in the same five places: §3's `learners` publishes a second catalogue, `utilities` (two members, each with its reward, `utilities.md` §2), §4 reads the spec's optional `utility` and refuses a name outside it, §8/§9's container is format version 3 with a required `utility` field while a version-1 or version-2 file is read as `net-chips`, and §10's policy carries `utility` beside `learning_rule`; the ten names keep their signatures and return shapes, so neither caller branches on a rule or a utility (`utility.md` §1–§6, `rules.md` §2–§8, D-19, D-20)
-- **Rev 6:** §1's seeding rule restated as *leaves the stream as found*, because `engine.equity` reseeds and restores the global stream inside its own call, so *never touches it* was unsatisfiable (ASM-2, `engine/surface.md` §11)
+- **Rev 8 and 6:** D-20 reaches this surface beside D-19 and in the same five places: §3's `learners` publishes a second catalogue, `utilities` (two members, each with its reward, `utilities.md` §2), §4 reads the spec's optional `utility` and refuses a name outside it, §8/§9's container is format version 3 with a required `utility` field while a version-1 or version-2 file is read as `net-chips`, and §10's policy carries `utility` beside `learning_rule`; the ten names keep their signatures and return shapes, so neither caller branches on a rule or a utility (`utility.md` §1–§6, `rules.md` §2–§8, D-19, D-20). §1's seeding rule restated as *leaves the stream as found*, because `engine.equity` reseeds and restores the global stream inside its own call, so *never touches it* was unsatisfiable (ASM-2, `engine/surface.md` §11)
 - **Ceiling:** 275 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -130,10 +130,9 @@ built for are declared here, because a learner is sized and refused against this
   value, the input block included and the target copy and buffers excluded, so the number is a measurement and not
   a per-backend, per-state or per-rule convention — **the rule does not move it**: both catalogue members hold the
   same trainable parameters, so one architecture reports one count under either (D-7, ASM-10, `rules.md` §3, D-19).
-- **Refusals:** a value that is not a learner, naming that contract; a baseline is not a learner, and its
-  parameter count is the `0` that `baselines()` declares — the count `records.md` §9 records for a baseline cell
-  member, that record asking `agents.param_count` for a version and this declared zero for a baseline (ASM-10,
-  `records.md` §9, §11 of this file).
+- **Refusals:** a value that is not a learner, naming that contract; a baseline is not a learner, and its parameter
+  count is the `0` that `baselines()` declares — the count `records.md` §9 records for a baseline cell member
+  (ASM-10, `records.md` §9, §11 of this file).
 - **Determinism:** one learner reports one count; a learner built twice from one spec reports the same one, and a restored learner reports the saved one (`protocol.md` §5, ASM-5).
 
 ## 6. `act` — one training-time decision (`general` row)
@@ -141,13 +140,13 @@ built for are declared here, because a learner is sized and refused against this
 - **Signature:** `act(learner, observation, legal_mask)`.
 - **Arguments:** a learner; one observation as `features.encode` returns it for the decision; and the
   decision's legal index sequence of §2 (`e2e-surface.md` §3.3, `records.md` §4).
-- **Returns:** the decision record — a mapping carrying the chosen index under `action`, as a plain Python
-  integer, plus the learner's own record of the decision, whose other keys are not surface
-  (`e2e-surface.md` §3.3, `records.md` §6). This document fixes the mapping form rather than a bare index because
-  the learner's record travels with it; the index is a member of the mask (§2).
+- **Returns:** the decision record — a mapping carrying the chosen index under `action` as a plain Python integer,
+  plus the learner's own record of the decision: the mapping form rather than a bare index, because the record
+  travels beside the index, which is a member of the mask (`e2e-surface.md` §3.3, `records.md` §6, §2 of this file).
 - **Refusals:** a value that is not a learner; an observation whose shape, dtype or representation family
   contradicts the learner's, naming both (D-3, `encodings.md` §1); a mask that is empty, repeats an index, or
-  holds an index outside `{0, 1, 2}` (D-2, §2).
+  holds an index outside `{0, 1, 2}` (D-2, §2); and a value in the masked set that is not finite, refused by name
+  rather than reaching the tie-break (`divergence.md` §2, §3, D-19).
 - **Determinism:** one learner state, one observation and one mask give one index, because the decision is **the
   observation and the mask** and the exploration is drawn from the learner's own seeded generator keyed by it: a
   second call at the same state answers the same index rather than advancing a stream, and a policy at the
@@ -175,10 +174,12 @@ built for are declared here, because a learner is sized and refused against this
   everything else — validation, loop, statistics, step, refresh counter, position — is one path (`rules.md` §2, §3).
 - **Refusals:** a value that is not a learner — a baseline never learns from a match (D-6, `protocol.md` §3); an
   empty batch; a transition missing a required key of `records.md` §4, with that key named; an `action` outside that
-  transition's `legal`, a mask outside `{0, 1, 2}` (D-2), or an observation of another shape or family (D-3).
-- **Determinism:** one learner state, one rule and one batch give one update and one statistic set — this call is
-  the only place a learner's schedule moves (§1). The update's aim, its masking and its terminal reward are the
-  bullet above and never a per-backend or per-call choice (ASM-7, ASM-12, D-19).
+  transition's `legal`, a mask outside `{0, 1, 2}` (D-2), or an observation of another shape or family (D-3); and a
+  divergence — a transition whose td_error or whose step left a value not finite — refused by name at that
+  transition (`divergence.md` §2, §3, D-19).
+- **Determinism:** one learner state, one rule and one batch give one update and one statistic set, this call being
+  the only place a learner's schedule moves (§1); the aim, the masking and the terminal reward are the bullet above,
+  never a per-backend or per-call choice (ASM-7, ASM-12, D-19).
 
 ## 8. `save` — write one checkpoint (`general` row)
 
@@ -233,8 +234,8 @@ built for are declared here, because a learner is sized and refused against this
   another seed it applies the same rule with an independent exploration key; and it holds the state as it was at
   build time, so a later `learn` does not change a policy already built (§1, ASM-5, `protocol.md` §5, `learner.md` §1).
 - **Refusals:** a value that is not a learner or not an encoder, naming that contract; a seed that is not an
-  integer (ASM-2); an encoder whose `observation_spec` kind or size contradicts the learner's kind, naming
-  both (§4, D-3). It never returns a descriptor outside `legal_actions` (D-2).
+  integer (ASM-2); an encoder whose `observation_spec` kind or size contradicts the learner's kind, naming both
+  (§4, D-3); and a non-finite masked value (`divergence.md` §2). It never returns a descriptor outside `legal_actions` (D-2).
 - **Determinism:** two policies built from one learner, one encoder and one seed answer the same decisions, the only
   randomness being the policy's own seeded generator keyed by the decision (§1, `protocol.md` §4, ASM-2).
 
@@ -251,9 +252,8 @@ built for are declared here, because a learner is sized and refused against this
   uses — the count `build_baseline`'s `oracle` itself queries, so a caller that built the baseline at one seed
   re-issues the same query, at that seed and at the declared count, and checks the inequality itself; a re-issue at any
   other count is a different query and cannot falsify the rule (§12, `learner.md` §5, `engine/surface.md` §11, ASM-4).
-- **Determinism and ordering:** two calls return equal records, in the order `random`, `always-call`, `oracle`,
-  `fold-no-pair-or-face`, `fold-no-pair-or-better`, `fold-large-bet`; the catalogue is plain data a report's header
-  quotes (`protocol.md` §1, §3).
+- **Determinism and ordering:** two calls return equal records, in the order §11's Returns gives the six names; the
+  catalogue is plain data a report's header quotes (`protocol.md` §1, §3).
 
 ## 12. `build_baseline` — one baseline as a policy (`fixed` row)
 

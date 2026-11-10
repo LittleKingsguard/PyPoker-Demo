@@ -1,6 +1,6 @@
 # agents — L2 integration interface
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-10
 - **Covers:** the ten entry points of `docs/L1/e2e-surface.md` §3.3 — one learner family, the learning-rule
   catalogue and the six fixed baselines: D-6's three and D-21's three folders (D-6, ASM-7, D-19, D-21) — and the
   `agents` → `features` edge that `module-map.md` §2 grants (D-3)
@@ -20,13 +20,14 @@ hand, never measures a match, never schedules an opponent and never writes a rep
 holds constant is the **set** of rules its variants declare and the **set** of utilities they name, beside the action vocabulary and the readout
 facts, so a rung-to-rung difference is never either axis's (D-3, ASM-7, ASM-12, `rules.md` §8, `utilities.md` §8, D-19, D-20).
 
-## 2. The two documents
+## 2. The documents
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
 | `surface.md` | the callable surface | for each of the ten entry points: what it takes, what it returns, what it refuses, and its determinism (`e2e-surface.md` §3.3) |
 | `learner.md` | the learner family, the backend axis, the baselines, a version, and the contracts at this edge | the catalogue's two rules and the one contract they answer, and the R1↔R2 backend swap (§1–§2); the parameter budget (§3); `save`/`load` as a version under the rule and the utility it records (§4); the six baselines' rules and the `anchor` flag (§5); the granted `features` edge and the sizing rule, and what `engine`, `training` and `evaluation` hold here (§6–§8); the battery invariants this module carries (§9) (D-7, D-6, ASM-5, ASM-10, ASM-25, ASM-32, D-19, D-20, D-21) |
 | `utility.md` | the terminal-reward utility at this edge | the fifth catalogue `learners()` publishes (§1), the spec's optional `utility` and the declared default (§2), what a learner and a policy carry (§3), the container's field and the three format versions (§4), the four refusals side by side (§5) and what the surface does not become (§6) (`utilities.md` §2–§7, D-20) |
+| `divergence.md` | the one refusal whose fault is the learner's state, not the caller's argument | the measurement it answers (§1), its two sites — the update first, the decision defensively (§2), the message each carries (§3), and what it never does: no clip, no reset, no lowered rate (§4) (`strata/records/lr-probe.md`, D-19, D-20) |
 
 ## 3. Boundaries
 
@@ -45,12 +46,11 @@ Each of the following is a boundary and not a preference (`module-map.md` §3, D
 
 ## 4. Count, cap and the blind instances
 
-Ten entry points, and L2 adds, removes and renames none of them: needing an eleventh is a defect that
-returns as an adjudication to L1 and is never invented here (D-12, `e2e-surface.md` §1). The harness files
-that drive this module are capped at `50 + 10 × 10 = 150` lines, computed by `strata-lint` and never
-asserted by a harness author (brief §5, `module-map.md` §4). Three rows are `fixed` — `learners`,
-`baselines`, `build_baseline` — and seven are `general`, so the battery carries seven instances invented
-from this surface alone (`e2e-surface.md` §5, `battery.md` §4, D-15).
+Ten entry points, and L2 adds, removes and renames none of them: needing an eleventh is a defect that returns
+as an adjudication to L1 (D-12, `e2e-surface.md` §1). The harness files are capped at `50 + 10 × 10 = 150`
+lines, computed by `strata-lint` and never asserted by a harness author (brief §5, `module-map.md` §4). Three
+rows are `fixed` — `learners`, `baselines`, `build_baseline` — and seven are `general`, so the battery carries
+seven instances invented from this surface alone (`e2e-surface.md` §5, `battery.md` §4, D-15).
 
 ## 5. What is left to L3
 

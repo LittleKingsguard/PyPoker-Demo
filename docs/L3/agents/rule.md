@@ -24,10 +24,10 @@ target's arithmetic and nothing else — not the state layout, the parameter cou
 so no entry point takes a rung, a variant, an opponent or a hyperparameter and no caller branches on the rule or the
 utility (D-3, D-19, D-20); what a rung changes, the input block and the trunk's shape, is outside every rule (§2–§3).
 
-**"One state and one decision give one answer"** means: `act` reads the learner's parameters, its schedule position, its
-seed and the decision `(observation, mask)` it is handed, and nothing else — no call counter, no stream, no cached
-previous decision — so two calls at one state and one decision return one index and a restored learner answers as its
-saved learner did (`surface.md` §1, §6, §10, `protocol.md` §5, ASM-5).
+**"One state and one decision give one answer"**: `act` reads the learner's parameters, its position, its seed and the
+decision `(observation, mask)` handed, and nothing else — no call counter, no stream, no cache — so two calls at one
+state return one index and a restored learner answers as its saved one did (`surface.md` §1, §6, §10, `protocol.md` §5,
+ASM-5).
 
 ## 2. The two targets, the mask and the reward
 
@@ -62,6 +62,8 @@ which both targets need and `ladder.md` §3 does not name, is fixed by §6.
   `target` from §2, then `td = target − q[a]`, `|td|` added to the batch's total, then `θ ← θ + α·td·∂q[a]/∂θ` — a
   **semi**-gradient, the derivative taken with the target held constant, and **plain SGD**: no momentum, weight decay,
   clipping or scaling, in whichever backend owns the parameters (`backends.md` §2). Step *k+1* sees it.
+- **Two divergence guards sit inside that order** (`divergence.md` §2): a non-finite `td` refuses **before** `|td|` is
+  accumulated and before the step, and a step that left any parameter non-finite refuses **after** it; both name *k*.
 - **A terminal transition carries the decision's own `next_legal`**, and `learn` reads none of it (§2); no empty mask is
   legal (`features/surface.md` §8), so both batteries pass the decision's own mask there.
 - **The target copy and its counter.** A second, non-trainable copy of every parameter, equal at construction, is the
@@ -89,11 +91,10 @@ so the rate is `start` at `n = 0`, `end` from `n = samples` on, and linear betwe
     payload = b"pypoker-agents/explore/v1"
             + b"\x1f" + str(seed).encode("ascii")      # the learner's own seed, or the policy's
             + b"\x1f" + family.encode("ascii")         # b"dense-numeric" or b"token-sequence"
-            + b"\x1f" + observation_bytes              # the canonicalisation below
-            + b"\x1f" + ",".join(str(i) for i in sorted(mask)).encode("ascii")
+            + b"\x1f" + observation_bytes + b"\x1f" + ",".join(str(i) for i in sorted(mask)).encode("ascii")
     key     = hashlib.sha256(payload).digest()
     draws   = numpy.random.Generator(numpy.random.PCG64(int.from_bytes(key[:16], "big")))
-    u, v    = draws.random(), draws.random()           # two float64 draws, u first, both always taken
+    u, v    = draws.random(), draws.random()   # two float64 draws, u first, both always taken
 
 `observation_bytes` is `numpy.ascontiguousarray(numpy.asarray(observation).astype("<f8" or "<i8")).tobytes()`, `<f8`
 for a dense observation and `<i8` for a token one. Three properties are the point: it is **backend-independent**
@@ -113,14 +114,13 @@ own `numpy.random.Generator(PCG64(seed))` serves construction only, so `act` adv
 Two values equal — or equal within the arithmetic's own rounding — must not let the backend decide the answer
 (`backends.md` §3). The rule is total and stateless, and `learn` reads `double-q-learning`'s index with it (§2):
 
-    values = the three online values of the observation
-    best   = max(values[i] for i in mask)            # the masked maximum, as computed
+    values = the three online values;  best = max(values[i] for i in mask)   # the masked maximum, as computed
     tol    = 1e-9 × max(1.0, abs(best))              # relative, with an absolute floor
     index  = min(i for i in mask if values[i] >= best − tol)
 
 "The smallest masked index within `tol` of the masked maximum": total, deterministic and defined on the mask alone, so
 three values and a mask give one index in either backend, `tol` being a design constant far above the backends' drift
-(`backends.md` §3).
+(`backends.md` §3); a non-finite masked value refuses by name before `max` (`divergence.md` §2, §3).
 
 ## 6. The fixed hyper-declarations `learners()["hyper"]` publishes
 
@@ -159,7 +159,7 @@ payload, §6's values, §5's `tol`, the aim, the mask, the step and `learn`'s tw
 |---|---|---|
 | `rule._epsilon` | `_epsilon(position)` | §4's rate at that schedule position: `start` at `0`, `end` from `samples` on, linear between |
 | `rule._decision_key` | `_decision_key(seed, family, observation, mask)` | §4's payload's `sha256` digest, from which a caller takes `u` then `v` exactly as §4 does |
-| `rule._tie_break` | `_tie_break(values, mask)` | §5's one index for three values and a mask: no seed, no state, no backend — and the index `learn` reads `double-q-learning`'s bootstrap at, over the online values (§2) |
+| `rule._tie_break` | `_tie_break(values, mask)` | §5's one index for three values and a mask: no seed, no state, no backend — the index `learn` reads `double-q-learning`'s bootstrap at, over the online values (§2) — and it refuses a non-finite masked value by name (`divergence.md` §2) |
 | `model._param_count_for` | `_param_count_for(kind, width, depth, sparsity=0.0)` | `architecture.md` §5's sum at those settings, `I`/`V` the kind's declared `observation_size` |
 | `model._initial_parameters` | `_initial_parameters(kind, width, depth, sparsity, seed)` | `architecture.md` §4's steps 1–3 as one 1-D `float64` array in declaration order — the checkpoint's `[0, P)` — `sparsity` changing nothing |
 | `checkpoint._read_metadata` | `_read_metadata(path)` | `checkpoint.md` §2.1's object read from `path`'s `metadata.json`, refusing as `load` does |
