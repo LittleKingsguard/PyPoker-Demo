@@ -688,3 +688,34 @@ fixed-limit and never compared across shapes; and D-2, D-3, D-4 and ASM-6 **supe
 
 **Still gated:** no overnight run until an acceptance criterion is pinned (amount-attributable, greedy,
 per-seed) and a live-budget pass meets it (D-6, D-28).
+
+---
+
+## D-30 — The shape design is accepted; the supersessions are filed and the build is authorised
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Then continue. This is a looping preset for a reason" — continuing the
+loop into the build the design enables.
+
+**Decision:** L1's design of the sized-action path is accepted (`docs/L1/shapes.md`, `docs/L1/sizing.md`)
+and the build is authorised against it, with the overnight run still gated on its criterion.
+
+- **Supersessions filed, by name, as the register requires:** **D-2** — the project no longer declares
+  one game; two shapes exist and the fixed-limit one remains the default and Phase 1's evidence.
+  **D-3** — a second shape is designed inside Phase 1 but is still not a rung; no rung's game changes.
+  **D-4** — no-limit's placement is now gated on the pinned criterion rather than on a phase boundary.
+  **ASM-6** — its parameterisation survives as the default shape's row and stops being *the* game.
+- **Declarations:** `modules.json`'s engine row moves 9 → 10 endpoints, and its harness ceiling with it.
+- **The build** proceeds per the design: shape as data with optional arguments defaulting to today's
+  values; four raise descriptors partitioning `[m, A]` so every amount attributes to exactly one; the
+  index order set to the measured price order **worst first** so a tie can never look like a
+  preference, with a `tie` flag the criterion can exclude; one greedy evaluation pass retained per
+  variant per seed and **no training decisions retained**; the normalisers declared per shape; the head
+  and container made shape-aware with the default shape still writing format 3, so the 18 shipped
+  containers are untouched; and the battery extended, never weakened, for the second shape.
+- **The criterion stands as pinned in the design**: five seeds, each judged alone, seven conjuncts,
+  chips reported and never thresholded, and a FAIL named for the shover, the collapse, the tie artefact
+  and the exploration artefact. A PASS authorises the overnight run; nothing else does (D-6, D-28).
+
+This row does not supersede D-29; it is what D-29 authorised.

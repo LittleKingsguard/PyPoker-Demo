@@ -59,8 +59,8 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 
 `training.fairness(a, b)` reports this list, and the battery asserts it for every adjacent pair and every intra-rung pair (D-3, ASM-8, ASM-10):
 
-- the game configuration from `engine.game_config` — identical for every rung (D-2);
-- the three-index action vocabulary from `features.action_space` (D-2);
+- the game configuration from `engine.game_config` — identical for every rung, because every rung is one shape (D-2, D-29); a pair on two shapes is refused rather than reported, and a shape is a property of the configuration, so a shape is never a rung's axis (`shapes.md` §1, §6);
+- the action vocabulary from `features.action_space` — the shape's own, three indices in the fixed-limit shape the six rungs share (D-2, D-29);
 - the readout facts of `e2e-surface.md` §2 — the information set, identical for every encoding (D-3);
 - the reward: the seat's net chip delta for the completed hand, delivered at the terminal decision, with no shaping (ASM-12), re-expressed by the utility both sides are trained under — the **set** of utilities the two sides declare, one utility for every rung of §2 (`utilities.md` §2, §8, D-20);
 - the **set** of learning rules the two sides declare, with every hyperparameter above, the optimiser family, the exploration schedule and the discount — the set, not one rule, is what a rung holds constant, and a pair may differ on the rule itself when that is its declared axis (ASM-7, D-19, `rules.md` §8);

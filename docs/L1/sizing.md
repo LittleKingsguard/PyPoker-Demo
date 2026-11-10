@@ -1,0 +1,86 @@
+# PyPoker-Demo — L1 the sized action
+
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-09
+- **Covers:** the sized-action artefact path D-29 authorises for design — a vocabulary whose amounts are disjoint and attributable, the tie-break that must not be readable as a preference, what a run retains and at what bound, the exploration-off surface a census reads, the encoding's treatment of size, the head and the container, and the criterion pinned before any run (D-29, D-28, D-27, D-26, D-25)
+- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+
+## 1. What the evidence obliges this path to carry
+
+The measurement is the design's requirement list. Size has a resolvable price against a folding opponent — the minimum raise is the only rung above zero, and every larger rung is 6–9.6 chips/hand worse (`strata/records/sizing-ladder.md`); a tabular learner in the bettor's seat, evaluated greedily, mixes call 40 %, minimum raise 32 % and one over-bet 27 %, folds nothing and over-bets nothing, and reaches +0.36 ± 0.20 against the best fixed rung's +0.68 ± 0.21 (`strata/records/sized-learner.md`); and at the live budget which policy a run reaches is dominated by the seed (`strata/records/attractor-sweep.md`). So the path must let a recorded **amount** reach a census, the census must read a **greedy** policy, and the verdict must be **per seed** — which is D-29's own list and the gate's findings (D-28, D-29).
+
+Three of D-28's objections are answered here and none of them by softening the requirement: the ladder is defined in **legal amounts** and its rungs are disjoint (§2), the index order cannot be read as a preference (§3), and the census reads an evaluation pass with exploration off (§4). The fourth — that `fold` was in the withdrawn rule's floor — is answered by the measurement: a policy that folds nothing scored +0.36, so a fold floor would fail a better policy (§7).
+
+## 2. The vocabulary — disjoint legal amounts, one attribution
+
+For one decision let `m` be the **minimum legal raise-to** and `A` the **largest legal raise-to** (the all-in raise-to), both as the engine resolves a raise, and `L = A − m`. The shape declares four raise descriptors that partition the legal integer interval `[m, A]`:
+
+| Descriptor | The amounts it owns | What it resolves to |
+|---|---|---|
+| `raise-minimum` | `{m}` | `m` |
+| `raise-quarter` | `(m, m + ⌊L/4⌋]` | `m + ⌊L/4⌋` |
+| `raise-half` | `(m + ⌊L/4⌋, m + ⌊L/2⌋]` | `m + ⌊L/2⌋` |
+| `raise-all-in` | `(m + ⌊L/2⌋, A]` | `A` |
+
+Three properties follow from the arithmetic and are the whole point, so none of them is left to be re-derived by a reader:
+
+- **Disjoint and total.** The four bands are disjoint half-open integer intervals whose union is `[m, A]`, so **every legal amount belongs to exactly one descriptor** — the overlap D-28 recorded, where amount 4 was both the minimum raise and the `1×` rung at one decision, is impossible by construction and not by convention.
+- **Distinct resolutions.** Each band resolves to its own maximum, so two descriptors never resolve to one amount at one decision, and the all-in is reachable — it is the top band's resolution whenever `L ≥ 1`. A band with no legal integer in it is **empty and masked out**, never collapsed onto its neighbour: at `L = 0` only `raise-minimum` is legal, at `L = 1` only it and `raise-all-in`.
+- **Attributable.** A retained decision carries its chosen amount, `m` and `A` (`records.md` §5, §15), and the census applies the table above to that triple. So a recorded amount maps to one descriptor, and the census **refuses** — naming the count — a decision whose amount lies outside `[m, A]`, whose band disagrees with the descriptor the seat chose, or which carries no bounds at all.
+
+A raise descriptor carries **no amount of its own**: the engine resolves it, as it already resolves the fixed-limit `raise` to the minimum completion (`e2e-surface.md` §2). The bands are the shape's declaration (`shapes.md` §2); the fixed-limit shape keeps its three descriptors and its one resolution, and no ladder ever mixes the two.
+
+Rejected: nominal pot fractions (½ pot, 1 pot, all-in). They are not legal amounts, and at a small pot the integer of a fraction falls below the minimum completion so two rungs bet the same amount — which is the measured collapse D-28 names, and the reason its ladder's rungs overlapped (`strata/records/sizing-ladder.md`). Rejected: a continuous bet-size regression head — it changes the head's type, breaks the matched-capacity comparison, and cannot be attributed (§6, D-27).
+
+## 3. The index order, and the tie-break that must not be mistaken for a preference
+
+The tie-break is unchanged: among equal masked values it returns the **smallest masked index** (`docs/L3/agents/rule.md` §5). That rule is total, stateless and backend-independent, and it must stay so — but it makes the index order a claim about preference the moment the order follows the amount, because then a learner whose values are all equal would look like a learner that found the cheapest size (validity V-F13, D-29).
+
+So the shape declares its index order as **the measured price order, worst first**: `fold` 0, `check-call` 1, `raise-quarter` 2, `raise-half` 3, `raise-all-in` 4, `raise-minimum` 5. Three consequences are the design:
+
+- a tie resolves toward a **worse-priced** band and never toward the best one, so no tie can manufacture a PASS;
+- the order is not monotone in amount (the all-in sits before the minimum), so no reader and no test can read an index as a size;
+- a **tie** is recorded per decision, and the census is computed twice — with and without tie-resolved decisions — so a verdict that rests on the tie-break is a verdict the criterion refuses (§7, conjunct 7).
+
+`features.action_space(shape)` publishes each shape's descriptors in this declared order, `engine.legal_actions` returns the legal subset in the same order, and `legal_indices` stays position-aligned, so nothing about the alignment rule changes (`e2e-surface.md` §2).
+
+## 4. The record, the retention bound, and the exploration-off surface
+
+`training.run` retains no decisions today: the loop consumes a batch and discards it, so no census can be computed from any artefact (validity V-F6, D-28, `strata/records/sized-learner.md`). The design retains **one** decision stream and no other:
+
+- After a variant's training at a seed ends, the run plays a **greedy evaluation pass** of 1,000 hands against the same frozen pool, on the run's own seed and the global stream the training left, so the pass is reproducible from the record (ASM-2, D-16);
+- the pass is made with **exploration off** — `agents.as_policy` and `evaluation.policy_from` take an optional `exploration` mode whose two values are `schedule` (today's behaviour, the default) and `off`, where the decision is the masked maximum and the tie-break alone and **no generator is drawn from** (`e2e-surface.md` §3.3, §3.4, `docs/L3/agents/rule.md` §4, §7);
+- the run record carries the pass under `greedy`: its mode, its seed, its hand count, the per-hand net chips, and the **ordered decision log** (`records.md` §12, §15);
+- **the bound**: at most 2,000 hands and 24,000 decision records per variant per seed — the fixed game's own ceiling is 23 applied actions a hand, so 24,000 covers 1,000 hands at any legal hand, and a pass that would exceed either bound is **refused, never truncated**, because a truncated log silently reports a different sample (`docs/L3/features/flat-numeric.md` §5's rule for the history block is the same one).
+
+Training decisions are **not** retained: the loop keeps its batch aggregate and the curve, and a log of the behaviour policy would be a log of the exploration schedule — the defect D-28 recorded as fatal, since at 1,000 hands per seed almost the whole sample sits on the ε ramp (`docs/L3/agents/rule.md` §6, D-28).
+
+The exploration mode is the **policy's** and not the schedule's: the hyper block is one declaration for the whole catalogue and the training schedule anneals to 0.05 and never to 0, so changing it would change training itself (`docs/L3/agents/rule.md` §6, D-19); and it is the whole point of the mode that a greedy reading exists at all, since neither the schedule nor the container offers one otherwise (validity V-F10, `strata/records/sized-learner.md`). Rejected: reading the ε = 0.05 tail as "nearly greedy" — 5 % of decisions would be forced draws from a mask of six, which is a systematic contamination of exactly the classes the census counts.
+
+## 5. The encoding: the learner does not see the opponent's bet size
+
+The readout already carries the **current** price of continuing — `pot` and `to_call` — in both shapes, so the learner sees what the next call costs without any change (`e2e-surface.md` §2). What it does not see is the **size of each past bet**, because the history block carries an action and not an amount: 24 slots of 3 in the dense encoding and 24 tokens drawn from three ids in the token one (`docs/L3/features/flat-numeric.md` §5, `docs/L3/features/card-tokens.md` §5).
+
+**Refused: a size bucket per history slot.** It is the expensive option and the price is exact: the dense history block goes from `24 × 3 = 72` slots to `24 × 6 = 144` (six action classes — fold, check-call and four raise bands), so the observation is `275` wide rather than `203`; the token vocabulary goes from `96` to `99` (the single raise id becoming one id per band); and both declared layouts change, which changes *every* checkpoint's input block and `param_count`'s input term (`docs/L3/agents/architecture.md` §5). Even scoped to the second shape alone, it costs a second declared layout per representation and a `vocabulary` that is no longer one number (`e2e-surface.md` §2).
+
+**Accepted: no new input fact at all**, for three reasons, in order of strength. First, the measured learner had **no size input** — its state was the street, facing-a-bet and a strength band — and still reached within 0.32 chips/hand of the best fixed rung with a mixed two-size policy, so the price is learnable without the history's amounts (`strata/records/sized-learner.md`, D-29). Second, the decision's own choice is not blind: the bands are the shape's declaration, so the learner's mask tells it *how many* sizes are available and `to_call` and `pot` tell it what the call costs. Third, it costs nothing that the fixed-limit path would have to pay: both layouts, both vocabularies and every container's input block stay exactly as they are (`shapes.md` §5).
+
+What the shape **does** declare is what a normaliser must scale against, since a divisor of 40 clips a 200-chip game: the stack ÷100, the pot ÷200, `to_call` ÷100, the amount in force ÷100 and the count ÷50 — the last being the most bet-or-raise actions a street of that shape can produce, since every raise increases the bet by at least the big blind of 2 up to a stack of 100. The slot count, the block widths and the token vocabulary do not move; only the tables of divisors and bucket edges, which `docs/L3/features/flat-numeric.md` §4 and `docs/L3/features/card-tokens.md` §4 re-issue per shape (D-25).
+
+## 6. The head and the container
+
+The head is **the shape's**: its width is the shape's descriptor count, so `W → 3` becomes `W → A` with `A` the vocabulary's size — 3 for the fixed-limit shape, 6 for the no-limit one — and `param_count`'s output term becomes `A·W + A` (`docs/L3/agents/architecture.md` §5). At the fixed-limit shape that is today's `3W + 3` and today's 10,119, so no recorded parameter count moves; at the second shape the matched-capacity budget of ASM-10 must be re-matched, because the head is six wide and the input block is unchanged. Rejected: a per-backend constant, which is what both backends hard-code today and what would make one shape's head a second spelling of the other's (D-19's "no caller branches on it" is the rule the width must obey).
+
+The container answers it with a **format version, not a migration**: version 4 requires a `game` field, and a container of the **default** shape keeps writing version 3 with no field — so a fixed-limit save is byte-identical to today's and the 18 shipped version-1 containers are untouched, read as the default shape (§5, `docs/L3/agents/checkpoint.md` §3). A version-4 container naming the default shape is a field its writer would never have written and is refused by name; a `load` whose spec names a shape its container contradicts is refused naming both; and the parameter array's length must agree with the head width, which is the same check the restore already makes on `params.length` (`docs/L3/agents/restore.md` §2).
+
+## 7. The criterion, pinned before any run
+
+This is the acceptance criterion D-29 requires and D-28 withdrew the last one of. It is fixed **now**, before any number exists, and a script computes it from the run record's `greedy` block — never by eye (D-27, ASM-23).
+
+- **Metric.** For a seed `s` and a descriptor `d`, `C(s, d)` is the count of `s`'s greedy-pass decisions attributed to `d` by §2; `R(s)` is the seed's raise decisions; `D(s)` its decisions; `T(s)` its tie-resolved decisions. The census reports `C`, the amount histogram per band conditioned on each decision's `m`, the chip delta per hand and the tie share.
+- **Seeds and sample.** Seeds 0–4 — five independent live-budget runs of 1,000 hands each (`ladder.md` §6, ASM-8), each with its greedy pass of 1,000 hands: ≥ 5,000 hands and, at the fixed game's measured two to four decisions a hand, ≥ 10,000 decisions. **Every seed is reported and judged alone**; the pooled figure is reported and is never the verdict, because the seed lottery dominates (`strata/records/attractor-sweep.md`).
+- **PASS** requires all seven, **for every seed**: (1) every retained decision attributes to exactly one descriptor by §2; (2) every decision's mode is `off`; (3) the seed has at least **100 raise decisions** — a share over a handful of raises is not a distribution, so a near-never-raise policy fails here rather than passing a small denominator — and `raise-minimum` is the seed's modal raise band holding ≥ 40 % of them; (4) some other raise band holds ≥ 10 % of them; (5) `raise-all-in` holds ≤ 10 % of them; (6) no single descriptor holds ≥ 90 % of the seed's decisions; (7) conjuncts 3–6 hold again with `T(s)` excluded.
+- **Why those numbers, and not others.** (3)'s 40 % sits above the 25 % a uniform choice over four legal bands would give and below the measured learner's 54 % (32 of its 59 raises); (4)'s 10 % is far below that learner's 46 %; (5)'s 10 % is a ceiling on the behaviour the ladder prices at −5.5 to −8.9 chips/hand, against a measured 0 %; (6)'s 90 % is the one threshold with a witness on both sides — the measured learner's largest class is 40 %, and the measured fixed-limit attractor was raise in five of five seeds at nearly every decision (`strata/records/attractor-sweep.md`). The criterion is therefore **satisfiable and not a tautology**: the measured learner passes all seven.
+- **Chips are reported and never thresholded.** A 5,000-hand chip comparison cannot resolve the 0.3-chip edge the ladder cares about, and the seed lottery dominates it (`strata/records/attractor-sweep.md`, ASM-21); the census is a property of the policy and is estimable at a few thousand decisions, which is why this criterion tests **selection** and leaves **price** to the run it authorises (D-24, D-26).
+- **A FAIL looks like one of these**, and each names the seed and the conjunct: the **shover**, a band above the minimum holding ≥ 90 % of a seed's raises — a size found and the wrong one, and chips improving does not save it (D-24); the **collapse**, one descriptor above 90 % of a seed's decisions, which is the measured raise attractor one level down; the **tie artefact**, conjunct 3–6 passing only while `T(s)` is counted, so the verdict would be the tie-break's and not the learner's (§3, V-F13); the **exploration artefact**, a log carrying any decision whose mode is not `off`, or a census computed over training decisions, which is refused by name rather than read (D-28); the **unattributable census**, any decision §2 cannot place, which fails conjunct 1 with the count of such decisions. A pooled pass with one failing seed is a FAIL.
+- **Where the verdict lives.** The live run's record and the verdict written from it are one evidence artefact, `checkpoints/evidence/sized-live.json`, whose shape is `training`'s to document as `checkpoints/evidence/r1-live.json`'s is (`protocol.md` §5): it carries the run record, its `greedy` block, the census, the criterion as it was pinned and the verdict with the conjunct and seed that decided it. The file does not exist yet, nothing reads it, and the two shipped artefacts stay exactly as `shapes.md` §5 leaves them.
+- **What a PASS authorises, and what it does not.** A PASS authorises the overnight run at the shipped budget and no earlier one (D-26, D-28); a FAIL is recorded with the conjunct and the seed, the run is not spent, and the record says why (D-6, D-10). Neither verdict is a claim that the size is optimal — that is the deep run's question, and the census of §4 is the instrument it will be read with (D-26, ASM-23).

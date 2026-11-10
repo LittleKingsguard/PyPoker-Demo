@@ -37,6 +37,7 @@ A cell's `seed` (`records.md` §9) is the seed its hands were dealt from, derive
 - The baselines are rows *and* columns at that same hand count — always the three of D-6 and, when declared, the three folders of D-21 — and their mutual cells are in the table, so the matrix carries cells no model influences (D-16, `protocol.md` §3, D-21).
 - The matrix is reported raw — both directions of every cell, its counts, chip deltas and seat split — and is never reduced to a ranking in the report. A summary statistic that assumes a transitive order is exactly what a poker payoff need not have (D-16).
 - A matrix whose cells differ in hand count, whose membership is not the pool's, or which is missing a baseline, is a contract violation and not a table (D-16, `e2e-surface.md` §2).
+- **A matrix is one shape's.** The pool declares the shape it is on and every member carries it, so a table's cells, seat splits and chip deltas are one game's; a membership naming two shapes, or a cell between two of them, is refused by name, and no cell, rating or table is compared across the two games — a second shape's table is a new artefact and never a column of this one (`shapes.md` §3, §6, D-29).
 
 ## 5. The rating
 

@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 module map
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
-- **Covers:** brief §2 (the rung ladder), brief §3 (the league evaluation, D-16), the learning-rule catalogue (D-19), the utility catalogue (D-20) and the six-baseline catalogue (D-21), Phase 1 only
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
+- **Covers:** brief §2 (the rung ladder), brief §3 (the league evaluation, D-16), the learning-rule catalogue (D-19), the utility catalogue (D-20), the six-baseline catalogue (D-21) and the two declared game shapes (D-29), Phase 1 only
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. The map
@@ -14,7 +14,7 @@ caller hands it (D-19, `rules.md` §2).
 
 | Module | Responsibility — one sentence | Endpoints |
 |---|---|---|
-| `engine` | the fixed game as a reinforcement-learning environment: hands, legality, readouts, reward, seeding, equity (D-2, ASM-2) | 9 |
+| `engine` | the fixed game as a reinforcement-learning environment — the declared game shapes, hands, legality, readouts, reward, seeding, equity (D-2, ASM-2, D-29) | 10 |
 | `features` | the observation and action encoding of a readout — the ladder's representation axis (D-3) | 7 |
 | `agents` | everything that chooses or learns an action: one learner family under a catalogue of learning rules and a catalogue of terminal-reward utilities, and the six fixed baselines — the three of D-6 that anchor the rating and the three folders of D-21 (D-6, ASM-7, D-19, D-20, D-21) | 10 |
 | `evaluation` | the league: the bounded pool — which may hold models trained under different rules and objectives — the match scheduler, the pairwise matrix, the fitted rating, the shipped tables, and the complete per-rung report (D-16, D-19, D-20) | 11 |
@@ -60,7 +60,7 @@ One job per module, and each "never" is what keeps the module independently test
 
 ## 4. Endpoints and the harness ceiling
 
-`modules.json` declares, per module, its owned paths and its entry-point count `N`. The harness ceiling is `50 + 10×N` lines for that module's harness files, computed by `strata-lint` and never asserted by a harness author (brief §5): a harness over its ceiling means the surface is too large, not that the harness may grow. The declared counts are `engine` 9, `features` 7, `agents` 10, `evaluation` 11, `training` 6, `harness` 6 — 49 endpoints across the map.
+`modules.json` declares, per module, its owned paths and its entry-point count `N`. The harness ceiling is `50 + 10×N` lines for that module's harness files, computed by `strata-lint` and never asserted by a harness author (brief §5): a harness over its ceiling means the surface is too large, not that the harness may grow. The declared counts are `engine` 10, `features` 7, `agents` 10, `evaluation` 11, `training` 6, `harness` 6 — 50 endpoints across the map, the second game shape having added `engine.game_shapes` to the 49 (D-29, `shapes.md` §4). `modules.json` still carries 9 for `engine` and must be re-declared with this revision; that file is not this layer's to edit.
 
 The authoritative list of entry points per module is `e2e-surface.md` §3, and its row count must equal the `endpoints` value here for every module. `strata-lint` prints one ceiling per module, so no ceiling in this map is implicit.
 
@@ -88,4 +88,6 @@ with ASM-19.
 
 No game-expansion module, no attention or opponent-modelling module, no multi-player seat handling and
 no web UI: they are Phase 2 or later (D-4, D-9). No module is declared for work the brief does not
-name, and no module carries a Phase 2 seam in anticipation (D-4).
+name, and no module carries a Phase 2 seam in anticipation (D-4). The **second game shape is not an
+exception and not a module**: it is a row of `engine`'s catalogue and a vocabulary in `features`, so the map
+is still six modules and a shape costs one entry point rather than a subtree (`shapes.md` §1, §4, D-29).

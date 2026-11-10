@@ -1,8 +1,8 @@
 # PyPoker-Demo — L1 record shapes
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
-- **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16, the learning rule of D-19, the utility of D-20 and the folding baselines of D-21 included
-- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
+- **Covers:** the mapping shapes the entry points of `e2e-surface.md` §3 exchange — the league objects of D-16, the learning rule of D-19, the utility of D-20, the folding baselines of D-21 and the game shape and greedy pass of D-29 included
+- **Ceiling:** 140 lines. At the ceiling, split by owner — never append
 
 ## 1. Why these are L1's
 
@@ -16,6 +16,7 @@ Every entry point above the engine exchanges a plain mapping, and a shape declar
 | `architecture` | **required** — `kind`, plus `width`, `depth`, `sparsity`, `residual` as the kind uses them (D-3) |
 | `learning_rule`, `hyper`, `param_budget`, `samples`, `seeds`, `device`, `snapshot_every`, `table` | the rule this variant is **trained** under — one of the catalogue's members, absent meaning its first, and two variants of one configuration may name two (`rules.md` §2, §4, D-19) — and its hyperparameters (ASM-7); the budgets, the snapshot interval and the table budget of `ladder.md` §3, §6 (ASM-8, ASM-18) |
 | `utility` | the utility this variant is **trained** under — one of the catalogue's members, absent meaning its first, `net-chips`, and two variants of one configuration may name two (`utilities.md` §2, §5, D-20) |
+| `game` | the shape this variant is trained and evaluated on — one of `engine.game_shapes()`'s names, absent meaning the default, `fixed-limit-20`, and two variants of one configuration name one shape because a table is one shape (D-29, `shapes.md` §2–§3) |
 
 ## 3. Learner spec — `agents.build_learner`
 
@@ -31,7 +32,7 @@ successor, as `features.legal_indices` returns them, so a masked update re-deriv
 
 ## 5. Episode record — `engine.play_hand`
 
-**Required**: `seed`; `decisions`, the ordered decisions, each carrying `seat`, `readout`, `legal`, `action` and `reward`; and `payoffs`, net chips per seat summing to zero (`protocol.md` §2). Rewards are zero except at most one non-zero reward per seat, at that seat's terminal decision — the engine places the hand's **net chip delta** there and no shaped term, whatever utility the learner that consumes it is trained on: the utility is applied to that number when the transition record is built (`utilities.md` §4, ASM-12, D-20).
+**Required**: `seed`; `decisions`, the ordered decisions, each carrying `seat`, `readout`, `legal`, `action`, `reward`, and the **amount** a raise was resolved to with the two bounds it was resolved between (`amount`, `minimum`, `maximum` — `None` on a decision where no raise was legal, and a fold or a check/call carries no amount); and `payoffs`, net chips per seat summing to zero (`protocol.md` §2). The three amount keys are what makes a chosen size attributable to one descriptor after the hand is over (`sizing.md` §2, §15 below, D-29); `readout`'s facts stay the eleven of `e2e-surface.md` §2 and no twelfth is added. Rewards are zero except at most one non-zero reward per seat, at that seat's terminal decision — the engine places the hand's **net chip delta** there and no shaped term, whatever utility the learner that consumes it is trained on: the utility is applied to that number when the transition record is built (`utilities.md` §4, ASM-12, D-20).
 
 ## 6. Decision record — `agents.act`
 
@@ -47,10 +48,11 @@ successor, as `features.legal_indices` returns them, so a masked update re-deriv
 | `lineage` | **required** — the version this one descends from, or its rung's own start for the first; the pool's window is ordered by it (D-16, ASM-18) |
 | `rule` | **required** — the catalogue member the version was trained under, so a table can name the population it measured and the pool id can certify it (`rules.md` §6, ASM-27); it is the name the member's own container records, and a member whose rule disagrees with its file is refused **when the member is played**, naming the member and both values, as is a name the catalogue does not carry (D-19, ASM-20) |
 | `utility` | **required** — the catalogue member whose reward the version was trained on, so a table can name it and the pool id can certify it (`utilities.md` §6, §7, ASM-27); it is the name the member's own container records, and a member whose utility disagrees with its file is refused **when the member is played**, naming the member and both values, as is a name the catalogue does not carry or a record that names none — the declared default speaks for a variant entry and a learner spec, never for a pool member (`utilities.md` §5, D-20, ASM-20) |
+| `game` | **required for a member of a non-default shape, absent for a default-shape one** — the shape the version plays, read off its container's `game` field, which only a version-4 container carries (`sizing.md` §6, `shapes.md` §3); a member whose shape disagrees with its file, or with the shape the pool declares, is refused naming the member and both values, and an absent field reads as the default shape exactly as an absent rule reads as the catalogue's first (D-19, D-29) |
 
 ## 8. Pool declaration and pool record — `build_pool`, `pool_members`, `offer`
 
-A declaration is `members` (**required** — the versions, by id, lineage, rule and utility), `m` (**required** — the bound), `frozen` (**required** — whether the pool may not change while used) and `baselines` (**optional** — the catalogue names of the baselines a configuration admits beyond the three anchor ones, which are members whether it names them or not, so D-21's folders join by declaration and never silently; a name outside the catalogue is refused by name, ASM-32, D-21). A pool record returns `id` and `m` (**required**), `frozen` (**required** — whether the pool was frozen when it was used, which is how a pair's parity is read), `members` (**required**) in the pool's order — the pinned baselines, the three of D-6 first and then the declared folders in the catalogue's order, then each family's chain oldest to newest, the families in the order they entered the window (ASM-26) — each a §7 record, `rules` (**required** — the distinct rules its version members declare, in that order, which is the population a table over it measured) and `utilities` (**required** — the distinct utilities those members declare, in that order, D-20) (D-16, D-19, ASM-16, ASM-26, D-21). The id changes when and only when the membership does — a version's rule and its utility included — so a run record and a table can be compared by the id alone, and a pool whose declaration names no folder keeps the id it had (D-16, ASM-27).
+A declaration is `members` (**required** — the versions, by id, lineage, rule and utility), `m` (**required** — the bound), `frozen` (**required** — whether the pool may not change while used), `game` (**optional** — the shape the pool is on, absent meaning the default, and a member or a declared baseline of another shape is refused by name, D-29, `shapes.md` §3) and `baselines` (**optional** — the catalogue names of the baselines a configuration admits beyond the three anchor ones, which are members whether it names them or not, so D-21's folders join by declaration and never silently; a name outside the catalogue is refused by name, ASM-32, D-21). A pool record returns `id` and `m` (**required**), `frozen` (**required** — whether the pool was frozen when it was used, which is how a pair's parity is read), `game` (**required** — the shape every member of it plays, D-29), `members` (**required**) in the pool's order — the pinned baselines, the three of D-6 first and then the declared folders in the catalogue's order, then each family's chain oldest to newest, the families in the order they entered the window (ASM-26) — each a §7 record, `rules` (**required** — the distinct rules its version members declare, in that order, which is the population a table over it measured) and `utilities` (**required** — the distinct utilities those members declare, in that order, D-20) (D-16, D-19, ASM-16, ASM-26, D-21). The id changes when and only when the membership does — a version's rule and its utility included — so a run record and a table can be compared by the id alone, and a pool whose declaration names no folder keeps the id it had (D-16, ASM-27). The shape is **not** in the digest, on ASM-27's rule that the id changes when and only when the membership does: two pools of one membership on two shapes are one id and are never one table, which is why the shape is a required field of the record rather than of the id.
 
 ## 9. Cell record — `evaluation.match`
 
@@ -81,7 +83,7 @@ side of those hands (`protocol.md` §2).
 
 ## 12. Run record — `training.run`
 
-`rung` (**required** — the rung name, or an unregistered configuration's label), `curves` (**required** — per variant per
+`rung` (**required** — the rung name, or an unregistered configuration's label), `game` (**required** of a record this build writes, absent meaning the default shape for a record already on disk — the same reading a version-1 container's absent rule gets, D-29, `shapes.md` §3), `greedy` (**required** by the same rule — the exploration-off pass of §15, D-29), `curves` (**required** — per variant per
 seed: the sample axis, a learning signal, and the variant's spread across seeds — one array per point, repeated in each
 of its seeds' entries), `pool` (**required** — the id and membership trained against, one id for both arms of a pair, and the `rules` and `utilities` its members declare), `variants` (**required** — one entry per declared variant, each naming its `learning_rule` and its `utility`, so a run says which estimator and which objective produced which curve, D-19, D-20), `rules` (**required** — the set of rules the run declared and trained), `utilities` (**required** — the set of utilities the run declared and trained, D-20), `checkpoints` (**required** — the retained snapshots and the final model per variant per seed), `seeds`, `budget`,
 `device` (**required** — what the run used), `params` (**required** — the declared parameter budget; a cell records the
@@ -96,7 +98,9 @@ is the record of what happened (D-6, D-16, D-19).
 satisfies one, and an absent family is refused by name (D-6, D-16). The report's pool family carries the
 **population its table measured** — the pool's own `rules` and `utilities` completed to the matrix's
 `population` and `utility_population`, so a report states which estimators and which objectives its table
-fitted over (D-19, D-20, `utilities.md` §7, §9).
+fitted over (D-19, D-20, `utilities.md` §7, §9). Its `header` family also names the **shape** the run, the pool
+and the matrix agree on, and a record whose three do not name one shape is refused naming them (D-29,
+`protocol.md` §1, `shapes.md` §6).
 
 ## 14. Harness inputs
 
@@ -108,3 +112,16 @@ object kind — an encoder, a learner, a baseline, a hand, a rung configuration 
 owning entry point, never in place of it. `harness.seam` takes any label (its contract is the policy
 protocol, not the label) and `harness.expect` takes a kind `fixtures` listed; L1 fixes only that a seam
 satisfies the policy protocol, re-implements no subsystem, and yields a verdict (D-13).
+
+## 15. Greedy pass record — the run record's `greedy` block
+
+The one decision stream a run retains (`sizing.md` §4, D-29). `mode` (**required** — `off`; a block carrying any other value, or a census computed over training decisions, is refused by name), `seed` (**required** — the run seed the pass was played at), `hands` (**required** — the hands played, at most 2,000 per variant per seed), `net_chips` (**required** — one net chip delta per hand for the learner's seat, so the pass's price can be recomputed and not only quoted, ASM-23) and `decisions` (**required** — the ordered decision records, at most 24,000 per variant per seed; a pass that would exceed either bound is refused and never truncated).
+
+| Key | Content |
+|---|---|
+| `index`, `descriptor` | **required** — the chosen index and the descriptor it decodes to, in the shape's declared order (`sizing.md` §3) |
+| `amount`, `minimum`, `maximum` | **required** — the raise-to the engine resolved, and the two bounds it was resolved between; all three are null on a decision where no raise was legal (`sizing.md` §2) |
+| `legal` | **required** — the decision's legal index set, so a census re-derives no mask (`§4`) |
+| `tie` | **required** — whether the tie-break, and not a strict maximum, chose the index (`sizing.md` §3, validity V-F13) |
+
+The block records a sample; it computes no verdict. The census and the acceptance criterion of `sizing.md` §7 are a script's, read from this block and written beside the run record as an evidence artefact that no entry point reads (D-27, D-8).

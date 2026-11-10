@@ -1,8 +1,8 @@
 # PyPoker-Demo — L1 evaluation protocol
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
-- **Covers:** brief §3 — curves, the league table, the fitted rating, the fixed baselines and the three folding baselines D-21 adds, fixed seeds, and the rule set and utility set a table measured (D-6, D-16, D-19, D-20, D-21)
-- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-09
+- **Covers:** brief §3 — curves, the league table, the fitted rating, the fixed baselines and the three folding baselines D-21 adds, fixed seeds, the rule set and utility set a table measured, and the game shape every family of it is about (D-6, D-16, D-19, D-20, D-21, D-29)
+- **Ceiling:** 125 lines. At the ceiling, split by owner — never append
 
 ## 1. What a rung must report
 
@@ -19,7 +19,7 @@ family when it refuses:
 | rating | the fitted rating of `league.md` §5: one value and a 95% interval per member with the method, the anchor and the hands behind each value (D-16) |
 | baselines | every baseline row of the catalogue the run's configuration declares inside that matrix — always the three of D-6, and the three folders of D-21 when the configuration names them — each at the same hand count as every league cell (D-16, D-21) |
 | axis row | R4, R5 and R6 carry their own pair's cell of the matrix plus the matched budgets of `ladder.md` §4. R1–R3 carry the explicit value `n/a, single variant` |
-| header | the game configuration, the action vocabulary, the parameter counts of every member, the sample budget, the cell size, the seed set, the table seed, the device and the checkpoint paths — everything a third party needs to re-run the table (D-6, D-16) |
+| header | the game configuration, the **shape** it is (the one shape the run, the pool and the matrix agree on), the action vocabulary, the parameter counts of every member, the sample budget, the cell size, the seed set, the table seed, the device and the checkpoint paths — everything a third party needs to re-run the table (D-6, D-16, D-29) |
 
 That table is the whole list, and it is the only place the count is fixed: those seven names are
 `evaluation.protocol()["families"]`'s keys and the only names a report can refuse a record for. A report
@@ -35,7 +35,7 @@ are reported by the id the pool gave them, never by rank order alone (D-16).
 
 ## 2. The recorded comparison
 
-- The seed set is fixed at `0, 1, 2` and is recorded in every run record and every report; a comparison a third party cannot re-run from the record is not evidence (D-6).
+- The seed set is fixed at `0, 1, 2` and is recorded in every run record and every report; a comparison a third party cannot re-run from the record is not evidence (D-6). That is the **ladder's** set, and it stays the ladder's: a configuration outside the registry declares its own set, which its run record carries as `seeds`, and the sized-action criterion declares five, `0` to `4`, because five is the smallest set the seed lottery was measured over and a single-seed figure is a coin flip (D-29, `sizing.md` §7, `strata/records/attractor-sweep.md`).
 - A run trains for 1,000 hands per variant per seed live and 200,000 for a long shipped run, at the seed set above (`ladder.md` §6, ASM-8). What ships today is R1's set from a live-budget run — 1,000 hands per variant per seed — so the record of that set says a live budget and no long run exists yet to stand beside it (D-8, ASM-18).
 - A table cell is 120 hands live and 1,500 hands full, seats alternating, for every pair in the membership — every baseline cell included, the three anchor ones and any declared folder (`league.md` §6, ASM-14, D-21).
 - Every cell reports wins, ties and losses, the mean chip delta per hand, the seat split and the hands played. Chip delta, not only win rate: fixed-limit heads-up with short stacks makes ties and splits common (ASM-6), and a win rate alone hides them.
@@ -95,6 +95,7 @@ table as well as playing every version, so the matrix carries cells whose result
 - The two tables of `league.md` §6 ship as those two files and no others: a `live` table is played by the talk and is not written to `tables/`, whose one occupant is the offline `full` table, and one member id does not identify one player across the two — `league.md` §9 states the rule each file obeys (D-8, D-16).
 - **D-21's re-baseline is the third of the same shape, and it is not taken here.** The shipped pools declare the three anchor baselines and no folder, so both files keep their membership, their pool ids, their cells and their ratings; declaring the folders in a rung instead re-measures that rung's table at K = 12 or 13 — 99,000 or 117,000 hands for the `full` table, ≈1.4–3.6 hours of CPU in `folders.md` §5's forecast — plus a fresh 3,000-hand live run, and it moves **every** rating in the file, because the fit is over more cells rather than over the same cells renamed (D-21, ASM-33, `folders.md` §4, §5).
 - **The shipped artefacts measured a population of one rule and one objective, and that is stated rather than repaired.** `checkpoints/evidence/r1-live.json` and `tables/league-full.json` were measured under the single-rule, single-utility arrangement that preceded D-19 and D-20, and the 18 checkpoints they name are version-1 containers, which read as `masked-q-learning` and `net-chips` (`rules.md` §6, `utilities.md` §6): their population is one rule and their utility is one objective, and each member's record says so. Re-measuring them under the catalogues is D-19's and D-20's own re-baseline, and it is a separate decision — what it costs is stated in this layer's return, not assumed here. So no figure in either file is regenerated by this change, and no document quotes one as though it had been (D-19, D-20, D-8, ASM-8, ASM-23).
+- **They measured one game too, and the second shape does not touch them.** Both files, and the 18 containers with them, are a **fixed-limit** run and a fixed-limit table: they read as the default shape because they name none, which is what an absent shape means, and every figure in them keeps its meaning until a shape is named (`shapes.md` §3, §5). Nothing in them is re-measured, re-membered or compared with a figure from another shape, and a table on the second shape is an evidence artefact of its own run rather than an edit of these two, which keep their membership, their cells and their ratings exactly as §5's two preceding bullets state (D-29, `shapes.md` §6).
 
 ## 6. Where the device rule bites (`strata/platform.md`, D-8)
 
