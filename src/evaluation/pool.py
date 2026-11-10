@@ -1,11 +1,18 @@
 """The bounded pool: `Pool`, `build_pool`, `pool_members` and `offer`
 (`docs/L3/evaluation/pool.md`, `docs/L3/evaluation/families.md`).
 
-A pool is one ordered member list plus its bound, its frozen flag and its id -- both the
-opposition the training loop samples and a table's rows and columns (D-16).  It is
-opaque: a caller only passes it back to `pool_members`, `offer`, `opponent` and `matrix`
-(`surface.md` §1).  Nothing here caches, registers or mutates: `offer` returns a new
-pool and leaves its argument unchanged.
+A pool is one ordered member list plus its bound, its frozen flag, its id and its
+**shape** -- both the opposition the training loop samples and a table's rows and columns,
+on **one** shape (D-16, `shape.md` §4).  It is opaque: a caller only passes it back to
+`pool_members`, `offer`, `opponent` and `matrix` (`surface.md` §1).  Nothing here caches,
+registers or mutates: `offer` returns a new pool and leaves its argument unchanged.
+
+The shape is a **field of the pool and never of its id**: a declaration's optional `game`
+key is read first (absent reads as `DEFAULT_SHAPE` and an uncatalogued name is
+`UnknownShape`), every member record's own `game` is held to it (`ShapeMismatch`), and the
+read-back states it -- while the id digest is the membership's alone, so two pools of one
+membership on two shapes wear one id and are never one table (`shape.md` §2-§4,
+`families.md` §4, ASM-27).
 
 The baselines come first, each pinned with the `params` of `0` the catalogue declares:
 the **flagged three** of `agents.baselines()` -- the catalogue's `anchor: True` members --
@@ -36,7 +43,14 @@ from collections.abc import Mapping
 
 import agents
 
-from .declarations import BASELINES, CATALOGUE, M
+from .declarations import (
+    BASELINES,
+    CATALOGUE,
+    DEFAULT_SHAPE,
+    M,
+    PROBE_SEED,
+    require_shape,
+)
 from .errors import (
     FamilyBoundExceeded,
     InvalidPool,
@@ -50,6 +64,7 @@ from .errors import (
     PoolFrozen,
     LineageNotExtended,
     RuleMismatch,
+    ShapeMismatch,
     UnknownBaseline,
     UnknownRule,
     UnknownUtility,
@@ -62,27 +77,69 @@ SEPARATOR = "\x1f"
 
 
 class Pool:
-    """One pool: its id, its bound, its frozen flag and its ordered members.
+    """One pool: its id, its bound, its frozen flag, its shape and its ordered members.
 
     Immutable in use -- `offer` builds a new one -- and opaque: no record returned here
-    exposes it, and a caller only hands it back (`pool.md` §1, `surface.md` §1).
+    exposes it, and a caller only hands it back (`pool.md` §1, `surface.md` §1).  `game` is
+    the one shape every member of it plays, and the fact `matrix` measures and `report`
+    reads (`shape.md` §4, `matrix.md` §1).
     """
 
-    __slots__ = ("id", "m", "frozen", "members")
+    __slots__ = ("id", "m", "frozen", "game", "members")
 
-    def __init__(self, pool_id, m, frozen, members):
+    def __init__(self, pool_id, m, frozen, members, game=DEFAULT_SHAPE):
         self.id = pool_id
         self.m = m
         self.frozen = frozen
+        self.game = game
         self.members = members
 
     def __repr__(self):
-        return "Pool(id=%r, m=%r, frozen=%r, members=%r)" % (
+        return "Pool(id=%r, m=%r, frozen=%r, game=%r, members=%r)" % (
             self.id,
             self.m,
             self.frozen,
+            self.game,
             tuple(member.get("id") for member in self.members),
         )
+
+
+# ---------------------------------------------------------------------------
+# The one shape a pool is on (`shape.md` §2-§4, pool.md §2)
+# ---------------------------------------------------------------------------
+def _shape(declaration, entry="build_pool"):
+    """The declaration's `game`, read first -- absent is the default, never a substitution.
+
+    One row of the restated catalogue names the shape; an absent key reads as
+    `DEFAULT_SHAPE` and a name the catalogue does not carry is `UnknownShape` naming the
+    entry point, the field, the name and `SHAPE_NAMES` -- never mapped onto the default
+    (`shape.md` §2-§3, `pool.md` §2 step 1, D-29).
+    """
+    return require_shape(declaration.get("game"), entry)
+
+
+def _member_game(record, shape, where, entry):
+    """A member record's `game`, held to the one shape its container is on (§2 step 2).
+
+    A record that names none is read as the default shape, and one that names a shape the
+    catalogue does not carry is `UnknownShape` naming the member, the name and the
+    declared names; a shape that is not the container's is `ShapeMismatch`, naming the
+    member and both shapes -- the same check `RuleMismatch` and `UtilityMismatch` make, and
+    at the same place: before a hand is dealt, and never a value filled in (`shape.md`
+    §2-§3, `records.md` §7, `pool.md` §2-§3, §6).
+
+    The **declared** value comes back -- `None` when the record names none -- so the
+    read-back carries a non-default member's `game` and no invented one for a
+    default-shape member (`pool.md` §5, `shape.md` §4).
+    """
+    declared = record.get("game")
+    game = require_shape(declared, entry, where)
+    if game != shape:
+        raise ShapeMismatch(
+            "%s(%s): the member records the shape %r and the pool is %r, and a pool is "
+            "one shape's" % (entry, where, game, shape)
+        )
+    return declared if isinstance(declared, str) else None
 
 
 # ---------------------------------------------------------------------------
@@ -491,24 +548,32 @@ def build_pool(declaration):
     """One pool from one `records.md` §8 declaration (§5, `pool.md` §2).
 
     The declaration's three keys are all required and its optional `baselines` key names
-    the catalogue baselines it admits beyond the flagged three; `m` may be tighter than
-    the league's M and never wider; every version member declares its `rule` and its
-    `utility`, each refused by name when the catalogue does not carry it and the `utility`
-    refused by name when it is absent too, the pool being the only witness of the objective
-    a member was trained under; the versions are grouped into families and ordered by
-    their lineage links; the window is bounded to `m` by the fair-share eviction rule;
-    the pinned baselines are added first -- the flagged three and then any declared
-    folder, in the catalogue's order -- and the id is computed.  A declaration richer than
-    the bound is windowed, never refused, unless it holds more families than the bound
-    allows (`errors.md` §5).  A declared `id` that is one of the pinned baselines' names
-    is refused, because the baselines are prepended here and the membership would then
-    carry that id twice (`pool.md` §2 item 1, §8, ASM-32, D-21).
+    the catalogue baselines it admits beyond the flagged three; its optional `game` key is
+    the one shape the pool is on, read first, and every version member's own `game` is held
+    to it -- a member of another shape is `ShapeMismatch` naming the member and both
+    shapes, and an uncatalogued name is `UnknownShape` (`shape.md` §2-§3); `m` may be
+    tighter than the league's M and never wider; every version member declares its `rule`
+    and its `utility`, each refused by name when the catalogue does not carry it and the
+    `utility` refused by name when it is absent too, the pool being the only witness of the
+    objective a member was trained under; the versions are grouped into families and
+    ordered by their lineage links; the window is bounded to `m` by the fair-share eviction
+    rule; the pinned baselines are probed once and added first -- the flagged three and
+    then any declared folder, in the catalogue's order -- and the id is computed, which the
+    shape never enters.  A declaration richer than the bound is windowed, never refused,
+    unless it holds more families than the bound allows (`errors.md` §5).  A declared `id`
+    that is one of the pinned baselines' names is refused, because the baselines are
+    prepended here and the membership would then carry that id twice (`pool.md` §2 item 1,
+    §8, ASM-32, D-21).
     """
     if not isinstance(declaration, Mapping):
         raise PoolDeclarationInvalid(
             "build_pool(declaration): the declaration must be a mapping, got %s"
             % (type(declaration).__name__,)
         )
+    # The shape is read **first**, before a member is looked at: absent it is the default
+    # and a name the catalogue does not carry is refused by name, so no pool is built for
+    # a window that will be refused (`pool.md` §2 step 1, §8, `shape.md` §2, D-29).
+    shape = _shape(declaration)
     for key in ("members", "m", "frozen"):
         if key not in declaration:
             raise PoolDeclarationInvalid(
@@ -568,17 +633,61 @@ def build_pool(declaration):
         member["utility"] = _utility(
             member, "member %r" % (member["id"],), "build_pool"
         )
+    # ... and every member plays the pool's one shape: a record whose `game` -- or whose
+    # absent `game`, read as the default -- is not the pool's is `ShapeMismatch`, refused
+    # after the rule and the utility and before a family is ordered (`pool.md` §2 step 2,
+    # §8, `shape.md` §2-§3, D-29).  A member that names a shape reads back with it and one
+    # that names none gains nothing, because absence is already the default (`pool.md` §5).
+    for member in records:
+        declared_game = _member_game(
+            member, shape, "member %r" % (member["id"],), "build_pool"
+        )
+        if declared_game is not None:
+            member["game"] = declared_game
 
     families = _families(records)
     window = _window(families, bound, "build_pool")
+    # Each pinned baseline is probed once -- a construction only, with no hand played, no
+    # file read and no stream moved -- so a baseline the catalogue cannot construct is
+    # refused by name rather than silently held unplayable (`pool.md` §2 step 6, ASM-2).
+    for name in pinned:
+        _probe_baseline(name, shape)
 
     members = tuple(_baseline_member(name) for name in pinned) + tuple(window)
-    return Pool(_pool_id(members), bound, frozen, members)
+    return Pool(_pool_id(members), bound, frozen, members, shape)
 
 
 def _baseline_member(name):
-    """One pinned baseline member: its id is its name (`pool.md` §2 step 5, G3)."""
-    return {"id": name, "baseline": True, "pinned": True, "params": 0}
+    """One pinned baseline member: its id is its name (`pool.md` §2 step 6, G3).
+
+    Its `game` is `None` because a baseline carries **no** shape: `agents.build_baseline`
+    takes a name and a seed and no shape, so a baseline policy is shape-silent and plays
+    whatever shape the hands are dealt on (`shape.md` §4, `scheduler.md` §5).
+    """
+    return {"id": name, "baseline": True, "pinned": True, "params": 0, "game": None}
+
+
+def _probe_baseline(name, shape):
+    """One pinned baseline constructed once at `PROBE_SEED` -- and nothing else (§2 step 6).
+
+    `agents.build_baseline(name, PROBE_SEED)` is a **construction**: no hand is played, no
+    file is read and no stream moves, which is what keeps `build_pool`'s "plays nothing,
+    moves no stream" true (ASM-2).  A baseline the catalogue cannot construct is refused
+    naming the member and both shapes -- the pool's and the `None` the baseline names --
+    rather than silently held unplayable.  Under today's catalogue the probe's firing set
+    is **empty**: `agents` declares one catalogue of six for both declared shapes and
+    `build_baseline` takes no shape, so every one of them constructs and every one plays
+    both shapes (`shape.md` §4); the probe guards the day a catalogue carries a
+    shape-dependent baseline (`pool.md` §2, D-29).
+    """
+    try:
+        agents.build_baseline(name, PROBE_SEED)
+    except Exception as exc:
+        raise ShapeMismatch(
+            "build_pool(baseline %r): the catalogue cannot construct the baseline for the "
+            "shape %r, and the baseline names no shape of its own, and a pool is one "
+            "shape's (%s)" % (name, shape, exc)
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -632,13 +741,18 @@ def pool_members(pool):
 
     A caller that edits the returned record changes nothing, and a frozen pool's
     read-back does not change while it is used -- which is how a pair's parity is read.
-    `rules` and `utilities` are the two populations its version members declare.
+    `game` is **required** and names the one shape every member of the pool plays -- an
+    absent declaration key reads as the default, and a record that names it is the fact a
+    table and a report read (`shape.md` §2, §4, `records.md` §8).  `rules` and `utilities`
+    are the two populations its version members declare; a baseline declares neither and
+    carries `game: None`, being shape-silent (`shape.md` §4).
     """
     _require_pool(pool, "pool_members")
     return {
         "id": pool.id,
         "m": pool.m,
         "frozen": bool(pool.frozen),
+        "game": pool.game,
         "members": tuple(dict(member) for member in pool.members),
         "rules": _pool_rules(pool.members),
         "utilities": _pool_utilities(pool.members),
@@ -656,10 +770,12 @@ def offer(pool, version):
     (`families.md` §5, ASM-26).  A lineage naming a member that is not its family's newest
     would fork the chain and is refused; a version whose rule or whose utility differs from
     the family it extends is refused; a version that names no `utility` is refused as a
-    missing required key, as a declared member's is; and a full window evicts fair-share, so
-    no family is emptied while another holds two or more.  Opening the (m+1)th family is
-    refused by name rather than emptying one.  The argument pool is unchanged (`pool.md`
-    §6).
+    missing required key, as a declared member's is; a version of another shape is
+    `ShapeMismatch`, naming the version and both shapes, because a pool is one shape's
+    (`shape.md` §3-§4); and a full window evicts fair-share, so no family is emptied while
+    another holds two or more.  Opening the (m+1)th family is refused by name rather than
+    emptying one.  The argument pool is unchanged and the returned pool keeps its shape
+    (`pool.md` §6).
     """
     _require_pool(pool, "offer")
     if pool.frozen:
@@ -695,6 +811,16 @@ def offer(pool, version):
     offered["utility"] = _utility(
         offered, "version %r" % (offered["id"],), "offer"
     )
+    # ... and the version plays the pool's shape: one whose `game` -- or whose absent
+    # `game`, read as the default -- is not the pool's is `ShapeMismatch`, naming the
+    # version and both shapes, because no window mixes two (`pool.md` §6, `shape.md` §3-§4).
+    declared_game = _member_game(
+        offered, pool.game, "version %r" % (offered["id"],), "offer"
+    )
+    if declared_game is not None:
+        offered["game"] = declared_game
+    else:
+        offered.pop("game", None)
 
     versions = [dict(member) for member in pool.members if not member.get("baseline")]
     chains = _window_families(versions)
@@ -757,4 +883,7 @@ def offer(pool, version):
         [member["id"] for member in pool.members if member.get("baseline")]
     )
     members = tuple(_baseline_member(name) for name in pinned) + tuple(window)
-    return Pool(_pool_id(members), pool.m, pool.frozen, members)
+    # The returned pool keeps the **pool's** shape: an offer rolls the version window and
+    # never moves a shape, and the id is recomputed from the membership alone (`pool.md`
+    # §6, `families.md` §4, `shape.md` §4).
+    return Pool(_pool_id(members), pool.m, pool.frozen, members, pool.game)

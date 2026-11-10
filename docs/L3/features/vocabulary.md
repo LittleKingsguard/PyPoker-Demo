@@ -1,130 +1,135 @@
-# features — the three-index action vocabulary
+# features — the shape's action vocabulary
 
 - **Owner:** `action_space`, `legal_indices`, `decode_action` — the three names that carry the action
-  axis: the vocabulary's declaration, a decision's legal indices, and an index read back as a descriptor
+  axis: one shape's vocabulary, a decision's legal indices, and an index read back as a descriptor
+- **Rev:** 2 · **Date:** 2026-11-09
 - **Ceiling:** 135 lines. At the ceiling, split by owner — never append
 
-## 1. The vocabulary is the game's, and it has three indices
+## 1. The vocabulary is the shape's, in the shape's own index order
 
-    ACTIONS = ("fold", "check-call", "raise")        # src/features/vocabulary.py, indices 0, 1, 2
-
-| Index | Action | What the descriptor denotes |
+| Index | `fixed-limit-20` — the default (D-2, ASM-6) | `no-limit-100` (D-27, D-29) |
 |---|---|---|
-| 0 | fold | give up the hand |
-| 1 | check-call | check when `to_call` is 0, otherwise call it |
-| 2 | raise | the engine's minimum legal completion for that decision, unique in fixed-limit |
+| 0 | `fold` — give up the hand | the same |
+| 1 | `check-call` — check when `to_call` is 0, otherwise call it | the same |
+| 2 | `raise` — the engine's minimum legal completion for that decision, unique in this shape | `raise-quarter` — the highest amount in the first quarter of the legal raise interval |
+| 3 | — | `raise-half` — the highest amount in the second quarter of the legal raise interval |
+| 4 | — | `raise-all-in` — the largest legal raise-to amount, the all-in |
+| 5 | — | `raise-minimum` — the minimum legal raise-to amount |
 
-The three descriptor strings are the project's shared spelling: they are the same three `str`s
-`engine.apply_action` accepts, `readout["legal"]` carries and `engine.legal_actions` returns in this
-order (`docs/L3/engine/actions.md` §1, `docs/L3/engine/stepping.md` §1). This module does not import
-that module to compare them — the spelling is inherited fact, restated once here, and the e2e battery's
-FAM-2.10 and FAM-2.11 are the check that the two sides agree (`battery.md` §3, D-13).
+The order is the shape's declared order, and on `no-limit-100` it is deliberately **not monotone in
+amount**: the all-in is index 4 and the minimum index 5. The tie-break among equal masked values returns
+the **smallest masked index**, so an order that followed the amount would make a tie read as a preference
+for the cheapest size (`sizing.md` §3, `docs/L3/agents/rule.md` §5). No rung varies the vocabulary — the
+ladder holds one shape (`ladder.md` §4) — and the shape is data this module restates, never one it imports
+(`declarations.py`, §3).
 
-The vocabulary is held constant across the whole ladder (`ladder.md` §4) and this module never varies it:
-there is no parameter here, no per-rung variant and no fourth index. Rejected: a vocabulary that grows a
-per-amount raise (`raise-to-4`), which would put the game's chip counts into the action space and make
-one index mean two different sizes (`docs/L3/engine/actions.md` §2, D-2).
+The descriptors are the project's shared spelling — the same `str`s `engine.apply_action` accepts,
+`readout["legal"]` carries and `engine.legal_actions` returns in that shape's order
+(`docs/L3/engine/actions.md` §1); this module does not import that module to compare them, and FAM-2.10,
+FAM-2.11 and FAM-19 are the check that the two sides agree (`battery.md` §3, D-13). Both vocabularies
+share `fold` and `check-call`, and no raise descriptor carries an amount — `engine` resolves one
+(`sizing.md` §2).
 
-## 2. `action_space()` — the declaration
+## 2. `action_space(*, shape=None)` — one shape's declaration
 
-    def action_space() -> dict
+    def action_space(*, shape=None) -> dict        # keyword-only; §4's arity reason, surface.md §7
 
-    return {0: {"name": "fold"},
-            1: {"name": "check-call"},
-            2: {"name": "raise",
-                "completion": "the engine's minimum legal completion for the decision"}}
+    default:      {0: {"name": "fold"}, 1: {"name": "check-call"}, 2: {"name": "raise",
+                   "completion": "the engine's minimum legal completion for the decision"}}
+    no-limit-100: {0: {"name": "fold"}, 1: {"name": "check-call"}, 2: {"name": "raise-quarter",
+                   "band": "the highest amount in the first quarter of the legal raise interval"},
+                   3: {"name": "raise-half",
+                   "band": "the highest amount in the second quarter of the legal raise interval"},
+                   4: {"name": "raise-all-in", "band": "the largest legal raise-to amount, the all-in"},
+                   5: {"name": "raise-minimum", "band": "the minimum legal raise-to amount"}}
 
-No argument, no refusal (`surface.md` §7). Keys are the three indices; each value is a plain record
-carrying the action's `name`, and the raise's record adds the resolution that it denotes the engine's
-minimum legal completion (`surface.md` §7, `encodings.md` §6). Two calls return equal mappings in
-ascending index order, and it is plain data because a report's header quotes it (`protocol.md` §1).
+No shape argument is the **default** shape — absence, never a defaulting of a name: a name the catalogue does
+not carry is refused naming it, the entry point and the declared names (`shapes.md` §2, `errors.md` §3). Keys
+are the shape's own indices; a raise's record adds `completion` or `band`, verbatim from `_RESOLUTIONS` (§1).
 
-**The hard constraint: the only integers anywhere in this record are `0`, `1` and `2`.** The L1 battery's
-reader (`tests/e2e/_surface.action_vocabulary`) collects every integer it finds in the keys *and* the
-values, and every string that is **all digits**; so an integer `4`, a `1`-as-a-chip-count, or a key
-`"raise to 4"` read as a chip count would make the vocabulary `{0, 1, 2, 4}` and fail FAM-2.9
-(`battery.md` §3). A digit *inside* prose — `"the engine's minimum legal completion"` has none — escapes
-that reader, which is why the unit battery holds the stronger rule: no string in the record contains a
-digit at all (`guardrails.md` G6). The record carries no amount, no chip count, no size, no width and no
-id beyond the three indices; the raise's `completion` names a mechanism, never a number.
-
-Rejected: a sequence of three names, `("fold", "check-call", "raise")`. The battery would read it
-positionally and pass, but L2 §7 asks the record to carry the raise's resolution, and a bare tuple has
-nowhere to put it. Also rejected: a mapping keyed by name (`{"fold": 0, …}`), which fails FAM-2.9
-outright — the reader finds no integer in its keys and the fallback that saves a positional sequence
-applies only to a three-element sequence, not to a mapping.
+**The hard constraint: the only integers anywhere in this record are the shape's own indices** — `0`, `1`
+and `2` for the default shape, `0`–`5` on `no-limit-100` (`guardrails.md` G6). The L1 battery's reader
+(`tests/e2e/_surface.action_vocabulary`) folds keys, values and all-digit strings into the vocabulary it
+reports, so an amount here reads as a chip count (FAM-2.9); a digit *inside* prose escapes it, so the unit
+rule is stricter — no digit in any string — and the record stays plain data a report may quote.
 
 ## 3. `legal_indices(legal_actions)` — one decision's indices
 
-    def legal_indices(legal_actions: Sequence[str]) -> tuple[int, ...]
+    def legal_indices(legal_actions: Sequence[str]) -> tuple[int, ...]     # no shape, and needs none
 
-    refuse unless the argument is a Sequence, not a str/bytes, and not a set or mapping   # InvalidActionList
-    refuse if it is empty                                        # a decision has at least one action
-    for each descriptor, refuse unless it is one of ACTIONS, naming that descriptor         # UnknownAction
-    return tuple(ACTIONS.index(d) for d in legal_actions)         # POSITION-ALIGNED, never reordered
+    refuse unless the argument is a Sequence, not a str/bytes, and not a set or mapping  # InvalidActionList
+    refuse if it is empty                                      # a decision has at least one action
+    for each descriptor, refuse unless it is a declared descriptor, naming it       # UnknownAction
+    return tuple(DESCRIPTOR_INDEX[d] for d in legal_actions)     # POSITION-ALIGNED, never reordered
 
-The result is **position-aligned with the argument**: the i-th index is the vocabulary index of the i-th
-descriptor (`surface.md` §8). It is therefore one index per descriptor, and — for an argument in the
-engine's order, which is the vocabulary's — ascending and distinct. That is a consequence of the
-alignment, never a step: this function does not sort, does not de-duplicate and does not look at a
-decision, so an argument out of the engine's order yields its indices in that same order
-(`("raise", "check-call", "fold")` gives `(2, 1, 0)`). FAM-2.11 and `tests/e2e/_surface.chosen_index`
-read it positionally to turn a policy's chosen descriptor back into an index, which is why the alignment
-is contract (`battery.md` §2).
+`DESCRIPTOR_INDEX` is built once in `vocabulary.py` from every declared shape's row and is **total over
+every descriptor a decision can carry**: a descriptor's index is its position in the shape that declares
+it, the two vocabularies share their first two entries, and a decision's legal set is one shape's
+vocabulary — so one table serves every decision (`docs/L2/features/shapes.md` §3, §4).
 
-Refusals, each naming what was violated:
+| Descriptor | `fixed-limit-20` | `no-limit-100` |
+|---|---|---|
+| `fold`, `check-call` | 0, 1 | 0, 1 |
+| `raise` | 2 | — |
+| `raise-quarter`, `raise-half`, `raise-all-in`, `raise-minimum` | — | 2, 3, 4, 5 |
 
-- a value that is not a sequence of descriptors — a `str` (a sequence of characters, never a descriptor
-  list), `bytes`, a `set` (no order to align with), a mapping, an iterator, `None`;
-- an empty sequence: a live decision always has at least one legal action (`docs/L3/engine/stepping.md`
-  §1), so an empty one is a caller error and not an empty mask;
-- a descriptor outside the three, **with that descriptor in the message** (`'call'`, `'Fold'`, `0`). No
-  fold is substituted for an unknown action (`surface.md` §8, D-2).
+The result is **position-aligned with the argument**: the i-th index is the i-th descriptor's index
+(`surface.md` §8). It is one index per descriptor and — for an argument in the engine's order, which is the
+shape's — ascending and distinct, a consequence of the alignment and never a step: nothing is sorted,
+de-duplicated or decided, so an argument out of the engine's order yields its indices in that order
+(`("raise-minimum", "check-call")` is `(5, 1)`), and `chosen_index` reads it positionally (FAM-2.11).
 
-It never decides legality: it takes the descriptors a decision already has and names their indices. A
-descriptor this module returns for an index says nothing about whether that index is legal at any
-decision — the engine refuses an illegal one (`surface.md` §9, D-2).
+A **masked-out band is the normal case** on the six-descriptor shape: a band with no legal amount is absent
+from `engine.legal_actions` and therefore absent from the mask, never collapsed onto a neighbour
+(`sizing.md` §2) — `("check-call", "raise-minimum")` gives `(1, 5)`, the full vocabulary gives
+`(0, 1, 2, 3, 4, 5)`, and the default shape's `{1, 2}` is the same fact one shape over.
 
-## 4. `decode_action(index)` — an index, one descriptor
+Refusals, each naming what was violated: a value that is not a sequence of descriptors (a `str`, never a
+descriptor list, `bytes`, a `set`, a mapping, an iterator, `None`); an empty sequence, because a live
+decision always has at least one legal action (`docs/L3/engine/stepping.md` §1); and a descriptor **not
+declared by either shape**, with that descriptor and the seven declared ones in the message (`'call'`,
+`'Fold'`, `0`, `'raise-to-4'`). A descriptor the other shape declares is accepted — it has an index — so a
+`'raise-half'` is never refused here and the caller's decision is the one that decides. The test is gated on
+`str` first, so a foreign type's equality protocol cannot talk its way in, and no fold is substituted for an
+unknown action (`surface.md` §8, `errors.md` §1, D-2); legality is the engine's to decide (`surface.md` §9).
 
-    def decode_action(index: int) -> str
+## 4. `decode_action(index, *, shape=None)` — an index, one descriptor
 
-    refuse unless index is an Integral and not a bool, naming what was passed      # InvalidActionIndex
-    refuse unless 0 <= index <= 2                                                  # InvalidActionIndex
-    return ACTIONS[index]                        # a plain str, equal by value, stable in text
+    def decode_action(index: int, *, shape=None) -> str       # keyword-only, §2's arity reason
 
-One index in, one descriptor out, and nothing else: no decision, no hand, no amount, no legality
-question (`surface.md` §9). The returned string is the one `engine.apply_action` accepts, so the round
-trip `decode_action(legal_indices(legal)[i])` is a descriptor the engine accepts wherever that index is
-legal at that decision (FAM-2.10).
+    refuse unless index is an Integral and not a bool, naming what was passed   # InvalidActionIndex
+    refuse unless 0 <= index < len(the shape's vocabulary)                      # InvalidActionIndex
+    return the shape's vocabulary[index]            # a plain str, equal by value, stable in text
 
-Refused: a value that is not an integer (`"1"`, `1.0`, `None`), a `bool` (a flag is not an index — the
-house rule that a flag is not a count, `README.md` §4), and any index outside `0, 1, 2` (`-1`, `3`). An
-unknown index is never mapped to a default descriptor (`surface.md` §9, D-2).
+The shape decides **how many indices exist** — `0–2` by default, `0–5` on `no-limit-100` (`shapes.md` §2)
+— because an index decodes to a descriptor `engine.apply_action` accepts only in the vocabulary that
+declared it. An index outside it is refused **naming it, the shape and that shape's vocabulary**:
+`decode_action(index, shape): the index must be one of (0, 1, 2) on the shape 'fixed-limit-20', whose
+vocabulary is ('fold', 'check-call', 'raise'), got 3`; a non-integer is refused on the word "integer"
+before any shape is consulted (`'1'`, `1.0`, `None`, a `bool` — a flag is not an index, `README.md` §4).
+
+**Why `shape` is keyword-only, on all three names.** The pre-existing arity cases pin each name's positional
+arity, and a keyword-only optional adds the shape without moving any of them, so no case is weakened to
+admit the second shape (D-11, `shapes.md` §5): `build_encoder(name, *, shape=None)`, `action_space(*,
+shape=None)`, `decode_action(index, *, shape=None)` — while the other four names take no shape (§3).
 
 ## 5. What is not a descriptor and what is not an index
 
-A descriptor is exactly one of the three `str` values: not an integer index (that is `decode_action`'s
-argument, in the other direction), not a differently-cased spelling (`"Fold"`), not a synonym (`"call"`,
-`"check"`, `"bet"`), not a `pokerkit` operation, not `None`, and not a pair carrying an amount. An index
-is a plain integer in `0..2`, and this module never accepts a descriptor where it wants an index or an
-index where it wants a descriptor — the two directions are two names, and confusing them is refused
-rather than guessed (`docs/L3/engine/actions.md` §3).
-
-The descriptor test is **gated on `str` first**, before the value is compared against `ACTIONS`: a
-foreign type that defines its own equality protocol must not be able to talk its way into the vocabulary
-(a one-element `numpy` array compares equal to a `str`, and a multi-element one raises `ValueError` from
-`bool()` instead of refusing). `errors.md` §1 makes the named refusal — never a leaked `ValueError` — the
-only reporting channel, and `UnknownAction` names the offending value whether it is a synonym or a
-`numpy` array.
+A descriptor is exactly one of the declared `str` values: not an index, not a differently-cased spelling
+(`"Fold"`), not a synonym (`"call"`, `"bet"`), not `None`, not a pair carrying an amount. An index is a
+plain integer in the shape's range, **and what it denotes is shape-dependent** — index 2 is `raise` on
+`fixed-limit-20` and `raise-quarter` on `no-limit-100` — so a caller storing one stores the shape beside it
+(§4, `docs/L3/engine/actions.md` §3).
 
 ## 6. What the unit battery may assert
 
-The three names exist and are callable; `action_space()` declares exactly the three indices, names `fold`
-/ `check-call` / `raise` in order, and contains no integer other than `0`, `1`, `2` (walked the way the
-battery walks it); two calls are equal. `legal_indices(("fold", "check-call", "raise"))` is `(0, 1, 2)`
-and `legal_indices(("check-call", "raise"))` is `(1, 2)` — positionally, not sorted; a shuffled argument
-gives the shuffled indices, which is the alignment; an empty sequence, a `str`, a `set` and an unknown
-descriptor each refuse with the offending value in the message. `decode_action(i)` round-trips
-`legal_indices` for every index and is a plain `str`; a non-integer, a `bool` and `3` each refuse. No
-call touches `random`, `numpy.random`, or the readout it was never given.
+Every assertion below is one case per shape. `action_space()` declares exactly `0, 1, 2` and names `fold` /
+`check-call` / `raise` in order; `action_space(shape="no-limit-100")` declares exactly `0`–`5` and names the
+six in the declared — not the ascending-amount — order; each record holds no integer outside its own indices,
+no digit in any string, and the two shapes' records are unequal.
+`legal_indices(("fold", "check-call", "raise"))` is `(0, 1, 2)`, `("check-call", "raise-minimum")` is `(1, 5)`,
+the six in order are `(0, 1, 2, 3, 4, 5)` and `("raise", "raise-quarter")` is `(2, 2)` — one index per
+descriptor, positionally, never sorted; an empty sequence, a `str`, a `set` and an undeclared descriptor each
+refuse with the offending value named. `decode_action(i)` round-trips `legal_indices` for every index of its
+shape and is a plain `str`; a non-integer and a `bool` refuse on the word "integer", `3` by default and `6` on
+`no-limit-100` refuse naming the shape and its vocabulary; an unknown shape name refuses on all three names.

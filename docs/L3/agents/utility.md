@@ -12,10 +12,9 @@ The terminal reward was one constant for the whole ladder: the seat's unshaped n
 seat's terminal decision and shaped nowhere (ASM-12). D-20 makes it a **catalogue** a variant selects from,
 exactly as D-19 makes the learning rule one, and for a measured reason — raise and call are EV-neutral in the
 fixed game, so a max operator over three noisy estimates takes whichever action drew positive noise, and the
-ladder's models converged on raise-almost-always at ±20 where ±2 paid the same
-(`strata/records/r2-plateau-diagnosis.md`, `utilities.md` §1). The second member scores progress in the square of
-the stack's shortfall from all the chips in play, so a loss of a given size costs more than a win of the same
-size pays (D-20, ASM-28).
+ladder's models converged on raise-almost-always at ±20 where ±2 paid the same (D-19, D-20). The second member scores
+progress in the square of the stack's shortfall from all the chips in play, so a loss of a given size costs more than a
+win of the same size pays (D-20, ASM-28).
 
 **It is a change of preference among equal-EV options and not a change of the game** (D-2, D-20): it creates no
 expectation the game does not have, and a model trained under it is not thereby a stronger player — `battery.md` §5

@@ -8,6 +8,15 @@ from a hand-level bootstrap seeded from the table seed; and a member with no fin
 maximum-likelihood value is held at the bound rather than reported as an infinity
 (`rating.md` §1-§5).
 
+It is fitted over **one shape's cells**: a rating reads as a distance from the baselines
+*in that game*, so two shapes' ratings are not on one scale and are never tabulated
+together.  The matrix's own `game` and each cell's are read **tolerantly** -- an absent one
+reads as the default, which is what keeps every table and every rating already recorded
+ratable -- and a matrix whose cells name more than one shape, or whose own `game` is not
+the shape its cells name, is refused naming the shapes (`rating.md` §1, §6, `shape.md` §3).
+The shape enters the fit in **no other way**: the arithmetic reads counts and never a game
+parameter, a rule or a utility.
+
 It is a statement about the table's named members on this game at this cell size and
 **never a claim of poker skill** (`league.md` §8, D-16).  It plays no hand, reads no file
 and leaves Python's global `random` stream where it found it: the bootstrap draws from
@@ -20,7 +29,7 @@ from collections.abc import Mapping
 
 from numpy.random import PCG64, Generator
 
-from .declarations import BASELINES, RATING
+from .declarations import BASELINES, DEFAULT_SHAPE, RATING, require_shape
 from .errors import (
     CellCountMismatch,
     DuplicatePair,
@@ -28,6 +37,7 @@ from .errors import (
     InvalidMatrix,
     MissingBaseline,
     MissingMatrixKey,
+    ShapeMismatch,
     UnevenCell,
 )
 from .seeds import _bootstrap_seed
@@ -159,9 +169,11 @@ def _counts(direction, entry, index):
 def _table_facts(matrix, entry):
     """Read a matrix record as a table, refusing what is not one (`rating.md` §6).
 
-    The seven checks are `rating`'s own and `report` reuses them verbatim, so a refusal
-    names the violated rule -- `cells`, `hands`, `pair` or the missing baseline -- and
-    nothing is fitted or assembled when one fires.
+    The checks are `rating`'s own and `report` reuses them verbatim, so a refusal names the
+    violated rule -- `cells`, `hands`, `pair`, the missing baseline or the shapes -- and
+    nothing is fitted or assembled when one fires.  The record's `game` is read here and
+    carried out beside its other four own facts: it is the one shape whose cells the fit is
+    over (`rating.md` §1, §5, `shape.md` §4).
     """
     if not isinstance(matrix, Mapping):
         raise InvalidMatrix(
@@ -244,6 +256,33 @@ def _table_facts(matrix, entry):
             % (entry, table_seed)
         )
 
+    # One table is one shape's: the matrix's own `game` and each cell's are read
+    # tolerantly -- an absent one is the default, which keeps every table already recorded
+    # ratable -- and two shapes among the cells, or a **declared** `game` its cells
+    # contradict, is refused naming the shapes (`rating.md` §1, §6, `shape.md` §2-§3,
+    # `docs/L1/shapes.md` §6).
+    declared_game = None
+    if "game" in matrix:
+        declared_game = require_shape(matrix["game"], entry, "matrix")
+    cell_shapes = []
+    for _pair, cell in pairs:
+        game = DEFAULT_SHAPE
+        if isinstance(cell, Mapping) and "game" in cell:
+            game = require_shape(cell["game"], entry, "cells")
+        if game not in cell_shapes:
+            cell_shapes.append(game)
+    if len(cell_shapes) > 1:
+        raise ShapeMismatch(
+            "%s(cells): the cells record the shapes %r and %r, and a rating is fitted over "
+            "one shape's cells" % (entry, cell_shapes[0], cell_shapes[1])
+        )
+    game = cell_shapes[0] if cell_shapes else DEFAULT_SHAPE
+    if declared_game is not None and declared_game != game:
+        raise ShapeMismatch(
+            "%s(matrix): the matrix records the shape %r and its cells the shape %r, and a "
+            "rating is fitted over one shape's cells" % (entry, declared_game, game)
+        )
+
     facts = []
     for index, (pair, cell) in enumerate(pairs):
         first = _direction(cell, 0, entry, index)
@@ -262,6 +301,7 @@ def _table_facts(matrix, entry):
         "hands_per_cell": hands_per_cell,
         "table_seed": int(table_seed),
         "table": matrix["table"],
+        "game": game,
     }
 
 
@@ -467,6 +507,10 @@ def rating(matrix):
         "tolerance": float(TOLERANCE),
         "iterations": int(fitted["iterations"]),
         "resamples": int(RESAMPLES),
+        # This module's own key, `records.md` §11 requiring none: the one shape whose cells
+        # it fitted, so two shapes' ratings are never tabulated together (`rating.md` §5,
+        # `shape.md` §4, `docs/L1/shapes.md` §6).
+        "game": facts["game"],
         "hands_per_cell": int(facts["hands_per_cell"]),
         "members": tuple(members),
         "table_seed": int(facts["table_seed"]),

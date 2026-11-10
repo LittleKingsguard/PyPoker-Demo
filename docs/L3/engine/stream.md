@@ -7,11 +7,13 @@
 
 `new_hand` calls `random.seed(seed)` and creates the state, and it is the **only** place in this
 project that seeds the stream (`hand.md` §2, ASM-2, `protocol.md` §4). `play_hand` deals through it and
-seeds nothing itself, so `play_hand`’s effect on the stream is exactly `new_hand`’s.
+seeds nothing itself, so `play_hand`’s effect on the stream is exactly `new_hand`’s. The **shape does not
+move it**: the seed is set, then the state the row declares is created, so a default-shape deal is unchanged
+card for card (`shapes.md` §5, D-29).
 
-Every other entry point — `game_config`, `readout`, `legal_actions`, `apply_action`, `is_terminal`,
-`payoffs`, `equity` — hands `random.getstate()` back exactly as it found it. Two of them need work to
-do it, and both wrap their work in the same three lines:
+Every other entry point — `game_shapes`, `game_config`, `readout`, `legal_actions`, `apply_action`,
+`is_terminal`, `payoffs`, `equity` — hands `random.getstate()` back exactly as it found it. Two of them
+need work to do it, and both wrap their work in the same three lines:
 
     saved = random.getstate()
     try:

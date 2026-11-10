@@ -14,11 +14,19 @@ is those rules and those utilities plus the rung's variants', and the pool famil
 both (`e2e-surface.md` §3.4, `utilities.md` §7, §9, D-19, D-20).  A report is assembled
 from records alone: it plays no hand, reads no file, moves no stream and never edits the
 record it is handed.
+
+**The header family names the shape.**  The report resolves the one shape three of its
+records agree on -- the run record's own `game`, the `pool` family's and the matrix's, each
+absent reading as the default -- refuses a disagreement naming all three and the shape each
+names, and writes it as a **tenth key `shape`** onto its own copy of that family
+(`report.md` §1-§3, `shape.md` §2, §4).  So `HEADER_ITEMS` stays nine, a record that states
+no shape is never refused, and the report's own twelve keys do not grow: there is **no**
+top-level `game` (`declarations.md` §2.1, `shape.md` §4, D-29).
 """
 
 from collections.abc import Mapping
 
-from .declarations import BASELINES, FAMILIES, HEADER_ITEMS
+from .declarations import BASELINES, FAMILIES, HEADER_ITEMS, require_shape
 from .errors import (
     HeaderIncomplete,
     InvalidArgument,
@@ -26,6 +34,7 @@ from .errors import (
     MissingBaseline,
     MissingFamily,
     RatingMismatch,
+    ShapeMismatch,
 )
 from .rating import _member_ids, _table_facts, _token
 
@@ -247,13 +256,58 @@ def _pool_family(pool_value, population, utility_population=()):
     return family
 
 
+def _resolved_shape(record, pool_value, matrix_game, entry="report"):
+    """The one shape the run, the pool family and the matrix agree on (`report.md` §3 item 6).
+
+    Each of the three is read tolerantly -- an absent `game` is the default shape, which is
+    what keeps every record the repository already holds reportable without being rewritten
+    -- and a **declared** one the catalogue does not carry is `UnknownShape` naming it and
+    the declared names (`shape.md` §2-§3).  A disagreement is `ShapeMismatch` naming **all
+    three** records and the shape each names, rather than the first pair that differed, so
+    a reader is told which record to re-derive: a run on one shape and a table on another is
+    not a missing fact but a contradiction, and the report neither picks one nor reports a
+    table whose header would be true of only two of its three records (`report.md` §3,
+    `shape.md` §3, `docs/L1/shapes.md` §6).
+    """
+    run_shape = require_shape(record.get("game"), entry, "record")
+    pool_shape = require_shape(
+        pool_value.get("game") if isinstance(pool_value, Mapping) else None,
+        entry,
+        "pool",
+    )
+    table_shape = require_shape(matrix_game, entry, "matrix")
+    if not run_shape == pool_shape == table_shape:
+        raise ShapeMismatch(
+            "%s(record): the run records %r, the pool %r and the matrix %r, and a report is "
+            "one shape's" % (entry, run_shape, pool_shape, table_shape)
+        )
+    return run_shape
+
+
+def _header_with_shape(header, shape):
+    """The header family's **tenth** key, written onto the report's own copy (§2, §4).
+
+    Nine items are what a **record** must state, and they do not grow: the shape is what the
+    report resolves from the three records it judges and writes here, beside the nine, `n/a`
+    and a hand-built header alike.  The copy is a mapping copy, so the record the report was
+    handed is never edited (`report.md` §1-§2, §4, `declarations.md` §2.1, `shape.md` §4,
+    D-29).
+    """
+    family = dict(header)
+    family["shape"] = shape
+    return family
+
+
 def report(rung_name, record, matrix, rating):
     """The complete per-rung report (`surface.md` §13, `records.md` §13).
 
     The seven families come first as presence, then the matrix is judged as a table
     (reusing `rating.md` §6's checks verbatim), then its membership against the report's
-    pool family, then the rating's member identity, then the header's nine items -- each
-    refused by name before anything is assembled.
+    pool family, then the rating's member identity, then the header's nine items, and
+    **last** the one shape the run, the pool and the matrix agree on -- each refused by name
+    before anything is assembled.  The shape sits last because it is the only check that
+    reads all three records, and it is written onto the report's own copy of the header
+    family as a tenth key, never onto an argument (`report.md` §1-§3, `shape.md` §4).
     """
     if not isinstance(rung_name, str):
         raise InvalidArgument(
@@ -284,6 +338,9 @@ def report(rung_name, record, matrix, rating):
             "report(header): the header is missing the required item %r"
             % (missing_item,)
         )
+    # The run, the pool family and the matrix must name one shape, and it is the report's
+    # own tenth header key (`report.md` §1-§3 item 6, `shape.md` §2-§4).
+    shape = _resolved_shape(record, families["pool"], facts["game"], "report")
 
     seeds = record.get("seeds")
     if seeds is None:
@@ -306,6 +363,8 @@ def report(rung_name, record, matrix, rating):
             assembled[name] = _pool_family(
                 families[name], population, utility_population
             )
+        elif name == "header":
+            assembled[name] = _header_with_shape(families[name], shape)
         else:
             assembled[name] = families[name]
     return assembled

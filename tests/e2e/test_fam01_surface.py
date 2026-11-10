@@ -4,7 +4,9 @@ One case per entry point of ``docs/L1/e2e-surface.md`` §3, in that document's o
 so that a missing name is one finding per name (``docs/L1/battery.md`` §3 FAM-1, D-11).
 Rev 2 replaced the head-to-head opponent with the bounded round-robin league — the pool,
 the scheduler, the matrix and the rating (D-16) — so ``evaluation`` declares eleven entry
-points and the map forty-nine (``e2e-surface.md`` §3.4 and §4).
+points.  D-29 declares the second game shape, which adds exactly one name — the catalogue
+``engine.game_shapes`` — so ``engine`` declares **ten** entry points and the map **fifty**
+(``e2e-surface.md`` §3.1, §4; ``shapes.md`` §4).
 
 Each case asserts presence, that the name is callable, and that a minimal call returns a
 value of the kind §3 declares.  A minimal call for a league entry goes through
@@ -27,9 +29,9 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
 
 
 class FAM1Surface(S.SurfaceCase):
-    """Every one of the 49 entry points, in the order of e2e-surface.md §3."""
+    """Every one of the 50 entry points, in the order of e2e-surface.md §3."""
 
-    # -- 3.1 engine (9) ----------------------------------------------------
+    # -- 3.1 engine (10) ---------------------------------------------------
     def test_fam1_01_engine_game_config(self):
         """FAM-1.1 engine.game_config exists and returns the fixed game."""
         point = self.ep("engine", "game_config")
@@ -411,6 +413,41 @@ class FAM1Surface(S.SurfaceCase):
         point = self.ep("harness", "timings")
         self.assertTrue(callable(point), "harness.timings is not callable")
         self.assertIsNotNone(point())
+
+    # -- 3.1 again: the one name D-29 adds --------------------------------
+    def test_fam1_50_engine_game_shapes(self):
+        """FAM-1.50 engine.game_shapes exists and publishes the declared shapes.
+
+        D-29's one new entry point (``e2e-surface.md`` §3.1, §4; ``shapes.md`` §2, §4):
+        it returns the declared shapes as one ordered mapping, default first, each row a
+        mapping of the eight facts §3.1 names.  The case is numbered **last** rather than
+        inserted at the head of §3.1's block because ``shapes.md`` §4 cites FAM-1.1 and
+        FAM-1.14 by id — the case that asserts one game is ``game_config`` and the case
+        that asserts three indices is ``action_space`` — and renumbering would silently
+        re-point both citations to different cases.  The catalogue's own contract (the
+        declared order, the rows' values, the refusals) is FAM-19's subject; here the
+        name only has to exist, be callable, and answer with the declared kind of value.
+        """
+        point = self.ep("engine", "game_shapes")
+        self.assertTrue(callable(point), "engine.game_shapes is not callable")
+        published = point()
+        self.assertTrue(
+            S.is_mapping(published) or isinstance(published, (list, tuple)),
+            "engine.game_shapes must return the declared shapes as one ordered catalogue "
+            "(e2e-surface.md §3.1, shapes.md §2): %r" % (published,),
+        )
+        rows = S.shape_rows(published)
+        self.assertTrue(
+            rows,
+            "engine.game_shapes() declares the shapes of the catalogue and not nothing: %r"
+            % (published,),
+        )
+        for name, row in rows:
+            self.assertTrue(str(name).strip(), "a declared shape carries no name: %r" % (row,))
+            self.assertTrue(
+                S.is_mapping(row),
+                "each declared shape is a mapping of its facts (shapes.md §2): %r" % (row,),
+            )
 
 
 if __name__ == "__main__":

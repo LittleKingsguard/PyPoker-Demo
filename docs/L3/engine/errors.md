@@ -22,6 +22,7 @@ decision, and an `AttributeError` from a mistyped handle would be a crash passed
     class InvalidSeed(EngineError)          # a seed that is not an int
     class InvalidHand(EngineError)          # not a hand handle, or a hand that is over
     class InvalidAction(EngineError)        # a descriptor outside legal_actions / not a descriptor
+    class UnknownShape(EngineError)         # a shape name outside the catalogue (config.md §1)
     class InvalidDecision(EngineError)      # equity's first argument
     class InvalidSamples(EngineError)       # an equity sample count that is not a positive int
     class InvalidPolicy(EngineError)        # a play_hand policy that is not callable
@@ -29,6 +30,9 @@ decision, and an `AttributeError` from a mistyped handle would be a crash passed
 The classes are **not** module-level names of the `engine` package: they live below an entry point
 and are not surface (`e2e-surface.md` §1). The battery asserts the *behaviour* — that a call raises,
 and what the message says — never an exception class, because the class is this module’s freedom.
+`UnknownShape` exists for one reason: a shape name is a refusal of this module and **not a coerced
+default**, so the shape question has its own class rather than borrowing `InvalidHand` or a bare
+`ValueError` (`surface.md` §1, D-13, D-29).
 
 ## 3. The message grammar
 
@@ -43,9 +47,11 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 larger than 2**63 — Python seeds all of them), a sample count of 1, an empty board at `equity`, a
 readout mapping that also carries extra caller keys (they are ignored; the two facts it needs are read
 and the other eight are not inspected), a policy that is a bound method, a lambda or a closure, and two
-policies that are the same object. It never inspects a policy’s arity or signature: it calls it with
-two arguments and lets a `TypeError` from the call propagate as the policy’s own failure, not as a
-refusal of this module.
+policies that are the same object. **A shape is accepted everywhere one is taken**: `game_config`,
+`new_hand` and `play_hand` take a declared name or `None`, and a hand is never asked which shape it is
+because it carries its own (`config.md` §1, `hand.md` §1, `shapes.md` §3). It never inspects a policy’s
+arity or signature: it calls it with two arguments and lets a `TypeError` from the call propagate as the
+policy’s own failure, not as a refusal of this module.
 
 The one shape that *is* refused on a readout is the one that is not a decision at all: `hole` that is
 not two distinct cards of the declared spelling, or `board` that is not 0, 3, 4 or 5 distinct ones

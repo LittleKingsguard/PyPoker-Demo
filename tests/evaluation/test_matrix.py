@@ -33,8 +33,10 @@ from _evaluation_support import (
     cell_directions,
     cell_seed,
     checkpoint_without_seed,
+    checkpoint,
     count,
     declaration,
+    default_shape,
     direction_counts,
     direction_values,
     first_legal,
@@ -42,6 +44,7 @@ from _evaluation_support import (
     matrix_member_ids,
     member_id,
     member_ids_of_cell,
+    other_shape,
     params_of,
     seat_split_counts,
     unlabelled_of,
@@ -186,7 +189,7 @@ class MatrixTest(EvaluationCase):
                         )
 
     def test_evl_4_5_the_record_carries_its_keys_and_the_cell_count(self):
-        """EVL-4.5 the record's nine required keys come first in `records.md` §10's order, then `pool`, `member_records`, `unlabelled` and `cell_count`; `unlabelled` names the opaque variant's unmeasured zero and a variant record is its five-key record (`matrix.md` §5, §7, `records.md` §10, G11, G14, D-19, D-20)."""
+        """EVL-4.5 the record's nine required keys come first in `records.md` §10's order, then this module's own `game` -- **required**, the one shape the table was played on -- and `pool`, `member_records`, `unlabelled` and `cell_count`; `unlabelled` names the opaque variant's unmeasured zero and a variant record is its six-key record (`matrix.md` §5, §7, `records.md` §10, `shape.md` §4, G11, G14, D-19, D-20, D-29)."""
         package = self.evaluation()
         matrix = self.shared_matrix("k5")
         self.assertEqual(
@@ -201,13 +204,22 @@ class MatrixTest(EvaluationCase):
                 "hands_per_cell",
                 "table_seed",
                 "table",
+                "game",
                 "pool",
                 "member_records",
                 "unlabelled",
                 "cell_count",
             ),
-            "matrix returns exactly matrix.md §5's keys, in its order, the nine "
-            "records.md §10 keys first (matrix.md §5, G14): %r" % (tuple(matrix),),
+            "matrix returns exactly matrix.md §5's keys, in its order: the nine "
+            "records.md §10 keys, then this module's own `game` and the four beside it "
+            "(matrix.md §5, shape.md §4, G14): %r" % (tuple(matrix),),
+        )
+        self.assertEqual(
+            matrix["game"],
+            self.pool_members(self.shared_pool("k5"))["game"],
+            "the record's `game` is the pool's shape and not one inferred from a member: "
+            "a table is measured on the shape its pool is on (matrix.md §1, §5, "
+            "shape.md §4, G14): %r" % (matrix["game"],),
         )
         members = matrix_member_ids(matrix)
         self.assertEqual(
@@ -253,11 +265,15 @@ class MatrixTest(EvaluationCase):
                         "(matrix.md §5): %r" % (record,),
                     )
                 elif name.startswith("variant-"):
-                    self.assertIn(
-                        "params",
-                        record,
-                        "a variant's record carries `params` (matrix.md §5): %r" % (record,),
-                    )
+                    for key in ("params", "unlabelled", "rule", "utility", "game"):
+                        self.assertIn(
+                            key,
+                            record,
+                            "a variant's record carries %r beside its id, so the table "
+                            "says which estimator, objective and shape its row is "
+                            "(matrix.md §5, shape.md §4, D-19, D-20): %r"
+                            % (key, record),
+                        )
                     self.assertIsInstance(
                         record["params"],
                         int,
@@ -540,12 +556,36 @@ class MatrixTest(EvaluationCase):
             "(matrix.md §5): %r" % (records,),
         )
         self.assertEqual(
-            records[position],
+            {key: records[position].get(key) for key in declared},
             declared,
-            "a version's member record is the records.md §7 record the declaration "
-            "carried, carried verbatim -- id, path, rung, variant, seed, step, samples "
-            "and lineage (matrix.md §5, pool.md §5, records.md §7, G7): %r vs %r"
+            "a version's member record carries every field of the records.md §7 record "
+            "the declaration gave, verbatim -- id, path, rung, variant, seed, step, "
+            "samples and lineage (matrix.md §5, pool.md §5, records.md §7, G7): %r vs %r"
             % (records[position], declared),
+        )
+        self.assertEqual(
+            set(records[position]) - set(declared),
+            {"game"},
+            "the one key a table's member record carries beyond the declaration's is the "
+            "shape its policy reports, so a reader of that row is told the game it was "
+            "measured in (matrix.md §5, shape.md §4, D-29): %r"
+            % (records[position],),
+        )
+        self.assertEqual(
+            records[position]["game"],
+            self.pool_members(pool)["game"],
+            "that shape is the table's one shape, which is the pool's -- the table "
+            "completes its own copy of the row and the pool's record is untouched "
+            "(matrix.md §1, §5, shape.md §4, D-29): %r" % (records[position],),
+        )
+        self.assertNotIn(
+            "game",
+            self.pool_members(pool)["members"][self.members_of(pool).index(member)],
+            "the record the **pool** reads back is the declaration's own, so a version "
+            "that declared no `game` still reads back with none: the table completes the "
+            "fact its policy reports and the pool fills nothing in (pool.md §5, "
+            "matrix.md §5, shape.md §4, D-29): %r"
+            % (self.pool_members(pool)["members"][self.members_of(pool).index(member)],),
         )
         self.assertEqual(
             records[position]["path"],
@@ -799,6 +839,106 @@ class MatrixTest(EvaluationCase):
                     "a member's record and the table's `rules` name one rule (matrix.md "
                     "§5): %r against %r" % (record["rule"], rules[name]),
                 )
+
+    # -- the one shape a table is measured on (D-29) ---------------------------
+    def test_evl_4_12_a_matrix_names_the_shape_it_was_measured_on(self):
+        """EVL-4.12 a matrix's record carries `game` equal to the pool's, every cell of it carries the table's one shape, a variant policy naming **another** shape is refused naming the variant's slot and both shapes before a row exists, and a variant naming the table's shape or none is admitted (`matrix.md` §1, §5, §7, `surface.md` §10, `shape.md` §3-§4, G14, D-29)."""
+        package = self.evaluation()
+        for key in ("k4", "k5", "k6"):
+            with self.subTest(matrix=key):
+                matrix = self.shared_matrix(key)
+                shape = self.pool_members(self.shared_pool(key))["game"]
+                self.assertEqual(
+                    matrix["game"],
+                    shape,
+                    "a table takes no shape argument: its shape is the frozen pool's, and "
+                    "the record states it (matrix.md §1, §5, shape.md §4, G14): %r"
+                    % (matrix["game"],),
+                )
+                self.assertEqual(
+                    shape,
+                    default_shape(),
+                    "these three pools are the battery's own and declare no shape, so "
+                    "they are the default shape's (pool.md §1, shape.md §2, G31): %r"
+                    % (shape,),
+                )
+                for cell in matrix_cells(matrix):
+                    with self.subTest(cell=member_ids_of_cell(cell)):
+                        self.assertEqual(
+                            cell.get("game"),
+                            shape,
+                            "every cell of a table is played -- and recorded -- on the "
+                            "table's one shape, so no row of it is a second game "
+                            "(matrix.md §5, scheduler.md §1, shape.md §4): %r"
+                            % (cell.get("game"),),
+                        )
+        with self.subTest(case="a variant of another shape is refused"):
+            # A member policy built from a checkpoint of the **second** shape is a policy
+            # whose `game` is that shape: a table over a default-shape pool must refuse it
+            # naming the slot it was handed in and both shapes, before a row exists
+            # (matrix.md §7, shape.md §3, D-29).  Nothing is played: the refusal precedes
+            # the first cell.
+            other_member = package.policy_from(
+                self.checkpoint(name="member-nolimit", game=other_shape())["path"]
+            )
+            self.assertEqual(
+                getattr(other_member, "game", None),
+                other_shape(),
+                "the variant names the shape its container records, which is what the "
+                "table holds to its pool's (scheduler.md §5, shape.md §3-§4): %r"
+                % (getattr(other_member, "game", None),),
+            )
+            before = self.stream_state()
+            self.assert_evaluation_refusal(
+                package.matrix,
+                self.shared_pool("k4"),
+                [other_member],
+                "live",
+                entry="matrix",
+                groups=(("variant-1",), (other_shape(),), (default_shape(),)),
+                label="a variant naming a shape the table is not on",
+                kind="ShapeMismatch",
+            )
+            self.assert_stream_unchanged(
+                before, "matrix() refusing a variant of another shape"
+            )
+        with self.subTest(case="a variant of the table's shape is admitted"):
+            # The same check, satisfied: `k4`'s variant is a member policy whose own shape
+            # is the pool's, so the table admitted it and played -- and a variant that
+            # names **no** shape at all is shape-silent and plays the pool's, which is
+            # what `k5`'s second, opaque variant is (`matrix.md` §1, §7, shape.md §4).
+            labelled = self.shared_matrix("k4")
+            self.assertEqual(
+                labelled["game"],
+                default_shape(),
+                "a table whose variant names the pool's shape is played and records that "
+                "shape (matrix.md §1, shape.md §4, D-29): %r" % (labelled["game"],),
+            )
+            for record, name in zip(list(labelled["member_records"]), matrix_member_ids(labelled)):
+                if name != "variant-1":
+                    continue
+                with self.subTest(member=name):
+                    self.assertEqual(
+                        record.get("game"),
+                        default_shape(),
+                        "the labelled variant's row carries the shape its policy reports, "
+                        "which is the table's (matrix.md §5, shape.md §4, D-29): %r"
+                        % (record,),
+                    )
+            opaque = [
+                record
+                for record, name in zip(
+                    list(self.shared_matrix("k5")["member_records"]),
+                    matrix_member_ids(self.shared_matrix("k5")),
+                )
+                if name == "variant-2"
+            ][0]
+            self.assertIsNone(
+                opaque.get("game"),
+                "an opaque variant carries no shape of its own, so its row names none "
+                "and plays the pool's -- a shape is never invented for it (matrix.md §5, "
+                "surface.md §2, shape.md §4): %r" % (opaque,),
+            )
 
 
 if __name__ == "__main__":

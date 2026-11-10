@@ -1,6 +1,6 @@
 """The refusals of the `evaluation` module (`docs/L3/evaluation/errors.md` §2).
 
-One `EvaluationError` base and thirty-eight subclasses, one per refusal family the L2
+One `EvaluationError` base and forty-two subclasses, one per refusal family the L2
 surface declares (`docs/L2/evaluation/surface.md` §5-§13).  A caller catches
 `EvaluationError` to know that *this* module refused it, so a mistyped record key or a
 `TypeError` from a helper never masquerades as a refusal (`errors.md` §1).
@@ -70,6 +70,12 @@ class UnknownBaseline(EvaluationError):
     (`records.md` §8, `agents/surface.md` §11, ASM-32, D-21)."""
 
 
+class UnknownShape(EvaluationError):
+    """A shape name the restated catalogue does not carry — a pool declaration's `game`, a
+    member record's, an offered version's, a container's or a variant's (`shape.md` §3,
+    D-29)."""
+
+
 class RuleMismatch(EvaluationError):
     """Two declarations of one rule disagree: a member's record against its checkpoint's,
     or a version's `rule` against the rule of the family it extends (`records.md` §7,
@@ -80,6 +86,13 @@ class UtilityMismatch(EvaluationError):
     """Two declarations of one utility disagree: a member's record against its
     checkpoint's, or a version's `utility` against the family it extends
     (`records.md` §7, `utilities.md` §6, ASM-26, D-20)."""
+
+
+class ShapeMismatch(EvaluationError):
+    """Two declarations of one shape disagree: a member's record against its pool's or its
+    container's, an offered version's against its pool's, a cell's two sides, a matrix's
+    variant against its pool, a matrix's cells against each other or against its own
+    `game`, and a report's run, pool and matrix (`shape.md` §3, §4, D-29)."""
 
 
 class FamilyBoundExceeded(EvaluationError):
@@ -157,6 +170,11 @@ class CheckpointRecordMissing(EvaluationError):
 
 class UnknownEncoding(EvaluationError):
     """A checkpoint: `features.build_encoder` refuses the recorded name, or `as_policy` refuses the encoder it builds."""
+
+
+class UnknownExploration(EvaluationError):
+    """`policy_from`'s mode is neither `schedule` nor `off` (`shape.md` §5, `sizing.md` §4,
+    D-29)."""
 
 
 class MissingFamily(EvaluationError):

@@ -107,8 +107,12 @@ def forward(state, layout, observation, target=False, need_cache=True):
         layers.append((carried, matrix, pre))
         carried = carried + rectified if layout.residual else rectified
     offset, length = layout.w_out
-    output = state.params[base + offset : base + offset + length].reshape(width, 3)
-    output_bias = state.params[base + layout.b_out : base + layout.b_out + 3]
+    output = state.params[base + offset : base + offset + length].reshape(
+        width, layout.actions
+    )
+    output_bias = state.params[
+        base + layout.b_out : base + layout.b_out + layout.actions
+    ]
     values = carried @ output + output_bias
     if need_cache:
         cache = {"carried": carried, "layers": layers, "output": output, "input": block}
@@ -119,11 +123,11 @@ def apply(state, layout, cache, action, delta, rate):
     """`rule.md` §3's step: `θ ← θ + α·td·∂q[a]/∂θ`, on the online parameters."""
     width = layout.width
     gradient = numpy.zeros(layout.count, dtype=DTYPE)
-    chosen = numpy.zeros(3, dtype=DTYPE)
+    chosen = numpy.zeros(layout.actions, dtype=DTYPE)
     chosen[int(action)] = 1.0
     offset, length = layout.w_out
     gradient[offset : offset + length] = numpy.outer(cache["carried"], chosen).reshape(-1)
-    gradient[layout.b_out : layout.b_out + 3] = chosen
+    gradient[layout.b_out : layout.b_out + layout.actions] = chosen
     upstream = cache["output"] @ chosen
     for layer in range(layout.trunk - 1, -1, -1):
         carried, matrix, pre = cache["layers"][layer]

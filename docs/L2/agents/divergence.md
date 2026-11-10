@@ -12,7 +12,7 @@ not an argument contract: every refusal §4–§12 refuses a value the caller pa
 
 ## 1. The measurement it answers
 
-`strata/records/lr-probe.md`: at `learning_rate` 0.1 the value function went non-finite on 2 of 3 seeds, and at 0.03
+The measurement D-19 records: at `learning_rate` 0.1 the value function went non-finite on 2 of 3 seeds, and at 0.03
 on 1 of 3; training died with `ValueError: min() iterable argument is empty` inside the tie-break, because a squared TD
 error on a ±20-chip terminal reward, stepped at a large rate, drives the delta or the parameters past finite range.
 

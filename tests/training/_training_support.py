@@ -167,13 +167,16 @@ SHARED = {
 RETAINED = 5
 SNAPSHOTS = 10
 
-#: `fairness.md` §4's fourteen held-constant declarations, under its own key names.
+#: `fairness.md` §4's fifteen held-constant declarations, under its own key names.
 #: `rules` and `utilities` are the **sets** of rules and of utilities the two sides are
 #: trained under and never one side's value: `learning_rule` left the settings a pair must
 #: share when D-19 made it a sixth axis, and D-20's `utility` is the seventh, so neither
 #: carries a scalar row (`fairness.md` §4, `declarations.md` §4, `rules.md` §8,
-#: `utilities.md` §8, D-19, D-20).
+#: `utilities.md` §8, D-19, D-20).  `shape` is the fifteenth: a pair is one shape's, so the
+#: report names the shape it held constant and its `game` and `action vocabulary` rows are
+#: that shape's (`shapes.md` §1–§2, §6, `sizing.md` §3, D-29).
 CONSTANT_KEYS = (
+    "shape",
     "game",
     "action vocabulary",
     "readout facts",
@@ -279,6 +282,23 @@ INVENTED_UTILITY_POOL = "pool-invented-5523"
 #: the battery's own, like `IGNORED_RULE`, so the refusal it earns can only be about the
 #: name and never about a catalogue member this battery misread.
 IGNORED_UTILITY = "progress-5524"
+
+#: The second declared shape's invented instances: a configuration, its one variant and
+#: its pool, one seed and a twelve-hand budget (`shapes.md` §2, `sizing.md` §4, D-29).
+INVENTED_SHAPE_RUNG = "rung-invented-5525"
+INVENTED_SHAPE_VARIANT = "variant-invented-5525"
+INVENTED_SHAPE_POOL = "pool-invented-5525"
+SHAPE_SEED = 5526
+SHAPE_OTHER_SEED = 5527
+SHAPE_BUDGET = 12
+
+#: A shape name the catalogue does not carry and no design document names (`battery.md`
+#: §4): the refusal's instance, named with both declared names when it is refused.
+INVENTED_SHAPE = "holdem-invented-5528"
+
+#: A budget one hand above the greedy pass's bound, so the pass is refused rather than
+#: truncated (2,000 hands per variant per seed, `sizing.md` §4, ASM-38).
+OVER_BOUND_BUDGET = 2001
 
 #: D-20's four invented hands, in the fixed game of D-2: 40 chips in play, 20 dealt to
 #: each seat. Two are played with both seats calling, so the winner's net delta is ±2; two
@@ -413,9 +433,9 @@ def error_root():
     return root
 
 
-#: The sixteen refusal classes `errors.md` §2 fixes, in its order (Rev 2's
-#: `IgnoredDeclaration` and `PairDeclarationsDiffer`, and Rev 5's `ChipConservationBroken`,
-#: included).
+#: The eighteen refusal classes `errors.md` §2 fixes, in its order (Rev 2's
+#: `IgnoredDeclaration` and `PairDeclarationsDiffer`, Rev 5's `ChipConservationBroken` and
+#: Rev 6's `UnknownShape` and `GreedyPassRefused` included).
 ERROR_CLASSES = (
     "UnknownRung",
     "ConfigurationInvalid",
@@ -433,6 +453,8 @@ ERROR_CLASSES = (
     "IgnoredDeclaration",
     "ChipConservationBroken",
     "PairDeclarationsDiffer",
+    "UnknownShape",
+    "GreedyPassRefused",
 )
 
 
@@ -443,7 +465,7 @@ def error_class(name):
     if not isinstance(klass, type) or not issubclass(klass, error_root()):
         raise SurfaceAbsent(
             "training.errors.%s is missing or does not descend from TrainingError, and "
-            "errors.md §2 declares the sixteen classes as design" % (name,)
+            "errors.md §2 declares the eighteen classes as design" % (name,)
         )
     return klass
 
@@ -1163,9 +1185,161 @@ def fallback_run():
     return run_once(("fallback", INVENTED_FALLBACK), thunk)
 
 
+# --------------------------------------------------------------------------
+# The two declared game shapes, and the one decision stream a run retains (D-29)
+# --------------------------------------------------------------------------
+#: The catalogue's declared shape names, in `engine.game_shapes()`'s order -- default
+#: first (`shapes.md` §2).  Read through the granted call and never restated: the battery
+#: is not the module, so it may ask the catalogue directly (D-13, D-15).
+def shape_names():
+    return tuple(str(name) for name in engine().game_shapes())
+
+
+def default_shape():
+    """The declared default shape: what a configuration naming no `game` is on."""
+    return shape_names()[0]
+
+
+def second_shape():
+    """The second declared shape: six descriptors and 200 chips in play (D-29)."""
+    return shape_names()[1]
+
+
+def shaped_game_config(shape=None):
+    """`engine.game_config(shape)`, read for the shape a case is about."""
+    return engine().game_config(shape)
+
+
+def shaped_vocabulary(shape=None):
+    """One shape's declared vocabulary, `{index: descriptor}`, read off `features`."""
+    space = features().action_space(shape=shape)
+    vocabulary = {}
+    for index, record in dict(space).items():
+        name = record.get("name") if isinstance(record, dict) else record
+        vocabulary[int(index)] = str(name)
+    return vocabulary
+
+
+def with_game(configuration, shape):
+    """A copy of a configuration declaring the shape it trains and is evaluated on.
+
+    `records.md` §2's `game` key is a configuration's own declaration and reads at the
+    configuration or at its first entry, absence meaning the default (`shapes.md` §3).
+    """
+    holder = dict(configuration)
+    holder["game"] = str(shape)
+    return holder
+
+
+def with_entry_game(configuration, shape):
+    """A copy of a configuration whose **first variant entry** declares the shape."""
+    holder = dict(configuration)
+    holder["variants"] = [
+        dict(entry, game=str(shape)) for entry in holder["variants"]
+    ]
+    return holder
+
+
+def no_limit_configuration():
+    """The invented configuration, declared on the catalogue's second shape.
+
+    One entry, the naive stack, an empty window, one invented seed and twelve hands, so
+    the run's `budget // 10` is one and its greedy pass is twelve hands — the same
+    sample-matched count (`shapes.md` §2, `sizing.md` §4, D-29).
+    """
+    configuration = custom_configuration(
+        name=INVENTED_SHAPE_RUNG,
+        variant=INVENTED_SHAPE_VARIANT,
+        pool_id=INVENTED_SHAPE_POOL,
+        seeds=(SHAPE_SEED,),
+        samples=SHAPE_BUDGET,
+    )
+    return with_game(configuration, second_shape())
+
+
+def no_limit_run():
+    """`run` of that configuration: a six-descriptor learner trains end to end."""
+    configuration = no_limit_configuration()
+
+    def thunk():
+        return training().run(configuration)
+
+    return run_once(("no-limit", INVENTED_SHAPE_RUNG), thunk)
+
+
+def greedy_block(record, variant, seed):
+    """One variant × one seed's `records.md` §15 block, read tolerantly off the record."""
+    block = as_mapping(record.get("greedy"), "'greedy'")
+    per_variant = as_mapping(block.get(as_text(variant, "a variant name")),
+                             "a variant's greedy block")
+    return as_mapping(per_variant.get(seed_key(seed)), "a seed's greedy block")
+
+
+def greedy_blocks(record):
+    """Every block the record carries, as `(variant, seed, block)` in the record's order."""
+    found = []
+    block = as_mapping(record.get("greedy"), "'greedy'")
+    for variant, per_variant in block.items():
+        for seed, seed_block in as_mapping(per_variant, "a greedy block").items():
+            found.append((str(variant), int(seed), as_mapping(seed_block, "a block")))
+    return found
+
+
+#: `records.md` §15's five block keys and its seven decision keys, declared here as data
+#: (`docs/L3/training/greedy.md` §2).
+BLOCK_KEYS = ("mode", "seed", "hands", "net_chips", "decisions")
+DECISION_KEYS = ("index", "descriptor", "amount", "minimum", "maximum", "legal", "tie")
+
+#: The sixteen keys a run record carried before D-29's two were added (`records.md` §12's
+#: required set plus this module's own three evidence keys, `surface.md` §4.1).
+RECORD_KEYS_BEFORE_SHAPES = (
+    "axis row",
+    "baselines",
+    "budget",
+    "checkpoints",
+    "curves",
+    "device",
+    "header",
+    "params",
+    "pool",
+    "rung",
+    "rules",
+    "seeds",
+    "table",
+    "timings",
+    "utilities",
+    "variants",
+)
+
+#: The two keys D-29 adds, and the whole of what it adds to a default-shape record.
+SHAPE_KEYS = ("game", "greedy")
+
+
+def decision_logs(value, path=()):
+    """Every path in a record's tree whose value is a list of decision-like mappings.
+
+    A decision-like mapping is one carrying `index` and `descriptor`, which is what
+    `records.md` §15 makes of a retained decision and what no training-time sub-record of a
+    run holds: the loop keeps a batch aggregate and a curve and discards the batch
+    (`sizing.md` §4, D-28).  Used by the case that proves the record carries no log of the
+    behaviour policy anywhere but `greedy`.
+    """
+    found = []
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            found.extend(decision_logs(inner, path + (str(key),)))
+    elif isinstance(value, (list, tuple)):
+        if value and all(isinstance(item, dict) for item in value):
+            if all("index" in item and "descriptor" in item for item in value):
+                found.append(path)
+                return found
+        for position, inner in enumerate(value):
+            found.extend(decision_logs(inner, path + (position,)))
+    return found
+
+
 def variant_learner(entry):
     """A learner built from one variant entry through the granted `agents` call.
-
     The count a case reads from it is `agents.param_count`'s, which is the arithmetic
     `registry.md` §4 tabulates (FAM-3.15, FAM-13.3); the encoder is omitted so the
     learner is sized from the kind's declared `observation_size`
@@ -1288,6 +1462,24 @@ def all_in_episode(seed=ALL_IN_WIN_SEED):
     return _EPISODES[key]
 
 
+def shaped_episode(shape, seed=EPISODE_SEED):
+    """One real episode on one declared shape, both seats always-call (`engine` §10).
+
+    The same policies and the same seed as :func:`episode`, dealt on the shape the case is
+    about: the readout's stacks and pot are that shape's, so the chips in play are 40 on the
+    default shape and 200 on the second one (`shapes.md` §2, `utilities.md` §4, D-29).
+    """
+    key = ("shaped", str(shape), int(seed))
+    if key not in _EPISODES:
+        _EPISODES[key] = engine().play_hand(
+            int(seed),
+            baseline_policy("always-call", BASELINE_SEED),
+            baseline_policy("always-call", BASELINE_SEED),
+            shape=shape,
+        )
+    return _EPISODES[key]
+
+
 def decisions_of(record):
     """An episode record's ordered decisions (`records.md` §5)."""
     return [
@@ -1343,7 +1535,7 @@ class TrainingCase(unittest.TestCase):
         """Assert a refusal of the class `errors.md` §2 names, naming the value.
 
         `thunk` is called with no argument. The class is asserted exactly, because
-        `errors.md` §2 names the sixteen classes as design and a subclass would be an
+        `errors.md` §2 names the eighteen classes as design and a subclass would be an
         invention; the message must name the entry point that refused (`errors.md` §3)
         and every token of `groups` — one alternative per tuple — which is how a case
         says "the offending value is named" (§3 rule 1, §4).

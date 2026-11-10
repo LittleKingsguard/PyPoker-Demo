@@ -22,10 +22,10 @@ of these spellings and no other, and this module never infers a kind from a vari
 | `residual` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` layers `W → W`, each added to the carried vector | `width`, `depth` |
 | `plain` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` layers `W → W`, replacing the carried vector | `width`, `depth` |
 
-Every kind ends in the same output layer, `W → 3` with a bias and no activation: the three values `rule.md` §5
-takes a mask over. Every trunk layer is `W → W` with a bias and a ReLU (`residual` excepted only in *how* its
-output is combined, §2). `I` is the dense input width and `V` the token vocabulary; both come from the learner's
-sizing record, never from a document (§6, D-3).
+Every kind ends in an output layer as wide as the shape's descriptor count, `W → A` with a bias and no activation: the
+`A` values `rule.md` §5 takes a mask over, three on the default shape and six on the other (`shapes.md` §2). Every trunk
+layer is `W → W` with a bias and a ReLU (`residual` excepted only in *how* its output is combined, §2). `I` is the dense
+input width and `V` the token vocabulary; both come from the learner's sizing record, never from a document (§6, D-3).
 
 The catalogue value for each kind is a plain record of three keys, `name`, `observation` and
 `observation_size`, in that order (`surface.md` §3). `naive-stack`'s 203 and the six token kinds' 96 are the
@@ -58,9 +58,10 @@ kind does not read is ignored (`surface.md` §4). `token-embedding`, `deep`, `pl
 topology at three declared settings; what makes them distinct kinds is that a rung names the kind it varies and
 `learners()` publishes it as one of the seven (`surface.md` §3, `ladder.md` §3).
 
-**The output.** `q = h @ W_out + b_out`, `W_out` of shape `(W, 3)` and `b_out` of shape `(3,)`, no activation,
-returned as three `float64` values in index order — index 0 fold, 1 check/call, 2 raise
-(`features/surface.md` §2). The output layer is never sparse and never residual.
+**The output.** `q = h @ W_out + b_out`, `W_out` of shape `(W, A)` and `b_out` of shape `(A,)`, no activation, returned
+as `A` `float64` values in the shape's declared index order — `fold` 0, `check-call` 1, `raise` 2 on the default shape,
+and the six of `no-limit-100` on the other (`features/surface.md` §2, `shapes.md` §2–§3). Both backends read `A` off
+`layout.actions` and never write it down. The output layer is never sparse and never residual.
 
 ## 3. How the four settings are read
 
@@ -93,7 +94,7 @@ from bit-identical parameters.
 
 1. The **input block**: the dense matrix `W_in` of shape `(I, W)`, or the embedding table `E` of shape `(V, W)`.
 2. The **trunk layers** `ℓ = 1..D` in ascending order, each `(W, W)`.
-3. The **output layer** `W_out`, `(W, 3)`.
+3. The **output layer** `W_out`, `(W, A)`, and then its bias.
 4. The **sparse masks** (`sparse` only), layers `ℓ = 1..D` in ascending order: `B_ℓ` keeps the positions of
    `g.permutation(W²)[:k]`, sorted ascending. This step comes last, so the weight draws of a `sparse` learner are
    the draws its shapes would give any other kind.
@@ -112,25 +113,24 @@ dense input width, `V` the vocabulary, `W` the width, `D` the depth and `k = rou
 
     input block      naive-stack:  I·W + W            any token kind:  V·W
     trunk            D·(W²  + W)                      sparse:          D·(k + W)
-    output           3·W + 3
+    output           A·W + A                          3·W + 3 at the default shape's A = 3
     param_count      the sum of the three lines
 
-So `naive-stack` is `I·W + W + D·(W² + W) + 3W + 3`, each dense token kind is `V·W + D·(W² + W) + 3W + 3`, and
-`sparse` replaces the trunk term with `D·(k + W)` — the formula covers `s = 0` too, where `k = W²`. A kind's
-count is a function of its kind and its four settings, and of nothing else: **not** a decision, **not** a step,
-**not** a seed (the mask's size is `k`, not its contents), and the same number in both backends for one shape
-(D-7, `ladder.md` §5).
+So `naive-stack` is `I·W + W + D·(W² + W) + A·W + A`, each dense token kind is `V·W + D·(W² + W) + A·W + A`, and
+`sparse` replaces the trunk term with `D·(k + W)` — the formula covers `s = 0` too, where `k = W²`. `A` is the
+learner's shape's descriptor count, read through `declarations.actions_for` and never written down (`shapes.md` §2), so
+a kind's count is a function of its kind, its settings and its shape: **not** a decision, **not** a step, **not** a
+seed (the mask's size is `k`), and one number in both backends (D-7, `ladder.md` §5).
 
-**Not counted:** the target copy, the mask buffers, the schedule's constants and the position
-(`learner.md` §3). **Counted:** the input block first, because the embedding table is trainable
-(`learner.md` §3).
+**Not counted:** the target copy, the mask buffers, the schedule's constants and the position (`learner.md` §3).
+**Counted:** the input block first, because the embedding table is trainable (`learner.md` §3).
 
-**An arithmetic check, not a declaration.** At `I = 203`, `W = 36`, `D = 2`: `7344 + 2664 + 111 = 10,119`. At
-`V = 96`, `W = 50`, `D = 2`: `4800 + 5100 + 153 = 10,053`, and at `V = 96`, `W = 39`, `D = 4`: `3744 + 6240 +
-120 = 10,104` — two token kinds at two widths and depths within 0.5% of one another, which is how ASM-10's
-10,000 ±2% budget is reachable at all. Which numbers a rung declares is `training`'s (`ladder.md` §3, §4); note
-that `sparse`'s trunk term `D·(k + W)` shrinks with `s`, so a sparse arm matches its dense mate by being declared
-**wider** — that is what "connectivity varied at a matched budget" means (`strata/brief.md` §2, R5, ASM-10).
+**An arithmetic check, not a declaration.** At the default shape's `A = 3`, `I = 203`, `W = 36`, `D = 2`:
+`7344 + 2664 + 111 = 10,119`, which is every recorded count unmoved (ASM-40). At `V = 96`, `W = 50`, `D = 2`:
+`4800 + 5100 + 153 = 10,053`, and at `V = 96`, `W = 39`, `D = 4`: `3744 + 6240 + 120 = 10,104` — two token kinds
+within 0.5% of one another, which is how ASM-10's 10,000 ±2% budget is reachable at all. Which numbers a rung declares
+is `training`'s (`ladder.md` §3, §4); `sparse`'s trunk term `D·(k + W)` shrinks with `s`, so a sparse arm matches its
+dense mate by being declared **wider** — "connectivity varied at a matched budget" (`strata/brief.md` §2, R5, ASM-10).
 
 ## 6. The sizing contract
 

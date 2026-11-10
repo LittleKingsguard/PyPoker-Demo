@@ -11,23 +11,21 @@ The learning rule is a **parameter**, not a constant: `rules.md` §2's catalogue
 `masked-q-learning` and `double-q-learning`, and the learner spec selects one (D-19, ASM-7, ASM-25). One rule held the
 whole ladder until the diagnosis measured what a maximum of three noisy estimates does to a ±20-chip terminal reward
 that must resolve a 0.06–0.7 chip difference: it takes whichever estimate drew positive noise and converges on
-raise-almost-always (`strata/records/r2-plateau-diagnosis.md`). Double Q-learning is the second member because it
-decouples selection from evaluation; the first stays the declared default, so a spec naming no rule is unchanged
-(`rules.md` §4).
+raise-almost-always (D-19). Double Q-learning is the second member because it decouples selection from evaluation; the
+first stays the declared default, so a spec naming no rule is unchanged (`rules.md` §4).
 
 `utility.md` §2's catalogue is the **sibling axis**: the same spec selects a terminal-reward member the same way, and a
 name outside either catalogue is refused **by name** — `UnknownRule` or `UnknownUtility` (`utility.md` §3, D-20).
 
-Both members answer **one contract** (`rules.md` §3): a learner is a function from an observation and a legal mask to
-three values, and an index outside the mask is never read, never a target and never updated (D-2). A rule changes a
-target's arithmetic and nothing else — not the state layout, the parameter count, the exploration or the vocabulary —
-so no entry point takes a rung, a variant, an opponent or a hyperparameter and no caller branches on the rule or the
-utility (D-3, D-19, D-20); what a rung changes, the input block and the trunk's shape, is outside every rule (§2–§3).
+Both members answer **one contract** (`rules.md` §3): a learner is a function from an observation and a legal mask to `A`
+values — the shape's descriptor count, three on the default shape and six on the other (`shapes.md` §2–§3) — and an index
+outside the mask is never read, never a target and never updated (D-2). A rule changes a target's arithmetic and nothing
+else — not the state layout, the parameter count, the exploration or the vocabulary — so no caller branches on the rule
+or the utility, and what a rung changes, the input block and the trunk's shape, is outside every rule (D-3, D-19, D-20).
 
 **"One state and one decision give one answer"**: `act` reads the learner's parameters, its position, its seed and the
-decision `(observation, mask)` handed, and nothing else — no call counter, no stream, no cache — so two calls at one
-state return one index and a restored learner answers as its saved one did (`surface.md` §1, §6, §10, `protocol.md` §5,
-ASM-5).
+decision `(observation, mask)` handed, and nothing else — no call counter, no stream, no cache — so two calls at one state
+return one index, and a restored learner answers as its saved one did (`surface.md` §1, `protocol.md` §5, ASM-5).
 
 ## 2. The two targets, the mask and the reward
 
@@ -38,24 +36,21 @@ For one transition record (`records.md` §4) with `action` `a` and the online va
 - **`double-q-learning`** lets the **online** parameters choose the index, `rule._tie_break(q_next, next_legal)` over
   their values at `next_observation` (§8), and reads that index's value from the **target copy**: selection by one
   estimate, evaluation by another, so an upward-biased maximum no longer sets the bootstrap.
-- **terminal** (`terminal` true), under either rule: `target = reward`, and no successor value is read;
 - **the mask is the contract**: every maximum and index runs over `next_legal` only, so an index outside it is never a
   candidate; `q[a]` is read at the transition's own `action`, validated in its `legal` mask first (`surface.md` §7, D-2);
 - **the reward is the learner's utility's** (ASM-12, ASM-28): that utility's terminal value — `net-chips`' unshaped net
   chip delta, or `stack-shortfall`'s re-expression of it — at the seat's terminal decision and `0.0` at every other one;
-  no term, no clip, no intermediate reward, and no arithmetic here changes it (`utility.md` §4, §6,
-  `engine/surface.md` §9, `learner.md` §1, D-20).
+  with **terminal** setting `target = reward` under either rule, no successor read, no term, no clip (`utility.md` §4, D-20).
 
 The decoupling is the whole difference: `double-q-learning` is a second `forward` on the same observation — no new
-parameter, no state slot, no checkpoint field — so the pair is capacity-matched (ASM-10, `rules.md` §3); `discount`,
-which both targets need and `ladder.md` §3 does not name, is fixed by §6.
+parameter, no state slot, no checkpoint field — so the pair is capacity-matched (ASM-10, `rules.md` §3); `discount`, which
+both targets need and `ladder.md` §3 does not name, is fixed by §6.
 
 ## 3. The update, and the one place a rule branches
 
 - **One path, one branch.** `learn` reads `learner.rule` inside the target's arithmetic (§2) and nowhere else: the
-  validation order, the loop, the `|td|` accumulation, the SGD step, the refresh counter and the schedule position are
-  shared; `act`, `param_count`, `save`, `load`, `as_policy` and both callers are rule-free and utility-free
-  (`rules.md` §3, `utility.md` §4, D-19).
+  validation order, the loop, the `|td|` accumulation, the SGD step, the refresh counter and the position are shared;
+  `act`, `param_count`, `save`, `load`, `as_policy` and both callers are rule-free and utility-free (`rules.md` §3).
 - **The batch is the caller's**: consumed in its order, one semi-gradient step per transition, never sampled, sorted,
   shuffled, deduped or replayed — no replay buffer, no priority, no second pass (`surface.md` §7, `ladder.md` §5).
 - **One step per transition, in order.** For transition *k*: `q` and `q'` come from the state *before* step *k*;
@@ -65,13 +60,14 @@ which both targets need and `ladder.md` §3 does not name, is fixed by §6.
 - **Two divergence guards sit inside that order** (`divergence.md` §2): a non-finite `td` refuses **before** `|td|` is
   accumulated and before the step, and a step that left any parameter non-finite refuses **after** it; both name *k*.
 - **A terminal transition carries the decision's own `next_legal`**, and `learn` reads none of it (§2); no empty mask is
-  legal (`features/surface.md` §8), so both batteries pass the decision's own mask there.
+  legal (`features/surface.md` §8).
 - **The target copy and its counter.** A second, non-trainable copy of every parameter, equal at construction, is the
   source of every bootstrapping value under either rule; it is refreshed from the online parameters, in
-  `architecture.md` §4's declaration order, when the consumed transitions reach `target_update_interval`, and the
-  counter then resets. It is never a parameter (`architecture.md` §5, ASM-10) and rides in a checkpoint (`checkpoint.md` §2).
-- **Any non-empty batch is legal**: `batch_size` (§6) is the ladder's declared granularity and never a precondition, so
-  a batch of 6 or of 200 is consumed by the same rule, in the caller's order (`errors.md` §4).
+  `architecture.md` §4's declaration order, when the consumed transitions reach `target_update_interval`, and the counter
+  then resets. It is never a parameter (ASM-10) and rides in a checkpoint (`checkpoint.md` §2).
+- **Any non-empty batch is legal**: `batch_size` (§6) is the ladder's declared granularity and never a precondition, so a
+  batch of 6 or of 200 is consumed by the same rule, in the caller's order, with both batteries passing the decision's own
+  mask (`errors.md` §4).
 - **The return**: exactly two keys — `td_error`, the batch's mean absolute TD error (`sum(|td|) / len(batch)`) as a
   plain `float`, and `transitions`, the records consumed as a plain `int`; `td_error` is finite, since a non-finite
   observation is refused before any arithmetic (`surface.md` §7, `records.md` §7, `errors.md` §3).
@@ -81,10 +77,8 @@ which both targets need and `ladder.md` §3 does not name, is fixed by §6.
 ## 4. The exploration: a schedule and a keyed draw
 
 **The rate.** With `start`, `end`, `samples` from §6 and `n` the position (an `int` from `0`, moved only by §3):
-
-    epsilon(n) = start + (end − start) × min(n, samples) / samples
-
-so the rate is `start` at `n = 0`, `end` from `n = samples` on, and linear between (`surface.md` §3).
+`epsilon(n) = start + (end − start) × min(n, samples) / samples`, so the rate is `start` at `n = 0`, `end` from
+`n = samples` on, and linear between (`surface.md` §3).
 
 **The key.** One derivation, shared by `act` and `as_policy`, which must decide as `act` does (`surface.md` §10):
 
@@ -96,36 +90,43 @@ so the rate is `start` at `n = 0`, `end` from `n = samples` on, and linear betwe
     draws   = numpy.random.Generator(numpy.random.PCG64(int.from_bytes(key[:16], "big")))
     u, v    = draws.random(), draws.random()   # two float64 draws, u first, both always taken
 
-`observation_bytes` is `numpy.ascontiguousarray(numpy.asarray(observation).astype("<f8" or "<i8")).tobytes()`, `<f8`
-for a dense observation and `<i8` for a token one. Three properties are the point: it is **backend-independent**
-(sha256's bytes, never `hash()`'s), **order-independent** (mask sorted, the observation's own layout) and **the
-learner's own** (seed in the payload) (`surface.md` §6, ASM-2).
+`observation_bytes` is `numpy.ascontiguousarray(numpy.asarray(observation).astype("<f8" or "<i8")).tobytes()`, `<f8` for
+a dense observation and `<i8` for a token one. Three properties are the point: it is **backend-independent** (sha256's
+bytes, never `hash()`'s), **order-independent** (mask sorted) and **the learner's own** (seed in the payload) (ASM-2).
 
-**The decision.** With `mask` ascending (it is, `features/surface.md` §8) and the position read before any change:
+**The decision.** `mask` ascends (`features/surface.md` §8) and the position is read before any change; the pair comes back
+from **one** function per arm — `rule.decide(...)` takes the draw and falls through to `rule.decide_greedy(values, mask)`, which takes none:
 
-    if u < epsilon(n):  index = mask[min(int(v × len(mask)), len(mask) − 1)]
-    else:               index = the tie-break of §5 over the masked values
+    if u < epsilon(n):  index, tie = mask[min(int(v × len(mask)), len(mask) − 1)], False
+    else:               index, tie = rule.decide_greedy(values, mask)      # §5, and whether it was a tie
 
-so the exploring arm is a uniform draw over the legal indices, the greedy arm is §5 (`surface.md` §7), and the learner's
-own `numpy.random.Generator(PCG64(seed))` serves construction only, so `act` advances nothing (`architecture.md` §4).
+The exploring arm is a uniform draw over the legal indices and the greedy arm is §5, so `act` advances nothing; the
+learner's own generator serves construction only (`surface.md` §7, `architecture.md` §4).
+
+**The two exploration modes are the policy's.** `as_policy`'s fourth argument selects one, `schedule` — the default and
+everything above — or `off`, where the decision is `rule.decide_greedy` alone and **no generator is drawn from at all**:
+`rule.decide`, `rule._draws` and the PCG64 construction are unreachable there, so two `off` policies at different seeds
+decide identically and neither advances a position; §6's schedule is one declaration no mode edits (`shapes.md` §4,
+`sizing.md` §4, D-19, D-20).
 
 ## 5. The tie-break among equal masked values
 
-Two values equal — or equal within the arithmetic's own rounding — must not let the backend decide the answer
-(`backends.md` §3). The rule is total and stateless, and `learn` reads `double-q-learning`'s index with it (§2):
+Two values equal — or equal within the rounding — must not let the backend decide the answer: the rule is total and
+stateless, and `learn` reads `double-q-learning`'s index with it (§2, `backends.md` §3):
 
-    values = the three online values;  best = max(values[i] for i in mask)   # the masked maximum, as computed
+    values = the A online values;  best = max(values[i] for i in mask)   # the masked maximum, as computed
     tol    = 1e-9 × max(1.0, abs(best))              # relative, with an absolute floor
     index  = min(i for i in mask if values[i] >= best − tol)
 
-"The smallest masked index within `tol` of the masked maximum": total, deterministic and defined on the mask alone, so
-three values and a mask give one index in either backend, `tol` being a design constant far above the backends' drift
-(`backends.md` §3); a non-finite masked value refuses by name before `max` (`divergence.md` §2, §3).
+"The smallest masked index within `tol` of the masked maximum": total, deterministic and defined on the mask alone, so `A`
+values and a mask give one index in either backend, `tol` far above the backends' drift (`backends.md` §3), and a
+non-finite masked value refuses by name before `max` (`divergence.md` §2). The order is the **shape's** declared order,
+which this module never defines, so a tie resolves toward a worse-priced band rather than the best one (`shapes.md` §3,
+ASM-37), and `tie` is true exactly when that tie-break chose the index and two or more values sat within `tol` (`records.md` §6, §15).
 
 ## 6. The fixed hyper-declarations `learners()["hyper"]` publishes
 
-Six keys, one value each, for **both** catalogues — every rule and every utility: `hyper` is one declaration, not a
-per-rule block, so a swap on either axis is one axis and no budget moves with it (D-19, D-20, ASM-7, `rules.md` §2).
+Six keys, one value each, for **both** catalogues — every rule and every utility: `hyper` is one declaration, not a per-rule block, so a swap on either axis is one axis (D-19, D-20, ASM-7, `rules.md` §2).
 
 | Key | Value | Why this value |
 |---|---|---|
@@ -138,28 +139,27 @@ per-rule block, so a swap on either axis is one axis and no budget moves with it
 
 ## 7. The policy, and what the rule never does
 
-`as_policy(learner, encoder, seed)` snapshots the learner's parameters, its schedule position and the encoder at build
-time and returns a callable `policy(readout, legal_actions)` that encodes the readout with `features.encode`, takes the
-mask from `features.legal_indices(readout["legal"])`, decides by §4–§5 with its **own** seed, and returns
-`features.decode_action(index)` — always one of `legal_actions` (`surface.md` §10, `features/surface.md` §9). At the
-learner's own seed and the snapshotted position it decides exactly as `act` does; a later `learn` cannot change a policy
-already built, the snapshot being a copy (`surface.md` §10, ASM-5). It also carries `learning_rule` and `utility`, the
-catalogue members its learner was built under: the only things a policy holds that no decision reads, and what
-`evaluation` reads to label a table's members, so a table names the population and the objectives it measured
-(`e2e-surface.md` §2, `rules.md` §7, `utility.md` §7, D-19, D-20). Nothing in §2–§5 keeps state: no replay, no running
-mean, no cached pass, no call to the global `random` (ASM-2).
+`as_policy(learner, encoder, seed, exploration="schedule")` snapshots the learner's parameters, its schedule position and
+the encoder at build time and returns a callable `policy(readout, legal_actions)` that encodes the readout, takes the mask
+from `features.legal_indices(readout["legal"])`, decides by §4–§5 with its **own** seed and mode, and returns
+`features.decode_action(index, shape=<the learner's game>)` — always one of `legal_actions`, in the shape's own vocabulary
+(`surface.md` §10, `shapes.md` §3). At the learner's own seed and position it decides exactly as `act` does; a later `learn`
+cannot change a policy already built, the snapshot being a copy (`surface.md` §10, ASM-5). It also carries `learning_rule`,
+`utility` and the learner's `game` — what `evaluation` reads to label a table's members (`e2e-surface.md` §2, D-19, D-20).
+Nothing in §2–§5 keeps state: no replay, no running mean, no cached pass, no global `random` (ASM-2).
 
 ## 8. The internals a unit battery may drive, and what is left to L4
 
-Six names are **private**: nothing exports them and no caller outside `tests/agents/` may use them (`battery.md` §5,
-D-13); L4 implements exactly these spellings, since `tests/agents/` imports them. Their bodies stay L4's; §4's
-payload, §6's values, §5's `tol`, the aim, the mask, the step and `learn`'s two keys never are (`guardrails.md`):
+Eight spellings are **battery-facing**: nothing exports them and no caller outside `tests/agents/` may use them, and L4
+implements exactly these names (`battery.md` §5, D-13); they are internals, and their bodies stay L4's:
 
 | Name | Signature | One-line contract |
 |---|---|---|
 | `rule._epsilon` | `_epsilon(position)` | §4's rate at that schedule position: `start` at `0`, `end` from `samples` on, linear between |
 | `rule._decision_key` | `_decision_key(seed, family, observation, mask)` | §4's payload's `sha256` digest, from which a caller takes `u` then `v` exactly as §4 does |
-| `rule._tie_break` | `_tie_break(values, mask)` | §5's one index for three values and a mask: no seed, no state, no backend — the index `learn` reads `double-q-learning`'s bootstrap at, over the online values (§2) — and it refuses a non-finite masked value by name (`divergence.md` §2) |
-| `model._param_count_for` | `_param_count_for(kind, width, depth, sparsity=0.0)` | `architecture.md` §5's sum at those settings, `I`/`V` the kind's declared `observation_size` |
-| `model._initial_parameters` | `_initial_parameters(kind, width, depth, sparsity, seed)` | `architecture.md` §4's steps 1–3 as one 1-D `float64` array in declaration order — the checkpoint's `[0, P)` — `sparsity` changing nothing |
+| `rule._draws` | `_draws(seed, family, observation, mask)` | §4's two `float64` draws, `u` then `v`, from `_decision_key`'s digest — the one generator a `schedule` arm builds |
+| `rule._tie_break` | `_tie_break(values, mask)` | §5's one index for `A` values and a mask: no seed, no state, no backend — the index `learn` reads `double-q-learning`'s bootstrap at, over the online values (§2) — and it refuses a non-finite masked value by name (`divergence.md` §2) |
+| `rule.decide_greedy` | `decide_greedy(values, mask)` | §5's greedy arm alone, as `(index, tie)`: the tie-break over the masked maximum and whether it chose — no seed, no state, no draw (`shapes.md` §3) |
+| `model._param_count_for` | `_param_count_for(kind, width, depth, sparsity=0.0, actions=None)` | `architecture.md` §5's sum at those settings, `I`/`V` the kind's declared `observation_size` and `A·W + A` its output term (`shapes.md` §2) |
+| `model._initial_parameters` | `_initial_parameters(kind, width, depth, sparsity, seed, actions=None)` | `architecture.md` §4's steps 1–3 as one 1-D `float64` array in declaration order — the checkpoint's `[0, P)` — `sparsity` changing nothing |
 | `checkpoint._read_metadata` | `_read_metadata(path)` | `checkpoint.md` §2.1's object read from `path`'s `metadata.json`, refusing as `load` does |

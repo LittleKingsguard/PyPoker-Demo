@@ -20,6 +20,15 @@ whose `hand_class` were a constant — or never left one end of the range — is
 here rather than only one layer down in `tests/engine`.  No case asserts a class for a
 particular deal, because the battery may not import the library that computes it
 (`folders.md` §3, ASM-30, D-13).
+
+**D-29 does not move any of it.**  The project declares a second game shape, and the
+invariants of this family are asserted **for the shape in force**: cases 2.1, 2.2, 2.9,
+2.10 and 2.11 state today's game, today's three indices and today's readout when no shape
+is named — unchanged, because absence is the default shape (`shapes.md` §5) — and cases
+2.15–2.18 state the same contracts for the shape the catalogue declares second: its
+dealt game, its declared vocabulary in its own index order, one index per legal
+descriptor, a decode that round-trips into the engine, and the eleven readout facts
+unchanged (`shapes.md` §2–§3, §5, `e2e-surface.md` §2 "Game shape", D-29).
 """
 
 import os
@@ -76,7 +85,12 @@ class FAM2Invariance(S.SurfaceCase):
         return self.ep("features", "observation_spec")(self.encoder(encoding))
 
     def test_fam2_1_game_config_is_one_fixed_declaration(self):
-        """FAM-2.1 engine.game_config is deterministic and is ASM-6's fixed game (D-2)."""
+        """FAM-2.1 engine.game_config is deterministic and is ASM-6's fixed game (D-2).
+
+        The shape in force is the **default**: naming none is today's game, and naming the
+        catalogue's first shape by name is the same row — so a caller that predates the
+        catalogue reads the mapping it always read (`shapes.md` §2, §5, D-29).
+        """
         config = self.ep("engine", "game_config")()
         again = self.ep("engine", "game_config")()
         self.assertEqual(S.canon(config), S.canon(again), "game_config() changed between calls")
@@ -88,9 +102,20 @@ class FAM2Invariance(S.SurfaceCase):
                 "the fixed game of e2e-surface.md §3.1 must declare %d; got %r" % (declared, config),
             )
         self.assertIn(2, values, "the fixed game must declare its two seats or its blinds")
+        self.assertEqual(
+            S.canon(config),
+            S.canon(self.game_config(self.shape_names()[0])),
+            "game_config() with no argument is the default shape's row, and naming that "
+            "shape by name is the same row — absence and the first declared name are one "
+            "game (shapes.md §2, §3, D-29)",
+        )
 
     def test_fam2_2_the_dealt_game_has_the_fixed_parameters(self):
-        """FAM-2.2 a first decision shows blinds 1/2 and stacks 20 (ASM-6, D-2)."""
+        """FAM-2.2 a first decision shows blinds 1/2 and stacks 20 (ASM-6, D-2).
+
+        The shape in force is the default, so this is today's game unchanged; the second
+        shape's dealt game is FAM-2.15's (``shapes.md`` §2, §5, D-29).
+        """
         readout = self.readout(self.hand(S.SEED_A))
         self.assertEqual(readout["street"], "preflop")
         self.assertEqual(readout["pot"], 3, "the blinds committed to the pot must be 1 + 2")
@@ -181,8 +206,13 @@ class FAM2Invariance(S.SurfaceCase):
                                  % (encoding, len(observation), shape))
 
     def test_fam2_9_action_space_is_the_three_index_vocabulary(self):
-        """FAM-2.9 features.action_space is the fixed 0/1/2 vocabulary (D-2)."""
-        space = self.ep("features", "action_space")()
+        """FAM-2.9 features.action_space is the fixed 0/1/2 vocabulary (D-2).
+
+        The shape in force is the default, so the vocabulary is today's three indices and
+        the descriptors they name, read through `decode_action` rather than spelled here;
+        the second shape's six are FAM-2.16's (`e2e-surface.md` §2 "Action vocabulary").
+        """
+        space = self.action_space()
         vocabulary = S.action_vocabulary(space)
         self.assertEqual(
             vocabulary,
@@ -191,9 +221,19 @@ class FAM2Invariance(S.SurfaceCase):
             "however the container keys them, a sequence or a mapping keyed by name or by "
             "the indices themselves (e2e-surface §2): %r" % (space,),
         )
+        self.assertEqual(
+            [self.decode_action(index) for index in sorted(vocabulary)],
+            list(S.FIXED_ACTIONS),
+            "the default shape's indices decode to its three declared descriptors, in the "
+            "shape's own order (e2e-surface.md §2, shapes.md §2, D-29): %r" % (space,),
+        )
 
     def test_fam2_10_decode_action_round_trips_into_the_engine(self):
-        """FAM-2.10 decode_action gives a descriptor apply_action accepts (D-2)."""
+        """FAM-2.10 decode_action gives a descriptor apply_action accepts (D-2).
+
+        On the shape in force — the default, whose three indices are asserted above; the
+        second shape's round trip is FAM-2.17's (`sizing.md` §3, D-29).
+        """
         legal = self.legal(self.hand(S.SEED_C))
         indices = list(self.ep("features", "legal_indices")(legal))
         self.assertTrue(indices, "no legal index at the first decision")
@@ -207,7 +247,12 @@ class FAM2Invariance(S.SurfaceCase):
                                  "decode_action(%r) gave a descriptor the engine refused" % (index,))
 
     def test_fam2_11_every_legal_descriptor_has_one_index(self):
-        """FAM-2.11 the legal descriptors and the legal indices correspond one to one."""
+        """FAM-2.11 the legal descriptors and the legal indices correspond one to one.
+
+        Position-aligned, and never sorted: the alignment is the contract and it does not
+        depend on the shape, so the second shape's decisions are held to it as well
+        (FAM-2.17) (`e2e-surface.md` §2, `shapes.md` §3, D-29).
+        """
         legal = self.legal(self.hand(S.SEED_C))
         indices = list(self.ep("features", "legal_indices")(legal))
         self.assertEqual(
@@ -387,6 +432,196 @@ class FAM2Invariance(S.SurfaceCase):
             "separate the class the folder folds on from every class above it "
             "(folders.md §2, §3, ASM-30): %d post-flop decisions at seeds %r, the "
             "classes %s" % (decisions, HAND_CLASS_WALK_SEEDS, seen),
+        )
+
+
+    # ==================================================================
+    # The same three contracts, for the shape D-29 declares second
+    # ==================================================================
+    def test_fam2_15_the_second_shape_deals_its_own_game(self):
+        """FAM-2.15 the second declared shape deals its own game, at its own chips in play.
+
+        D-29's catalogue declares a second row — the same two seats, the same blinds and
+        the same eleven readout facts, and a 100-chip stack instead of 20 — and naming it
+        is the only way to reach it (`shapes.md` §2, `e2e-surface.md` §2 "Game shape").
+        So the first decision of a hand on that shape shows the blinds committed to the
+        pot and the shape's own total behind them, and `pot + sum(stacks)` is that total
+        at **every** decision of a walk — the invariant the row's `chips_in_play` states —
+        while the default shape's hand at the same seed is a different game.
+        """
+        shape = self.second_shape()
+        self.assertNotEqual(shape, self.shape_names()[0],
+                            "the shape compared here is the one declared second")
+        row = self.shape_row(shape)
+        total = [int(number) for number in S.numbers(
+            S.declared_field(row, "a declared shape row (shapes.md §2)", "chips_in_play"))]
+        self.assertTrue(
+            total,
+            "a shape row declares the chips in play — `pot + sum(stacks)` at every "
+            "decision (shapes.md §2): %r" % (row,),
+        )
+        chips = total[0]
+        readout = self.readout(self.hand(S.SEED_A, shape))
+        self.assertEqual(readout["street"], "preflop")
+        self.assertEqual(
+            readout["pot"],
+            self.readout(self.hand(S.SEED_A))["pot"],
+            "both declared shapes share the table: the blinds committed to the pot are "
+            "the same (shapes.md §2)",
+        )
+        self.assertEqual(
+            sum(S.numbers(readout["stacks"])),
+            chips - readout["pot"],
+            "on the named shape the two stacks hold the shape's own total less the pot: "
+            "%r chips in play against stacks %r" % (chips, readout["stacks"]),
+        )
+        decisions = 0
+        for seed in S.SHAPE_SEEDS[:4]:
+            for _hand, facts, _legal, _action, _index in self.decision_walk(seed, shape=shape):
+                decisions += 1
+                self.assertEqual(
+                    facts["pot"] + sum(S.numbers(facts["stacks"])),
+                    chips,
+                    "`pot + sum(stacks)` is the shape's chips in play at every decision "
+                    "and not only at the first (shapes.md §2, D-29): seed %r, street %r, "
+                    "pot %r, stacks %r" % (seed, facts["street"], facts["pot"],
+                                           facts["stacks"]),
+                )
+        self.assertGreater(decisions, 1, "the case must walk real decisions on the shape")
+        self.assertNotEqual(
+            S.canon(self.readout(self.hand(S.SEED_A, shape))),
+            S.canon(self.readout(self.hand(S.SEED_A))),
+            "naming a shape reaches that game, not the default one (shapes.md §2, §3)",
+        )
+
+    def test_fam2_16_the_second_shape_declares_its_six_descriptors_in_order(self):
+        """FAM-2.16 the second shape's vocabulary is its six descriptors, in its own order.
+
+        `sizing.md` §3 fixes the index order as the measured price order, worst first —
+        `fold` 0, `check-call` 1, `raise-quarter` 2, `raise-half` 3, `raise-all-in` 4,
+        `raise-minimum` 5 — and `features.action_space(shape)` publishes a shape's
+        descriptors in that shape's order (`e2e-surface.md` §2 "Action vocabulary").  The
+        default shape's three are asserted in FAM-2.9 and are untouched.
+        """
+        shape = self.second_shape()
+        space = self.action_space(shape)
+        vocabulary = S.action_vocabulary(space)
+        self.assertEqual(
+            vocabulary,
+            set(range(len(S.SIZED_ACTIONS))),
+            "the no-cap shape's vocabulary is six indices — however the container keys "
+            "them, a sequence or a mapping keyed by name or by the indices themselves "
+            "(e2e-surface.md §2, shapes.md §2): %r" % (space,),
+        )
+        self.assertEqual(
+            [self.decode_action(index, shape) for index in sorted(vocabulary)],
+            list(S.SIZED_ACTIONS),
+            "the shape's indices decode to its declared descriptors **in its own index "
+            "order** — fold, check-call, quarter, half, all-in, minimum — and the order "
+            "is not monotone in amount (sizing.md §2–§3): %r" % (space,),
+        )
+        # The engine's legal tuple is the shape's declared order too, at a decision where
+        # all six are legal: the first of a no-cap hand offers every band.
+        hand = self.hand(S.SEED_A, shape)
+        legal = self.legal(hand)
+        indices = list(self.ep("features", "legal_indices")(legal))
+        self.assertEqual(
+            indices,
+            sorted(indices),
+            "engine.legal_actions returns the legal subset in the shape's index order, "
+            "and features.legal_indices is position-aligned (e2e-surface.md §2, "
+            "sizing.md §3): %r" % (legal,),
+        )
+        self.assertTrue(
+            set(indices) <= vocabulary,
+            "every legal descriptor is one of the shape's indices: %r against %r"
+            % (indices, sorted(vocabulary)),
+        )
+        self.assertEqual(
+            len(legal),
+            len(indices),
+            "one index per legal descriptor: %r descriptors, %r indices" % (len(legal), len(indices)),
+        )
+
+    def test_fam2_17_the_second_shapes_indices_round_trip_into_the_engine(self):
+        """FAM-2.17 on the second shape one index per descriptor, and each decodes legally.
+
+        The two facts FAM-2.10 and FAM-2.11 assert of the default shape, held of the shape
+        in force: at every decision of a walk, the legal indices are distinct, one per
+        descriptor, and each `decode_action(index, shape)` is a descriptor
+        `engine.apply_action` accepts at that decision (`e2e-surface.md` §2, D-2, D-29).
+        """
+        shape = self.second_shape()
+        vocabulary = S.action_vocabulary(self.action_space(shape))
+        decisions = 0
+        for seed in S.SHAPE_SEEDS[:4]:
+            walk = self.decision_walk(seed, shape=shape)
+            for _hand, _facts, legal, _action, _index in walk:
+                decisions += 1
+                indices = list(self.ep("features", "legal_indices")(legal))
+                self.assertEqual(
+                    len(indices), len(legal),
+                    "one index per legal descriptor on the named shape: %r against %r"
+                    % (indices, legal),
+                )
+                self.assertEqual(
+                    len(set(indices)), len(indices),
+                    "the indices of one decision are distinct: %r" % (indices,),
+                )
+                self.assertTrue(
+                    set(indices) <= vocabulary,
+                    "legal indices outside the shape's declared vocabulary: %r against %r"
+                    % (indices, sorted(vocabulary)),
+                )
+                for index in indices:
+                    descriptor = self.decode_action(index, shape)
+                    self.assertIn(
+                        descriptor, legal,
+                        "decode_action(%r, %r) gives %r, which is not legal at this "
+                        "decision (%r)" % (index, shape, descriptor, legal),
+                    )
+                    advanced = self.ep("engine", "apply_action")(
+                        self.hand(seed, shape), descriptor
+                    )
+                    self.assertIsNotNone(
+                        advanced,
+                        "decode_action(%r, %r) must give a descriptor the engine accepts "
+                        "at this decision" % (index, shape),
+                    )
+        self.assertGreater(decisions, 1, "the case must walk real decisions on the shape")
+
+    def test_fam2_18_the_second_shape_carries_the_same_eleven_facts(self):
+        """FAM-2.18 the readout's eleven facts are the same facts on both declared shapes.
+
+        The shape changes what the facts *mean* and what the divisors are, never which
+        facts they are: `e2e-surface.md` §2's eleven keys, `hand_class` `None` before the
+        flop in both games, and the shape's own legal set as the `legal` fact — so no
+        twelfth fact arrives with the second shape (`shapes.md` §2, §5, D-29).
+        """
+        shape = self.second_shape()
+        default = self.readout(self.hand(S.SEED_B))
+        named = self.readout(self.hand(S.SEED_B, shape))
+        self.assertEqual(
+            sorted(named), sorted(default),
+            "both declared shapes expose exactly the eleven readout facts of "
+            "e2e-surface.md §2; the named shape exposes %r against %r"
+            % (sorted(named), sorted(default)),
+        )
+        self.assertEqual(
+            set(named), set(S.READOUT_FACTS),
+            "the named shape's readout carries the declared information set, and no "
+            "twelfth fact with it (e2e-surface.md §2, shapes.md §2, D-29)",
+        )
+        self.assertIsNone(
+            named["hand_class"],
+            "before the flop fewer than five cards are known on the no-cap shape too, so "
+            "`hand_class` is None (e2e-surface.md §2, folders.md §3, ASM-30)",
+        )
+        self.assertEqual(
+            list(self.ep("features", "legal_indices")(named["legal"])),
+            list(self.ep("features", "legal_indices")(self.legal(self.hand(S.SEED_B, shape)))),
+            "the readout's `legal` fact is the same ordered set engine.legal_actions "
+            "returns on that shape (e2e-surface.md §2)",
         )
 
 

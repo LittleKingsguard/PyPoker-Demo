@@ -219,8 +219,14 @@ def rating(matrix_record):
     return mod("evaluation").rating(matrix_record)
 
 
-def policy_from(path):
-    return mod("evaluation").policy_from(path)
+def policy_from(path, exploration="schedule"):
+    """`evaluation.policy_from(path, exploration)` -- the mode is D-29's second argument.
+
+    `docs/L2/evaluation/surface.md` §12 and `docs/L3/evaluation/shape.md` §5 declare the
+    optional mode, `schedule` being its absence, so this wrapper names it explicitly and
+    a case can hand over `off` (`sizing.md` §4, D-29).
+    """
+    return mod("evaluation").policy_from(path, exploration)
 
 
 def report(rung_name, record, matrix_record, rating_record):
@@ -253,12 +259,32 @@ def build_baseline(name, seed):
     return mod("agents").build_baseline(name, seed)
 
 
-def as_policy(learner, encoder, seed):
-    return mod("agents").as_policy(learner, encoder, seed)
+def as_policy(learner, encoder, seed, exploration="schedule"):
+    """`agents.as_policy(learner, encoder, seed, exploration)` (`agents/surface.md` §9)."""
+    return mod("agents").as_policy(learner, encoder, seed, exploration)
 
 
 def load(spec, path):
     return mod("agents").load(spec, path)
+
+
+def declared_constant(module_name, attribute):
+    """One named constant of a package under test, read for a restatement a case compares.
+
+    `docs/L3/evaluation/shape.md` §1 gives the **join** battery the duty of holding
+    `declarations.py`'s `SHAPE_NAMES` equal, in that order, to the names
+    `engine.game_shapes()` publishes, and `EXPLORATION_MODES` equal to the modes
+    `agents.as_policy` accepts -- so this is the one place a battery reads a module
+    constant rather than an entry point, and `README.md` §4 declares those constants
+    contract for it (`shape.md` §1, D-29).
+    """
+    module = mod(module_name)
+    if not hasattr(module, attribute):
+        raise AssertionError(
+            "%s.%s is not declared, and shape.md §1 names it the restatement this join "
+            "battery holds equal to the catalogue" % (module_name, attribute)
+        )
+    return getattr(module, attribute)
 
 
 def act(learner, observation, legal_mask):
@@ -294,8 +320,15 @@ def learners():
     return mod("agents").learners()
 
 
-def build_encoder(name):
-    return mod("features").build_encoder(name)
+def build_encoder(name, shape=None):
+    """`features.build_encoder(name, shape=...)` -- the shape is a **keyword** (§4-§5).
+
+    An encoder carries the shape it was built for, because the second game shape changes
+    the divisor and bucket tables of both encodings (`docs/L2/features/surface.md`
+    §3-§5, `docs/L3/evaluation/shape.md` §4).  Absent, the declared default is built,
+    which is what every caller that names no shape keeps (`docs/L1/shapes.md` §3).
+    """
+    return mod("features").build_encoder(name, shape=shape)
 
 
 def encodings():
@@ -314,16 +347,34 @@ def legal_indices(legal_actions):
     return tuple(mod("features").legal_indices(legal_actions))
 
 
-def decode_action(index):
-    return mod("features").decode_action(index)
+def decode_action(index, shape=None):
+    """`features.decode_action(index, shape=...)`: an index decodes in one vocabulary.
+
+    `docs/L2/features/surface.md` §9 and `docs/L3/evaluation/shape.md` §4: the shape
+    decides how many indices there are and which descriptor each denotes, so a member of
+    the second shape decodes its descriptor in that shape's vocabulary and never in the
+    default one's.
+    """
+    return mod("features").decode_action(index, shape=shape)
 
 
 def action_space():
     return mod("features").action_space()
 
 
-def new_hand(seed):
-    return mod("engine").new_hand(seed)
+def new_hand(seed, shape=None):
+    """`engine.new_hand(seed, shape)` -- the project's single seeding point (`surface.md` §4)."""
+    return mod("engine").new_hand(seed, shape)
+
+
+def game_shapes():
+    """`engine.game_shapes()` -- the catalogue, default first (`engine/surface.md` §12)."""
+    return mod("engine").game_shapes()
+
+
+def game_config(shape=None):
+    """`engine.game_config(shape)` (`engine/surface.md` §3)."""
+    return mod("engine").game_config(shape)
 
 
 def readout(hand):
@@ -346,10 +397,6 @@ def apply_action(hand, descriptor):
     return mod("engine").apply_action(hand, descriptor)
 
 
-def game_config():
-    return mod("engine").game_config()
-
-
 # --------------------------------------------------------------------------
 # Caller-side policies and decisions over real hands (`e2e-surface.md` §2).
 # --------------------------------------------------------------------------
@@ -360,9 +407,14 @@ def caller(readout_record, legal):
     return decode_action(index)
 
 
-def decisions_of(seed, policy, limit=200):
-    """The `(readout, legal actions)` pairs of one hand driven by `policy`."""
-    hand = new_hand(seed)
+def decisions_of(seed, policy, limit=200, shape=None):
+    """The `(readout, legal actions)` pairs of one hand driven by `policy`.
+
+    `shape` is the hand's game, absent meaning the default: a decision's readout, its
+    legal descriptors and the mask built from them are one shape's (`engine/surface.md`
+    §4-§6, `features/surface.md` §8, `shapes.md` §4).
+    """
+    hand = new_hand(seed, shape)
     out = []
     steps = 0
     while not is_terminal(hand) and steps < limit:

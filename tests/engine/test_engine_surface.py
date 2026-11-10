@@ -23,10 +23,10 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
 
 
 class ENG1Surface(S.EngineCase):
-    """The nine names exist, are callable, and return their declared kinds."""
+    """The ten names exist, are callable, and return their declared kinds."""
 
-    def test_eng1_1_the_nine_names_exist_are_callable_and_return_their_kind(self):
-        """ENG-1.1 the nine declared names exist, are callable, and a minimal call
+    def test_eng1_1_the_ten_names_exist_are_callable_and_return_their_kind(self):
+        """ENG-1.1 the ten declared names exist, are callable, and a minimal call
         returns the declared kind (surface.md §1, environment.md §7 FAM-1)."""
         for name in S.NINE:
             with self.subTest(name=name):
@@ -65,7 +65,7 @@ class ENG1Surface(S.EngineCase):
         self.assertGreaterEqual(value, 0.0, "equity is a probability, so at least 0")
         self.assertLessEqual(value, 1.0, "equity is a probability, so at most 1")
 
-    def test_eng1_2_the_nine_names_take_the_declared_argument_counts(self):
+    def test_eng1_2_the_ten_names_take_the_declared_argument_counts(self):
         """ENG-1.2 each entry point succeeds with exactly its declared arguments --
         game_config(), new_hand(seed), readout(hand), legal_actions(hand),
         apply_action(hand, action), is_terminal(hand), payoffs(hand),

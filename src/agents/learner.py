@@ -49,8 +49,6 @@ TRANSITION_KEYS = (
     "next_legal",
 )
 
-VOCABULARY = (0, 1, 2)
-
 
 # --------------------------------------------------------------------------
 # Readers and refusals shared by the entry points of this module
@@ -216,25 +214,36 @@ def _side(array, family):
     return "%s %s %s" % (tuple(array.shape), array.dtype, family)
 
 
-def _mask(value, entry, field):
-    """One legal mask: non-empty, distinct indices of `0`, `1` or `2`, ascending."""
+def _mask(value, entry, field, held):
+    """One legal mask: non-empty, distinct indices of the learner's shape's vocabulary.
+
+    The index range is the **learner's shape's** — `0 .. A−1`, three indices on the
+    default shape and six on the other, in that shape's declared order (`shapes.md` §3,
+    `sizing.md` §3).  An observation alone cannot betray its shape, both declaring the
+    same widths, dtype and token vocabulary, so the shape shows in the mask: an index
+    outside the learner's vocabulary is refused naming the entry point, the learner's
+    shape, that shape's range and the offending index, before any arithmetic and before
+    the tie-break (`surface.md` §6–§7).
+    """
+    span = int(held.actions)
     if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Iterable):
         raise InvalidMask(
-            "%s(%s): the mask must be non-empty, distinct indices of 0, 1 or 2, got %r"
-            % (entry, field, value)
+            "%s(%s): the mask must be non-empty, distinct indices of 0..%d on the shape "
+            "%r, got %r" % (entry, field, span - 1, held.game, value)
         )
     items = []
     for item in value:
-        if not is_count(item) or int(item) not in VOCABULARY:
+        if not is_count(item) or not 0 <= int(item) < span:
             raise InvalidMask(
-                "%s(%s): the mask must be non-empty, distinct indices of 0, 1 or 2, got %r"
-                % (entry, field, value)
+                "%s(%s): the mask names the index %r, which is outside the index range "
+                "0..%d of the shape %r the learner decides in, got %r"
+                % (entry, field, item, span - 1, held.game, value)
             )
         items.append(int(item))
     if not items or len(set(items)) != len(items):
         raise InvalidMask(
-            "%s(%s): the mask must be non-empty, distinct indices of 0, 1 or 2, got %r"
-            % (entry, field, value)
+            "%s(%s): the mask must be non-empty, distinct indices of 0..%d on the shape "
+            "%r, got %r" % (entry, field, span - 1, held.game, value)
         )
     return tuple(sorted(items))
 
@@ -312,6 +321,12 @@ class Learner:
     checkpoints' members are rule-free; `utility` is read by no arithmetic here at all,
     because the reward is the caller's and the transform is `training`'s
     (`utilities.md` §4, `surface.md` §4-§7, D-19, D-20).
+
+    `game` and `actions` are the shape it decides in and that shape's descriptor count
+    `A` — the identity a container records and the width its head is built at.  They are
+    read by `act` and `learn` (the index range), by `as_policy` (the vocabulary a
+    descriptor is decoded in) and by `save` (the format version), and by no arithmetic
+    that would branch on them (`shapes.md` §1–§3, §5, ASM-40).
     """
 
     __slots__ = (
@@ -332,6 +347,8 @@ class Learner:
         "dtype",
         "rule",
         "utility",
+        "game",
+        "actions",
         "position",
         "counter",
     )
@@ -356,6 +373,8 @@ class Learner:
         utility,
         position=0,
         counter=0,
+        game=None,
+        actions=None,
     ):
         self.backend_name = backend_name
         self.backend = _backend(backend_name)
@@ -374,17 +393,25 @@ class Learner:
         self.dtype = dtype
         self.rule = rule
         self.utility = utility
+        # The shape it decides in, and that shape's descriptor count: absent, the
+        # declared default's -- a reading through `features.action_space`, never a
+        # constant (`shapes.md` §1–§2, ASM-40).
+        self.game = declarations.require_game(game, "Learner")
+        self.actions = (
+            declarations.actions_for(self.game) if actions is None else int(actions)
+        )
         self.position = position
         self.counter = counter
 
     def __repr__(self):
-        return "Learner(%s, %r, width %d, depth %d, %s, %s)" % (
+        return "Learner(%s, %r, width %d, depth %d, %s, %s, %s)" % (
             self.backend_name,
             self.kind,
             self.width,
             self.depth,
             self.rule,
             self.utility,
+            self.game,
         )
 
 
@@ -458,6 +485,13 @@ def build_learner(spec):
         if "utility" in spec
         else declarations.DEFAULT_UTILITY
     )
+    # The shape the learner decides in, read beside the two catalogue members and before
+    # a parameter is drawn: absent it is the declared default, and a name the catalogue
+    # does not carry is refused naming it and the declared names, never substituted —
+    # and `A`, the head's width, is **read** off that shape (`shapes.md` §1–§2, §6,
+    # `sizing.md` §6, ASM-40, D-29).
+    game = declarations.require_game(spec.get("game"), "build_learner", "'game'")
+    actions = declarations.actions_for(game)
     fallback = sizes if isinstance(sizes, Mapping) else {}
     width = _integer(settings.get("width", fallback.get("width")), "width", "build_learner")
     depth = _integer(settings.get("depth", fallback.get("depth")), "depth", "build_learner")
@@ -504,7 +538,7 @@ def build_learner(spec):
         dtype = encoded["dtype"]
 
     layout, parameters, masks, _kept = model.initial_draw(
-        kind, width, depth, sparsity, seed, size, family
+        kind, width, depth, sparsity, seed, size, family, actions=actions
     )
     backend = _backend(backend_name)
     state = backend.new_state(layout, parameters, masks)
@@ -532,6 +566,11 @@ def build_learner(spec):
         # the declared default `net-chips`, recorded by every checkpoint it writes and
         # reported by every policy `as_policy` builds (`utilities.md` §5, §6, D-20).
         trained_on,
+        # The shape it decides in and that shape's descriptor count: the head is the
+        # shape's, so a checkpoint of any other shape is a format version of its own
+        # (`shapes.md` §1–§2, §5, ASM-40).
+        game=game,
+        actions=actions,
     )
 
 
@@ -542,15 +581,18 @@ def param_count(learner):
 
 
 def act(learner, observation, legal_mask):
-    """One training-time decision: `{"action": <plain int>}` (`surface.md` §6)."""
+    """One training-time decision: `{"action": <plain int>, "tie": <bool>}` (`surface.md` §6)."""
     held = _require_learner(learner, "act")
     values = _observation(observation, held, "act", "observation")
-    mask = _mask(legal_mask, "act", "legal_mask")
+    mask = _mask(legal_mask, "act", "legal_mask", held)
     scored, _cache = held.backend.forward(held.state, held.layout, values, need_cache=False)
-    index = rule.decide(
+    # The index and whether the **tie-break** — and not a strict maximum — chose it: false
+    # wherever the exploring arm drew the index, and false on a one-element mask
+    # (`shapes.md` §3, `records.md` §6, §15, ASM-37).
+    index, tie = rule.decide(
         held.seed, held.family, held.position, scored, values, mask
     )
-    return {"action": int(index)}
+    return {"action": int(index), "tie": bool(tie)}
 
 
 def _transition(learner, record):
@@ -570,12 +612,16 @@ def _transition(learner, record):
     successor = _observation(
         record["next_observation"], learner, "learn", "next_observation"
     )
-    legal = _mask(record["legal"], "learn", "legal")
-    next_legal = _mask(record["next_legal"], "learn", "next_legal")
-    if not is_count(record["action"]):
+    legal = _mask(record["legal"], "learn", "legal", learner)
+    next_legal = _mask(record["next_legal"], "learn", "next_legal", learner)
+    # The index range is the learner's shape's, on `action`, `legal` and `next_legal`
+    # alike, so a transition recorded on another shape is refused rather than read as one
+    # of this learner's indices (`shapes.md` §3, `surface.md` §7).
+    span = int(learner.actions)
+    if not is_count(record["action"]) or not 0 <= int(record["action"]) < span:
         raise InvalidBatch(
-            "learn(transitions): 'action' must be an integer index of 0, 1 or 2, got %r"
-            % (record["action"],)
+            "learn(transitions): 'action' must be an integer index of 0..%d on the shape "
+            "%r, got %r" % (span - 1, learner.game, record["action"])
         )
     action = int(record["action"])
     if action not in legal:

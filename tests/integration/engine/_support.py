@@ -1,6 +1,6 @@
 """Support for the L2 integration battery of the ``engine`` module.
 
-The battery drives the nine entry points of ``docs/L2/engine/surface.md`` (Rev 2)
+The battery drives the ten entry points of ``docs/L2/engine/surface.md`` (Rev 4)
 at the package's edge and reaches nothing below one of them.  This module holds
 what every case shares and nothing else:
 
@@ -34,6 +34,7 @@ from collections.abc import Mapping
 ENGINE = "engine"
 
 ENTRY_POINTS = (
+    "game_shapes",
     "game_config",
     "new_hand",
     "readout",
@@ -44,6 +45,21 @@ ENTRY_POINTS = (
     "play_hand",
     "equity",
 )
+
+# surface.md §12, shapes.md §2: the two declared shapes, default first.  A shape is
+# reached as an optional argument whose absence is today's value, never as a row.
+SHAPE_DEFAULT = "fixed-limit-20"
+SHAPE_SIZED = "no-limit-100"
+
+# surface.md §12, sizing.md §2–§3: the sized shape's four raise descriptors, in its
+# declared index order — the measured price order, worst first, so the order is not
+# monotone in amount and the smallest raise index is not the cheapest band.
+SIZED_RAISES = ("raise-quarter", "raise-half", "raise-all-in", "raise-minimum")
+
+# The argument a caller did not pass.  A shape name is refused when it is outside the
+# catalogue, and ``None`` is **not** a name but the default (shapes.md §3, D-13), so the
+# battery's helpers tell an absent argument from an explicit ``None``.
+ABSENT = object()
 
 # environment.md §2: the closed information set, in its declared order.  The eleventh is
 # D-21's derived `hand_class` (ASM-30).
@@ -65,6 +81,11 @@ READOUT_FACTS = (
 # five required facts.
 EPISODE_FACTS = ("seed", "decisions", "payoffs")
 DECISION_FACTS = ("seat", "readout", "legal", "action", "reward")
+# records.md §5, environment.md §3, sizing.md §2: the three amount facts every decision
+# carries beside its five.  `minimum`/`maximum` bound the legal raise interval and are
+# `None` exactly when no raise is legal; `amount` is the raise-to the engine resolved
+# and is `None` whenever the chosen descriptor is not a raise.
+DECISION_AMOUNT_FACTS = ("amount", "minimum", "maximum")
 
 # environment.md §2: the four street names and the board each one reveals.
 STREETS = ("preflop", "flop", "turn", "river")
@@ -102,6 +123,16 @@ SEED_M = 55049
 SEED_N = 70571
 SEED_O = 96001
 SEED_P = 10501
+
+# The second declared shape's own instances.  A no-cap hand has no cap to bound it, so
+# these seeds are the ones the sized-action family drives, and they are the writer's own
+# (D-15): none of them is in docs/L1, docs/L2 or an earlier family.
+SEED_Q = 31013
+SEED_R = 42719
+SEED_S = 51673
+SEED_T = 60493
+SEED_U = 73589
+SEED_V = 80681
 
 SEED_DISTINCT = (SEED_A, SEED_B, SEED_C, SEED_D, SEED_E, SEED_F, SEED_G,
                  SEED_H, SEED_I, SEED_J, SEED_K, SEED_L, SEED_M)
@@ -666,17 +697,23 @@ class Step:
 # The base case the battery is written on
 # ---------------------------------------------------------------------------
 class EngineCase(unittest.TestCase):
-    """One battery case, written in the nine entry points and nothing below them."""
+    """One battery case, written in the ten entry points and nothing below them."""
 
-    # -- the nine entry points ---------------------------------------------
+    # -- the ten entry points ----------------------------------------------
     def ep(self, name):
         return entry(name)
 
-    def game_config(self):
-        return self.ep("game_config")()
+    def game_shapes(self):
+        return self.ep("game_shapes")()
 
-    def new_hand(self, seed):
-        return self.ep("new_hand")(seed)
+    def game_config(self, shape=ABSENT):
+        """The declared row of ``shape``; an absent argument is no argument at all."""
+        call = self.ep("game_config")
+        return call() if shape is ABSENT else call(shape)
+
+    def new_hand(self, seed, shape=ABSENT):
+        call = self.ep("new_hand")
+        return call(seed) if shape is ABSENT else call(seed, shape)
 
     def readout(self, hand):
         return self.ep("readout")(hand)
@@ -693,18 +730,21 @@ class EngineCase(unittest.TestCase):
     def payoffs(self, hand):
         return self.ep("payoffs")(hand)
 
-    def play_hand(self, seed, seat0, seat1):
-        return self.ep("play_hand")(seed, seat0, seat1)
+    def play_hand(self, seed, seat0, seat1, shape=ABSENT):
+        call = self.ep("play_hand")
+        if shape is ABSENT:
+            return call(seed, seat0, seat1)
+        return call(seed, seat0, seat1, shape)
 
     def equity(self, decision, seed, samples):
         return self.ep("equity")(decision, seed, samples)
 
     # -- walks -------------------------------------------------------------
-    def walk(self, seed, chooser=None, limit=DECISION_BOUND):
+    def walk(self, seed, chooser=None, limit=DECISION_BOUND, shape=ABSENT):
         """Drive one hand to its end; returns its decisions and its final handle."""
         if chooser is None:
             chooser = choose_call
-        hand = self.new_hand(seed)
+        hand = self.new_hand(seed, shape) if shape is not ABSENT else self.new_hand(seed)
         steps = []
         while len(steps) < limit and not self.is_terminal(hand):
             readout = self.readout(hand)
@@ -714,9 +754,9 @@ class EngineCase(unittest.TestCase):
             hand = self.apply_action(hand, action)
         return steps, hand
 
-    def finished_hand(self, seed, chooser=None, limit=DECISION_BOUND):
+    def finished_hand(self, seed, chooser=None, limit=DECISION_BOUND, shape=ABSENT):
         """One completed hand handle at ``seed``, played by the battery's policy."""
-        steps, hand = self.walk(seed, chooser, limit)
+        steps, hand = self.walk(seed, chooser, limit, shape)
         self.assertTrue(
             self.is_terminal(hand),
             "a hand must end within %d decisions (surface.md §8, ASM-6); seed %r took "

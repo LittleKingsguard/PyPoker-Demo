@@ -76,20 +76,18 @@ and the table the agent is measured in — one object, one owner, no second eval
   names each member's rule and utility by its id — `None` for a baseline, which is a fixed rule and not an estimator
   or an objective — and its `population` and `utility_population`, the distinct rules and utilities those members
   declared, sorted (D-19, D-20, `records.md` §10, `utilities.md` §9); the rating reads none of those keys (`docs/L1/league.md` §4).
-- **The cells are exactly K(K−1)/2 unordered pairs** — 6, 36 or 45, and **66 or 78** with the folders declared — one cell per pair and no repeat
-  (D-16, ASM-14, ASM-33, D-21, `records.md` §10). Each cell's seed is derived from the table seed and the pair, and each
-  member's policy is built at a seed derived from the table seed and its position, so a table is reproduced
-  from its table seed and its membership and from nothing else (ASM-2, `battery.md` §3 FAM-8).
+- **The cells are exactly K(K−1)/2 unordered pairs** — 6, 36 or 45, and **66 or 78** with the folders declared — one cell per pair and no
+  repeat (D-16, ASM-14, ASM-33, D-21, `records.md` §10). Each cell's seed is derived from the table seed and the pair, and each member's
+  policy is built at a seed derived from the table seed and its position, so a table is reproduced from its table seed and its membership and from nothing else (ASM-2, `battery.md` §3 FAM-8).
 - **The baselines are rows and columns at that same hand count** — always the three anchors and, when the declaration
-  names them, the three folders — and their mutual cells are in
-  the table, so the matrix carries cells no model influences — the only fixed standard a self-play league
-  has (D-16, `protocol.md` §3, `docs/L1/league.md` §4, D-21).
-- **A matrix that is not a table is refused, not repaired**: cells of differing hand count, a cell count
-  other than K(K−1)/2, a pair present twice, a membership that is not the pool's plus the variants, a cell
-  naming a foreign member, or a missing baseline (`docs/L1/league.md` §4, `records.md` §10, D-16). `matrix` refuses a
-  variant count, a label or an unfrozen pool (`surface.md` §10); `rating` refuses everything else on the
-  record it is handed, whatever produced it (`surface.md` §11); `report` refuses a matrix whose membership is
-  not the record's pool plus the rung's variants (`surface.md` §13).
+  names them, the three folders — and their mutual cells are in the table, so the matrix carries cells no model influences,
+  the only fixed standard a self-play league has (D-16, `protocol.md` §3, `docs/L1/league.md` §4, D-21).
+- **A matrix that is not a table is refused, not repaired**: cells of differing hand count, a cell count other than K(K−1)/2, a pair
+  present twice, a membership that is not the pool's plus the variants, a cell naming a foreign member, a missing baseline, or cells
+  naming two shapes (`docs/L1/league.md` §4, `records.md` §10, D-16). `matrix` refuses a variant count, a label, an unfrozen pool or a
+  variant whose shape is not the pool's (`surface.md` §10); `rating` refuses everything else on the record it is handed, whatever produced
+  it (`surface.md` §11); `report` refuses a matrix whose membership is not the record's pool plus the rung's variants (`surface.md` §13).
+  A matrix is one shape's: its record and every cell of it carry the `game` it was played on (`shapes.md` §6, `surface.md` §10).
 - **The matrix is reported raw and is never reduced to a ranking**: both directions of every cell, its
   counts, chip deltas and seat split, because a summary that assumes a transitive order is exactly what a
   payoff need not have (D-16, `docs/L1/league.md` §4, `protocol.md` §2).
@@ -100,7 +98,9 @@ and the table the agent is measured in — one object, one owner, no second eval
   with a tie counted as half a win to each side (ASM-17, D-16, `docs/L1/league.md` §5). It is a statement
   about the table's named members on this game at this cell size, and **never a claim of poker skill**
   (D-16, `docs/L1/league.md` §8, brief §8). It is a function of the matrix and does not read `rules`, `population`,
-  `utilities` or `utility_population` (`records.md` §10, D-19, D-20), and it reads K members whatever K is.
+  `utilities` or `utility_population` (`records.md` §10, D-19, D-20), and it reads K members whatever K is — but **one shape's**
+  cells only: a matrix whose cells name two shapes is refused naming them, and the returned record carries the one shape it fitted,
+  so two shapes' ratings are never tabulated together (`shapes.md` §6, ASM-17, `surface.md` §11).
 - **Each member carries a 95% confidence interval from a hand-level bootstrap**: the hands inside each cell
   are resampled, the fit repeated, and the interval is the 2.5th to 97.5th percentile of the resulting values.
   The bootstrap is seeded from the table seed, its seed is recorded as `bootstrap_seed`, and the interval is
@@ -155,7 +155,7 @@ row is a value and never a blank (D-6, D-16, `records.md` §13).
 | rating | the §11 rating: one value and a 95% interval per member, with the method, the anchor and the hands behind each value (D-16, ASM-17) | `rating` |
 | baselines | every baseline row of the catalogue the configuration declares inside that matrix — always the three anchors, and the three folders of D-21 when it names them — each at the same hand count as every league cell (D-16, `protocol.md` §3, ASM-32, D-21) | `baselines` |
 | axis row | R4, R5 and R6's own pair's cell plus the matched budgets of `ladder.md` §4; R1–R3 carry the explicit value `n/a, single variant` (`protocol.md` §1) | `axis row` |
-| header | the game, the action space, every member's parameter counts, the sample budget, the cell size, the seed set, the table seed, the device and the checkpoint paths (D-6, `protocol.md` §1) | `header` |
+| header | the game's configuration, **the shape it is** — the one shape the run, the pool and the matrix agree on —, the action space, every member's parameter counts, the sample budget, the cell size, the seed set, the table seed, the device and the checkpoint paths (D-6, `protocol.md` §1, `shapes.md` §3, D-29) | `header` |
 
 Members are reported by the id the pool gave them and never by rank order alone, and the report carries the
 seed set `0, 1, 2`, its matrix's table seed and the device the run used, so a GPU run and a CPU run are never

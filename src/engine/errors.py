@@ -34,3 +34,7 @@ class InvalidSamples(EngineError):
 
 class InvalidPolicy(EngineError):
     """A `play_hand` policy that is not callable (errors.md §2, episode.md §1)."""
+
+
+class UnknownShape(EngineError):
+    """A shape name outside the catalogue (errors.md §2, config.md §1, D-29)."""

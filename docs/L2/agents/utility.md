@@ -1,17 +1,17 @@
 # agents — the utility axis at this surface
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-09
-- **Owner of this file:** D-20's terminal-reward *utility* at the `agents` edge — the fifth catalogue
-  `learners()` publishes (§1), the spec's optional selection and the declared default (§2), what a learner
-  and a policy carry (§3), the container's field and the three format versions (§4), the four refusals
-  (§5), and what the rest of the surface does **not** become (§6) — D-19, D-20, `utilities.md` §2–§7
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-10
+- **Owner of this file:** D-20's terminal-reward *utility* at the `agents` edge — the fifth catalogue `learners()`
+  publishes (§1), the spec's selection and the declared default (§2), what a learner and a policy carry (§3), the
+  container's field and the four versions (§4), the four refusals (§5), and what the surface does not become (§6)
 - **Read with:** `surface.md` §3 (the catalogue record), §4 (`build_learner`), §8 (`save`), §9 (`load`),
   §10 (`as_policy`); `learner.md` §1, §4; `docs/L3/agents/utility.md` (the design), `docs/L3/agents/checkpoint.md` §2.1–§3
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 This file was split out of `surface.md` when D-20 reached five of its sections at once; `surface.md` keeps
 one-line pointers here, so the surface's argument contracts and this axis have one owner each (`surface.md`
-§1, D-12, D-13).
+§1, D-12, D-13). **Rev 2** carries D-29's second shape here: §4's container is format 3 or 4, version 4 requiring
+`game` beside the two catalogue members (`shapes.md` §5, ASM-40).
 
 ## 1. The catalogue: one more key, published between the rule's and `hyper`
 
@@ -61,31 +61,32 @@ mapping cannot reach the next call's.
 - **Neither attribute changes a decision.** Two policies of one learner at one seed answer the same index
   whatever a report reads off them (`surface.md` §10, `protocol.md` §5).
 
-## 4. The container: format version 3, and the two older versions' reading
+## 4. The container: format versions 3 and 4, and the older versions' reading
 
-- **`metadata.json` gains `utility`, written immediately after `learning_rule`.** The container is **format
-  version 3** and `SUPPORTED_VERSIONS` is `(1, 2, 3)` (`docs/L3/agents/checkpoint.md` §2.1, `utilities.md`
+- **`metadata.json` gains `utility`, written immediately after `learning_rule`.** A container of the **default** shape
+  is **format version 3** and `SUPPORTED_VERSIONS` is `(1, 2, 3, 4)` (`docs/L3/agents/checkpoint.md` §2.1, `utilities.md`
   §6, D-19, D-20).
-- **Version 3 requires both members.** A missing `utility` is the same "metadata.json without the field"
-  refusal a missing `learning_rule` gets, and a `utility` the catalogue does not carry is `UnknownUtility`
-  naming the field, the catalogue and the value (`docs/L3/agents/checkpoint.md` §3).
-- **Version 2 requires `learning_rule` and must not carry `utility`.** A version-2 container carrying it is
-  refused by name, exactly as a version-1 container carrying `learning_rule` is; **version 1** requires
-  neither and must carry neither (`docs/L3/agents/checkpoint.md` §3, D-20).
-- **A version-1 or version-2 container is read as `net-chips`.** The reading is one assignment beside the
-  version-1 `learning_rule` default, so a comparison and a rebuild both see the member the file is read as.
-  The 18 containers the repository ships are version 1 and load unchanged as `net-chips`; none is
-  regenerated and nothing under `checkpoints/` is rewritten (`utilities.md` §6, ASM-5, `protocol.md` §5).
-- **A `load` spec's `utility` is validated then compared.** A disagreement with the file's is
-  `CheckpointMismatch` naming both values, mirroring the `learning_rule` and `seed` comparisons
-  (`surface.md` §9, `docs/L3/agents/checkpoint.md` §3, D-20).
+- **Version 4 is the shape's, and moves neither member.** A container of any other declared shape is format 4 and
+  requires `game` beside `learning_rule` and `utility`, both of which it still requires; a version-1-to-3 container is
+  read as the default shape and must not carry `game` (`shapes.md` §5, ASM-40).
+- **Version 3 and 4 both require both members.** A missing `utility` is the same "metadata.json without the field"
+  refusal a missing `learning_rule` gets, and a `utility` the catalogue does not carry is `UnknownUtility` naming the
+  field, the catalogue and the value (`docs/L3/agents/checkpoint.md` §3).
+- **Version 2 requires `learning_rule` and must not carry `utility`.** A version-2 container carrying it is refused by
+  name, exactly as a version-1 container carrying `learning_rule` is; **version 1** requires neither and must carry
+  neither (`docs/L3/agents/checkpoint.md` §3, D-20).
+- **A version-1 or version-2 container is read as `net-chips`.** The reading is one assignment beside the version-1
+  `learning_rule` default, so a comparison and a rebuild both see the member the file is read as. The 18 shipped
+  containers are version 1 and load unchanged as `net-chips`; none is regenerated (`utilities.md` §6, ASM-5).
+- **A `load` spec's `utility` is validated then compared.** A disagreement with the file's is `CheckpointMismatch`
+  naming both values, mirroring the `learning_rule` and `seed` comparisons (`surface.md` §9, D-20).
 
 ## 5. The four refusals, side by side
 
 | Where | What is refused | The class |
 |---|---|---|
 | `build_learner` | a spec's `utility` the catalogue does not carry, or not a string | `UnknownUtility`, naming `build_learner`, the catalogue and the value (`surface.md` §4) |
-| `load(path)` | a version-3 container whose `utility` the catalogue does not carry | `UnknownUtility`, naming the field, the catalogue and the value (`surface.md` §9) |
+| `load(path)` | a version-3 or version-4 container whose `utility` the catalogue does not carry | `UnknownUtility`, naming the field, the catalogue and the value (`surface.md` §9) |
 | `load(path)` | a version-1 or version-2 container **carrying** `utility` | the file's form, naming the field and the value (`docs/L3/agents/checkpoint.md` §3) |
 | `load(spec)` | a spec's `utility` that disagrees with the file's, or one outside the catalogue | `CheckpointMismatch` naming both values, or `UnknownUtility` naming the spec's (§4) |
 

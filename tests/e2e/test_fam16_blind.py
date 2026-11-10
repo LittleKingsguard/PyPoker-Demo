@@ -29,6 +29,15 @@ and drives it with an **instance** invented here, from the declared surface alon
 
 A case's path may exercise other entry points; being the **subject** is what makes it a
 blind instance of that row.
+
+**D-29 does not move the blind set.**  The second game shape adds one row —
+`engine.game_shapes` — and that row is `fixed`, because its instances **are** the
+declaration and no caller can invent a shape through this surface, so it is exempt from
+blinding and tested in FAM-1 and FAM-19 (`e2e-surface.md` §5, ``shapes.md`` §2, §4).  The
+`general` count therefore stays **37** and the `fixed` count rises 12 → **13**, so this
+family keeps one blind case per `general` row and loses none of them (`battery.md` §4,
+D-15).  A case whose walk is on the shape in force states that: with no shape named it
+walks today's game and today's three indices, unchanged (`shapes.md` §5).
 """
 
 import os
@@ -49,7 +58,13 @@ _INVENTED = {}
 
 
 class FAM16Blind(S.SurfaceCase):
-    """37 cases; each names one ``general`` entry point as its subject."""
+    """37 cases; each names one ``general`` entry point as its subject.
+
+    The catalogue's one new row, `engine.game_shapes`, is `fixed` and appears here in no
+    case: its instances are the declaration itself, so no invented instance of it exists
+    to blind (`e2e-surface.md` §5, ``shapes.md`` §2).  The 37 `general` rows are the 37
+    cases below, one each (`battery.md` §4, D-15).
+    """
 
     # -- helpers -----------------------------------------------------------
     def indices_for(self, legal):
@@ -283,7 +298,14 @@ class FAM16Blind(S.SurfaceCase):
             )
 
     def test_fam16_10_features_legal_indices(self):
-        """FAM-16.10 features.legal_indices — instance: seed 131's first two decisions."""
+        """FAM-16.10 features.legal_indices — instance: seed 131's first two decisions.
+
+        The walk is on the shape in force — no shape named, so today's fixed game and
+        today's three indices, unchanged (`shapes.md` §5) — and the index set is asserted
+        to be the indices of the descriptors the engine returned, in the shape's own
+        vocabulary, so the case states the alignment rather than a count
+        (`e2e-surface.md` §2 "Action vocabulary").
+        """
         walk = self.decision_walk(S.SEED_E, self.baseline("always-call", S.SEED_D), limit=2)
         self.assertGreaterEqual(len(walk), 2, "the case needs two decisions of one hand")
         facing, checking = walk[0], walk[1]
@@ -302,6 +324,19 @@ class FAM16Blind(S.SurfaceCase):
             {1, 2},
             "with nothing to call, folding is not among the legal indices (e2e-surface §2)",
         )
+        # The same two decisions, said shape-first: the indices are those of the shape's
+        # declared vocabulary, position-aligned to the engine's legal tuple.
+        for _hand, _readout, legal, _action, _index in walk:
+            declared = {
+                descriptor: index for index, descriptor in self.vocabulary().items()
+            }
+            self.assertEqual(
+                self.indices_for(legal),
+                {declared[descriptor] for descriptor in legal},
+                "features.legal_indices returns the shape in force's own indices, one per "
+                "legal descriptor (e2e-surface.md §2, sizing.md §3): %r against %r"
+                % (sorted(self.indices_for(legal)), sorted(legal)),
+            )
 
     def test_fam16_11_features_decode_action(self):
         """FAM-16.11 features.decode_action — instance: seed 4711's legal indices."""

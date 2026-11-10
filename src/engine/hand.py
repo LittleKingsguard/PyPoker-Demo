@@ -1,9 +1,10 @@
 """The hand: the handle, the seat map, the seeding point and the advance
 (docs/L3/engine/hand.md, advance.md).
 
-A `Hand` is an opaque handle over a `pokerkit` state and this project's public
-history, and nothing in it is surface (hand.md §1, guardrails.md G11).  The module
-keeps no state of its own, so two handles are independent (ASM-2).
+A `Hand` is an opaque handle over a `pokerkit` state, this project's public history and
+the name of the shape it is dealt from, and nothing in it is surface (hand.md §1,
+guardrails.md G11).  The module keeps no state of its own, so two handles are
+independent (ASM-2).
 """
 
 from __future__ import annotations
@@ -11,17 +12,9 @@ from __future__ import annotations
 import copy
 import random
 
-from pokerkit import Automation, FixedLimitTexasHoldem
+from pokerkit import Automation, FixedLimitTexasHoldem, NoLimitTexasHoldem
 
-from .config import (
-    BIG_BET,
-    BIG_BLIND,
-    SEAT_COUNT,
-    SMALL_BET,
-    SMALL_BLIND,
-    STARTING_STACK,
-    STREETS,
-)
+from .config import SEAT_COUNT, STREETS, require_shape, shape_row
 from .errors import InvalidHand, InvalidSeed
 
 # The automations make the betting decisions the only manual operations: hole cards
@@ -57,13 +50,14 @@ def seat_of(index: int) -> int:
 
 
 class Hand:
-    """An opaque two-field handle: the state and the public history (hand.md §1)."""
+    """An opaque handle: the state, the public history and the shape (hand.md §1)."""
 
-    __slots__ = ("_state", "_history")
+    __slots__ = ("_state", "_history", "_shape")
 
-    def __init__(self, state, history: tuple[str, ...]) -> None:
+    def __init__(self, state, history: tuple[str, ...], shape: str) -> None:
         self._state = state
         self._history = history
+        self._shape = shape
 
     def __repr__(self) -> str:
         """Constant, because nothing in a handle is surface (hand.md §1)."""
@@ -83,59 +77,93 @@ def validate_seed(seed, entry_point: str = "new_hand") -> None:
         )
 
 
-def new_hand(seed: int) -> Hand:
-    """Deal one hand from `seed`, the project's only seeding point (hand.md §2).
+def create_state(row: dict):
+    """The `pokerkit` state one row of the catalogue declares (config.md §2).
 
-    The refusal happens before `random.seed`, so a refused call cannot move the
-    stream.  `pokerkit` shuffles the deck inside `create_state`, so seeding the
-    global stream immediately before creation fixes the whole deck order (ASM-2).
+    The two bet structures are the two the catalogue declares.  The fixed-limit row is
+    created exactly as this module always created it, so the default shape's deals are
+    unchanged card for card (shapes.md §5).  A row with no fixed bet hands `pokerkit` the
+    big blind as its minimum bet and carries no cap, which is what makes a legal amount
+    anything up to the acting seat's stack (shapes.md §2, sizing.md §2).
     """
-    validate_seed(seed)
-    random.seed(seed)
-    state = FixedLimitTexasHoldem.create_state(
+    blinds = tuple(row["blinds"])
+    if row["bet_structure"] == "fixed-limit":
+        return FixedLimitTexasHoldem.create_state(
+            AUTOMATIONS,
+            True,  # ante_trimming_status
+            0,  # raw_antes
+            blinds,  # raw_blinds_or_straddles
+            row["small_bet"],
+            row["big_bet"],
+            row["starting_stack"],  # raw_starting_stacks
+            SEAT_COUNT,  # player_count
+        )
+    return NoLimitTexasHoldem.create_state(
         AUTOMATIONS,
         True,  # ante_trimming_status
         0,  # raw_antes
-        (SMALL_BLIND, BIG_BLIND),  # raw_blinds_or_straddles
-        SMALL_BET,
-        BIG_BET,
-        STARTING_STACK,  # raw_starting_stacks
+        blinds,  # raw_blinds_or_straddles
+        blinds[1],  # min_bet: the big blind, as the no-cap shape declares it
+        row["starting_stack"],  # raw_starting_stacks
         SEAT_COUNT,  # player_count
     )
-    return Hand(state, ())
 
 
-def advance(hand: Hand, action: str) -> Hand:
-    """The hand one validated action on (advance.md §1).
+def new_hand(seed: int, shape=None) -> Hand:
+    """Deal one hand from `seed` on `shape`, the project's only seeding point (hand.md §2).
+
+    `shape` is optional and **absence is the default shape**, so today's call deals
+    today's hand (surface.md §4, shapes.md §3).  Both refusals happen before
+    `random.seed`, so a refused call cannot move the stream.  `pokerkit` shuffles the
+    deck inside `create_state`, so seeding the global stream immediately before creation
+    fixes the whole deck order (ASM-2).
+    """
+    validate_seed(seed)
+    name = require_shape(shape, "new_hand")
+    row = shape_row(name)
+    random.seed(seed)
+    return Hand(create_state(row), (), name)
+
+
+def advance(hand: Hand, action: str, amount=None) -> Hand:
+    """The hand one validated action on, at `amount` for a raise (advance.md §1).
 
     The state is copied first and the action applied to the copy, so the argument
     handle is untouched by construction (guardrails.md G1).  The global stream is
     saved and restored because `pokerkit` draws while advancing (platform.md §4),
     and a step must hand the caller's stream back as it found it (stream.md §1).
+
+    `amount` is the raise-to the engine resolved for the descriptor, and is `None` for
+    a fold and for a check/call.  It is `None` for the fixed-limit `raise` too, because
+    that shape's raise is `pokerkit`'s own minimum completion, exactly as before
+    (actions.md §2).
     """
     saved = random.getstate()
     try:
         state = copy.deepcopy(hand._state)
-        operation = _apply_one(state, action)
+        operation = _apply_one(state, action, amount)
     finally:
         random.setstate(saved)
     entry = _history_entry(hand._state, action, operation)
-    return Hand(state, hand._history + (entry,))
+    return Hand(state, hand._history + (entry,), hand._shape)
 
 
-def _apply_one(state, action: str):
+def _apply_one(state, action: str, amount=None):
     """The three-method idiom: a `can_*` predicate, then the method (stepping.md §2).
 
     The predicate is the caller's: `apply_action` validates the descriptor against
     the argument hand's legal set before the state is copied.  `complete_bet_or_raise_to`
-    is called with no argument, because in fixed-limit games `pokerkit` resolves that
-    to the minimum legal completion (actions.md §2, stepping.md §2).
+    is called with no argument for the fixed-limit shape, because in fixed-limit games
+    `pokerkit` resolves that to the minimum legal completion, and with the resolved
+    amount for a sized shape (actions.md §2, stepping.md §2).
     """
     if action == "fold":
         return state.fold()
     if action == "check-call":
         return state.check_or_call()
-    return state.complete_bet_or_raise_to()
+    if amount is None:
+        return state.complete_bet_or_raise_to()
+    return state.complete_bet_or_raise_to(amount)
 
 
 def _history_entry(state, action: str, operation) -> str:

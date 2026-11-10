@@ -1,10 +1,11 @@
 # evaluation — the fitted rating
 
-- **Owner:** `rating` — the Bradley-Terry fit over one matrix: the parameterisation and the anchor (§2), the
-  **solver, its tolerance and its bound** (§3), the **hand-level bootstrap** (§4), the record (§5) and every
-  refusal (§6) (`surface.md` §11, `records.md` §11, `league.md` §4, ASM-17)
+- **Owner:** `rating` — the Bradley-Terry fit over one matrix, and over **one shape's** cells: the parameterisation and
+  the anchor (§2), the **solver, its tolerance and its bound** (§3), the **hand-level bootstrap** (§4), the record (§5)
+  and every refusal (§6) (`surface.md` §11, `records.md` §11, `league.md` §4, `shape.md` §4, ASM-17)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** `matrix.md` §5, `scheduler.md` §3, `declarations.md` §2.2, `errors.md` §2–§4
+- **Rev 6:** D-29's second shape — a rating is fitted over **one shape's** cells, the record gains `game`, and a matrix whose cells name two shapes, or whose own `game` contradicts them, is refused naming the shapes (§1, §5–§6, `shape.md` §3)
+- **Read with:** `shape.md` §2–§4, `matrix.md` §5, `scheduler.md` §3, `declarations.md` §2.2, `errors.md` §2–§4
 
 ## 1. What is fitted, and what it is not
 
@@ -13,9 +14,16 @@ as half a win to each side** (ASM-17, `league.md` §4). It states where a member
 members** on this game at this cell size and is never a claim of poker skill, a ranking of versions alone or a
 statement about a member the table does not name (D-16, `league.md` §8, brief §8).
 
+**It is fitted over one shape's cells.** A rating reads as a distance from the baselines *in that game*, so two shapes'
+ratings are not on one scale and are never tabulated together: `rating` reads the matrix's `game` and each cell's `game`,
+both **tolerantly** (an absent one reads as the default, which is what keeps every table and every rating already recorded
+ratable), and refuses a matrix whose cells name more than one shape, or whose own `game` is not the shape its cells name,
+naming the shapes (§6, `shape.md` §2–§3, `docs/L1/shapes.md` §6). The shape enters the fit in **no other way**: the
+arithmetic below reads counts and never a game parameter, a rule or a utility (`docs/L1/league.md` §4).
+
 `rating(matrix)` reads `records.md` §10's matrix record — this module's own or a hand-built one, because what is
 checked is the record and not its provenance (`surface.md` §11) — and reads only the keys it fits: `members`, `cells`,
-`hands_per_cell`, `table_seed` and `table` (`matrix.md` §5). The record's `rules`, `population`, `utilities` and
+`hands_per_cell`, `table_seed`, `table` and `game` (`matrix.md` §5). The record's `rules`, `population`, `utilities` and
 `utility_population` are **not read**: they say which estimators played and which questions they were asked, not how the
 fit goes (D-19, D-20, `league.md` §4). This module's own keys — `pool`, `member_records`, `unlabelled`, `cell_count` — are
 ignored too, so a hand-built table is rated as readily as a played one. It plays no hand, reads no file and leaves the
@@ -44,10 +52,7 @@ the catalogue's names (`pool.md` §2); a folder D-21 adds has no `anchor` flag, 
 
 ## 3. The solver, the tolerance and the bound
 
-The fit is **Hunter's minorise-maximise (MM) iteration**, which is Bradley-Terry's standard closed-form solver: each
-step maximises a lower bound of the log-likelihood, so the log-likelihood never decreases and the iteration
-converges to the maximum. No learning rate and no gradient tolerance is tuned, because there is neither a learning
-rate nor a gradient descent. `src/evaluation/rating.py` fixes three constants:
+The fit is **Hunter's minorise-maximise (MM) iteration**, which is Bradley-Terry's standard closed-form solver: each step maximises a lower bound of the log-likelihood, so the log-likelihood never decreases and the iteration converges to the maximum. No learning rate and no gradient tolerance is tuned, because there is neither a learning rate nor a gradient descent. `src/evaluation/rating.py` fixes three constants:
 
     BOUND          = 10.0        # the largest |θ| the fit may return, in log-strength (a 22,026:1 win ratio)
     TOLERANCE      = 1e-10       # the largest |Δθ| a step may move and still count as converged
@@ -60,33 +65,27 @@ One iteration, in this order, `θ` starting at all zeros; `rating._fit` is this 
 2. `θ_a ← θ_a + Δ_a` for every member step 1 computed: Hunter's update, the closed form the lower bound maximises;
 3. `θ_a ← min(BOUND, max(−BOUND, θ_a))`: the **bound** is applied here, and `bound_applied` is set the first time a
    clamp actually changes a value;
-4. the anchor's shift of §2 is applied, and **then the two ends are pinned**: a member with `W_a == 0` — it won
-   nothing — is `θ_a ← −BOUND`, and one with `W_a == n_a` — no losses and no ties — is `θ_a ← +BOUND`, with
-   `bound_applied` set for it. The pin is taken **after** the shift, so the value the record carries is the bound
-   itself and not what the shift left of it;
+4. the anchor's shift of §2 is applied, and **then the two ends are pinned**: a member with `W_a == 0` — it won nothing — is `θ_a ← −BOUND`, and one with `W_a == n_a` — no losses and no ties — is `θ_a ← +BOUND`, with `bound_applied` set for it. The pin is taken **after** the shift, so the value the record carries is the bound itself and not what the shift left of it;
 5. the step is done: `converged` is true when `max_a |θ_a − θ_a⁰| ≤ TOLERANCE` (θ⁰ the iterate entering step 1),
    and the loop stops; otherwise it continues, and stopping at `MAX_ITERATIONS` leaves `converged` false.
 
-**The bound is what makes a member with no finite maximum finite, at either end.** A member with no losses and no
-ties has `W_a = n_a`, so `ln(W_a / E_a) > 0` at every finite `θ` and its maximum-likelihood value is `+∞`; a member
-with no wins and no ties has `W_a = 0` and its value is `−∞`. Step 4 pins each at the bound it tends to and sets
-`bound_applied`, and its interval then states that the evidence pinned the member rather than measured it, because
-§4's widening keeps the pinned value inside its own bounds (ASM-17, `league.md` §4, FAM-9.6). A bounded fit terminates
-by step 5 like any other: both ends are re-pinned at every step, so the pinned member repeats its own value and the free
-members reach their fixed point — `|Δθ|` reaches `0` and the loop stops **converged**, because a value pinned at the
-bound is a stationary point. Where the pinned member is itself one of the three anchoring baselines the pin also
-displaces the mean it was applied after, so that table's baselines' mean is not 0 while its fit still converges:
-`bound_applied` is true and step 5 still fires. `records.md` §11's `converged` is therefore about reaching a stationary
-point and never about the cap alone (D-6).
+**The bound is what makes a member with no finite maximum finite, at either end.** A member with no losses and no ties has
+`W_a = n_a`, so `ln(W_a / E_a) > 0` at every finite `θ` and its maximum-likelihood value is `+∞`; a member with no wins and no
+ties has `W_a = 0` and its value is `−∞`. Step 4 pins each at the bound it tends to and sets `bound_applied`, and its interval
+then states that the evidence pinned the member rather than measured it, because §4's widening keeps the pinned value inside its
+own bounds (ASM-17, `league.md` §4, FAM-9.6). A bounded fit terminates by step 5 like any other: both ends are re-pinned at
+every step, so the pinned member repeats its own value and the free members reach their fixed point — `|Δθ|` reaches `0` and the
+loop stops **converged**, because a value pinned at the bound is a stationary point. Where the pinned member is itself one of the
+three anchoring baselines the pin also displaces the mean it was applied after, so that table's baselines' mean is not 0 while
+its fit still converges: `bound_applied` is true and step 5 still fires — `records.md` §11's `converged` is about reaching a
+stationary point and never about the cap alone (D-6).
 
 ## 4. The bootstrap that makes the interval
 
 Each member's interval is a `95%` **hand-level** bootstrap: the hands inside each cell are resampled, the fit is
 repeated, and the interval is the 2.5th to 97.5th percentile of the resulting values (`league.md` §4, ASM-17).
 
-- **The generator.** One `numpy.random.Generator(numpy.random.PCG64(seeds._bootstrap_seed(table_seed)))`, taken
-  from the matrix's own `table_seed` (`scheduler.md` §3). It is this module's own generator: the global `random`
-  stream is untouched, and the seed is recorded as `bootstrap_seed` so the interval can be re-run (`surface.md` §11).
+- **The generator.** One `numpy.random.Generator(numpy.random.PCG64(seeds._bootstrap_seed(table_seed)))`, taken from the matrix's own `table_seed` (`scheduler.md` §3) — this module's own generator, so the global `random` stream is untouched, and the seed is recorded as `bootstrap_seed` so the interval can be re-run (`surface.md` §11).
 - **The resample.** `rating._resample` draws `RESAMPLES = 200` replicates. In each, the cells are visited in the
   matrix's `cells` order and each cell contributes **one** three-category draw, `counts = generator.multinomial(hands,
   p)` with `p = (wins, ties, losses) / hands` taken from that cell's direction 0 — resampling the cell's hands with
@@ -115,6 +114,7 @@ repeated, and the interval is the 2.5th to 97.5th percentile of the resulting va
 | `bootstrap_seed` | the integer §4's generator was built from |
 | `converged` | `True` iff §3 step 5 stopped on `TOLERANCE`; a `bool` |
 | `bound`, `tolerance`, `iterations`, `resamples` | `10.0`, `1e-10`, the steps this fit took, and `200` — the fit's own record |
+| **`game`** | the one shape whose cells it fitted — this module's own key, `records.md` §11 requiring none — so two shapes' ratings are never tabulated together (`shape.md` §4, `docs/L1/shapes.md` §6) |
 | `hands_per_cell`, `members`, `table_seed`, `table` | the matrix's four own facts, copied, so a rating names the table it was fitted over |
 
 An entry's `hands` is `hands_per_cell × (K − 1)` — one cell against each of the other members — and that is the number
@@ -135,16 +135,11 @@ of hands behind the value (`records.md` §11, FAM-9.5). `bounded` repeats `bound
 | `ForeignMember` | a cell names a member the membership does not — naming it (`records.md` §10) |
 | `UnevenCell` | a cell's `hands` differs from the record's `hands_per_cell` — no member's row is measured more precisely than another's (`league.md` §3, FAM-8.7) |
 | `MissingBaseline` | the membership lacks `random`, `always-call` or `oracle` — the anchor would not exist (`protocol.md` §3, FAM-8.8) |
+| `ShapeMismatch` | a matrix whose **cells name more than one shape**, or whose own `game` is not the shape its cells name — naming the shapes, because a rating is fitted over **one shape's** cells and reads as a distance from that game's baselines (`shape.md` §3, `docs/L1/shapes.md` §6, ASM-17) |
 
-A `table` label's **value** is not re-judged here: `matrix` refused anything but `live` or `full` when it built the
-record (`matrix.md` §7), and `rating` fits a hand-built record by the rules above and nothing else (`surface.md` §11). A
-cell whose two directions disagree with its hand count is not refused either: §2's `n_ij` is the observed total, so the
-fit reads what the record says instead of repairing it — and a membership of K members is fitted as it stands, so
-refusing more than `surface.md` §11 refuses is a defect, and a battery may hand any valid table, hand-built ones included.
+Two absences are read and never refused: a matrix with no `game` and a cell with none are the **default** shape, which is what keeps every table and every rating already recorded ratable (`shape.md` §2). A `table` label's **value** is not re-judged here: `matrix` refused anything but `live` or `full` when it built the record (`matrix.md` §7), and `rating` fits a hand-built record by the rules above and nothing else (`surface.md` §11). A cell whose two directions disagree with its hand count is not refused either: §2's `n_ij` is the observed total, so the fit reads what the record says instead of repairing it — and a membership of K members is fitted as it stands, so refusing more than `surface.md` §11 refuses is a defect, and a battery may hand any valid table, hand-built ones included.
 
 ## 7. What is deliberately free
 
-- the container of `values` — a mapping keyed by member id (this design's choice) or a sequence of entries each
-  carrying its member's id (`records.md` §11 fixes one entry per matrix member, not the container); the dtype of the returned
-  numbers beyond being plain `float`s; the sign convention of the interval's two ends; and the arithmetic order inside a step;
+- the container of `values` — a mapping keyed by member id (this design's choice) or a sequence of entries each carrying its member's id (`records.md` §11 fixes one entry per matrix member, not the container); the dtype of the returned numbers beyond being plain `float`s; the sign convention of the interval's two ends; and the arithmetic order inside a step;
 - whether the 200 replicates are collected or reduced as they are drawn — only `RESAMPLES`, §4's draws and percentiles are contract.

@@ -36,9 +36,14 @@ import unittest
 from collections.abc import Mapping
 
 # --------------------------------------------------------------------------
-# The declared surface (docs/L2/engine/surface.md §1, layout.md §2)
+# The declared surface (docs/L2/engine/surface.md §1, §12, layout.md §2)
 # --------------------------------------------------------------------------
+# The ten entry points, in the order ``engine.__all__`` declares them: D-29 added
+# `game_shapes`, the catalogue of the declared shapes, to what were nine (surface.md
+# §12, shapes.md §2).  ENG-1.1 asserts each one is a callable module-level name and
+# ENG-12.1 asserts this tuple *is* the package's ``__all__``.
 NINE = (
+    "game_shapes",
     "game_config",
     "new_hand",
     "readout",
@@ -138,6 +143,80 @@ STREET_OF_SIZE = {0: "preflop", 3: "flop", 4: "turn", 5: "river"}
 MAX_DECISIONS = 200
 
 # --------------------------------------------------------------------------
+# The two declared shapes, spelled out (docs/L3/engine/config.md §1-§6,
+# docs/L1/shapes.md §2).  These are the *declaration* and not a reading of it:
+# a case asserts them against `game_shapes`, `game_config` and the deals, so the
+# expectation cannot move with the implementation (D-29, D-30).
+# --------------------------------------------------------------------------
+#: The catalogue's own order: the default row first (surface.md §12).
+DEFAULT_SHAPE = "fixed-limit-20"
+NO_LIMIT_SHAPE = "no-limit-100"
+SHAPE_NAMES = (DEFAULT_SHAPE, NO_LIMIT_SHAPE)
+
+#: The thirteen keys of one catalogue row, in the order surface.md §12 states them.
+ROW_KEYS = (
+    "name",
+    "default",
+    "seats",
+    "blinds",
+    "starting_stack",
+    "chips_in_play",
+    "bet_structure",
+    "small_bet",
+    "big_bet",
+    "raise_cap",
+    "actions",
+    "head_width",
+    "normalisers",
+)
+
+#: The five normalisers every row declares, in config.md §4's order.
+NORMALISER_KEYS = ("stack", "pot", "to_call", "amount", "count")
+
+#: The fifteen keys `game_config` carries, in the order config.md §3 declares them.
+CONFIG_KEYS = (
+    "game",
+    "seats",
+    "player_count",
+    "button_seat",
+    "blinds",
+    "small_blind",
+    "big_blind",
+    "blind_levels",
+    "starting_stack",
+    "starting_stacks",
+    "small_bet",
+    "big_bet",
+    "limit",
+    "raise_cap",
+    "streets",
+)
+
+#: The two descriptors every declared shape carries, at indices 0 and 1 (actions.md §1).
+BASES = ("fold", "check-call")
+
+#: Each shape's vocabulary, in its own index order (config.md §2, §6).
+FIXED_ACTIONS = ("fold", "check-call", "raise")
+SIZED_ACTIONS = (
+    "fold",
+    "check-call",
+    "raise-quarter",
+    "raise-half",
+    "raise-all-in",
+    "raise-minimum",
+)
+SHAPE_ACTIONS = {DEFAULT_SHAPE: FIXED_ACTIONS, NO_LIMIT_SHAPE: SIZED_ACTIONS}
+
+#: The four raise descriptors of a shape without a cap, in the declared index order --
+#: the measured price order, worst first, which is deliberately **not** monotone in
+#: amount: the all-in sits before the minimum (config.md §6, sizing.md §3).
+SIZED_RAISES = ("raise-quarter", "raise-half", "raise-all-in", "raise-minimum")
+
+#: The chips in play each row declares, and the stack it starts each seat with.
+SHAPE_CHIPS_IN_PLAY = {DEFAULT_SHAPE: 40, NO_LIMIT_SHAPE: 200}
+SHAPE_STARTING_STACK = {DEFAULT_SHAPE: 20, NO_LIMIT_SHAPE: 100}
+
+# --------------------------------------------------------------------------
 # Invented instances.  Every seed and sample count here is the battery's own,
 # invented from the declared surface (D-15): none is an example instance of the
 # design documents, and none is a seed, step or budget of the e2e battery.  The
@@ -157,6 +236,17 @@ SEEDS = (
 SAMPLES_COARSE = 149
 SAMPLES_TINY = 11
 SAMPLES_MID = 83
+
+#: The second declared shape's own invented seeds (D-15, D-29).  None of them is a
+#: seed of the design documents, of the seeds above, of `CLASS_DEALS` or of the e2e
+#: battery: they were picked by the writer for this family alone, and the walks ENG-13
+#: builds on them are pinned by the case that needs each one.
+SHAPE_SEED_A = 880411
+SHAPE_SEED_B = 5050505
+SHAPE_SEED_C = 730211
+SHAPE_SEED_D = 660133
+SHAPE_SEED_E = 512345
+SHAPE_SEEDS = (SHAPE_SEED_A, SHAPE_SEED_B, SHAPE_SEED_C, SHAPE_SEED_D, SHAPE_SEED_E)
 
 
 class SurfaceAbsent(AssertionError):
@@ -297,10 +387,100 @@ def hand_class_of(hole, board):
 
 
 # --------------------------------------------------------------------------
+# The four raise bands, as the declaration states them (docs/L3/engine/config.md
+# §5, docs/L1/sizing.md §2).  Written out here rather than read off the engine, so
+# the expectation does not move with the implementation: a case computes the
+# amount a descriptor must resolve to from that decision's own bounds, and never
+# from the amount the engine happened to choose.
+# --------------------------------------------------------------------------
+def band_amount(descriptor, minimum, maximum):
+    """The amount ``descriptor`` resolves to, or ``None`` for an empty band.
+
+    With ``m`` the minimum legal raise-to, ``A`` the all-in raise-to and
+    ``L = A - m`` (``config.md`` §5): ``raise-minimum`` owns ``{m}`` and resolves to
+    ``m``; ``raise-quarter`` owns ``(m, m + L//4]``; ``raise-half`` owns
+    ``(m + L//4, m + L//2]``; ``raise-all-in`` owns ``(m + L//2, A]`` -- each
+    resolving to its own band's maximum.  A band holding no legal integer is
+    **empty and masked out**, so ``None`` here means "this descriptor is absent
+    from ``legal_actions`` at this decision", never "it bets its neighbour's
+    amount" (``sizing.md`` §2).
+    """
+    span = maximum - minimum
+    if descriptor == "raise-minimum":
+        return minimum
+    if descriptor == "raise-quarter":
+        return minimum + span // 4 if span // 4 >= 1 else None
+    if descriptor == "raise-half":
+        return minimum + span // 2 if span // 2 > span // 4 else None
+    if descriptor == "raise-all-in":
+        return maximum if maximum > minimum + span // 2 else None
+    raise AssertionError(
+        "%r is not a raise descriptor of a shape without a cap (config.md §5)" % (descriptor,)
+    )
+
+
+def is_raise(descriptor):
+    """Whether ``descriptor`` names a raise rather than one of the two bases."""
+    return descriptor not in BASES
+
+
+def raises_in(legal):
+    """The raise descriptors of one decision's legal sequence, in the order given."""
+    return tuple(descriptor for descriptor in legal if is_raise(descriptor))
+
+
+# --------------------------------------------------------------------------
 # Policies.  A policy is a callable taking ``(readout, legal)`` and returning a
 # member of ``legal`` (docs/L1/e2e-surface.md §2); these are the battery's own,
 # the engine knows none of them by name (episode.md §4).
 # --------------------------------------------------------------------------
+def band_walk(pattern):
+    """A policy cycling ``pattern`` one descriptor per decision, falling back to a call.
+
+    ``pattern`` is a tuple of descriptors read as the seat's own decision count modulo
+    its length, so ``band_walk(("raise-minimum",))`` raises the minimum whenever a raise
+    is legal and ``band_walk(("raise-quarter", "raise-half"))`` alternates them.  A
+    descriptor the decision does not offer -- a band masked out because it is empty
+    (``config.md`` §5) -- is replaced by ``check-call``, so a walk continues past it;
+    the battery says which descriptors it expects where in the cases that read the
+    resulting record, rather than here.
+
+    Each seat gets its own closure, exactly as ``play_hand`` is called with two policy
+    objects, so the count is one seat's decisions.  It draws no randomness, so a case
+    built on it repeats (surface.md §10, ASM-2).
+    """
+    state = {"decision": 0}
+
+    def policy(readout, legal):
+        position = state["decision"]
+        state["decision"] = position + 1
+        want = pattern[position % len(pattern)]
+        return want if want in legal else "check-call"
+
+    return policy
+
+
+def raise_to(entry):
+    """The raise-to one applied raise reported, read from its history entry.
+
+    A raise's entry reads ``"<street> seat <index> raises to <amount>"``
+    (``docs/L3/engine/advance.md`` §2), and the amount is the total street bet level
+    the step reached -- the resolution the engine chose for the descriptor and
+    handed to the step (``actions.md`` §2, ``stepping.md`` §2).  It is how a case
+    reads the resolution of a descriptor the record did not choose: the amount is
+    what the engine reported, and the case compares it with the amount the
+    declaration says that band owns.
+    """
+    text = str(entry)
+    head, _, amount = text.rpartition(" ")
+    if not head.endswith("raises to") or not amount.isdigit():
+        raise AssertionError(
+            "a raise's history entry reads '<street> seat <i> raises to <n>', got %r "
+            "(advance.md §2)" % (entry,)
+        )
+    return int(amount)
+
+
 def always_call(readout, legal):
     return "check-call"
 
@@ -358,6 +538,41 @@ class EngineCase(unittest.TestCase):
 
     def equity(self, decision, seed=SEED_A, samples=SAMPLES_COARSE):
         return ep("equity")(decision, seed, samples)
+
+    # -- the declared shapes (surface.md §2, §12, config.md §1-§3) -----------
+    def catalogue(self):
+        """`game_shapes()`: the declared shapes as one ordered mapping (surface.md §12)."""
+        return ep("game_shapes")()
+
+    def shaped_hand(self, seed, shape):
+        """`new_hand(seed, shape)`: one deal on the named shape (surface.md §4)."""
+        return ep("new_hand")(seed, shape)
+
+    def shaped_episode(self, seed, seat0_policy, seat1_policy, shape):
+        """`play_hand(seed, p0, p1, shape)`: one episode on the named shape (surface.md §10)."""
+        return ep("play_hand")(seed, seat0_policy, seat1_policy, shape)
+
+    def replay(self, seed, shape, seat0_policy, seat1_policy, limit=MAX_DECISIONS):
+        """Yield ``(hand, decision)`` pairs of one hand played out on ``shape``.
+
+        The decisions are the episode record's; ``hand`` is the live handle at that
+        decision's state, reached through ``new_hand`` and ``apply_action`` along the
+        actions the record holds.  A case therefore reads a decision from the record --
+        its bounds, its legal descriptors, its amount -- and steps from the handle the
+        same walk reached (surface.md §10, episode.md §5).  The two policies are
+        separate objects, exactly as ``play_hand`` is called with them, so a policy
+        that counts its own decisions counts one seat's.
+        """
+        record = self.shaped_episode(seed, seat0_policy, seat1_policy, shape)
+        hand = self.shaped_hand(seed, shape)
+        for position, decision in enumerate(record["decisions"]):
+            if position >= limit:
+                self.fail(
+                    "the hand at seed %r on %r has not ended after %d applied actions "
+                    "(surface.md §8, guardrails.md G5)" % (seed, shape, limit)
+                )
+            yield hand, decision
+            hand = self.step(hand, decision["action"])
 
     # -- driving ------------------------------------------------------------
     def drive(self, seed=SEED_A, policy=None, limit=MAX_DECISIONS):

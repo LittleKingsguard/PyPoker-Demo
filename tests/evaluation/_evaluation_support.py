@@ -15,6 +15,13 @@ battery builds real learners, real checkpoints and real readouts through their
 declared entry points and never reads their source (`docs/L2/agents/surface.md`,
 `docs/L2/features/surface.md`, `docs/L2/engine/surface.md`).
 
+The game **shape** arrives as one optional key or argument everywhere (D-29), so this
+module reads it off the module's own restatement -- `shape_names()`, `default_shape()`
+and `other_shape()` -- and every record builder writes a `game` key **only when a case
+names one**, which is what keeps an absent key an absence and not a defaulted value
+(`shape.md` §1-§2). The restatement is held equal to `engine.game_shapes()` by the
+**join** battery, not by this one (`shape.md` §1, D-13).
+
 Three conventions keep this battery honest:
 
 * **The surface is absent, not broken.** `evaluation()` raises `SurfaceAbsent`, an
@@ -289,6 +296,50 @@ def declared_internal(module_name, attribute):
     return getattr(module, attribute)
 
 
+# ---------------------------------------------------------------------------
+# The two declared game shapes, read off this module's own restatement
+# (`shape.md` §1-§2)
+# ---------------------------------------------------------------------------
+def shape_names():
+    """The declared shape names, default first, as `declarations.SHAPE_NAMES` holds them.
+
+    `shape.md` §1 restates the catalogue in `declarations.py` and gives the **join**
+    battery the arrow that holds the restatement equal to `engine.game_shapes()`; this
+    battery holds no such arrow (`module-map.md` §2, D-13) and `README.md` §4 declares
+    `declarations.py`'s constants contract for it, so every shape name a case asserts
+    against is read here and never copied from a document.
+    """
+    return tuple(declared_internal("declarations", "SHAPE_NAMES"))
+
+
+def default_shape():
+    """The declared default shape: what an **absent** `game` reads as (`shape.md` §2)."""
+    return declared_internal("declarations", "DEFAULT_SHAPE")
+
+
+def other_shape():
+    """The one declared shape that is not the default -- the name a record uses to be off-default.
+
+    `shape.md` §1 declares exactly two rows, default first, so this is the catalogue's
+    second name and the only shape a record of this battery can declare to be on
+    something other than the default (`shape.md` §2-§3, D-29).
+    """
+    names = shape_names()
+    remaining = [name for name in names if name != default_shape()]
+    if len(remaining) != 1:
+        raise SurfaceAbsent(
+            "shape.md §1 declares two shapes, the default first, and declarations.py's "
+            "SHAPE_NAMES holds %r; this battery needs exactly one non-default name"
+            % (names,)
+        )
+    return remaining[0]
+
+
+def shapes():
+    """Both declared shape names, default first (`shape.md` §1)."""
+    return (default_shape(), other_shape())
+
+
 _ERRORS_MODULE = None
 
 
@@ -323,8 +374,11 @@ def refusal_class():
     root's name, and `README.md` §4 declares the class hierarchy contract for this
     battery: a caller catches `EvaluationError` to know that *this* module refused it,
     so a refusal that arrives as a `TypeError`, a `KeyError` or an `engine` error
-    escapes that catch (`errors.md` §1-§2). The thirty-three subclasses are asserted
-    in `test_errors.py` alone and never elsewhere (`errors.md` §2's closing rule).
+    escapes that catch (`errors.md` §1-§2). The forty-two subclasses are asserted as a
+    hierarchy in `test_errors.py` alone (`errors.md` §2's closing rule), while the newer
+    cases name the one class the contract they drive declares -- D-20's two in
+    `test_utility.py`, D-29's three here (`shape.md` §3, §5) -- through
+    `assert_evaluation_refusal`'s `kind`.
     """
     global _ERROR_ROOT
     if _ERROR_ROOT is None:
@@ -695,6 +749,7 @@ def version_record(
     variant="heron",
     rule=DEFAULT_RULE,
     utility=DEFAULT_UTILITY,
+    game=None,
 ):
     """One `records.md` §7 version record, with the `path` only when the battery has one.
 
@@ -707,6 +762,11 @@ def version_record(
     is filled in downstream, because a version declaration that names no `utility` is
     refused by name (`records.md` §7, `utilities.md` §5, D-20).  A case that wants that
     silence pops the key, as the EVL-14 cases do.
+
+    `game` is D-29's key, and it is written **only when a case names one**: absence is the
+    default shape and not a defaulting of a name (`shape.md` §2), so a record built with
+    no `game` carries no such key and reads back with none -- a record that declared no
+    shape is never given one (`pool.md` §5, `shape.md` §4, D-29).
     """
     record = {
         "id": member_id_value,
@@ -721,11 +781,13 @@ def version_record(
     }
     if path is not None:
         record["path"] = path
+    if game is not None:
+        record["game"] = game
     return record
 
 
 def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
-                  utility=DEFAULT_UTILITY):
+                  utility=DEFAULT_UTILITY, game=None):
     """A single lineage chain, oldest first, declared in lineage order.
 
     The first member descends from `start`, the i-th from the (i-1)-th, which is how a
@@ -733,7 +795,9 @@ def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
     rule and one utility is one family (`families.md` §1, ASM-26, D-19, D-20).  `rule` and
     `utility` are declared on **every** member, as `version_record` declares them, because
     a member that named none would be refused by name rather than read under one
-    (`records.md` §7, `utilities.md` §5, D-20).
+    (`records.md` §7, `utilities.md` §5, D-20).  `game`, when a case names one, is
+    declared on every member of the chain, which is what a non-default pool's members
+    carry (`shape.md` §3-§4, D-29).
     """
     records = []
     for index, member in enumerate(ids):
@@ -749,14 +813,23 @@ def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
                 samples=1200 * (index + 1),
                 rule=rule,
                 utility=utility,
+                game=game,
             )
         )
     return records
 
 
-def declaration(members=(), m=POOL_M, frozen=True):
-    """One `records.md` §8 declaration: the three required keys and nothing else."""
-    return {"members": list(members), "m": m, "frozen": frozen}
+def declaration(members=(), m=POOL_M, frozen=True, game=None):
+    """One `records.md` §8 declaration: the three required keys and nothing else.
+
+    `game` is the declaration's optional shape key and is written only when a case names
+    one, so a declaration built with no `game` is the shape-silent one every case before
+    D-29 built, and reads back as the default (`pool.md` §1, `shape.md` §2, D-29).
+    """
+    declared = {"members": list(members), "m": m, "frozen": frozen}
+    if game is not None:
+        declared["game"] = game
+    return declared
 
 
 def baseline_member(name):
@@ -769,7 +842,8 @@ def baseline_members():
     return [baseline_member(name) for name in BASELINES]
 
 
-def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities=()):
+def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities=(),
+                game=None):
     """A hand-built `records.md` §8 pool record: baselines first, then the versions.
 
     `report` reads its `pool` family as this shape (`report.md` §2, `surface.md` §13),
@@ -778,6 +852,9 @@ def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities
     `utilities` are the distinct sets its version members declare (`records.md` §8, D-19,
     D-20); each defaults to the empty tuple, which is what a baselines-only row declares,
     and is derived from the members when a case hands over versions without stating it.
+    `game` is written only when a case names one, so a hand-built pool block that states
+    no shape is the shape-silent record every case before D-29 built and reads as the
+    default (`shape.md` §2-§4, D-29).
     """
     ordered = baseline_members() + [dict(entry) for entry in members]
     ids = [member_id(entry) for entry in ordered]
@@ -785,7 +862,7 @@ def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities
     declared_utility = (
         tuple(utilities) if utilities else declared_utilities(ordered)
     )
-    return {
+    record = {
         "id": identity or pool_digest(ordered),
         "m": m,
         "frozen": frozen,
@@ -793,6 +870,9 @@ def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities
         "rules": declared,
         "utilities": declared_utility,
     }
+    if game is not None:
+        record["game"] = game
+    return record
 
 
 def declared_rules(members):
@@ -876,12 +956,19 @@ def hand_matrix(
     hands=HANDS_PER_CELL,
     table_seed=TABLE_SEED_HAND,
     table="live",
+    game=None,
+    cell_game=None,
 ):
     """A complete hand-built matrix in `records.md` §10's shape (`rating.md` §1).
 
     `results(left, right)` returns that pair's `(left_wins, ties)`; the cells are
     enumerated lexicographically by membership position, as `matrix.md` §2 fixes, so
     `rating` sees one cell per unordered pair and a full table.
+
+    `game` and `cell_game` are D-29's two optional places a hand-built table can name a
+    shape: the record's own key and the cells', each written only when a case names one.
+    A table built with neither is the shape-silent record every case before D-29 built,
+    and `rating` reads both absences as the default (`rating.md` §6, `shape.md` §2, D-29).
     """
     membership = list(members if members is not None else tuple(BASELINES) + ("variant-1",))
     cells = []
@@ -889,14 +976,20 @@ def hand_matrix(
         for j in range(i + 1, len(membership)):
             left, right = membership[i], membership[j]
             wins, ties = results(left, right)
-            cells.append(cell_record(left, right, wins, ties, hands=hands, seed=table_seed))
-    return {
+            cell = cell_record(left, right, wins, ties, hands=hands, seed=table_seed)
+            if cell_game is not None:
+                cell["game"] = cell_game
+            cells.append(cell)
+    matrix_record = {
         "members": tuple(membership),
         "cells": tuple(cells),
         "hands_per_cell": hands,
         "table_seed": table_seed,
         "table": table,
     }
+    if game is not None:
+        matrix_record["game"] = game
+    return matrix_record
 
 
 def all_ties(left, right):
@@ -1017,13 +1110,16 @@ def header_record(device="cpu", table_seed=TABLE_SEED_HAND, cell=HANDS_PER_CELL,
     }
 
 
-def run_record(matrix, rating, pool=None, rung=RUNG_NAME, families=None, drop=(), extra=None):
+def run_record(matrix, rating, pool=None, rung=RUNG_NAME, families=None, drop=(),
+               extra=None, game=None):
     """One assembled run record in `records.md` §12-§13's shape, with all seven families.
 
     `training` does not exist, so the record is data here: `report` is promised a record
     with the families attached and reads nothing else (`surface.md` §13, `records.md`
     §13). `families` overrides a family, `drop` removes one and `extra` adds a key, which
-    is how the absence and tolerance cases are built.
+    is how the absence and tolerance cases are built.  `game` is the run record's own
+    shape, written only when a case names one: `report` reads an absent one as the
+    default (`report.md` §3 item 6, `shape.md` §2, D-29).
     """
     record = {
         "rung": rung,
@@ -1042,6 +1138,8 @@ def run_record(matrix, rating, pool=None, rung=RUNG_NAME, families=None, drop=()
         "table": matrix["table"],
         "timings": {"hands": len(matrix_cells(matrix)) * matrix["hands_per_cell"], "device": "cpu"},
     }
+    if game is not None:
+        record["game"] = game
     if families:
         record.update(families)
     for name in drop:
@@ -1051,11 +1149,22 @@ def run_record(matrix, rating, pool=None, rung=RUNG_NAME, families=None, drop=()
     return record
 
 
-def report_inputs(matrix=None, rating=None, pool=None):
-    """``(rung_name, record, matrix, rating)`` for a complete, consistent report."""
+def report_inputs(matrix=None, rating=None, pool=None, game=None):
+    """``(rung_name, record, matrix, rating)`` for a complete, consistent report.
+
+    `game`, when a case names one, is written on the run record **and** read off the pool
+    block and the matrix, so the three records a report resolves its shape from agree on
+    it: a case drives a disagreement by naming it at one of the three alone
+    (`report.md` §3 item 6, `shape.md` §3, D-29).
+    """
+    if game is not None:
+        if matrix is None:
+            matrix = hand_matrix(balanced, game=game, cell_game=game)
+        if pool is None:
+            pool = pool_record(game=game)
     matrix = matrix if matrix is not None else hand_matrix(balanced)
     rating = rating if rating is not None else rating_record(matrix)
-    record = run_record(matrix, rating, pool=pool)
+    record = run_record(matrix, rating, pool=pool, game=game)
     return RUNG_NAME, record, matrix, rating
 
 
@@ -1112,7 +1221,7 @@ def scratch_root():
 _CHECKPOINTS = {}
 
 
-def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="naive-stack", width=4, depth=1, backend="numpy", rule=None, utility=None):
+def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="naive-stack", width=4, depth=1, backend="numpy", rule=None, utility=None, game=None):
     """A real checkpoint saved by `agents.save`, cached per class of spec.
 
     The learner is built through `agents.build_learner` and saved through
@@ -1122,10 +1231,18 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
     the utility whose reward it was trained on (`utilities.md` §6).  `rule` and
     `utility` default to none declared, which `build_learner` builds under each
     catalogue's first member.
+
+    `game` is the shape the learner is built on, and it is declared only when a case
+    names one: the encoder is built **for that shape** (a representation is one shape's,
+    `features/surface.md` §4) and `build_learner` is handed it, so the container is a
+    **version-4** one carrying `game` -- while a learner of the default shape writes
+    format 3 with no shape field at all, which is what keeps the 18 shipped version-1
+    containers loadable (`scheduler.md` §5.1, `shape.md` §2, `docs/L1/shapes.md` §3,
+    §5, D-29).
     """
-    key = (name, seed, encoding, kind, width, depth, backend, rule, utility)
+    key = (name, seed, encoding, kind, width, depth, backend, rule, utility, game)
     if key not in _CHECKPOINTS:
-        encoder = features().build_encoder(encoding)
+        encoder = features().build_encoder(encoding, shape=game)
         spec = {
             "backend": backend,
             "architecture": {"kind": kind, "width": width, "depth": depth},
@@ -1136,8 +1253,12 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
             spec["learning_rule"] = rule
         if utility is not None:
             spec["utility"] = utility
+        if game is not None:
+            spec["game"] = game
         learner = agents().build_learner(spec)
         suffix = "" if utility is None else "-" + token(utility)
+        if game is not None:
+            suffix += "-" + token(game)
         path = os.path.join(scratch_root(), name + "-%d%s.ckpt" % (seed, suffix))
         agents().save(learner, path)
         _CHECKPOINTS[key] = {
@@ -1150,9 +1271,22 @@ def checkpoint(name="member", seed=LEARNER_SEED, encoding="flat-numeric", kind="
             "seed": seed,
             "rule": rule,
             "utility": utility,
+            "game": game,
             "params": agents().param_count(learner),
         }
     return _CHECKPOINTS[key]
+
+
+def build_policy(learner, encoder, seed, exploration="schedule"):
+    """`agents.as_policy(learner, encoder, seed, exploration)` -- a policy at one seed and mode.
+
+    `agents/surface.md` §9-§10 declares the fourth argument and the two modes
+    `agents.declarations.EXPLORATION_MODES` holds; a case uses this to compare two
+    policies of one learner built at two seeds, or at the two modes, which is how
+    `policy_from`'s mode is read against the module that declares it (`shape.md` §5,
+    `scheduler.md` §7, D-29).
+    """
+    return agents().as_policy(learner, encoder, seed, exploration)
 
 
 def member_policy_checkpoint():
@@ -1476,11 +1610,17 @@ class EvaluationCase(unittest.TestCase):
         self.addCleanup(shutil.rmtree, folder, True)
         return folder
 
-    def frozen_pool(self, members=(), m=POOL_M):
-        return self.evaluation().build_pool(declaration(members=members, m=m, frozen=True))
+    def frozen_pool(self, members=(), m=POOL_M, game=None):
+        """One frozen pool: the case's membership, its bound and its declared shape."""
+        return self.evaluation().build_pool(
+            declaration(members=members, m=m, frozen=True, game=game)
+        )
 
-    def open_pool(self, members=(), m=POOL_M):
-        return self.evaluation().build_pool(declaration(members=members, m=m, frozen=False))
+    def open_pool(self, members=(), m=POOL_M, game=None):
+        """One unfrozen pool, the declaration's `game` written only when a case names one."""
+        return self.evaluation().build_pool(
+            declaration(members=members, m=m, frozen=False, game=game)
+        )
 
     def pool_members(self, pool):
         return self.evaluation().pool_members(pool)
@@ -1581,12 +1721,17 @@ class EvaluationCase(unittest.TestCase):
         else:
             self.fail("%s accepted %r, which the contract refuses" % (where, value))
 
-    def assert_evaluation_refusal(self, fn, *args, entry, groups=(), label=""):
+    def assert_evaluation_refusal(self, fn, *args, entry, groups=(), label="", kind=None):
         """Assert the refusal is this module's **own**, naming `entry` and each group.
 
         `errors.md` §1-§2: a refusal must be catchable as `EvaluationError`, so a
         `TypeError` from a mistyped record key, a `KeyError` or a NumPy error is an
-        internal decision leaking as a crash and is red here.
+        internal decision leaking as a crash and is red here.  `kind`, when a case gives
+        one, is the refusal class `errors.md` §2 declares for the contract being driven --
+        `UnknownShape`, `ShapeMismatch` and `UnknownExploration` for D-29's three
+        (`shape.md` §3) -- exactly as `test_utility.py` names D-20's two; every other
+        file of this battery still asserts `EvaluationError` and the message alone
+        (`errors.md` §2's closing rule).
         """
         where = label or entry
         root = refusal_class()
@@ -1603,6 +1748,14 @@ class EvaluationCase(unittest.TestCase):
                 % (where, type(exc).__name__, root.__name__, exc),
             )
             self.assert_refused_like(exc, entry, groups, where)
+            if kind is not None:
+                self.assertEqual(
+                    type(exc).__name__,
+                    kind,
+                    "%s is the refusal errors.md §2 declares for this contract, and the "
+                    "refusal arrived as %s instead: %r (errors.md §2, shape.md §3, D-29)"
+                    % (where, type(exc).__name__, exc),
+                )
         else:
             self.fail("%s accepted %r, which the contract refuses" % (where, value))
 

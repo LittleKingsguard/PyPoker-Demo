@@ -13,6 +13,12 @@ label: its contract is the policy protocol and not the label, ``recording`` and
 harness's own set, discovered from ``harness.fixtures()``: the battery invents an
 *observed value* for a listed kind, never a kind, and an unlisted kind is a named failure
 (``records.md`` §14, D-13, D-15, ``battery.md`` §4).
+
+**The seam walk is on the shape in force.**  A seam is a policy of `e2e-surface.md` §2, so
+what it must satisfy is the shape of the hands it is handed: today's three indices when no
+shape is named (FAM-14.5, FAM-14.6, unchanged) and the named shape's six when it is
+(FAM-14.12) — never an index outside the decision's legal set, and never a descriptor the
+engine refuses (`shapes.md` §2, §5, D-29).
 """
 
 import os
@@ -77,27 +83,42 @@ class FAM14Harness(S.SurfaceCase):
             self.match(hands=S.HANDS_TINY),  # what evaluation.match really returns
         ]
 
-    def seam_plays_legally(self, kind, seed):
+    def seam_plays_legally(self, kind, seed, shape=None):
+        """A seam satisfies the policy protocol on the shape in force (`shapes.md` §2).
+
+        ``shape`` is the shape the hands are dealt on and whose vocabulary the seam must
+        answer in — today's three indices when no name is given, and the named shape's six
+        otherwise (`e2e-surface.md` §2, §3.6, ``sizing.md`` §3).  It returns the decisions
+        it observed so a case can assert what the walk reached.
+        """
         policy = self.ep("harness", "seam")(kind)
         self.assertTrue(
             callable(policy),
             "harness.seam(%r) returns a policy in the sense of e2e-surface §2: %r"
             % (kind, policy),
         )
-        walk = self.decision_walk(seed, policy, limit=3)
+        vocabulary = set(self.vocabulary(shape))
+        walk = self.decision_walk(seed, policy, limit=3, shape=shape)
         self.assertTrue(walk, "the %r seam answered no decision at all" % (kind,))
         for _hand, _readout, legal, action, index in walk:
             self.assertIn(
                 index,
-                {0, 1, 2},
-                "a %r seam chooses from the three-index vocabulary (e2e-surface §2): %r"
-                % (kind, index),
+                vocabulary,
+                "a %r seam chooses from the shape in force's vocabulary %r (e2e-surface "
+                "§2, shapes.md §2): %r" % (kind, sorted(vocabulary), index),
+            )
+            self.assertIn(
+                index,
+                set(self.ep("features", "legal_indices")(legal)),
+                "a %r seam chooses a legal index: %r against %r"
+                % (kind, index, sorted(self.ep("features", "legal_indices")(legal))),
             )
             self.assertTrue(
                 any(S.canon(action) == S.canon(candidate) for candidate in legal),
                 "a %r seam returns a descriptor from legal_actions, never an illegal action "
                 "(e2e-surface §2, D-2): %r" % (kind, action),
             )
+        return walk
 
     # -- fixtures and factory ---------------------------------------------
     def test_fam14_1_fixtures_give_a_scratch_root_a_seed_and_a_device(self):
@@ -301,6 +322,40 @@ class FAM14Harness(S.SurfaceCase):
         )
         # The harness reports the cost; the bound is what sizes the table, so no case
         # asserts that a wall clock was beaten (battery.md §2, ASM-15).
+
+
+    # -- the shape in force (D-29) ----------------------------------------
+    def test_fam14_12_a_seam_satisfies_the_protocol_on_the_named_shape(self):
+        """FAM-14.12 a seam answers the second shape's decisions, in its six indices.
+
+        The harness never substitutes for a module and never learns a game: a seam is a
+        policy of `e2e-surface.md` §2 handed `(readout, legal_actions)`, so on a hand dealt
+        on D-29's no-cap shape it must return one of **that** shape's legal descriptors —
+        a seam that spoke only today's three indices would be a policy of one game and not
+        of the surface (`shapes.md` §2, §5, ``sizing.md`` §3, D-29).
+
+        The label is the battery's own, because a seam's contract is the protocol and not
+        the label (`e2e-surface.md` §3.6, `records.md` §14, `battery.md` §4).
+        """
+        shape = self.second_shape()
+        self.assertEqual(
+            set(self.vocabulary(shape)),
+            set(range(len(S.SIZED_ACTIONS))),
+            "the named shape's vocabulary is its six declared descriptors (sizing.md §3)",
+        )
+        walk = self.seam_plays_legally("fam14-12-six-index-seam", S.SEED_I, shape=shape)
+        self.assertTrue(walk, "the seam answered no decision of the named shape")
+        # The episode the seam's decisions end in is still the engine's: zero-sum payoffs.
+        episode = self.play(S.SEED_I, self.ep("harness", "seam")("fam14-12-six-index-seam"),
+                            self.baseline("always-call", S.SEED_D), shape=shape)
+        payoffs = S.numbers(S.find_values(episode, "payoff"))
+        self.assertTrue(payoffs, "a real episode record carries its payoffs: %r" % (episode,))
+        self.assertEqual(
+            sum(payoffs),
+            0,
+            "the episode the engine played through a seam on the named shape is still "
+            "zero-sum, because the engine and not the seam decided the hand (ASM-12)",
+        )
 
 
 if __name__ == "__main__":

@@ -12,7 +12,11 @@ no invented version; and a single-variant rung's axis row staying the explicit s
 The refusals are `report.md` §3's, in its order: an absent family by its own name, a
 matrix that is not a table (`rating.md` §6's checks reused verbatim), the membership
 rule (a foreign member, a missing pool member, a missing baseline), a rating that does
-not name exactly the matrix's members, and a header missing one of the nine items.
+not name exactly the matrix's members, a header missing one of the nine items, and --
+last, because it reads all three records -- a run, a pool family and a matrix that do
+not name one shape (`ShapeMismatch`, `shape.md` §3-§4, D-29). The header family's tenth
+key `shape` is the one fact the report completes beside the record's nine items, and it
+is written onto the report's own copy.
 `report` plays no hand, moves no stream and reads no file, so every case here works on
 records built in `_evaluation_support` and the record it is handed is never edited.
 """
@@ -33,11 +37,13 @@ from _evaluation_support import (
     VERSION_IDS,
     EvaluationCase,
     balanced,
+    default_shape,
     family_value,
     hand_matrix,
     header_record,
     matrix_cells,
     no_file_reads,
+    other_shape,
     pool_member_ids,
     pool_record,
     pool_rules,
@@ -74,13 +80,26 @@ class ReportTest(EvaluationCase):
                     "name protocol.md §1 spells, `axis row`'s space included "
                     "(report.md §1, surface.md §13, FAM-11.1): %r" % (tuple(report),),
                 )
-                self.assertEqual(
-                    report[family],
-                    record[family],
-                    "every other family is a copy of the record's value, unchanged -- "
-                    "the report copies and never reshapes (report.md §2, FAM-11.10): %r"
-                    % (report[family],),
-                )
+                if family == "header":
+                    # The header is the record's own nine items **plus** the one shape the
+                    # report resolved from the run, the pool family and the matrix -- the
+                    # completion of the report's own copy, exactly as the pool family's
+                    # `rules` and `utilities` are (`report.md` §1-§2, `shape.md` §4, D-29).
+                    self.assertEqual(
+                        report[family],
+                        dict(record[family], shape=default_shape()),
+                        "the header family is the record's header and the resolved "
+                        "`shape` beside its nine items (report.md §2, shape.md §4, "
+                        "G21, G35): %r" % (report[family],),
+                    )
+                else:
+                    self.assertEqual(
+                        report[family],
+                        record[family],
+                        "every other family is a copy of the record's value, unchanged -- "
+                        "the report copies and never reshapes (report.md §2, FAM-11.10): %r"
+                        % (report[family],),
+                    )
         self.assertEqual(
             [key for key in report if key in FAMILIES],
             list(FAMILIES),
@@ -487,6 +506,86 @@ class ReportTest(EvaluationCase):
                 "a pool row that declares no `rules` of its own still yields a pool family "
                 "naming the measured population (e2e-surface.md §3.4, D-19): %r"
                 % (family_value(completed, "pool"),),
+            )
+
+    # -- the shape the header family names (D-29) ------------------------------
+    def test_evl_7_12_the_header_names_the_shape_the_three_records_agree_on(self):
+        """EVL-7.12 a complete record yields a report whose `header` carries `shape` equal to the shape of the run, the pool family and the matrix -- the default when none of them names one -- a record whose three records name two shapes is refused naming all three and the shapes, and the report's own top-level keys stay `protocol.md` §1's twelve, with **no** top-level `game` (`report.md` §1-§3, `surface.md` §13, `shape.md` §2-§4, G21, G35, D-29)."""
+        package = self.evaluation()
+        with self.subTest(case="the default, when none of the three names one"):
+            rung, record, matrix, rating = report_inputs()
+            report = package.report(rung, record, matrix, rating)
+            header = family_value(report, "header")
+            self.assertEqual(
+                header.get("shape"),
+                default_shape(),
+                "the header family's tenth key is the shape the run, the pool and the "
+                "matrix agree on, and three records that name none are the default "
+                "(report.md §1-§2, shape.md §2, §4, G21): %r" % (header,),
+            )
+            self.assertEqual(
+                set(header) - set(record["header"]),
+                {"shape"},
+                "the completion adds the one key and nothing else, and the nine items a "
+                "record states are exactly as they were (report.md §2, §4, G35): %r"
+                % (sorted(header),),
+            )
+        with self.subTest(case="the second shape, when all three name it"):
+            rung, record, matrix, rating = report_inputs(game=other_shape())
+            report = package.report(rung, record, matrix, rating)
+            self.assertEqual(
+                family_value(report, "header").get("shape"),
+                other_shape(),
+                "a run, a pool family and a matrix that name the second shape report it, "
+                "so the header is never the default by assumption (report.md §3 item 6, "
+                "shape.md §3-§4, D-29): %r" % (family_value(report, "header"),),
+            )
+            self.assertEqual(
+                family_value(report, "pool").get("game"),
+                other_shape(),
+                "the pool family is copied with the shape its record states -- the "
+                "report completes `rules` and `utilities` and invents no other fact "
+                "(report.md §2, §4, shape.md §4, G21): %r"
+                % (family_value(report, "pool"),),
+            )
+        with self.subTest(case="the twelve keys, and no top-level game"):
+            rung, record, matrix, rating = report_inputs()
+            report = package.report(rung, record, matrix, rating)
+            self.assertEqual(
+                tuple(report),
+                ("rung", "seeds", "table", "table seed", "device") + FAMILIES,
+                "the report's own keys stay the five facts and the seven families, in "
+                "that order (report.md §2, records.md §13): %r" % (tuple(report),),
+            )
+            self.assertNotIn(
+                "game",
+                report,
+                "the shape rides inside the header family and nowhere else, so the "
+                "report's twelve keys do not grow a thirteenth (report.md §2, "
+                "shape.md §4, G21, G35): %r" % (sorted(report),),
+            )
+        with self.subTest(case="a disagreement is refused naming all three"):
+            # The run and the matrix name the second shape and the pool family names no
+            # shape at all, which reads as the default: three records, two shapes, and the
+            # refusal names every one of them rather than the first pair that differed
+            # (report.md §3 item 6, shape.md §3, D-29).
+            matrix = hand_matrix(balanced, game=other_shape(), cell_game=other_shape())
+            rating = rating_record(matrix)
+            record = run_record(matrix, rating, pool=pool_record(), game=other_shape())
+            before = self.stream_state()
+            self.assert_evaluation_refusal(
+                package.report,
+                RUNG_NAME,
+                record,
+                matrix,
+                rating,
+                entry="report",
+                groups=(("run",), ("pool",), ("matrix",), (other_shape(),), (default_shape(),)),
+                label="a run and a matrix on one shape and a pool on another",
+                kind="ShapeMismatch",
+            )
+            self.assert_stream_unchanged(
+                before, "report() refusing a three-way shape disagreement"
             )
 
 

@@ -17,9 +17,20 @@ flag each record carries (`e2e-surface.md` §3.3, `protocol.md` §3, ASM-32).
 
 Every folder case recomputes its rule from the readout the folder was handed — the rank
 characters of the two hole spellings, `hand_class`, and the starting stack
-`engine.game_config()` declares — so a folder that folded one decision early or late, on
-the wrong street, or on the wrong comparison is caught where it decided
+`engine.game_config(shape)` declares — so a folder that folded one decision early or late,
+on the wrong street, or on the wrong comparison is caught where it decided
 (`folders.md` §2, §3, ASM-30, ASM-31).
+
+**D-29 does not move any rule, and it does move the price.**  A baseline is a policy of the
+shape in force, so every case here is asserted on the shape it drives: with no shape named
+that is today's fixed game, unchanged (`shapes.md` §5), and the no-cap shape is where
+`fold-large-bet`'s trigger finally fires — a folder **carries no shape** (it is handed
+`(readout, legal_actions)` and nothing else), so its threshold is the declared stack
+`engine.game_config()` reports with no shape named, more than 10 of ASM-6's 20, on every
+declared shape (`folders.md` §2, ASM-31, `docs/L3/agents/baselines.md` §7); no street of
+the fixed game can put a call above 10, and the no-cap game's amounts can, so that shape's
+case observes the fold ASM-34 predicted and this one never could (ASM-34, `shapes.md` §2,
+D-29).  FAM-5.15 and FAM-5.16 are that shape's cases.
 """
 
 import os
@@ -55,9 +66,9 @@ class FAM5Baselines(S.SurfaceCase):
         return [entry[4] for entry in walk]
 
     # -- helpers over the folders (D-21) -----------------------------------
-    def stack(self):
-        """The starting stack `engine.game_config()` declares (ASM-6, ASM-31)."""
-        return S.starting_stack(self.ep("engine", "game_config")())
+    def stack(self, shape=None):
+        """The starting stack the shape in force declares (ASM-6, ASM-31, shapes.md §2)."""
+        return S.starting_stack(self.ep("engine", "game_config")(shape))
 
     def legal_indices(self, legal):
         return set(self.ep("features", "legal_indices")(legal))
@@ -66,13 +77,14 @@ class FAM5Baselines(S.SurfaceCase):
         return str(S.readout_fact(readout, "street")).strip().lower()
 
     def folder_decisions(self, folder, opponents=FOLDER_OPPONENTS,
-                         seeds=None, seats=(0, 1)):
+                         seeds=None, seats=(0, 1), shape=None):
         """Every decision one folder makes, as one seat's policy, over invented hands.
 
         One walk per (opponent, seat, seed): the folder plays both seats and meets both
         opponents, so its rule is observed from both positions and both games
         (`folders.md` §2, `battery.md` §4).  Yields ``(seed, seat, readout, legal,
-        index)``.
+        index)``.  ``shape`` is the shape in force: no name is today's game, and naming
+        the no-cap shape drives the folder on that shape's hands (`shapes.md` §2, D-29).
         """
         if seeds is None:
             seeds = S.FOLDER_SEEDS
@@ -80,11 +92,12 @@ class FAM5Baselines(S.SurfaceCase):
             for seat in seats:
                 for seed in seeds:
                     for readout, legal, _action, index in self.folder_walk(
-                        folder, opponent, seed, seat
+                        folder, opponent, seed, seat, shape
                     ):
                         yield seed, seat, readout, legal, index
 
-    def check_folder_rule(self, folder):
+    def check_folder_rule(self, folder, shape=None, opponents=FOLDER_OPPONENTS,
+                          seeds=None):
         """Assert D-21's rule for ``folder`` on every decision it makes.
 
         Returns ``(decisions, folds, preflop, later, opportunities)`` so a case can assert
@@ -92,11 +105,20 @@ class FAM5Baselines(S.SurfaceCase):
         readout: the folder folds **iff** its predicate holds and index 0 is legal, and
         otherwise check/calls wherever index 1 is legal (`folders.md` §2, ASM-31, D-21).
         ``opportunities`` counts the decisions on which folding was legal at all.
+
+        The threshold `fold-large-bet` is judged against is the stack the folder itself
+        reads on every decision — `engine.game_config()` with **no shape named**, because a
+        baseline carries no shape (`folders.md` §2, ASM-31, `docs/L3/agents/baselines.md`
+        §7).  `shape` therefore changes the hands the folder is driven on and never the
+        rule it is judged by: on the no-cap shape a call can exceed that threshold, and on
+        the fixed game it cannot (ASM-34, D-29).
         """
         stack = self.stack()
         decisions = folds = opportunities = 0
         streets = {PREFLOP: 0, "later": 0}
-        for seed, seat, readout, legal, index in self.folder_decisions(folder):
+        for seed, seat, readout, legal, index in self.folder_decisions(
+            folder, opponents, seeds, shape=shape
+        ):
             decisions += 1
             indices = self.legal_indices(legal)
             street = self.street_of(readout)
@@ -147,7 +169,7 @@ class FAM5Baselines(S.SurfaceCase):
         )
         return decisions, folds, streets[PREFLOP], streets["later"], opportunities
 
-    def folder_indices(self, folder, build_seed, deal_seed, seat=0):
+    def folder_indices(self, folder, build_seed, deal_seed, seat=0, shape=None):
         """The indices one folder built at ``build_seed`` chooses on one dealt hand."""
         policies = {
             seat: self.baseline(folder, build_seed),
@@ -155,7 +177,9 @@ class FAM5Baselines(S.SurfaceCase):
         }
         return [
             index
-            for decided, _readout, _legal, _action, index in self.seated_walk(deal_seed, policies)
+            for decided, _readout, _legal, _action, index in self.seated_walk(
+                deal_seed, policies, shape=shape
+            )
             if decided == seat
         ]
 
@@ -224,12 +248,67 @@ class FAM5Baselines(S.SurfaceCase):
             )
 
     def test_fam5_3_random_never_returns_an_illegal_action(self):
-        """FAM-5.3 the random baseline never leaves the legal set (protocol §3)."""
+        """FAM-5.3 the random baseline never leaves the legal set, on the shape in force.
+
+        `protocol.md` §3 makes `random` uniform over the legal indices of the decision it
+        is handed, so it can choose no index outside that decision's legal set and none
+        outside its shape's vocabulary — today's three on the default shape, unchanged,
+        and the six of the no-cap shape when that is the shape in force (`shapes.md` §2,
+        D-29, `e2e-surface.md` §2 "Action vocabulary").
+        """
+        vocabulary = set(self.vocabulary())
+        self.assertEqual(
+            set(self.vocabulary()),
+            {0, 1, 2},
+            "with no shape named the vocabulary is today's three indices (shapes.md §5): %r"
+            % (self.vocabulary(),),
+        )
         for seed in (S.SEED_A, S.SEED_E):
             policy = self.baseline("random", S.SEED_G)
-            for _hand, _readout, _legal, _action, index in self.decision_walk(seed, policy):
-                self.assertIn(index, {0, 1, 2},
+            for _hand, _readout, legal, action, index in self.decision_walk(seed, policy):
+                self.assertIn(index, vocabulary,
                               "the random baseline chose an index outside the vocabulary")
+                self.assertIn(
+                    index, self.legal_indices(legal),
+                    "the random baseline chose index %r, which is not legal at that "
+                    "decision (%r)" % (index, sorted(self.legal_indices(legal))),
+                )
+                self.assertTrue(
+                    any(S.canon(action) == S.canon(candidate) for candidate in legal),
+                    "the random baseline returned a descriptor outside legal_actions: %r"
+                    % (action,),
+                )
+        # The same rule on the shape D-29 declares second: six descriptors, legal only.
+        shape = self.second_shape()
+        six = set(self.vocabulary(shape))
+        self.assertEqual(
+            six, set(range(len(S.SIZED_ACTIONS))),
+            "the named shape's vocabulary is its six descriptors (sizing.md §3): %r" % (six,),
+        )
+        seen = set()
+        decisions = 0
+        for seed in S.SHAPE_SEEDS[:3]:
+            policy = self.baseline("random", S.SEED_G)
+            for _hand, _readout, legal, _action, index in self.decision_walk(
+                seed, policy, shape=shape
+            ):
+                decisions += 1
+                seen.add(index)
+                self.assertIn(
+                    index, six,
+                    "on the named shape the random baseline chooses one of that shape's "
+                    "six indices: %r" % (index,),
+                )
+                self.assertIn(
+                    index, self.legal_indices(legal),
+                    "on the named shape the random baseline left the legal set: index %r "
+                    "against %r" % (index, sorted(self.legal_indices(legal))),
+                )
+        self.assertGreater(decisions, 0, "the case must drive the shape it names")
+        self.assertTrue(
+            seen,
+            "the random baseline answered at least one decision on the named shape",
+        )
 
     def test_fam5_4_random_is_seeded(self):
         """FAM-5.4 one seed agrees twice and two seeds differ (protocol §3)."""
@@ -411,8 +490,15 @@ class FAM5Baselines(S.SurfaceCase):
         `to_call` and the declared stack.  This case consequently cannot assert a non-zero
         fold count the way FAM-5.9 and FAM-5.10 do; it asserts instead that the folder had
         fold **opportunities** (decisions where folding was legal) and took none of them
-        on a call too small to be D-21's.  Where the game changes so that a call above half
-        the stack exists, the same assertion starts requiring the fold.
+        on a call too small to be D-21's.
+
+        **The game the threshold bites on is FAM-5.15's.**  A folder carries no shape, so
+        its threshold is the stack `engine.game_config()` declares with no shape named —
+        more than 10 of ASM-6's 20 — on every shape (`folders.md` §2, ASM-31,
+        `docs/L3/agents/baselines.md` §7); D-29's no-cap shape deals amounts above 10, so
+        that shape's case observes the fold this one cannot, which is what "where the game
+        changes so that a call above half the stack exists, the same assertion starts
+        requiring the fold" asked for (`shapes.md` §2, ASM-34, D-29).
         """
         decisions, folds, preflop, later, opportunities = self.check_folder_rule(
             "fold-large-bet"
@@ -437,45 +523,58 @@ class FAM5Baselines(S.SurfaceCase):
         )
 
     def test_fam5_12_no_folder_raises_while_a_check_or_call_is_legal(self):
-        """FAM-5.12 a folder never returns index 2 where index 1 is legal, nor 0 illegally.
+        """FAM-5.12 a folder raises at no decision where a check/call is legal, any shape.
 
         ASM-31's pin of D-21's "none of them raises": a raise-only decision is forced by
-        the game and never chosen by the rule, so index 2 appears only where check/call is
-        unavailable; and a folder folds only where folding is legal, because a fold the
-        engine forbids is a contract violation and not a fold (`folders.md` §2,
+        the game and never chosen by the rule, so a raise descriptor appears only where
+        check/call is unavailable; and a folder folds only where folding is legal, because
+        a fold the engine forbids is a contract violation and not a fold (`folders.md` §2,
         `e2e-surface.md` §2, D-21).
+
+        The assertion is read through the **shape in force's** vocabulary — index 2 is the
+        fixed shape's only raise and the no-cap shape's first of four bands — so it holds
+        on both declared shapes and never depends on a spelling of one index
+        (`shapes.md` §2, `sizing.md` §3, D-29).
         """
-        for folder in S.FOLDER_BASELINES:
-            decisions = 0
-            for seed, seat, readout, legal, index in self.folder_decisions(
-                folder, seeds=(S.SEED_A, S.SEED_E, S.SEED_F, S.SEED_I, S.SEED_J)
-            ):
-                decisions += 1
-                indices = self.legal_indices(legal)
-                if 1 in indices:
-                    self.assertNotEqual(
-                        index,
-                        2,
-                        "%r raised a decision on which a check/call was legal — a folder "
-                        "takes the minimum legal completion only when a raise is the sole "
-                        "legal action (folders.md §2, ASM-31, D-21): seed %r, seat %r, "
-                        "street %r, legal indices %r"
-                        % (folder, seed, seat, self.street_of(readout), sorted(indices)),
-                    )
-                if 0 not in indices:
-                    self.assertNotEqual(
-                        index,
-                        0,
-                        "%r folded where folding was not a legal action, which is a "
-                        "contract violation and not a fold (e2e-surface.md §2, folders.md "
-                        "§2, ASM-31): seed %r, seat %r, street %r, legal indices %r"
-                        % (folder, seed, seat, self.street_of(readout), sorted(indices)),
-                    )
-            self.assertGreater(
-                decisions,
-                0,
-                "the case must drive %r on real decisions (folders.md §2)" % (folder,),
-            )
+        for shape in (None, self.second_shape()):
+            vocabulary = self.vocabulary(shape)
+            raises = {index for index, name in vocabulary.items() if S.is_raise(name)}
+            for folder in S.FOLDER_BASELINES:
+                decisions = 0
+                for seed, seat, readout, legal, index in self.folder_decisions(
+                    folder,
+                    seeds=(S.SEED_A, S.SEED_E, S.SEED_F, S.SEED_I, S.SEED_J),
+                    shape=shape,
+                ):
+                    decisions += 1
+                    indices = self.legal_indices(legal)
+                    if 1 in indices:
+                        self.assertNotIn(
+                            index,
+                            raises,
+                            "%r raised a decision on which a check/call was legal — a folder "
+                            "takes the minimum legal completion only when a raise is the sole "
+                            "legal action (folders.md §2, ASM-31, D-21): shape %r, seed %r, "
+                            "seat %r, street %r, choice %r, legal indices %r"
+                            % (folder, shape, seed, seat, self.street_of(readout),
+                               vocabulary.get(index), sorted(indices)),
+                        )
+                    if 0 not in indices:
+                        self.assertNotEqual(
+                            index,
+                            0,
+                            "%r folded where folding was not a legal action, which is a "
+                            "contract violation and not a fold (e2e-surface.md §2, folders.md "
+                            "§2, ASM-31): shape %r, seed %r, seat %r, street %r, legal "
+                            "indices %r" % (folder, shape, seed, seat,
+                                            self.street_of(readout), sorted(indices)),
+                        )
+                self.assertGreater(
+                    decisions,
+                    0,
+                    "the case must drive %r on real decisions (folders.md §2), shape %r"
+                    % (folder, shape),
+                )
 
     def test_fam5_13_each_folder_is_deterministic_and_seed_independent(self):
         """FAM-5.13 a folder consumes no randomness: its seed never changes a decision.
@@ -543,6 +642,177 @@ class FAM5Baselines(S.SurfaceCase):
             "the refusal names the baseline name it refused (folders.md §2, protocol.md §3): "
             "%r" % (text,),
         )
+
+
+    # ==================================================================
+    # The same catalogue, on the shape D-29 declares second
+    # ==================================================================
+    def aggressive_opponent(self):
+        """A policy of §2 that bets as large as the decision allows.
+
+        It is the battery's own and appears in no design document (`battery.md` §4): it
+        returns the most expensive legal raise descriptor of the shape in force, else the
+        check/call, else the first legal descriptor — always a member of
+        ``legal_actions``, which is the whole of a policy's contract (`e2e-surface.md`
+        §2).  A folder can fold only where folding is legal, so a case that needs a call
+        above half a stack must be met by an opponent that bets one (`folders.md` §2,
+        ASM-31, ASM-34).
+        """
+
+        def policy(readout, legal):
+            for wanted in ("raise-all-in", "raise-half", "raise-quarter",
+                           "raise-minimum", "raise"):
+                if wanted in legal:
+                    return wanted
+            if "check-call" in legal:
+                return "check-call"
+            return legal[0]
+
+        return policy
+
+    def test_fam5_15_fold_large_bet_folds_where_the_named_shape_can_threaten_the_stack(self):
+        """FAM-5.15 the same rule folds on the shape whose amounts can exceed half the stack.
+
+        D-21's rule is one inequality — fold when `to_call` exceeds half the declared
+        starting stack, more than 10 chips at ASM-6's 20 — read through
+        `engine.game_config()` on every decision, because a folder carries no shape and is
+        handed nothing but `(readout, legal_actions)` (`folders.md` §2, ASM-31,
+        `docs/L3/agents/baselines.md` §1, §7).  In D-2's fixed game no legal decision
+        reaches a call of 10, so FAM-5.11 observes fold opportunities and no fold
+        (ASM-34); in D-29's no-cap game the amounts run to a 100-chip stack, so a call
+        above 10 exists — and this case requires the fold the rule then states, decision
+        by decision, on the shape in force (`shapes.md` §2, ASM-34, D-29).
+
+        Nothing about the rule moves here: the case recomputes the same inequality from
+        each readout's own `to_call` and the declared stack, then additionally requires
+        that at least one decision's call is above the threshold and that the folder folds
+        at **every** such decision and at none below it.
+        """
+        shape = self.second_shape()
+        stack = self.stack()
+        threshold = stack // 2
+        decisions, folds, preflop, later, opportunities = self.check_folder_rule(
+            "fold-large-bet",
+            shape=shape,
+            opponents=(self.aggressive_opponent(), "random", "always-call"),
+            seeds=(S.SEED_A, S.SEED_B, S.SEED_C, S.SEED_D, S.SEED_E,
+                   S.SEED_F, S.SEED_G, S.SEED_H),
+        )
+        self.assertGreater(decisions, 0,
+                           "the case must drive the named shape's hands (folders.md §2)")
+        self.assertGreater(
+            opportunities,
+            0,
+            "the folder must be handed decisions on which folding is legal, or the rule "
+            "is asserted on decisions that could not fold whatever it said (folders.md §2, "
+            "ASM-31): %d decisions, %d folds, shape %r" % (decisions, folds, shape),
+        )
+        above = 0
+        for seed, seat, readout, legal, index in self.folder_decisions(
+            "fold-large-bet",
+            opponents=(self.aggressive_opponent(), "random", "always-call"),
+            seeds=(S.SEED_A, S.SEED_B, S.SEED_C, S.SEED_D, S.SEED_E,
+                   S.SEED_F, S.SEED_G, S.SEED_H),
+            shape=shape,
+        ):
+            to_call = int(S.readout_fact(readout, "to_call"))
+            if 2 * to_call > stack:
+                above += 1
+                self.assertIn(
+                    0, self.legal_indices(legal),
+                    "a call above half the declared stack must be a decision on which "
+                    "folding is legal, or the rule cannot be observed (folders.md §2, "
+                    "ASM-31): to_call %r, stack %r, legal %r"
+                    % (to_call, stack, sorted(self.legal_indices(legal))),
+                )
+                self.assertEqual(
+                    index,
+                    0,
+                    "'fold-large-bet' folds when `to_call` exceeds half the declared "
+                    "starting stack (%r > %r) (folders.md §2, protocol.md §3, ASM-31): "
+                    "seed %r, seat %r, street %r, to_call %r, stack %r, choice %r"
+                    % (2 * to_call, stack, seed, seat, self.street_of(readout),
+                       readout.get("to_call"), stack, index),
+                )
+            elif index == 0:
+                self.fail(
+                    "'fold-large-bet' folded a call that does not exceed half the declared "
+                    "starting stack: to_call %r against stack %r (folders.md §2, ASM-31): "
+                    "seed %r, seat %r, street %r"
+                    % (readout.get("to_call"), stack, seed, seat,
+                       self.street_of(readout))
+                )
+        self.assertGreater(
+            above,
+            0,
+            "the named shape's amounts are what makes D-21's threshold reachable — the "
+            "fixed game offers no call above %r — so the case must observe one, or it has "
+            "asserted FAM-5.11's arm again instead of this one (shapes.md §2, ASM-34, "
+            "D-29): %d decisions, %d folds, stack %r" % (threshold, decisions, folds, stack),
+        )
+        self.assertGreater(
+            folds,
+            0,
+            "the folder must fold at least one call above half the declared stack (%d "
+            "observed above it) (folders.md §2, D-21, ASM-31)" % (above,),
+        )
+
+    def test_fam5_16_every_baseline_is_a_policy_of_the_named_shape(self):
+        """FAM-5.16 all six baselines answer the named shape's decisions, one game over.
+
+        A baseline is a policy, and a policy takes `(readout, legal_actions)` and returns
+        one member of `legal_actions` — so on any declared shape every one of the six
+        chooses from **that** shape's legal set, `random` included; `always-call` folds at
+        no decision of it; and each folder's decision is still the one its rule states,
+        recomputed against the shape's own declared stack (`e2e-surface.md` §2, §3.3,
+        `protocol.md` §3, `folders.md` §2, `shapes.md` §2, D-29).
+        """
+        shape = self.second_shape()
+        vocabulary = self.vocabulary(shape)
+        for name in S.BASELINES:
+            policy = self.baseline(name, S.SEED_F)
+            decisions = 0
+            for seed in (S.SEED_A, S.SEED_C, S.SEED_G):
+                for _hand, _readout, legal, action, index in self.decision_walk(
+                    seed, policy, shape=shape
+                ):
+                    decisions += 1
+                    self.assertIn(
+                        index, vocabulary,
+                        "%r chose index %r, which is not one of the named shape's indices "
+                        "%r (e2e-surface.md §2)" % (name, index, sorted(vocabulary)),
+                    )
+                    self.assertIn(
+                        index, self.legal_indices(legal),
+                        "%r chose index %r, which is not legal at that decision (%r): a "
+                        "policy that returns an illegal action is a contract violation and "
+                        "not a fold (e2e-surface.md §2)"
+                        % (name, index, sorted(self.legal_indices(legal))),
+                    )
+                    self.assertTrue(
+                        any(S.canon(action) == S.canon(candidate) for candidate in legal),
+                        "%r returned a descriptor outside legal_actions: %r in %r"
+                        % (name, action, legal),
+                    )
+                    if name == "always-call":
+                        self.assertNotEqual(
+                            index, 0,
+                            "always-call never folds, on any declared shape (protocol.md §3)",
+                        )
+            self.assertGreater(
+                decisions, 0,
+                "the case must drive %r on the named shape's hands (protocol.md §3)"
+                % (name,),
+            )
+        # The folders' rules, recomputed against **this** shape's declared stack.
+        for folder in S.FOLDER_BASELINES:
+            decisions, folds, _preflop, _later, _opportunities = self.check_folder_rule(
+                folder, shape=shape, seeds=(S.SEED_A, S.SEED_C, S.SEED_G)
+            )
+            self.assertGreater(
+                decisions, 0,
+                "%r must decide on the named shape's hands (folders.md §2)" % (folder,),
+            )
 
 
 def _same(one, other):

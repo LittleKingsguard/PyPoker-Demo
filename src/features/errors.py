@@ -16,6 +16,10 @@ class UnknownEncoding(FeaturesError):
     """`build_encoder`: a name that is not a declared encoding."""
 
 
+class UnknownShape(FeaturesError):
+    """`build_encoder`/`action_space`/`decode_action`: a shape name outside the catalogue."""
+
+
 class InvalidEncoder(FeaturesError):
     """`observation_spec`/`encode`: a value that is not an encoder this module built."""
 
@@ -29,8 +33,8 @@ class InvalidActionList(FeaturesError):
 
 
 class UnknownAction(FeaturesError):
-    """`legal_indices`: a descriptor outside the three-index vocabulary."""
+    """`legal_indices`: a descriptor outside the declared vocabulary."""
 
 
 class InvalidActionIndex(FeaturesError):
-    """`decode_action`: not an index, or an index outside {0, 1, 2}."""
+    """`decode_action`: not an index, or an index outside the shape's vocabulary."""

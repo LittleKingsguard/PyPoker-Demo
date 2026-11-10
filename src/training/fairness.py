@@ -19,7 +19,6 @@ from collections.abc import Mapping
 
 import agents
 import engine
-import features
 
 from . import declarations, errors
 
@@ -166,6 +165,41 @@ def _utility(entry, configuration=None):
     if declared is not None:
         return declared
     return declarations.utilities()[0]
+
+
+def _shape(entry, configuration=None):
+    """The shape a side names: its own, else its configuration's, else the default.
+
+    A pair is compared on **one** shape, so the shape is resolved on the same terms the
+    rule and the utility are — the entry's declaration first, its configuration's second —
+    and a side that names none is on the catalogue's first row, because absence is the
+    default shape and never "no claim" (`declarations.require_game`, `shapes.md` §3,
+    D-29).  A name the catalogue does not carry is refused here, naming it and the declared
+    names, and is never defaulted.
+    """
+    declared = entry.get("game") if isinstance(entry, Mapping) else None
+    if declared is None and isinstance(configuration, Mapping):
+        declared = configuration.get("game")
+    return declarations.require_game(declared, "training.fairness", "game")
+
+
+def _pair_shapes(left, right):
+    """The one shape a pair is on, or the refusal naming both — a pair is one shape's.
+
+    A shape is a property of a configuration and never a rung's axis, so two arms naming
+    two shapes are not a reportable comparison at all: their games differ in the stack, the
+    amounts, the action space and the price of every decision, and no curve, cell or rating
+    on one is comparable with one on the other (`shapes.md` §1, §6, `ladder.md` §4, D-3,
+    D-29).  The refusal names both shapes, the way `PoolIdsDiffer` names both ids.
+    """
+    left_shape, right_shape = left, right
+    if left_shape != right_shape:
+        raise errors.PairDeclarationsDiffer(
+            "training.fairness refused the pair: its two sides name two shapes, %r and "
+            "%r, and a comparison pair is one shape's (shapes.md §1, §6, ladder.md §4, "
+            "D-29)" % (left_shape, right_shape)
+        )
+    return left_shape
 
 
 def _rule_set(rules):
@@ -343,8 +377,8 @@ def _pool_report(left, right):
     }
 
 
-def _constants(left, right, pool_report=None, rules=None, utilities=None):
-    """The fourteen declarations `ladder.md` §4 makes a comparison hold constant.
+def _constants(left, right, pool_report=None, rules=None, utilities=None, shape=None):
+    """The fifteen declarations `ladder.md` §4 makes a comparison hold constant.
 
     `rules` and `utilities` are the **sets** the two sides are trained under — each side's
     own member, else its configuration's copy, else the catalogue's first — so a row never
@@ -352,7 +386,15 @@ def _constants(left, right, pool_report=None, rules=None, utilities=None):
     `utilities.md` §8, D-19, D-20).  The `reward` row states the reward each side's utility
     delivers, read off the catalogue's own tokens, so a pair of two objectives says so
     there and a pair of one says one (`utilities.md` §2, §8, ASM-12, D-20).
+
+    **`shape` is the first constant and the game is the shape's.**  A pair is on one shape,
+    so the row names it, and `game` and `action vocabulary` are that shape's — the row
+    `engine.game_config` returns for the name and the descriptors `features.decode_action`
+    answers in its vocabulary, three on the default shape and six on the no-cap one.  For
+    the default shape both are byte-for-byte what a pair has always reported (`shapes.md`
+    §2–§3, `sizing.md` §3, §6, D-29).
     """
+    name = declarations.require_game(shape, "training.fairness")
     left_entry = _primary(left) if "variants" in left else left
     right_entry = _primary(right) if "variants" in right else right
     if rules is None:
@@ -368,8 +410,9 @@ def _constants(left, right, pool_report=None, rules=None, utilities=None):
     if pool_report is None:
         pool_report = _pool_report(left, right)
     return {
-        "game": engine.game_config(),
-        "action vocabulary": {index: features.decode_action(index) for index in (0, 1, 2)},
+        "shape": name,
+        "game": engine.game_config(name),
+        "action vocabulary": declarations.vocabulary(name),
         "readout facts": list(READOUT_FACTS),
         "reward": _reward_row(_utility_set(utilities)),
         "rules": _rule_set(rules),
@@ -441,12 +484,22 @@ def fairness(left, right):
             _utility(left_entry, left_value),
             _utility(right_entry, right_value),
         )
+        shapes = (
+            _shape(left_entry, left_value),
+            _shape(right_entry, right_value),
+        )
     else:
         left_entry = left_value
         right_entry = right_value
         pair = [str(left_entry.get("name")), str(right_entry.get("name"))]
         rules = (_rule(left_entry), _rule(right_entry))
         utilities = (_utility(left_entry), _utility(right_entry))
+        shapes = (_shape(left_entry), _shape(right_entry))
+    # The shape is refused **before** the axes are read: a pair on two shapes is not a
+    # comparison that differs on an axis, it is not a comparison at all, and reporting one
+    # of the two as the constant held would be the same defect in a report instead of a run
+    # (shapes.md §1, §6, ladder.md §4, D-29).
+    shape = _pair_shapes(*shapes)
     for position, entry in enumerate((left_entry, right_entry)):
         _require(
             entry,
@@ -482,7 +535,12 @@ def fairness(left, right):
         "pair": pair,
         "axis": axis,
         "constants": _constants(
-            left_value, right_value, report, rules=rules, utilities=utilities
+            left_value,
+            right_value,
+            report,
+            rules=rules,
+            utilities=utilities,
+            shape=shape,
         ),
         "pool": report,
     }

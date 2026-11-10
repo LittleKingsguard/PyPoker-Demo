@@ -5,6 +5,13 @@ The package declares exactly the seven entry points of `docs/L2/features/surface
 card map, the history parser and every block writer stay in the submodules
 (layout.md §2, guardrails.md G14).  Each entry point is a thin wrapper, so the
 package's namespace cannot grow a second export when an owner module gains a helper.
+
+Three of the seven name a game shape as an **optional keyword** whose absence is the
+default shape, and one rule is why it is a keyword and not a positional: the pre-existing
+arity cases pin each name's positional argument to the one it had, and a keyword-only
+optional adds the shape without moving any of them (surface.md §1, D-29).  No other name
+takes a shape, and none needs one -- the shape is the encoder's once it is built, and a
+spec record does not depend on it (sizing.md §5).
 """
 
 from . import encode as _encode
@@ -27,9 +34,9 @@ def encodings():
     return _encoder.encodings()
 
 
-def build_encoder(name):
-    """One encoder, by a declared encoding's name (surface.md §4)."""
-    return _encoder.build_encoder(name)
+def build_encoder(name, *, shape=None):
+    """One encoder, by a declared encoding's name, on one declared shape (§4)."""
+    return _encoder.build_encoder(name, shape)
 
 
 def observation_spec(encoder):
@@ -42,9 +49,9 @@ def encode(encoder, readout):
     return _encode.encode(encoder, readout)
 
 
-def action_space():
-    """The three-index action vocabulary (surface.md §7)."""
-    return _vocabulary.action_space()
+def action_space(*, shape=None):
+    """One shape's action vocabulary, in that shape's index order (surface.md §7)."""
+    return _vocabulary.action_space(shape)
 
 
 def legal_indices(legal_actions):
@@ -52,6 +59,6 @@ def legal_indices(legal_actions):
     return _vocabulary.legal_indices(legal_actions)
 
 
-def decode_action(index):
-    """The descriptor of one action index (surface.md §9)."""
-    return _vocabulary.decode_action(index)
+def decode_action(index, *, shape=None):
+    """The descriptor of one index in one shape's vocabulary (surface.md §9)."""
+    return _vocabulary.decode_action(index, shape)

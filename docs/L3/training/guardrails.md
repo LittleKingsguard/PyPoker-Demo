@@ -1,11 +1,12 @@
 # training — L4 guardrails
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09 · **Rev 9:** G23/G24 carry the utility axis, and G25 states where the reward is applied (D-20)
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-09 · **Rev 9:** G23/G24 carry the utility axis, and G25 states where the reward is applied (D-20) · **Rev 10:** G26 carries the run's own shape and G27 the greedy pass, and G1/G5/G15/G21 are re-counted to fourteen files, fifteen constants and six pair settings (D-28, D-29, ASM-38)
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the test that
   catches it — Rev 4 adds G21 (the declaration refusals), Rev 5 G22 (the declared budget), Rev 6 G23 (the member forwarded and the
-  record's sets) and Rev 9 G25 (the one place a utility is applied, with no member name copied into the module)
+  record's sets), Rev 9 G25 (the one place a utility is applied) and **Rev 10** G26/G27 (the shape forwarded whole, and the pass's
+  bounds and its unreported `tie`)
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
-- **Read with:** all of `README.md`, `registry.md`, `loop.md`, `seeds.md`, `episode.md`, `reward.md`, `curves.md`, `checkpoints.md`,
+- **Read with:** all of `README.md`, `registry.md`, `loop.md`, `record.md`, `greedy.md`, `seeds.md`, `episode.md`, `reward.md`, `curves.md`, `checkpoints.md`,
   `fairness.md`, `devices.md`, `errors.md`
 
 The unit battery's files are contract: `tests/training/test_registry.py` (`TRN-1.k`), `test_loop.py` (`TRN-2.k`),
@@ -13,7 +14,7 @@ The unit battery's files are contract: `tests/training/test_registry.py` (`TRN-1
 `test_fairness.py` (`TRN-7.k`), `test_devices.py` (`TRN-8.k`), `test_errors.py` (`TRN-9.k`); the join battery is
 `tests/integration/training/test_run_record.py` (`TRNJ-1`–`4`, `TRNJ-7`–`8`), `test_fairness_joins.py` (`TRNJ-5`),
 `test_index.py` (`TRNJ-6`) and `test_evidence.py` (`TRNJ-9`). Each note below names the case that fails if the rule is broken.
-## G1 — Thirteen files, and six names in `__init__.py`
+## G1 — Fourteen files, and six names in `__init__.py`
 `src/training/__init__.py` exports the six names of `README.md` §3 in that order and no seventh — not `RUNGS`, not `TrainingError`, not `_Curve` — and one concern per file (`e2e-surface.md` §1, D-12, `README.md` §4).
 Caught by: `test_registry.py::TRN-1.1`, FAM-1.38–FAM-1.43.
 ## G2 — The registry is nine literals and the ±2% arithmetic is the point
@@ -26,7 +27,7 @@ Caught by: `test_registry.py::TRN-1.3`, `TRN-1.4`, FAM-3.17, FAM-16.31.
 The declared 100 is the *declared* budget's interval and is recorded in the record's `variants`; the interval a run uses is `budget // 10`. Honouring the declared value at 250 hands writes two snapshots, names three artefacts and fails FAM-12.4's five-version window; at 60 hands it writes none.
 Caught by: `test_curves.py::TRN-5.1`, `test_loop.py::TRN-2.1` (a 250-hand run writes ten and names six), FAM-12.1, FAM-12.4.
 ## G5 — Six artefacts named per variant × seed, never eleven
-The record names the last M = 5 snapshots plus `final.ckpt`. `tests/e2e/_records.py`'s `checkpoint_span` allows at most `pairs × (M + 1)`, which is exactly 6 for one pair and 12 for the custom two-variant rung: naming the ten plus the final is 11 and fails both families (`checkpoints.md` §3).
+The record names the last M = 5 snapshots plus `final.ckpt`. `tests/e2e/_records.py`'s `checkpoint_span` allows at most `pairs × (M + 1)`, which is exactly 6 for one pair and 12 for the custom two-variant rung: naming the ten plus the final is 11 and fails both families, and the greedy pass reads `final.ckpt` and writes no seventh (`checkpoints.md` §3, `greedy.md` §1).
 Caught by: `test_checkpoints.py::TRN-6.1`, FAM-12.1, FAM-15.1, FAM-16.29.
 ## G6 — The record's keys, and the nesting each reader assumes
 `curves` is variant → seed → `{samples, td_error, spread}`; `checkpoints` is variant → seed → `{snapshots, final}`; `timings` is variant →
@@ -58,15 +59,11 @@ Caught by: `test_checkpoints.py::TRN-6.2`, FAM-12.6.
 Fabricating an R4 path to look complete fails the existence check; filtering the index by what is on disk instead is a scan (G11).
 Caught by: `test_checkpoints.py::TRN-6.3`, FAM-12.5, FAM-16.31.
 ## G14 — `fairness` compares `architecture` only when family and `sparsity` agree
-R5's `dense` (width 50, sparsity 0) against its `sparse` (width 62, sparsity 0.5) differs on `sparsity` alone; a rule that also compares width
-finds two axes, refuses the rung's own control, and fails FAM-3.12. R4's own pair is the converse: one family, one sparsity, so `width` *and*
-`depth` differ and the axis is `architecture` (`fairness.md` §2–§3).
+R5's `dense` (width 50, sparsity 0) against its `sparse` (width 62, sparsity 0.5) differs on `sparsity` alone; a rule that also compares width finds two axes, refuses the rung's own control, and fails FAM-3.12. R4's own pair is the converse: one family, one sparsity, so `width` *and* `depth` differ and the axis is `architecture` (`fairness.md` §2–§3).
 Caught by: `test_fairness.py::TRN-7.1`–`TRN-7.3`, FAM-3.11, FAM-3.12, FAM-15.3.
-## G15 — `constants` carries fourteen keys, two of them declared here
-The game from `engine.game_config`; the action vocabulary and the readout facts as data, because `features.action_space` and `features.encodings`
-are not this module's to call. The rule and utility rows are `rules` and `utilities`, the **sets** the two sides declare, never a single value one
-side carries: dropping the vocabulary fails FAM-3.14 and reading `action_space()` breaks D-13's boundary (`rules.md` §8, `utilities.md` §8, D-20).
-Caught by: `test_fairness.py::TRN-7.4`, FAM-3.14, FAM-13.3, FAM-3.19.
+## G15 — `constants` carries fifteen keys, `shape` first, and two of them declared here
+The shape name, the game from `engine.game_config(shape)` and that shape's vocabulary from `declarations.vocabulary(shape)`; the readout facts as data, because `features.action_space` and `features.encodings` are not this module's to call. The rule and utility rows are `rules` and `utilities`, the **sets** the two sides declare, never a single value one side carries: dropping the vocabulary or reporting the default shape's for a pair on the second fails FAM-3.14, and reading `action_space()` breaks D-13's boundary (`rules.md` §8, `utilities.md` §8, `shapes.md` §2–§3, D-20, D-29).
+Caught by: `test_fairness.py::TRN-7.4`, `test_shapes.py::TRN-13.6`, FAM-3.14, FAM-13.3, FAM-3.19.
 ## G16 — A refusal names the offending value, and nothing is wrapped
 Every message has the four parts of `errors.md` §3 and the value in it: FAM-15.5 and FAM-16.28 compare the unknown rung's token to the message.
 `features`', `agents`' and `evaluation`'s refusals propagate unchanged — a `try/except` re-raising one in a `TrainingError` hides the catalogue's owner.
@@ -92,13 +89,8 @@ battery's private `mkdtemp` gains every artefact and `<repo>/checkpoints` gains 
 listing an artefact the design does not declare (G11, G13).
 Caught by: `test_loop.py::TRN-2.7`, `test_checkpoints.py::TRN-6.5`, `test_checkpoints.py::TRN-6.9`, `test_run_record.py::TRNJ-8.1`, FAM-16.31.
 ## G21 — A declaration the run would discard is refused at resolve, never kept in silence
-A `hyper` key and a `snapshot_every` — **at the configuration and at each entry** — are `IgnoredDeclaration` unless they equal that key's `HYPER`
-value and the **declared** samples ÷ 10; a `learning_rule` or a `utility` is refused only when the catalogue `agents.learners()` publishes does not
-carry it, and two arms declaring two values for one of the **five** shared settings that reach the pair check are `PairDeclarationsDiffer`. Neither
-member is one of the seven: a catalogued rule or utility is forwarded and trained, so refusing a second would restore the single-member clause
-D-19 retired. A configuration-level block is a declaration no entry can see, so leaving it unchecked drops it as silently as an entry's would be
-(ASM-7, ASM-18, D-19, D-20).
-Caught by: `test_errors.py::TRN-9.15`–`TRN-9.16`, `test_fairness.py::TRN-7.8`, FAM-17.9, and the contract's test writer's next cases.
+A `hyper` key and a `snapshot_every` — **at the configuration and at each entry** — are `IgnoredDeclaration` unless they equal that key's `HYPER` value and the **declared** samples ÷ 10; a `learning_rule` or a `utility` is refused only when the catalogue `agents.learners()` publishes does not carry it, a `game` only when `engine.game_shapes()` does not, which is `UnknownShape` and not this class; and two arms declaring two values for one of the **six** shared settings that reach the pair check are `PairDeclarationsDiffer`. Neither member is one of the six: a catalogued rule or utility is forwarded and trained, so refusing a second would restore the single-member clause D-19 retired, while a `game` **is** one of them, because a pair is on one shape. A configuration-level block is a declaration no entry can see, so leaving it unchecked drops it as silently as an entry's would be (ASM-7, ASM-18, D-19, D-20, `shapes.md` §1, §6, D-29).
+Caught by: `test_errors.py::TRN-9.15`–`TRN-9.16`, `test_shapes.py::TRN-13.7`, `test_fairness.py::TRN-7.8`, FAM-17.9.
 ## G22 — A declared `param_budget` is validated where it is resolved, never coerced
 A `param_budget` that is not a positive integer — `"abc"`, `12345.6`, `True`, `-5` — is `VariantSettingInvalid` naming the key, the level and the value, so `int()` never truncates a float, reads `True` as 1 or accepts a negative band: the `params` band is the resolved number ∓2% (`declarations.md` §2, ASM-10, `errors.md` §4).
 Caught by: `test_errors.py::TRN-9.15`–`TRN-9.16`'s file; the contract's test writer pins every shape next.
@@ -117,4 +109,10 @@ Caught by: `test_checkpoints.py::TRN-6.3`, `TRN-6.10`, `test_loop.py::TRN-2.16`,
 ## G25 — The utility is applied here, terminal-only, selected by reward token
 `episode._transitions` re-expresses the **terminal** decision's reward as the variant's utility's number, selected by the token
 `agents.learners()` publishes for that member — never by a member name copied into this module — and every other decision keeps `0.0`;
-`learner.py`'s branches stay `target = record["reward"]`, so applying it inside `learn` or shaping an intermediate decision breaks D-20 (`reward.md` §1–§4, `utilities.md` §4, ASM-28). Caught by: `test_episode.py::TRN-4.9`–`TRN-4.13` — 4.9 the reward's four numbers, 4.10 the zero every non-terminal decision keeps, 4.11 the unshaped `net-chips` delta, 4.12 the chips-in-play guard and 4.13 the reward token that selects the arithmetic.
+`learner.py`'s branches stay `target = record["reward"]`, so applying it inside `learn` or shaping an intermediate decision breaks D-20 (`reward.md` §1–§4, `utilities.md` §4, ASM-28). Caught by: `test_episode.py::TRN-4.9`–`TRN-4.13` — 4.9 the reward's four numbers, 4.10 the zero every non-terminal decision keeps, 4.11 the unshaped `net-chips` delta, 4.12 the chips-in-play guard and 4.13 the reward token that selects the arithmetic — and `test_shapes.py::TRN-13.3` for the guard reading the run's own total.
+## G26 — One shape, resolved once, forwarded whole
+`_game(configuration)` resolves the `game` at the configuration, else at its first variant entry, else `DEFAULT_SHAPE`, and refuses an uncatalogued name as `UnknownShape` naming it and both declared names. That one name reaches `features.build_encoder(..., shape=)`, `build_learner`'s `game`, `engine.play_hand(..., shape=)`, `_transitions(..., shape)`, `_learner_policy(..., shape)`, `_pool`'s declaration and `_header`'s `game`/`action space`, and it is never `engine.game_config()`'s default: a step that drops it trains or reports the default shape on a run that declared the other, and a readout of one shape read against the other is `ChipConservationBroken` rather than a silent rescale (`shapes.md` §2–§3, `loop.md` §1–§2, `episode.md` §2–§3, D-29).
+Caught by: `test_shapes.py::TRN-13.1`–`TRN-13.7`, and the shape join of `tests/integration/training/`.
+## G27 — The pass runs after the save, inside both bounds, and reports no tie
+`greedy._pass` is called with the finished learner, the run's shape, the run's seed and the run's budget, **after** `agents.save` of the final model, so the block is reproducible from the checkpoint the record names. `_check_hands` refuses a budget above 2,000 at step 1 — a 200,000-hand run is refused before it trains — and `_check_decisions` refuses the moment one more record would cross 24,000; neither clamps, and a pass of exactly a bound is inside it. `tie` is `False` on every decision because no granted exploration-off surface reports the flag, so a census must not divide by it and `sizing.md` §7's conjunct 7 is not computable from this block (`greedy.md` §2, §4, §6, `records.md` §15, ASM-38, D-28).
+Caught by: `test_greedy.py::TRN-14.1`–`TRN-14.7` — `TRN-14.5` drives both bounds — and §6's limitation is a named `ADJUDICATION` rather than a case, because no case can observe a flag no granted call returns.

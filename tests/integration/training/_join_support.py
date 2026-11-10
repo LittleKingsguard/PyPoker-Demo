@@ -284,6 +284,114 @@ def game_config():
     return mod("engine").game_config()
 
 
+def game_shapes():
+    """The declared shape catalogue, default first (`shapes.md` §2, D-29)."""
+    return mod("engine").game_shapes()
+
+
+def shape_names():
+    """The declared shape names, in the catalogue's order -- default first."""
+    return tuple(str(name) for name in game_shapes())
+
+
+def shaped_game_config(shape=None):
+    """`engine.game_config(shape)`: one shape's parameters (`engine/surface.md` §3)."""
+    return mod("engine").game_config(shape)
+
+
+def action_space(shape=None):
+    """`features.action_space(shape=...)`: one shape's vocabulary (`features/surface.md` §7)."""
+    return mod("features").action_space(shape=shape)
+
+
+def shaped_decode_action(index, shape=None):
+    """`features.decode_action(index, shape=...)`: one index in one vocabulary."""
+    return mod("features").decode_action(index, shape=shape)
+
+
+def declared_shapes():
+    """`training.declarations`' restated catalogue: `SHAPE_NAMES`, `SHAPE_ACTIONS`.
+
+    Read as contract the way `seeds._deal_seed` is (`_join_support.py`'s module docstring):
+    the module restates the two declared shapes' names and descriptor counts because
+    `module-map.md` §2 grants it neither `engine.game_shapes` nor `features.action_space`,
+    and this join is the one check that the restatement is the catalogue's (`D-13`,
+    `shapes.md` §4).
+    """
+    declarations = importlib.import_module("training.declarations")
+    return declarations.SHAPE_NAMES, declarations.SHAPE_ACTIONS
+
+
+def no_limit_configuration():
+    """The registry's R1 entry, declared on the catalogue's second shape.
+
+    A configuration in no design document (`docs/L1/battery.md` §4, D-15): R1's own
+    variant entry, unchanged, under a label of this battery's and with `records.md` §2's
+    `game` naming the second declared shape — so the run is the same loop on another game
+    and the record is the same record on another shape (`shapes.md` §1, §3, D-29).  It
+    declares an empty window and the battery's own seed and budget.
+    """
+    if "no-limit-config" not in _SHARED:
+        template = clone(variant_entry(rung("R1"), "naive-numeric"))
+        template["samples"] = RUN_BUDGET
+        template["seeds"] = [RUN_SEED]
+        template["snapshot_every"] = max(1, RUN_BUDGET // 10)
+        _SHARED["no-limit-config"] = {
+            "name": "rung-invented-shape-11",
+            "axis": "the game shape, which is never a rung's axis",
+            "carried_from": None,
+            "primary": "naive-numeric",
+            "game": shape_names()[1],
+            "variants": [template],
+            "pool": {
+                "id": "pool-invented-shape-11",
+                "lineage": None,
+                "m": 5,
+                "frozen": True,
+                "members": [],
+            },
+            "seeds": [RUN_SEED],
+            "samples": RUN_BUDGET,
+            "device": "cpu",
+            "snapshot_every": max(1, RUN_BUDGET // 10),
+        }
+    return clone(_SHARED["no-limit-config"])
+
+
+def no_limit_run():
+    """One run of that configuration: the second shape, trained end to end."""
+    if "no-limit" not in _SHARED:
+        _SHARED["no-limit"] = {
+            "record": run(no_limit_configuration(), seeds=[RUN_SEED], budget=RUN_BUDGET)
+        }
+    return _SHARED["no-limit"]["record"]
+
+
+def greedy_block(record, variant, seed):
+    """One variant × seed's `records.md` §15 block (`greedy.md` §2)."""
+    block = record.get("greedy")
+    if not isinstance(block, Mapping):
+        raise AssertionError("the run record carries no `greedy` block: %r" % (sorted(record),))
+    per_variant = block.get(str(variant))
+    if not isinstance(per_variant, Mapping):
+        raise AssertionError("the pass carries no block for %r: %r" % (variant, sorted(block)))
+    seed_block = per_variant.get(seed_key(seed))
+    if not isinstance(seed_block, Mapping):
+        raise AssertionError(
+            "the pass carries no block for %r at seed %r: %r"
+            % (variant, seed, sorted(per_variant))
+        )
+    return seed_block
+
+
+def decisions_of_block(block):
+    """One block's ordered decision records (`records.md` §15)."""
+    decisions = block.get("decisions")
+    if not isinstance(decisions, (list, tuple)):
+        raise AssertionError("a greedy block carries `decisions` as a sequence: %r" % (block,))
+    return list(decisions)
+
+
 def new_hand(seed):
     return mod("engine").new_hand(seed)
 

@@ -719,3 +719,38 @@ and the build is authorised against it, with the overnight run still gated on it
   and the exploration artefact. A PASS authorises the overnight run; nothing else does (D-6, D-28).
 
 This row does not supersede D-29; it is what D-29 authorised.
+
+---
+
+## D-31 — The criterion FAILS; the variety test is in tension with the game's own price
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed and if it shows positive outcomes for fold/raise + call variety
+start overnight training run" — the condition, and D-30's authorisation to build.
+
+**Verdict:** The build is green and the criterion **FAILS**. Per D-30 the overnight run is not spent.
+
+- **The build succeeded on every mechanical gate**: 1,105 cases and 7,093 subtests, e2e 298/298, lint
+  112 checks, map at 50 endpoints, and the fixed-limit path proven **byte-identical** against a
+  pre-build baseline (51 gated fields, 6 sections, two additive exemptions the design mandates).
+- **The criterion fails on four of five seeds** at conjunct 4 (no raise band beyond the minimum reaches
+  10 %), with 6 and 7 alongside: the exploration-off policy concentrates 97.9–98.5 % of its decisions on
+  **raise-minimum**. Seed 1 passes all seven, so the criterion is satisfiable.
+- **The failure is the criterion's, not the learner's.** The collapse is onto the rung the sizing-ladder
+  record measured as *the only positive one*, and this learner's **+2.361 ± 0.448 chips/hand** exceeds
+  every fixed policy measured (+0.68 best) and the probe learner (+0.36). The variety the criterion
+  demands is measurably *worse* play against a folding pool.
+
+**The user's condition is therefore not met in the form it was given** — the learner shows no fold/raise/
+call variety — while the *other* half of the condition, "positive outcomes", is met more strongly than
+anything previously measured. Resolving that contradiction is a user decision, not an L0 one: it decides
+whether the demo shows a varied agent or a winning one. Rejected here: retuning the threshold to pass
+the observed distribution, and reading the chips as a pass — both would be D-28's defect again, after
+five at this locus.
+
+**Also recorded, and needed before any deep run**: the greedy pass is sampled at `min(budget, 1,000)` by
+this build, so the shipped 200,000-hand budget is currently **refused** by the pass's 2,000-hand bound;
+the `tie` flag is not returned by any exploration-off surface, so conjunct 7 records `T = 0` rather than
+verifying it; and a min-raise-versus-min-raise pair can exceed the 24-slot history block, which the
+shipped population never reaches but an uncapped shape can.

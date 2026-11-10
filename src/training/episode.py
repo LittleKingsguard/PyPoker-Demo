@@ -61,17 +61,20 @@ def _reward_token(utility):
     return name, entry["reward"]
 
 
-def _chips_in_play(decision, seed, seat):
+def _chips_in_play(decision, seed, seat, shape=None):
     """`T` from one decision's readout, or the refusal naming the hand and both totals.
 
     `T` is `sum(readout['stacks']) + readout['pot']`: the pot is un-awarded and chips are
     conserved at every decision, so the two seats' stacks and the pot are all the chips
-    the hand holds (`utilities.md` §4, ASM-6).  A hand whose total disagrees with the
-    stacks the game declares is refused by name with the hand's seed and both totals,
-    because a normaliser that is not the game's own would make one reward
+    the hand holds (`utilities.md` §4, ASM-6).  The total the readout must agree with is
+    the **run's own shape's** — `engine.game_config(shape)`'s seats and starting stack, so
+    40 chips in the default shape and 200 on the six-descriptor one — and never the
+    default shape's, which is why a no-limit run conserves 200 and not 40 (`shapes.md`
+    §2, D-29).  A hand whose total disagrees is refused by name with the hand's seed and
+    both totals, because a normaliser that is not the game's own would make one reward
     incommensurable with the next (ASM-28).
     """
-    config = engine.game_config()
+    config = engine.game_config(shape)
     starting_stack = float(config["starting_stack"])
     declared = float(config["seats"]) * starting_stack
     readout = decision["readout"]
@@ -86,22 +89,23 @@ def _chips_in_play(decision, seed, seat):
     return total, starting_stack
 
 
-def _net_chips(decision, seed, seat):
+def _net_chips(decision, seed, seat, shape=None):
     """`r = delta`: the decision's own reward, unshaped (`utilities.md` §2, ASM-12)."""
-    del seed, seat  # the net chip delta needs neither the hand nor the readout
+    del seed, seat, shape  # the net chip delta needs neither the hand nor the readout
     return float(decision["reward"])
 
 
-def _stack_shortfall(decision, seed, seat):
+def _stack_shortfall(decision, seed, seat, shape=None):
     """`r = (U(s_0) − U(s_0 + delta)) / U(s_0)`: the shortfall delta, normalised (§4, D-20).
 
-    `s_before` is the stack the fixed game deals every hand from and `s_after` is that
+    `s_before` is the stack the run's shape deals every hand from and `s_after` is that
     stack plus the decision's own reward, the hand's net chip delta for the seat (D-2,
-    ASM-6).  The normaliser is the shortfall a hand begins with, which is what keeps the
-    objective on the scale the learner was tuned for: a ±2-chip hand scores +0.190 /
-    −0.210 and an all-in +1.000 / −3.000 (`utilities.md` §2, D-20).
+    ASM-6, `shapes.md` §2).  The normaliser is the shortfall a hand begins with, which is
+    what keeps the objective on the scale the learner was tuned for: a ±2-chip hand scores
+    +0.190 / −0.210 and an all-in +1.000 / −3.000 in the default shape, and the same
+    arithmetic on the shape's own chips in play elsewhere (`utilities.md` §2, D-20).
     """
-    total, starting_stack = _chips_in_play(decision, seed, seat)
+    total, starting_stack = _chips_in_play(decision, seed, seat, shape)
     before = _shortfall(total, starting_stack)
     after = _shortfall(total, starting_stack + float(decision["reward"]))
     if before == 0.0:
@@ -179,7 +183,7 @@ def _index(legal, action):
     )
 
 
-def _transitions(episode, seat, encoder, utility=None):
+def _transitions(episode, seat, encoder, utility=None, shape=None):
     """The learner's transitions for one hand, in decision order (records.md §4).
 
     `reward` is the decision's own, re-expressed at the seat's **terminal** decision by the
@@ -191,6 +195,12 @@ def _transitions(episode, seat, encoder, utility=None):
     inferred from the reward, because a split pot pays nothing and a zero-reward terminal
     decision is normal (`docs/L3/training/episode.md` §4).  A hand in which the seat never
     acted yields `[]`: no update, and no empty batch handed to `agents.learn`.
+
+    `shape` is the run's own shape and reaches the arithmetic that reads the game — the
+    chips in play and the starting stack a shortfall is normalised against — so a run on
+    the six-descriptor shape normalises against that shape's 200 chips and never against
+    the default shape's 40 (`shapes.md` §2, `reward.md` §4, D-29).  The transitions
+    themselves hold indices and observations only, and both are the shape's own.
     """
     resolved, arithmetic = _reward_function(utility)
     del resolved  # the member's name is checked, its reward token is what the step reads
@@ -210,7 +220,7 @@ def _transitions(episode, seat, encoder, utility=None):
             # mask is legal, so it carries the decision's own mask (agents/surface.md §7).
             next_observation = observation
             next_legal = legal
-            reward = arithmetic(decision, hand_seed, seat)
+            reward = arithmetic(decision, hand_seed, seat, shape)
         else:
             successor = own[position + 1]
             next_observation = features.encode(encoder, successor["readout"])

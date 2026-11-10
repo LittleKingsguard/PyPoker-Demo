@@ -7,25 +7,36 @@ does four things and nothing else:
   ``agents`` lazily, so a missing surface is one ``SurfaceAbsent`` failure in the
   case that needed it and never a collection error (`battery.md` §2);
 * it holds the battery's *invented instances* — deal seeds, learner seeds, widths,
-  depths, a sparsity, hand counts, masks and invented checkpoint file names — none
-  of which appears in a design document (`docs/L1/battery.md` §4, D-15).  An
-  observation is never fabricated: every one is ``features.encode`` of a readout
-  dealt by ``engine.new_hand``, because the consumed edge has one declared producer
-  of an observation (`docs/L2/features/surface.md` §6) and an invented observation
-  would judge nothing;
+  depths, a sparsity, hand counts, masks, checkpoint file names, and the shape
+  battery's own deals, seeds, widths, depths and container names — none of which
+  appears in a design document (`docs/L1/battery.md` §4, D-15).  An observation is
+  never fabricated: every one is ``features.encode`` of a readout dealt by
+  ``engine.new_hand``, because the consumed edge has one declared producer of an
+  observation (`docs/L2/features/surface.md` §6) and an invented observation would
+  judge nothing.  The one exception is named at `flat_observation` and is used by
+  the `tie` case alone, whose subject is the one input on which the flag is
+  decidable (`docs/L2/agents/shapes.md` §3, `records.md` §6, §15);
 * it holds *tolerant readers* for the shapes the design leaves free: the index out
-  of ``agents.act``'s return (`docs/L1/records.md` §6), a policy's descriptor
-  compared by value, a decision record's fields, a reward and a seat out of an
-  episode record (`records.md` §5), the two statistics of ``agents.learn``
-  (`docs/L2/agents/surface.md` §7) and a finite-number check.  A case asserts the
-  contract through these readers instead of inventing a spelling of its own;
+  of ``agents.act``'s return (`docs/L1/records.md` §6) with the ``tie`` flag beside
+  it (`records.md` §15), a policy's descriptor compared by value, a decision
+  record's fields, a reward and a seat out of an episode record (`records.md` §5),
+  the two statistics of ``agents.learn`` (`docs/L2/agents/surface.md` §7), the
+  shape name and head width a learner carries (`docs/L2/agents/shapes.md` §2), a
+  container's ``metadata.json`` (`docs/L3/agents/checkpoint.md` §2.1) and a
+  finite-number check.  A case asserts the contract through these readers instead
+  of inventing a spelling of its own;
 * it holds the small call vocabulary the cases are written in — one wrapper per
-  entry point the three modules publish, a decision walk, transition records over a
-  played episode, a recording policy, and the two caller-side policies the
-  baselines case needs.
+  entry point the three modules publish, the three calls that take a declared shape
+  as a keyword (`docs/L2/features/shapes.md` §1), a decision walk and a shaped one,
+  transition records over a played episode, a recording policy, the caller-side
+  policies the baselines and shape cases need, a container's metadata read and
+  written, and the one internal the `off` mode stands aside.
 
 Nothing here reaches past an entry point of `e2e-surface.md` §3.3 or of the two
-consumed surfaces (`docs/L2/engine/surface.md`, `docs/L2/features/surface.md`).
+consumed surfaces (`docs/L2/engine/surface.md`, `docs/L2/features/surface.md`).  The
+one internal stood aside is ``agents.rule._draws``, which is the observable the `off`
+mode's "no draw is taken" is stated against (`docs/L2/agents/shapes.md` §4), and it is
+replaced for one block and restored before the block leaves.
 Each case module loads this file under the private name ``agents_join_support``: the
 repository's integration batteries share the file name ``_join_support.py``, and a
 plain import would let one battery's helpers stand in for another's when two test
@@ -35,6 +46,7 @@ directories are collected in one process.
 from __future__ import annotations
 
 import importlib
+import json
 import math
 import numbers
 import os
@@ -42,6 +54,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from collections.abc import Mapping
 
 # --------------------------------------------------------------------------
@@ -130,6 +143,52 @@ CHECKPOINT_GAMMA = "join-invented-gamma.npz"
 CHECKPOINT_MISSING = "join-invented-delta.ckpt"
 
 REFUSAL_MASKS = ((), (0, 1, 1), (0, 3))          # masks a decision cannot produce
+
+# --------------------------------------------------------------------------
+# The game-shape battery's own instances (`docs/L2/agents/shapes.md` §1-§5).
+#
+# The two shapes themselves are **not** invented: `docs/L1/battery.md` §4 exempts
+# D-2's and D-29's declared games, so the names below are the catalogue's own and
+# every case asserts that against `engine.game_shapes()` instead of trusting them.
+# The deals, the learner seeds, the policy seeds, the width, the depth and the
+# container names are the test writer's own (`docs/L1/battery.md` §4, D-15).
+# --------------------------------------------------------------------------
+SHAPE_DEFAULT = "fixed-limit-20"    # the catalogue's first row, read back below
+SHAPE_SECOND = "no-limit-100"       # the second declared row (D-29)
+
+#: A shape name no catalogue carries: this battery's own spelling, invented from the
+#: catalogue's two (`docs/L1/battery.md` §4, D-15, `shapes.md` §1).
+SHAPE_UNDECLARED = "join-invented-shape"
+
+#: `as_policy`'s two declared exploration modes, and one value outside them
+#: (`docs/L2/agents/shapes.md` §4).
+EXPLORATION_MODES = ("schedule", "off")
+EXPLORATION_UNDECLARED = "greedy"
+
+DEAL_SHAPE_A = 63421                # deals the shape cases play, invented
+DEAL_SHAPE_B = 71993
+DEAL_SHAPE_C = 85703
+LEARNER_SEED_SHAPE = 52919          # learner seeds and policy seeds, invented
+LEARNER_SEED_SHAPE_OTHER = 68437
+POLICY_SEED_SHAPE = 37139
+POLICY_SEED_SHAPE_OTHER = 90571
+
+WIDTH_SHAPE = 11                    # a width and a depth, invented (small: 8-24, 1-3)
+DEPTH_SHAPE = 2
+
+CHECKPOINT_SHAPE_ALPHA = "join-invented-shape-alpha.ckpt"   # container names, invented
+CHECKPOINT_SHAPE_BETA = "join-invented-shape-beta.ckpt"
+CHECKPOINT_SHAPE_GAMMA = "join-invented-shape-gamma.ckpt"
+
+#: The tree's shipped containers, which a case reads and never writes
+#: (`docs/L2/agents/shapes.md` §5, ASM-5, ASM-40).
+SHIPPED_ROOT = os.path.join(ROOT, "checkpoints")
+
+#: The container's members and the version its default-shape writer writes
+#: (`docs/L3/agents/checkpoint.md` §2-§3).
+METADATA_MEMBER = "metadata.json"
+DEFAULT_FORMAT_VERSION = 3
+GAME_FORMAT_VERSION = 4
 
 
 # --------------------------------------------------------------------------
@@ -236,6 +295,68 @@ def equity(decision, seed, sample_count):
 
 
 # --------------------------------------------------------------------------
+# The same vocabulary, over the declared shapes: the three `features` calls that
+# take a shape as a **keyword-only** optional and the three `engine` calls that
+# take one (`docs/L2/features/shapes.md` §1, `docs/L2/engine/surface.md` §3-§4, §10).
+# --------------------------------------------------------------------------
+def game_shapes():
+    """`engine.game_shapes()`, the declared catalogue, default first (§12)."""
+    return mod("engine").game_shapes()
+
+
+def shape_names():
+    """Every declared shape name, in the catalogue's own order, the default first."""
+    return tuple(game_shapes())
+
+
+def shape_row(shape=None):
+    """One row of `engine.game_shapes()`, the default row when no name is given."""
+    catalogue = game_shapes()
+    name = shape_names()[0] if shape is None else shape
+    if name not in catalogue:
+        raise AssertionError(
+            "engine.game_shapes() carries no row for %r; it declares %r"
+            % (name, tuple(catalogue))
+        )
+    return catalogue[name]
+
+
+def shaped_hand(seed, shape=None):
+    """One real hand of one declared shape, through the engine's seeding point (§4)."""
+    return mod("engine").new_hand(seed, shape=shape)
+
+
+def shaped_play_hand(seed, seat0_policy, seat1_policy, shape=None):
+    """One whole hand of one declared shape driven by two policies (§10)."""
+    return mod("engine").play_hand(seed, seat0_policy, seat1_policy, shape=shape)
+
+
+def shaped_encoder(name, shape=None):
+    """One encoder, by encoding name, on one declared shape (features surface §4)."""
+    return mod("features").build_encoder(name, shape=shape)
+
+
+def shaped_action_space(shape=None):
+    """One shape's vocabulary, in that shape's declared index order (§7)."""
+    return mod("features").action_space(shape=shape)
+
+
+def shaped_decode_action(index, shape=None):
+    """One index decoded in one declared shape's vocabulary (§9)."""
+    return mod("features").decode_action(index, shape=shape)
+
+
+def as_policy_mode(learner, encoder, seed, exploration="schedule"):
+    """One learner as a policy under one exploration mode (`docs/L2/agents/shapes.md` §4).
+
+    The fourth argument is the mode the policy is built with: `schedule` is the keyed
+    draw of `rule.md` §4 and `off` the masked maximum and the tie-break alone, where no
+    generator is drawn from at all (`sizing.md` §4).
+    """
+    return mod("agents").as_policy(learner, encoder, seed, exploration=exploration)
+
+
+# --------------------------------------------------------------------------
 # The catalogue-derived pairing: each architecture kind's encoding is the one
 # features declares for the representation family the kind consumes
 # (docs/L2/agents/surface.md §3, docs/L2/features/surface.md §3).
@@ -282,12 +403,84 @@ def learner(kind="naive-stack", width=WIDTH_TWO, depth=DEPTH_TWO, seed=LEARNER_S
     )
 
 
+def shaped_learner_spec(kind, width, depth, seed, game, backend="numpy",
+                        encoding=None, **settings):
+    """One learner spec naming the declared shape it decides in (`shapes.md` §1, §4).
+
+    `game` is the spec's optional key (`docs/L2/agents/surface.md` §4): the shape whose
+    head the learner is built on, and whose own encoder is supplied here so the
+    representation's provenance is the shape the learner decides in (`sizing.md` §6).
+    """
+    architecture = {"kind": kind, "width": width, "depth": depth}
+    architecture.update(settings)
+    return {
+        "backend": backend,
+        "architecture": architecture,
+        "seed": seed,
+        "encoder": shaped_encoder(encoding or encoding_for(kind), game),
+        "game": game,
+    }
+
+
+def shaped_learner(kind="naive-stack", width=WIDTH_SHAPE, depth=DEPTH_SHAPE,
+                   seed=LEARNER_SEED_SHAPE, game=SHAPE_SECOND, backend="numpy",
+                   encoding=None, **settings):
+    """A built learner on one declared shape, through `agents.build_learner`."""
+    return build_learner(
+        shaped_learner_spec(kind, width, depth, seed, game, backend, encoding,
+                            **settings)
+    )
+
+
+def declared_param_count(kind, width, depth, sparsity, actions):
+    """`architecture.md` §5's sum arithmetic, from the kind's row and a shape's `A`.
+
+    The input block first (`I·W + W` for the dense family, `V·W` for a token one, `I`
+    and `V` being the kind's declared `observation_size`), then `D·(W² + W)` —
+    `D·(k + W)` for `sparse`, `k = round((1 − s)·W²)` — then the head's `A·W + A`
+    (`docs/L2/agents/shapes.md` §2, `docs/L3/agents/shapes.md` §2, `sizing.md` §6,
+    ASM-40).  Nothing here is a copied count: the caller states the width, the depth,
+    the sparsity and the shape's `A`, so the head's width is a parameter and never a
+    literal of this battery's.
+    """
+    row = learners()["architectures"][kind]
+    size = int(row["observation_size"])
+    dense = row["observation"] == "dense-numeric"
+    layer_width = int(width)
+    input_term = size * layer_width + (layer_width if dense else 0)
+    if kind == "sparse":
+        kept = round((1.0 - float(sparsity)) * layer_width * layer_width)
+        trunk_term = int(depth) * (kept + layer_width)
+    else:
+        trunk_term = int(depth) * (layer_width * layer_width + layer_width)
+    return input_term + trunk_term + int(actions) * layer_width + int(actions)
+
+
+def head_width(shape=None):
+    """`A`, one shape's descriptor count, **read** off `features.action_space` (§1).
+
+    This is the granted call the module's own `actions_for` makes and the only statement
+    of the head's width: three on the default shape and six on the other, never a
+    literal of a table's, a backend's or this battery's (`docs/L3/agents/shapes.md` §1,
+    `sizing.md` §6, ASM-40).
+    """
+    return len(shaped_action_space(shape))
+
+
 def exploration_samples():
     """The sample count the exploration schedule anneals over (`surface.md` §3)."""
     schedule = _lookup(learners()["hyper"], ("exploration", "schedule", "epsilon"),
                        "learners()['hyper']'s exploration schedule")
     return int(_lookup(schedule, ("samples", "anneal", "decisions"),
                        "the exploration schedule's sample count"))
+
+
+def exploration_start():
+    """The rate the exploration schedule starts at, which a fresh learner is at (`§3`)."""
+    schedule = _lookup(learners()["hyper"], ("exploration", "schedule", "epsilon"),
+                       "learners()['hyper']'s exploration schedule")
+    return float(_lookup(schedule, ("start", "begin", "initial"),
+                         "the exploration schedule's starting rate"))
 
 
 def oracle_samples():
@@ -450,6 +643,254 @@ def finite(value):
     )
 
 
+def decision_record(result):
+    """`agents.act`'s record as a mapping, refusing a bare index (`shapes.md` §3).
+
+    `act` returns the decision record — the chosen index under `action` and the `tie`
+    flag beside it — and not a bare index (`docs/L2/agents/surface.md` §6, `records.md`
+    §6, §15), so a case that reads the flag requires the mapping.
+    """
+    if not isinstance(result, Mapping):
+        raise AssertionError(
+            "agents.act must return the decision record carrying `action` and `tie`, "
+            "got %r" % (result,)
+        )
+    return result
+
+
+def decision_tie(record):
+    """The `tie` flag out of `agents.act`'s record, required to be a plain `bool` (§15).
+
+    True exactly when the **greedy arm** decided the index and at least two masked
+    values sat within the tolerance of the masked maximum — so the tie-break and not a
+    strict maximum chose it — false on a one-element mask and false wherever the
+    exploring arm drew the index (`docs/L2/agents/shapes.md` §3, `records.md` §6, §15,
+    `docs/L3/agents/shapes.md` §3).
+    """
+    for key, value in decision_record(record).items():
+        if "tie" in str(key).lower():
+            if not isinstance(value, bool):
+                raise AssertionError(
+                    "act's `tie` must be a plain bool, got %r" % (value,)
+                )
+            return value
+    raise AssertionError(
+        "act's record carries no `tie` flag, so the tie-break is not observable "
+        "(records.md §6, §15): %r" % (record,)
+    )
+
+
+def plain_action(record):
+    """The `action` out of `agents.act`'s record, required to be a plain `int` (§6)."""
+    for key, value in decision_record(record).items():
+        if any(part in str(key).lower() for part in ("action", "index", "choice")):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise AssertionError(
+                    "act's `action` must be a plain int, got %r" % (value,)
+                )
+            return int(value)
+    raise AssertionError("act's record carries no `action`: %r" % (record,))
+
+
+def learner_game(learner):
+    """The declared shape a learner decides in (`docs/L2/agents/shapes.md` §2).
+
+    "The learner carries the resolved `A` and its shape's name"; `act`, `learn`,
+    `as_policy` and `save` read it and no arithmetic branches on it (`shapes.md` §2,
+    `docs/L3/agents/shapes.md` §2, ASM-40).
+    """
+    game = getattr(learner, "game", None)
+    if not isinstance(game, str):
+        raise AssertionError(
+            "a learner carries the declared shape it decides in, under `game` "
+            "(shapes.md §2); got %r" % (game,)
+        )
+    return game
+
+
+def learner_actions(learner):
+    """`A`, the head width a learner was built with (`docs/L2/agents/shapes.md` §2)."""
+    value = getattr(learner, "actions", None)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise AssertionError(
+            "a learner carries the resolved `A` under `actions` (shapes.md §2); got %r"
+            % (value,)
+        )
+    return int(value)
+
+
+def flat_observation(encoder):
+    """A zero observation of the encoder's declared shape and dtype (`architecture.md` §6).
+
+    **This is the one observation in this battery that is not `features.encode` of a
+    readout `engine` dealt**, and it is named here rather than hidden.  `act`'s masked
+    values are not observable through any entry point (`docs/L2/agents/surface.md` §6,
+    `docs/L3/agents/rule.md` §8), so the one input on which the `tie` flag is decidable
+    from the record alone — a **flat** value vector, where the tie-break and not a
+    strict maximum must have chosen and a one-element mask must report false — is
+    reached by an observation whose every slot is zero, which no readout of either
+    declared shape encodes to (`docs/L2/agents/shapes.md` §3, `records.md` §6, §15).
+    The join's real hands are driven through `shaped_walk`, never through this.
+    """
+    import numpy
+
+    spec = observation_spec(encoder)
+    shape = tuple(spec["shape"])
+    return numpy.zeros(shape, dtype=spec["dtype"])
+
+
+def still_batch(observation, mask, length):
+    """`length` transitions that leave every parameter as it was and advance the position.
+
+    Over a zero observation at an unlearned head every value and every target is `0.0`,
+    so the TD error is `0.0` and `rule.md` §3's step adds nothing while §4's position
+    still advances by the batch's length.  That is the only way to hold a learner at the
+    annealed rate without moving the values the tie-break reads, which is what the `tie`
+    case needs (`docs/L2/agents/shapes.md` §3-§4, `docs/L2/agents/surface.md` §7).
+    """
+    members = [int(index) for index in mask]
+    return [
+        {
+            "observation": observation,
+            "next_observation": observation,
+            "action": members[0],
+            "reward": 0.0,
+            "terminal": False,
+            "legal": list(members),
+            "next_legal": list(members),
+        }
+        for _ in range(int(length))
+    ]
+
+
+# --------------------------------------------------------------------------
+# The container, read and rewritten at the join (`docs/L3/agents/checkpoint.md` §2-§3).
+# --------------------------------------------------------------------------
+def container_metadata(path):
+    """The `metadata.json` object of the container at `path`, read and never written.
+
+    A checkpoint is a zip of exactly two members, the metadata object and the parameter
+    array (`docs/L3/agents/checkpoint.md` §2), so a case reads the first of them to
+    check the version and the `game` a writer wrote — which no entry point reports
+    (`docs/L2/agents/shapes.md` §5, §6).
+    """
+    try:
+        with zipfile.ZipFile(path) as container:
+            if METADATA_MEMBER not in container.namelist():
+                raise AssertionError(
+                    "the container at %r carries no %r member: %r"
+                    % (path, METADATA_MEMBER, container.namelist())
+                )
+            data = container.read(METADATA_MEMBER)
+    except zipfile.BadZipFile as error:
+        raise AssertionError(
+            "the container at %r is not a zip: %s" % (path, error)
+        ) from None
+    try:
+        record = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as error:
+        raise AssertionError(
+            "the container at %r carries a %r that is not one JSON object: %s"
+            % (path, METADATA_MEMBER, error)
+        ) from None
+    if not isinstance(record, Mapping):
+        raise AssertionError(
+            "the container at %r carries a %r that is not one object: %r"
+            % (path, METADATA_MEMBER, record)
+        )
+    return record
+
+
+def rewrite_container(source, destination, **changes):
+    """Copy the container at `source` to `destination`, editing its metadata object.
+
+    The refusals of `docs/L3/agents/checkpoint.md` §3 are stated over containers no
+    writer of this module writes — a version-4 one naming the default shape among them —
+    so the surgery is done on a copy in the case's scratch root and never on a path
+    `save` wrote or on a shipped file (`docs/L2/agents/shapes.md` §5, `battery.md` §5).
+    """
+    with zipfile.ZipFile(source) as container:
+        members = [(name, container.read(name)) for name in container.namelist()]
+    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_STORED) as written:
+        for name, data in members:
+            if name == METADATA_MEMBER:
+                record = dict(container_metadata(source))
+                record.update(changes)
+                data = json.dumps(record).encode("utf-8")
+            written.writestr(name, data)
+    return destination
+
+
+def shipped_containers(version=None):
+    """Every container the tree ships under `<repo>/checkpoints`, in path order.
+
+    Read-only: a case that loads one leaves it as it found it (`docs/L2/agents/shapes.md`
+    §5, ASM-5, ASM-40).  `version` keeps only the containers whose own
+    `format_version` is that one, so a case names the shipped version-1 set without
+    spelling a path (`docs/L3/agents/checkpoint.md` §3).
+    """
+    found = []
+    if not os.path.isdir(SHIPPED_ROOT):
+        return found
+    for base, _directories, files in os.walk(SHIPPED_ROOT):
+        for name in files:
+            if not name.endswith(".ckpt"):
+                continue
+            path = os.path.join(base, name)
+            try:
+                record = container_metadata(path)
+            except AssertionError:
+                continue
+            if version is None or record.get("format_version") == version:
+                found.append(path)
+    return sorted(found)
+
+
+def container_stamp(path):
+    """A container's `(size, mtime_ns)`, so a case can show it was not rewritten."""
+    status = os.stat(path)
+    return (int(status.st_size), int(status.st_mtime_ns))
+
+
+def rule_module():
+    """`agents.rule`, the module `rule.md` §4-§5 puts the keyed draw in (`shapes.md` §4)."""
+    return mod("agents.rule")
+
+
+class draws_stood_aside:
+    """`agents.rule._draws` replaced for one block and restored before the block leaves.
+
+    The `off` mode's claim is that the draw is **not constructed at all**
+    (`docs/L3/agents/shapes.md` §4, `sizing.md` §4), and the observable is the one
+    internal `rule.md` §8 declares: under a stub that raises, a `schedule` policy
+    refuses to decide and an `off` policy decides.  `__exit__` restores what was held,
+    so a failing case leaves the module as it found it (`battery.md` §5).
+    """
+
+    def __init__(self):
+        self._module = None
+        self._held = None
+
+    def __enter__(self):
+        self._module = rule_module()
+        self._held = self._module._draws
+
+        def refuse(*arguments, **keywords):
+            raise AssertionError(
+                "rule._draws was called: an `off` policy constructs no generator and "
+                "takes no draw (docs/L3/agents/shapes.md §4, sizing.md §4)"
+            )
+
+        self._module._draws = refuse
+        return self
+
+    def __exit__(self, kind, value, traceback):
+        self._module._draws = self._held
+        self._module = None
+        self._held = None
+        return False
+
+
 # --------------------------------------------------------------------------
 # Caller-side policies and the recording policy (`e2e-surface.md` §2).
 # --------------------------------------------------------------------------
@@ -465,6 +906,22 @@ def raiser(readout_facts, legal):
     indices = list(legal_indices(legal))
     index = 2 if 2 in indices else (1 if 1 in indices else indices[0])
     return decode_action(index)
+
+
+def caller_in(shape):
+    """Check/call when legal, else the smallest legal index, decoded in `shape`.
+
+    The whole of a caller-side policy on a declared shape: it picks an index the mask
+    holds and decodes it in **that shape's** vocabulary, which is what
+    `features.decode_action(index, shape=...)` is for (`docs/L2/features/shapes.md`
+    §3-§4, §9).  Its indices are the mask's own, never a descriptor of this battery's.
+    """
+    def policy(readout_facts, legal):
+        indices = list(legal_indices(legal))
+        index = 1 if 1 in indices else indices[0]
+        return shaped_decode_action(index, shape)
+
+    return policy
 
 
 def recording(policy):
@@ -504,6 +961,28 @@ def walk(seed, policy, limit=200):
     policy being one of `e2e-surface.md` §2's.
     """
     hand = new_hand(seed)
+    steps = 0
+    out = []
+    while not is_terminal(hand) and steps < limit:
+        facts = readout(hand)
+        legal = legal_actions(hand)
+        chosen = policy(facts, legal)
+        out.append((hand, facts, legal, chosen, descriptor_index(legal, chosen)))
+        hand = apply_action(hand, chosen)
+        steps += 1
+    return out
+
+
+def shaped_walk(seed, shape, policy, limit=200):
+    """Drive one real hand of one declared shape to its end, decision by decision.
+
+    The shaped twin of `walk`: the hand is dealt through `engine.new_hand(seed,
+    shape=...)` — the project's single seeding point on either shape
+    (`docs/L2/engine/surface.md` §4) — and the decisions come back as
+    ``[(hand, readout, legal, descriptor, index)]``, the descriptor being the engine's
+    own and the index its position in that shape's vocabulary (`sizing.md` §3).
+    """
+    hand = shaped_hand(seed, shape)
     steps = 0
     out = []
     while not is_terminal(hand) and steps < limit:

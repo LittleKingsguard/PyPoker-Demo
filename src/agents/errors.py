@@ -1,9 +1,10 @@
 """The refusal hierarchy of `agents` (`docs/L3/agents/errors.md` §2).
 
-One base and nineteen subclasses, one per refusal family of
-`docs/L2/agents/surface.md` §4-§12: a caller catches `AgentsError` when it wants to
-know that *this* module refused it, and never has to catch a `KeyError` from a
-mistyped record key, a `numpy` `ValueError` or a `torch` error that escaped.
+One base and twenty-one subclasses, one per refusal family of
+`docs/L2/agents/surface.md` §4-§12 and `docs/L2/agents/shapes.md` §6: a caller catches
+`AgentsError` when it wants to know that *this* module refused it, and never has to
+catch a `KeyError` from a mistyped record key, a `numpy` `ValueError` or a `torch` error
+that escaped.
 
 The classes are below the entry points and are not surface (`README.md` §3): a
 battery asserts the *behaviour* — that the call raises, and what the message says —
@@ -41,6 +42,14 @@ class UnknownUtility(AgentsError):
     """`build_learner`, `load`: a utility `learners()['utilities']` does not declare."""
 
 
+class UnknownShape(AgentsError):
+    """`build_learner`, `load`: a game shape the module's catalogue does not declare."""
+
+
+class UnknownExploration(AgentsError):
+    """`as_policy`: an exploration mode outside `{"schedule", "off"}`."""
+
+
 class InvalidSetting(AgentsError):
     """`build_learner`: width or depth not a positive integer, sparsity outside `[0, 1]`."""
 
@@ -62,7 +71,8 @@ class InvalidObservation(AgentsError):
 
 
 class InvalidMask(AgentsError):
-    """`act`, `learn`: a mask that is empty, repeats an index, or leaves `{0, 1, 2}`."""
+    """`act`, `learn`: a mask that is empty, repeats an index, or names one outside
+    the learner's own `0 .. A−1`, `A` the shape's descriptor count (`shapes.md` §3)."""
 
 
 class InvalidBatch(AgentsError):

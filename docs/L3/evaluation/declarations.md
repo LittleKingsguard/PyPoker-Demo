@@ -3,17 +3,12 @@
 - **Owner:** `protocol()` and `league()` — the two `fixed` rows of `surface.md` §3–§4, key by key and in order,
   and the seven evidence families a report is judged against
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
+- **Rev 6:** D-29's second shape — the nine `HEADER_ITEMS` stay nine while `report` writes a tenth key `shape` onto its own copy, and neither declaration takes a shape argument (`shape.md` §2, §4, `report.md` §1–§2)
 - **Read with:** `README.md` §3–§4, `report.md` §1–§3, `tables.md` §1, `errors.md` §2
 
 ## 1. What these two are
 
-Both are `fixed` rows: neither takes an argument, so neither has an instance that varies (`surface.md` §1,
-`e2e-surface.md` §5). Each is rebuilt on every call and equal on two calls, and each is plain data — except
-`league()`'s `cell_count`, which is a callable (`surface.md` §1, §4). Neither plays a hand, reads a file or
-draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-21). The two records are the
-module's own declaration of itself, so every other document quotes them instead of restating a number: `M` is
-`league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the family names are
-`protocol()["families"]`'s keys, and the refusal word for an absent family is that family's `refusal` value.
+Both are `fixed` rows: neither takes an argument, so neither has an instance that varies and **no shape can vary either** (`surface.md` §1, §3–§4, `e2e-surface.md` §5). Each is rebuilt on every call and equal on two calls, and each is plain data — except `league()`'s `cell_count`, which is a callable (`surface.md` §1, §4). Neither plays a hand, reads a file or draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-21). The two records are the module's own declaration of itself, so every other document quotes them instead of restating a number: `M` is `league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the family names are `protocol()["families"]`'s keys, the declared shapes are `SHAPE_NAMES`'s (`shape.md` §1), and the refusal word for an absent family is that family's `refusal` value.
 
 ## 2. `protocol()` — the evidence contract
 
@@ -48,6 +43,11 @@ re-run a table (`protocol.md` §1, `records.md` §12):
 key's `token` equals the item's, or contains it, or is contained by it — so `checkpoint paths` satisfies `checkpoints`,
 their tokens being `checkpointpaths` and `checkpoints`. No other leniency exists.
 
+**These nine are what a record states, and there is no tenth.** The shape — which `report` resolves from the run, the pool
+family and the matrix it judges — is written by the report as the key **`shape`** onto its **own copy** of this family
+(`report.md` §1–§2, §3 item 6, `shape.md` §4). So `HEADER_ITEMS` stays nine, `protocol()["header"]` names nine, a record
+that carries no shape item is never refused, and a report never demands one of it.
+
 ### 2.2 The rating row
 
 `protocol()["rating"]` and `league()["rating"]` are one value, equal on both sides:
@@ -74,7 +74,7 @@ same word `protocol.md` §1 spells, `axis row`'s space included (D-6, `records.m
 | `rating` | `("values", "method", "anchor", "bound_applied", "bootstrap_seed", "converged")` | `rating` | `records.md` §11's rating record (`rating.md` §5) |
 | `baselines` | `("rows",)` | `baselines` | every baseline row of the catalogue the configuration declares inside that matrix — always the three anchor baselines, and the three folders of D-21 when it names them — each at the table's one hand count (`protocol.md` §3, ASM-32, D-21) |
 | `axis row` | `("value",)` | `axis row` | R4–R6: the rung's own pair's cell beside its matched budgets; R1–R3: the explicit value `n/a, single variant` (`protocol.md` §1) |
-| `header` | the nine names of §2.1 | `header` | the header record itself (D-6) |
+| `header` | the nine names of §2.1 — and **not** a tenth: the shape is the report's own key, never a required item (§2.1) | `header` | the header record itself (D-6) |
 
 A family's `required` tuple names the **content items** that family's value is about, and it is what the report (and
 the unit battery) promises to carry; it is *not* a list of keys inside a value. That is why `baselines` is
@@ -111,14 +111,7 @@ One mapping, read under exactly these seven keys, in this order (`surface.md` §
     hands_played     {4: 720, 9: 4320, 10: 5400} live, {4: 9000, 9: 54000, 10: 67500} full
     produced_by      live: "the talk, on the fly"; full: "an offline job shipped under tables/" (D-8, D-16)
 
-`hands_played` is keyed by K, the membership's size, and each value is `cell_count(K) × hands_per_cell`'s
-product — the arithmetic `tables.md` §1 tabulates. The K = 4 row is the baselines-plus-one-variant table a first
-rung plays (`league.md` §2); K = 9 and K = 10 are a full window with one and with two variants (ASM-14). A configuration
-that declares D-21's three folders plays K = 12 or 13 and 66 or 78 cells, `docs/L1/folders.md` §5's arithmetic and not a row
-declared here (ASM-33, D-21). No row carries a per-hand cost figure: ASM-21 ratifies the measured 0.105–0.153 s/hand —
-wide because the oracle decides it, 0.255–0.315 s/hand in an oracle-bearing cell against 0.002–0.004 without, in half a table's
-hands — and supersedes ASM-15's 40 ms bound, so a "ceiling" here would have no ratified source, and a measured cost is
-recorded only in a run record's `timings` and in the shipped artefact's cost block (`records.md` §12, ASM-21, `docs/L1/league.md` §7).
+`hands_played` is keyed by K, the membership's size, and each value is `cell_count(K) × hands_per_cell`'s product — the arithmetic `tables.md` §1 tabulates. The K = 4 row is the baselines-plus-one-variant table a first rung plays (`league.md` §2); K = 9 and K = 10 are a full window with one and with two variants (ASM-14). A configuration that declares D-21's three folders plays K = 12 or 13 and 66 or 78 cells, `docs/L1/folders.md` §5's arithmetic and not a row declared here (ASM-33, D-21). No row carries a per-hand cost figure: ASM-21 ratifies the measured 0.105–0.153 s/hand — wide because the oracle decides it, 0.255–0.315 s/hand in an oracle-bearing cell against 0.002–0.004 without — and supersedes ASM-15's 40 ms bound, so a "ceiling" here would have no ratified source, and a measured cost is recorded only in a run record's `timings` and in the shipped artefact's cost block (`records.md` §12, ASM-21, `docs/L1/league.md` §7). **Nor does any row carry a shape**: one pool's membership is one shape's, so the two budgets are the same game read at two cell sizes (`shape.md` §4).
 
 ## 5. `cell_count` — the one callable
 

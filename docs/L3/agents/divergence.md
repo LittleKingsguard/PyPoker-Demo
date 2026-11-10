@@ -9,10 +9,10 @@
 
 ## 1. The class, and the measurement it answers
 
-`errors.py` gains a nineteenth subclass, one of the family `errors.md` §2 lists and never a surface name:
+`errors.py` gains a twenty-first subclass, one of the family `errors.md` §2 lists and never a surface name:
 `class LearningDiverged(AgentsError)` — the name says what happened, so a caller catching `AgentsError` knows what it
-holds. `strata/records/lr-probe.md`: at `learning_rate` 0.1 the value function went non-finite on 2 of 3 seeds and at
-0.03 on 1 of 3, so the tie-break's `min()` met an empty generator and the run died with a `ValueError`.
+holds. The ladder's own probe of the declared `learning_rate` (ASM-7, D-19): at 0.1 the value function went non-finite on
+2 of 3 seeds and at 0.03 on 1 of 3, so the tie-break's `min()` met an empty generator and the run died.
 
 - **Refused by name, never clipped.** A clip, a skip, a reset or a finite substitute would change the declared learning
   rule (ASM-7, D-19) and hand the caller an answer its arithmetic did not produce (`surface.md` §1).
@@ -32,18 +32,19 @@ the refresh and §3's last line, `position`, all unchanged. Both name *k* and ne
 GUARD 1 reads `delta`; GUARD 2 reads `backend.parameters(state)`, the whole `2·P` array — online values and target
 copy together — which both backends already give (`backends.md` §2).
 
-**The decision, defensively — `rule.py`'s `decide` and `_tie_break`.** `decide` checks the masked values **first**,
-before `_draws` and so before either arm, because an exploring draw must never mask a non-finite value; `_tie_break`
-checks its own because `learn` calls it directly for `double-q-learning`'s bootstrap index (`rule.md` §2, §5). One
-raise serves `act`, every policy `as_policy` builds and that bootstrap, so the message names the site that raised and
-not `act` (`surface.md` §6, §10), and only **masked** indices are inspected (D-2).
+**The decision, defensively — `rule.py`'s `decide`, `decide_greedy` and `_tie_break`.** `decide` checks the masked values
+**first**, before `_draws` and so before either arm, because an exploring draw must never mask a non-finite value;
+`decide_greedy` checks its own because an `off` policy reaches it without `decide` (`shapes.md` §4); and `_tie_break`
+checks its own because `learn` calls it directly for `double-q-learning`'s bootstrap index (`rule.md` §2, §5). One raise
+serves `act`, every policy `as_policy` builds and that bootstrap, so the message names the site that raised and not `act`
+(`surface.md` §6, §10), and only **masked** indices are inspected (D-2).
 
 ## 3. The four messages
 
 `errors.md` §3's last two rows carry them verbatim, in that section's grammar — the site, the argument, the violated
 contract, the offending value. GUARD 1 and GUARD 2 name `learn`, transition *k*, and the `td_error` or the first
-non-finite parameter index; `decide` and `_tie_break` name the raising site, the smallest non-finite masked index and
-the value. Each index is `%d` and each value `%r` of the `float`, so `nan`, `inf` and `-inf` print as Python floats.
+non-finite parameter index; the three decision sites name themselves, the smallest non-finite masked index and the value.
+Each index is `%d` and each value `%r` of the `float`, so `nan`, `inf` and `-inf` print as Python floats.
 
 ## 4. What it never does, and what the learner is left as
 

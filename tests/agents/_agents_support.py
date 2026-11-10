@@ -4,8 +4,14 @@ Puts `<repo>/src` on `sys.path`, imports the `agents` package **lazily inside a
 helper** (so an absent `src/agents/` is one red case per contract and never a
 collection error), and holds the battery's invented instances, its tolerant
 readers, the container surgery a case needs to build a file this module did not
-write (`container_document`, `write_container`, `version_container`) and the base
-`unittest.TestCase` every case derives from.
+write (`container_document`, `write_container`, `version_container`,
+`game_container`) and the base `unittest.TestCase` every case derives from.
+
+It also carries the two declared game shapes' names and the six-index vocabulary
+of the second one, the decisions a case reads on that shape (`shape_decisions`)
+and the submodule reader a monkey-patch of one declared internal needs
+(`declared_module`), so a shape case reaches the same readers every other case
+does (`docs/L2/agents/shapes.md` §1, §3, `docs/L3/agents/shapes.md` §1-§4).
 
 Everything asserted here is stated in `docs/L3/agents/` and `docs/L2/agents/`;
 the two consumed edges are read through `docs/L2/features/surface.md` §5, §8, §9
@@ -87,6 +93,29 @@ TIE_SEEDS = tuple(range(6413, 6428))
 #: The decision vocabulary, and the seven non-empty masks over it.
 ALL_MASK = (0, 1, 2)
 NONEMPTY_MASKS = ((0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2))
+
+#: The two declared game shapes' names, default first (`shapes.md` §1, D-29): the names
+#: are the catalogue's restatement in `declarations.SHAPE_NAMES`, and the default is
+#: first, so the fixed game is the shape a spec naming none is built on.
+DEFAULT_SHAPE = "fixed-limit-20"
+OTHER_SHAPE = "no-limit-100"
+
+#: The second shape's whole index space and a spread of masks over it (`shapes.md` §3,
+#: `sizing.md` §3, ASM-37): one-, two-, three- and six-member masks, some carrying the
+#: three indices the default shape has no name for (3, 4 and 5) and some the two shapes
+#: share.  The indices are the declared vocabulary's, never invented ones.
+SIX_MASK = (0, 1, 2, 3, 4, 5)
+SIX_MASKS = (
+    (0,),
+    (3,),
+    (5,),
+    (3, 4),
+    (4, 5),
+    (0, 3),
+    (3, 4, 5),
+    (0, 1, 3, 4, 5),
+    SIX_MASK,
+)
 
 
 class SurfaceAbsent(AssertionError):
@@ -193,6 +222,41 @@ def decisions(count=14):
     return [dict(row) for row in _DECISIONS[:count]]
 
 
+_SHAPE_DECISIONS = {}
+
+
+def shape_decisions(shape, count=14):
+    """`count` real decisions **on one declared game shape**, in `decisions`' record form.
+
+    The hand is dealt on that shape (`engine.new_hand(seed, shape=shape)`), so the readout
+    is that shape's and the mask is its own `legal_indices` sequence — three indices on the
+    default shape and six on the other, in that shape's declared order (`shapes.md` §3,
+    `sizing.md` §3, `features/surface.md` §6, §8; `engine/surface.md` §4).  Both encodings
+    are the ones the ladder declares, since the shape moves the amount normalisers and the
+    index order and never an encoding's slot count (`docs/L2/agents/shapes.md` §7).
+    """
+    if shape not in _SHAPE_DECISIONS:
+        feats = features()
+        eng = engine()
+        flat = feats.build_encoder("flat-numeric")
+        tokens = feats.build_encoder("card-tokens")
+        rows = []
+        for hand_seed in range(9300, 9300 + 24):
+            hand = eng.new_hand(hand_seed, shape=shape)
+            readout = eng.readout(hand)
+            rows.append(
+                {
+                    "readout": readout,
+                    "legal": readout["legal"],
+                    "mask": tuple(feats.legal_indices(readout["legal"])),
+                    "dense": feats.encode(flat, readout),
+                    "tokens": feats.encode(tokens, readout),
+                }
+            )
+        _SHAPE_DECISIONS[shape] = rows
+    return [dict(row) for row in _SHAPE_DECISIONS[shape][:count]]
+
+
 def dense_observation(offset=0.0, width=203):
     """An invented dense observation of the declared `(width,)` float32 shape."""
     import numpy as np
@@ -219,14 +283,22 @@ def learner_spec(
     encoder=None,
     extra=None,
     architecture=None,
+    game=None,
 ):
-    """One invented learner spec (`records.md` §3, `surface.md` §4)."""
+    """One invented learner spec (`records.md` §3, `surface.md` §4).
+
+    `game` is the spec's optional shape key and is written only when the caller names
+    one, because absence **is** the default shape and is not a defaulting of a name
+    (`surface.md` §4, `shapes.md` §1, D-29).
+    """
     spec = {"backend": backend}
     if architecture is None:
         spec["architecture"] = {"kind": kind, "width": width, "depth": depth}
     else:
         spec["architecture"] = architecture
     spec["seed"] = seed
+    if game is not None:
+        spec["game"] = game
     if sizes is not None:
         spec["sizes"] = sizes
     if encoder is not None:
@@ -390,6 +462,27 @@ def taught_batch(kind, reward, pool=20, seed=TEACH_SEED):
     ]
 
 
+def declared_module(module_name):
+    """One `agents` submodule, or `SurfaceAbsent`.
+
+    `declared_internal` reads one declared name out of a submodule; this hands the
+    submodule itself back, which is what a case needs when it has to stand one of the
+    internals `rule.md` §8 declares **aside** for the length of one call — the `off`
+    mode's claim that no generator is reached is only observable by replacing the draw
+    with one that raises (`shapes.md` §4, `sizing.md` §4, D-13).
+    """
+    agents()
+    try:
+        return importlib.import_module("agents." + module_name)
+    except SurfaceAbsent:
+        raise
+    except Exception as exc:
+        raise SurfaceAbsent(
+            "src/agents/%s.py is not importable, so agents.%s (rule.md §8) cannot be "
+            "driven (%s: %s)" % (module_name, module_name, type(exc).__name__, exc)
+        )
+
+
 def declared_internal(module_name, attribute):
     """One internal `rule.md` §8 declares, or `SurfaceAbsent`.
 
@@ -513,6 +606,26 @@ def version_container(source, target, version, drop=()):
     """
     metadata, parameters = container_document(source)
     metadata["format_version"] = int(version)
+    for field in drop:
+        metadata.pop(field, None)
+    return write_container(target, metadata, parameters)
+
+
+def game_container(source, target, version, game=None, drop=()):
+    """Copy one container to `target` in another format version's form, with a `game` field.
+
+    `version_container` rewrites the version and drops fields; this one can also **write**
+    one, which is how a case builds the version-4 container this module's writer would not
+    have produced for that shape — one naming the default shape, or one of an older version
+    carrying the field at all — and how it builds a version-4 container from a version-3
+    save (`checkpoint.md` §2.1, §3, `shapes.md` §5).  `game` is set only when the caller
+    names it, so `game=None` is a container without the field, exactly as
+    `version_container` leaves it.
+    """
+    metadata, parameters = container_document(source)
+    metadata["format_version"] = int(version)
+    if game is not None:
+        metadata["game"] = game
     for field in drop:
         metadata.pop(field, None)
     return write_container(target, metadata, parameters)

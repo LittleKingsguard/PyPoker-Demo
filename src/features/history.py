@@ -1,4 +1,4 @@
-"""ASM-E2's history grammar, read as one action index (flat-numeric.md §5).
+"""ASM-E2's history grammar, read as one action **kind** (flat-numeric.md §5).
 
 A history entry is a plain `str` of exactly four documented forms:
 
@@ -8,11 +8,16 @@ A history entry is a plain `str` of exactly four documented forms:
     "<street> seat <index> raises to <n>" -> 2
 
 The verb is the entry's fourth whitespace-separated token, and it decides the action
-index.  The street, the seat and the amount are other blocks -- or not facts of the
+kind.  The street, the seat and the amount are other blocks -- or not facts of the
 readout at all -- so they are skipped, never carried (README.md §4).  A `raises` entry
 carries two more tokens than a `folds`, so the form's own length is checked with the
 verb; a fifth form is refused naming the entry, because guessing would silently
 mislabel an action (guardrails.md G13, errors.md §3).
+
+The kind is not a vocabulary index: the two declared shapes declare different action
+vocabularies, and this grammar's three kinds -- fold, check-call, raise -- are the
+history block's own fixed width on both of them, because a past bet's size is not a fact
+the learner is given (sizing.md §5, ASM-39).
 """
 
 from __future__ import annotations
@@ -21,8 +26,10 @@ import re
 
 from .errors import InvalidReadout
 
-# The verb a documented entry's fourth token is, and the action index it denotes --
-# the vocabulary's own order (vocabulary.md §1, flat-numeric.md §5).
+# The verb a documented entry's fourth token is, and the action **kind** it denotes.
+# Three kinds, and not the shape's vocabulary: the history block is three wide on every
+# declared shape, so a `raises` entry carries its kind and never which band was bet
+# (flat-numeric.md §5, sizing.md §5, ASM-39).
 _VERBS = {"folds": 0, "checks": 1, "calls": 1, "raises": 2}
 
 # Each form's token count: the four-token forms carry no amount, `calls` one, and

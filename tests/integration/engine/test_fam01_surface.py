@@ -1,4 +1,4 @@
-"""FAM-1 — the nine names exist, are callable, and a minimal call returns its kind.
+"""FAM-1 — the ten names exist, are callable, and a minimal call returns its kind.
 
 `docs/L2/engine/surface.md` §1 and §3–§11, `e2e-surface.md` §3.1, `battery.md` §3
 FAM-1.  One case per entry point, in the surface document's order, so that a missing
@@ -22,8 +22,8 @@ except ImportError:  # collected as a plain directory, as pytest's prepend mode 
 class FAM1Surface(S.EngineCase):
     """The declared surface of the `engine` package, name by name."""
 
-    def test_fam1_00_the_nine_names_are_module_level_and_callable(self):
-        """FAM-1.0 the nine fixed names are module-level names of `engine` (§1)."""
+    def test_fam1_00_the_ten_names_are_module_level_and_callable(self):
+        """FAM-1.0 the ten fixed names are module-level names of `engine` (§1)."""
         package = S.module()
         for name in S.ENTRY_POINTS:
             self.assertTrue(

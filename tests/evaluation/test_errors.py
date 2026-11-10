@@ -1,7 +1,9 @@
 """EVL-9 — the refusal hierarchy and the message grammar.
 
 Drives `docs/L3/evaluation/errors.md` §1-§6: one `EvaluationError` base and the
-thirty-three subclasses of §2, each reachable from the refusal the L2 surface
+forty-two subclasses of §2 -- D-19's, D-20's, D-21's and D-29's included, so the
+three shape classes `UnknownShape`, `ShapeMismatch` and `UnknownExploration` are
+driven from this file beside the rest (`shape.md` §3, §5), each reachable from the refusal the L2 surface
 declares for it; the message grammar of §3 -- `"<entry>(<argument or field>): <the
 violated contract>, got <what was passed>"` -- so the message names the entry point,
 the argument or key at fault and the offending value; the canonical spellings of §4
@@ -25,6 +27,7 @@ from _evaluation_support import (
     HANDS_PER_CELL,
     OPPONENT_SEEDS,
     OTHER_RULE,
+    OTHER_UTILITY,
     START_LABEL,
     VERSION_IDS,
     EvaluationCase,
@@ -41,6 +44,7 @@ from _evaluation_support import (
     lopsided,
     matrix_cells,
     matrix_member_ids,
+    other_shape,
     probe_readouts,
     rating_entries,
     rating_record,
@@ -50,7 +54,7 @@ from _evaluation_support import (
     version_record,
 )
 
-#: The thirty-six subclasses `errors.md` §2 declares, in the order it lists them.
+#: The forty-two subclasses `errors.md` §2 declares, in the order it lists them.
 DECLARED_CLASSES = (
     "InvalidPool",
     "PoolDeclarationInvalid",
@@ -63,7 +67,12 @@ DECLARED_CLASSES = (
     "PoolFrozen",
     "LineageNotExtended",
     "UnknownRule",
+    "UnknownUtility",
+    "UnknownBaseline",
+    "UnknownShape",
     "RuleMismatch",
+    "UtilityMismatch",
+    "ShapeMismatch",
     "FamilyBoundExceeded",
     "PoolNotFrozen",
     "InvalidSeed",
@@ -83,6 +92,7 @@ DECLARED_CLASSES = (
     "CheckpointUnreadable",
     "CheckpointRecordMissing",
     "UnknownEncoding",
+    "UnknownExploration",
     "MissingFamily",
     "MembershipMismatch",
     "RatingMismatch",
@@ -93,7 +103,7 @@ DECLARED_CLASSES = (
 
 class ErrorsTest(EvaluationCase):
     def test_evl_9_1_the_declared_hierarchy_exists(self):
-        """EVL-9.1 `src/evaluation/errors.py` declares `EvaluationError` and the thirty-six subclasses `errors.md` §2 names, each a distinct subclass of that base (`errors.md` §2, `README.md` §3-§4, G16)."""
+        """EVL-9.1 `src/evaluation/errors.py` declares `EvaluationError` and the forty-two subclasses `errors.md` §2 names -- `UnknownShape`, `ShapeMismatch` and `UnknownExploration` among them -- each a distinct subclass of that base (`errors.md` §2, `README.md` §3-§4, G16)."""
         module = errors_module()
         root = getattr(module, "EvaluationError", None)
         self.assertTrue(
@@ -125,7 +135,7 @@ class ErrorsTest(EvaluationCase):
                 self.assertNotIn(
                     candidate,
                     seen,
-                    "the thirty-six classes are one per refusal family, and %r is a "
+                    "the forty-two classes are one per refusal family, and %r is a "
                     "second name for one already declared (errors.md §2): %r"
                     % (name, candidate),
                 )
@@ -133,12 +143,12 @@ class ErrorsTest(EvaluationCase):
         self.assertEqual(
             len(seen),
             len(DECLARED_CLASSES),
-            "errors.md §2 declares thirty-six distinct subclasses under one base: %r"
+            "errors.md §2 declares forty-two distinct subclasses under one base: %r"
             % (len(seen),),
         )
 
     def test_evl_9_2_every_declared_class_is_reachable_from_its_refusal(self):
-        """EVL-9.2 each of `errors.md` §2's thirty-six classes is reachable from the refusal `surface.md` §5-§13 declares for it, so the hierarchy names what a caller can route on (`errors.md` §2, `guardrails.md` G16)."""
+        """EVL-9.2 each of `errors.md` §2's forty-two classes is reachable from the refusal `surface.md` §5-§13 declares for it -- the three shape classes included -- so the hierarchy names what a caller can route on (`errors.md` §2, `guardrails.md` G16)."""
         module = errors_module()
         for name, label, fn, args in self.provocations():
             with self.subTest(error=name, case=label):
@@ -308,6 +318,76 @@ class ErrorsTest(EvaluationCase):
                 ),
             ),
             (
+                "UnknownUtility",
+                "a version naming a utility the catalogue lacks",
+                package.build_pool,
+                (
+                    declaration(
+                        members=[
+                            version_record(
+                                VERSION_IDS[0], START_LABEL, utility="chips-per-hour"
+                            )
+                        ],
+                        m=3,
+                        frozen=True,
+                    ),
+                ),
+            ),
+            (
+                "UnknownBaseline",
+                "a declared baseline the catalogue lacks",
+                package.build_pool,
+                (
+                    dict(
+                        declaration(members=(), m=5, frozen=True),
+                        baselines=["fold-on-river"],
+                    ),
+                ),
+            ),
+            (
+                "UnknownShape",
+                "a declared shape the catalogue lacks",
+                package.build_pool,
+                (
+                    dict(declaration(members=(), m=5, frozen=True), game="fixed-limit-40"),
+                ),
+            ),
+            (
+                "UtilityMismatch",
+                "a family whose two members declare two utilities",
+                package.build_pool,
+                (
+                    declaration(
+                        members=[
+                            version_record(VERSION_IDS[0], START_LABEL),
+                            version_record(
+                                VERSION_IDS[1],
+                                VERSION_IDS[0],
+                                utility=OTHER_UTILITY,
+                            ),
+                        ],
+                        m=3,
+                        frozen=True,
+                    ),
+                ),
+            ),
+            (
+                "ShapeMismatch",
+                "a version of the second shape in a default-shape pool",
+                package.build_pool,
+                (
+                    declaration(
+                        members=[
+                            version_record(
+                                VERSION_IDS[0], START_LABEL, game=other_shape()
+                            )
+                        ],
+                        m=3,
+                        frozen=True,
+                    ),
+                ),
+            ),
+            (
                 "FamilyBoundExceeded",
                 "a declaration holding more families than its bound",
                 package.build_pool,
@@ -366,6 +446,12 @@ class ErrorsTest(EvaluationCase):
             ("CheckpointUnreadable", "a file that is no checkpoint", package.policy_from, (file_that_is_not_a_checkpoint(),)),
             ("CheckpointRecordMissing", "a checkpoint recording no seed", package.policy_from, (checkpoint_without_seed(),)),
             ("UnknownEncoding", "a checkpoint recording a bogus encoding", package.policy_from, (checkpoint_with_unknown_encoding(),)),
+            (
+                "UnknownExploration",
+                "a policy_from mode the catalogue lacks",
+                package.policy_from,
+                (self.checkpoint(name="member")["path"], "greedy"),
+            ),
             ("MissingFamily", "a record with no axis row", package.report, (rung, record_without_axis, matrix, rating)),
             ("MembershipMismatch", "a matrix with a foreign member", package.report, (rung, record, wide, rating_record(wide))),
             ("RatingMismatch", "a rating naming a foreign member", package.report, (rung, dict(record, rating=extra_rating), matrix, extra_rating)),

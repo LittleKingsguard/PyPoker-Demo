@@ -42,9 +42,12 @@ from _evaluation_support import (
     VERSION_IDS,
     EvaluationCase,
     bootstrap_seed,
+    build_policy,
     cell_directions,
     cell_seed,
     checkpoint,
+    default_shape,
+    other_shape,
     checkpoint_with_unknown_encoding,
     checkpoint_without_facts,
     checkpoint_without_seed,
@@ -64,6 +67,7 @@ from _evaluation_support import (
     probe_readouts,
     refusal_class,
     seat_split_counts,
+    shapes,
     token,
     unlabelled_of,
     version_record,
@@ -687,6 +691,196 @@ class SchedulerTest(EvaluationCase):
                 groups=((OTHER_RULE,), (DEFAULT_RULE,)),
                 label="a table over a member record that contradicts its checkpoint",
             )
+
+    # -- the one shape a cell is played on (D-29) -----------------------------
+    def test_evl_3_21_a_cell_is_played_on_the_one_shape_its_two_sides_name(self):
+        """EVL-3.21 a cell's shape is the one its two sides name and `match` takes no shape argument: two sides naming two shapes are refused naming both sides and both shapes, while a cell of two shape-silent sides is played on the default shape with exactly the numbers it produced before the shape existed -- the shape adds no draw, no seed and no policy build (`scheduler.md` §1, §5-§7, `surface.md` §9, `shape.md` §3-§4, D-29)."""
+        package = self.evaluation()
+        default, other = shapes()
+        default_member = package.policy_from(self.checkpoint(name="member")["path"])
+        other_member = package.policy_from(
+            self.checkpoint(name="member-nolimit", game=other)["path"]
+        )
+        self.assertEqual(
+            getattr(default_member, "game", None),
+            default,
+            "a container that records no shape is a default-shape member, and its policy "
+            "reports that (scheduler.md §5.1, shape.md §2, §4, D-29): %r"
+            % (getattr(default_member, "game", None),),
+        )
+        self.assertEqual(
+            getattr(other_member, "game", None),
+            other,
+            "a version-4 container records its shape and the policy reports it "
+            "(scheduler.md §5.1, shape.md §4, D-29): %r"
+            % (getattr(other_member, "game", None),),
+        )
+        before = self.stream_state()
+        for label, left, right in (
+            ("the second shape on the left", other_member, default_member),
+            ("the second shape on the right", default_member, other_member),
+        ):
+            with self.subTest(case=label):
+                self.assert_evaluation_refusal(
+                    package.match,
+                    left,
+                    right,
+                    ALT_HANDS,
+                    MATCH_SEED,
+                    entry="match",
+                    groups=(("match",), ("left",), ("right",), (default,), (other,)),
+                    label="a cell whose two sides name two shapes",
+                    kind="ShapeMismatch",
+                )
+        self.assert_stream_unchanged(
+            before, "match() refusing a pair that names two shapes"
+        )
+        # A cell of two shape-silent sides is the cell it was before the shape existed:
+        # the two baselines are built at the cell's seed either way, so playing the same
+        # pair through the two baseline **names** and through the two baseline policies
+        # they name gives one set of numbers -- and both cells say the default shape.
+        hands = ALT_HANDS
+        named_cell = package.match("random", "always-call", hands, OTHER_MATCH_SEED)
+        policies_cell = package.match(
+            self.agents().build_baseline("random", OTHER_MATCH_SEED),
+            self.agents().build_baseline("always-call", OTHER_MATCH_SEED),
+            hands,
+            OTHER_MATCH_SEED,
+        )
+        for cell, label in (
+            (named_cell, "the cell of two baseline names"),
+            (policies_cell, "the cell of the two baseline policies"),
+        ):
+            with self.subTest(cell=label):
+                self.assertEqual(
+                    cell["game"],
+                    default_shape(),
+                    "a cell whose sides name no shape is played on the default shape, "
+                    "and says so (scheduler.md §1, §4, shape.md §4, D-29): %r"
+                    % (cell["game"],),
+                )
+        self.assertEqual(
+            [direction_counts(entry) for entry in cell_directions(named_cell)],
+            [direction_counts(entry) for entry in cell_directions(policies_cell)],
+            "the shape adds no draw, no seed and no policy build: the same pair, hand "
+            "count and seed give the same wins, ties, losses and mean chip deltas "
+            "whether the sides were named or built (scheduler.md §5, §7, shape.md §4): "
+            "%r vs %r"
+            % (
+                [direction_counts(entry) for entry in cell_directions(named_cell)],
+                [direction_counts(entry) for entry in cell_directions(policies_cell)],
+            ),
+        )
+        self.assertNotEqual(
+            tuple(member_id(entry) for entry in named_cell["members"]),
+            tuple(member_id(entry) for entry in policies_cell["members"]),
+            "the two calls are different sides -- named baselines and opaque policies -- "
+            "so the numbers agreeing is a fact about the deal and not about the ids "
+            "(surface.md §2, scheduler.md §5): %r vs %r"
+            % (named_cell["members"], policies_cell["members"]),
+        )
+
+    def test_evl_3_22_policy_from_off_decides_identically_at_two_seeds_and_draws_nothing(self):
+        """EVL-3.22 `policy_from(path, "off")` is the masked maximum and the tie-break alone with no generator drawn from: it decides the same descriptor as an `off` policy built at another seed from the same saved learner, across a batch of real readouts of its shape, it leaves the global stream untouched, `policy_from(path)` still behaves as `schedule` does, and a mode that is neither `schedule` nor `off` is `UnknownExploration` naming it and both modes -- refused before any file is read (`shape.md` §5, `scheduler.md` §5, §6-§7, `surface.md` §12, guardrails.md G34, D-29)."""
+        package = self.evaluation()
+        saved = self.checkpoint(name="member")
+        rows = probe_readouts(4)
+        greedy = package.policy_from(saved["path"], "off")
+        other_seed = build_policy(saved["learner"], saved["encoder"], OTHER_LEARNER_SEED, "off")
+        before = self.stream_state()
+        for row in rows:
+            with self.subTest(hand=row["seed"]):
+                mine = greedy(row["readout"], row["legal"])
+                theirs = other_seed(row["readout"], row["legal"])
+                self.assertIn(
+                    mine,
+                    tuple(row["legal"]),
+                    "an off policy answers one descriptor of the decision's legal set "
+                    "(surface.md §2, shape.md §5): %r" % (mine,),
+                )
+                self.assertEqual(
+                    mine,
+                    theirs,
+                    "at `off` two policies at two seeds decide identically on one "
+                    "readout, so the greedy reading is a function of the model and not "
+                    "of a seed -- which is only true if no draw is taken at all "
+                    "(shape.md §5, sizing.md §4, G34): %r vs %r" % (mine, theirs),
+                )
+        self.assert_stream_unchanged(before, "an `off` policy and its decisions")
+        with self.subTest(case="many decisions move no stream"):
+            before_many = self.stream_state()
+            answers = [
+                greedy(row["readout"], row["legal"])
+                for _ in range(8)
+                for row in rows
+            ]
+            self.assert_stream_unchanged(
+                before_many, "thirty-two `off` decisions"
+            )
+            self.assertEqual(
+                len(answers),
+                32,
+                "the batch is thirty-two decisions over the four real readouts",
+            )
+        with self.subTest(case="`policy_from(path)` is the schedule it always was"):
+            scheduled = package.policy_from(saved["path"])
+            scheduled_named = package.policy_from(saved["path"], "schedule")
+            expected = build_policy(
+                saved["learner"], saved["encoder"], saved["seed"], "schedule"
+            )
+            for row in rows:
+                with self.subTest(hand=row["seed"]):
+                    answer = scheduled(row["readout"], row["legal"])
+                    self.assertEqual(
+                        answer,
+                        scheduled_named(row["readout"], row["legal"]),
+                        "the mode's absence is the declared default `schedule`, so one "
+                        "checkpoint gives one policy under either spelling "
+                        "(shape.md §5, declarations.md §1): %r" % (answer,),
+                    )
+                    self.assertEqual(
+                        answer,
+                        expected(row["readout"], row["legal"]),
+                        "`policy_from(path)` is `agents.as_policy` of the loaded learner "
+                        "at the recorded seed under `schedule`, which is today's "
+                        "behaviour unchanged (surface.md §12, scheduler.md §5.1, "
+                        "shape.md §5, G20): %r" % (answer,),
+                    )
+        with self.subTest(case="the mode is refused, and before a file is read"):
+            absent = os.path.join(self.tempdir(), "no-such-checkpoint.ckpt")
+            for mode in ("greedy", "OFF", "", None):
+                with self.subTest(mode=mode):
+                    self.assert_evaluation_refusal(
+                        package.policy_from,
+                        absent,
+                        mode,
+                        entry="policy_from",
+                        groups=(
+                            ("schedule",),
+                            ("off",),
+                            (repr(mode),),
+                        ),
+                        label="a mode that is neither of the two",
+                        kind="UnknownExploration",
+                    )
+            refused_early = os.path.join(self.tempdir(), "never-opened.ckpt")
+            try:
+                package.policy_from(refused_early, "greedy")
+            except Exception as exc:
+                self.assertIn(
+                    "mode",
+                    str(exc).lower(),
+                    "a mode the catalogue does not carry is refused before the path is "
+                    "touched, so an absent file cannot be the refusal a caller sees "
+                    "(scheduler.md §6, shape.md §5): %r" % (str(exc),),
+                )
+                self.assertNotIn(
+                    "no readable file",
+                    str(exc).lower(),
+                    "no file is read when the mode is refused, so the refusal is still "
+                    "the mode's and never the path's (scheduler.md §6, shape.md §5): %r"
+                    % (str(exc),),
+                )
 
 
 if __name__ == "__main__":

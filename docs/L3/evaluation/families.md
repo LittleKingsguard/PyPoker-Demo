@@ -5,6 +5,7 @@
   each version's rule and its utility (§4), `offer`'s rolling (§5), the refusals this design adds (§6) and what is free (§7)
   (`docs/L1/league.md` §2, `docs/L1/records.md` §7–§8, ASM-26, ASM-27, D-19, D-20)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
+- **Rev 6:** D-29's second shape — **not** in the id digest: the shape is a required field of the pool record and never of the id, so two pools of one membership on two shapes wear one id and are never one table (§4, `shape.md` §4)
 - **Read with:** `pool.md` §1–§2, §5, §7–§9, `utility.md` §1–§4, `scheduler.md` §5, `matrix.md` §5, `errors.md` §2, §4;
   at the surface `docs/L2/evaluation/pool.md` §1, §3 and `rules.md` §2–§5. `pool.md` §3, §4 and §6 redirect here.
 
@@ -25,13 +26,12 @@ D-20 adds the utility — the reward a member was trained on — as the second a
   member and both values (§6): a family is one estimator's line of descent toward one objective, so a version that
   changed either mid-line is a different lineage and not a continuation of this one.
 
-Rejected: a `family`, `rule_group` or `utility_group` key on the member record, a second declaration of a fact the
-lineage, the `rule` and the `utility` already carry; grouping by rule or by utility alone, which merges two independent
-chains into a family whose "newest" member is ambiguous and so cannot be extended; one declaration as one family, the
-rule before D-19, which cannot hold a second estimator (`docs/L1/league.md` §2, ASM-26). Three declarations also cannot
-be ordered and are refused rather than guessed (§6): one id in two records (`MemberDuplicate`), one lineage with two
-successors (`LineageConflict`), a chain reaching no start (`LineageCycle`) — the last two because a family with two
-successors or none has no order at all (`records.md` §7, `docs/L2/evaluation/pool.md` §1).
+Rejected: a `family`, `rule_group` or `utility_group` key on the member record, a second declaration of a fact the lineage, the `rule`
+and the `utility` already carry; grouping by rule or by utility alone, which merges two independent chains into a family whose "newest"
+member is ambiguous and so cannot be extended; one declaration as one family, the rule before D-19, which cannot hold a second
+estimator (`docs/L1/league.md` §2, ASM-26). Three declarations also cannot be ordered and are refused rather than guessed (§6): one id
+in two records (`MemberDuplicate`), one lineage with two successors (`LineageConflict`), a chain reaching no start (`LineageCycle`) —
+the last two because a family with two successors or none has no order at all (`records.md` §7, `docs/L2/evaluation/pool.md` §1).
 
 ## 2. The ordered window
 
@@ -42,16 +42,16 @@ digests, and what `offer`'s "newest" resolves against (§5) — so it is fixed h
 2. the families in **the order they entered the window** — for a declared membership, the position of each family's
    start in the declaration's `members` sequence;
 3. the **pinned** baselines first and never inside the window: the three the catalogue flags as anchors, then each
-   folding baseline the declaration names, both in `agents.baselines()`'s order and never the declaration's (`pool.md` §2 step 5, ASM-16, ASM-32, D-21).
+   folding baseline the declaration names, both in `agents.baselines()`'s order and never the declaration's (`pool.md` §2 step 6, ASM-16, ASM-32, D-21).
 
-The grouping is derivable from the records alone — a member whose `lineage` is not its predecessor's `id` begins a
-family — which is what lets `offer` regroup a window it is handed with no stored family list to fall out of step with
-the members (`docs/L1/league.md` §2, `docs/L2/evaluation/pool.md` §1, §2). That regrouping is `_window_families`'s, and
-every member it regroups carries the `rule` and the `utility` `offer` then holds it to (`utility.md` §4, D-20). Rejected:
-ordering by `step` or `samples`, keys `records.md` §7 does not require, so an order reading them would refuse a legal
-record or invent a value (ASM-26's own rejected alternative); and the declaration's own sequence, the order the links
-replaced (`docs/L2/evaluation/pool.md` §1). A window holding **one** family therefore lists what it listed before D-19 —
-its chain, oldest to newest — so every pool in the shipped tree reads back unchanged (`docs/L1/league.md` §2, ASM-18).
+The grouping is derivable from the records alone — a member whose `lineage` is not its predecessor's `id` begins a family — which
+is what lets `offer` regroup a window it is handed with no stored family list to fall out of step with the members (`docs/L1/league.md`
+§2, `docs/L2/evaluation/pool.md` §1, §2). That regrouping is `_window_families`'s, and every member it regroups carries the `rule`,
+the `utility` and the one `game` the whole pool is on, which `offer` and `matrix` then hold it to (`utility.md` §4, `shape.md` §4,
+D-20). Rejected: ordering by `step` or `samples`, keys `records.md` §7 does not require, so an order reading them would refuse a legal
+record or invent a value (ASM-26's own rejected alternative); and the declaration's own sequence, the order the links replaced
+(`docs/L2/evaluation/pool.md` §1). A window holding **one** family therefore lists what it listed before D-19 — its chain, oldest to
+newest — so every pool in the shipped tree reads back unchanged (`docs/L1/league.md` §2, ASM-18).
 
 ## 3. Fair-share eviction, and the (m+1)th family
 
@@ -68,7 +68,7 @@ family keeps the last `m` of its chain, exactly as before the catalogue, which i
 (ASM-16, ASM-18).
 
 `build_pool` windows a declaration richer than `m` by the same rule and not by "the last m of the concatenation", so
-a rich declaration and an equal series of offers reach one membership (`pool.md` §2 step 4,
+a rich declaration and an equal series of offers reach one membership (`pool.md` §2 step 5,
 `docs/L2/evaluation/pool.md` §1). A declaration or an offer that would leave `m+1` families is refused —
 `FamilyBoundExceeded` — because a window of `m` cannot keep one member of each, and emptying a family to make room is
 exactly what this section exists to prevent (ASM-26, `docs/L2/evaluation/rules.md` §3). The bound is the declaration's own
@@ -92,38 +92,36 @@ before either catalogue existed**, and a declaration that names no folder yields
 id it has today — R1's pool, the `pool-bcbea031cb617939` a shipped artefact records, which therefore survives both changes
 without a regeneration; a declaration that names a folder simply carries one more bare line (ASM-27, ASM-32, ASM-14, D-21, `protocol.md` §5, `tables.md` §2).
 
-Outside the payload, deliberately: `m`, `frozen` and every other member field, so a corrected `seed` or `step` or a
-re-declared bound does not rename the pool (`records.md` §8, `docs/L2/evaluation/pool.md` §1). `"\x1f"` is the digest's
-own separator, so no field may carry it, nor a newline: an `id`, a `lineage`, a `rule` **or a `utility`** that did is
-`MemberInvalid` at `build_pool` and at `offer`, before any digest is taken (§6, `utility.md` §2, ASM-27). The id is the
-pool record's first key, and what a run record, a matrix and two arms of a pair are compared by (`records.md` §8, §12).
+Outside the payload, deliberately: `m`, `frozen` and every other member field, so a corrected `seed` or `step` or a re-declared
+bound does not rename the pool (`records.md` §8, `docs/L2/evaluation/pool.md` §1). **And the shape is outside it too**, although
+it is a **required** field of the pool record (`records.md` §8, `pool.md` §5): ASM-27's rule is that the id changes when and only
+when the **membership** does, so two pools of one membership on two shapes wear **one id** and are never one table — the shape is
+what tells them apart and the record is where it is read (`shape.md` §4, `docs/L1/shapes.md` §3, §6). A declaration naming no folder
+and no shape therefore keeps **exactly** the id it has today, which is why this change adds no regeneration (`tables.md` §2).
+`"\x1f"` is the digest's own separator, so no field may carry it, nor a newline: an `id`, a `lineage`, a `rule` **or a
+`utility`** that did is `MemberInvalid` at `build_pool` and at `offer`, before any digest is taken (§6, `utility.md` §2, ASM-27).
+The id is the pool record's first key, and what a run record, a matrix and two arms of a pair are compared by (`records.md` §8, §12).
 
-Rejected: digesting the whole member record, which renames a pool when a `seed` or `step` is corrected and so breaks
-"changes when and only when the membership does"; digesting the ids alone, where a label cannot be certified and one
-member could say `masked-q-learning` while its neighbour said `double-q-learning` under one id (ASM-27's own rejected
-alternative); leaving the utility out, which repeats that finding for the objective; prefixing the baselines' lines,
-which renames every pool in the tree; and `hash()`, which is process-salted (ASM-16).
+Rejected: digesting the whole member record, which renames a pool when a `seed` or `step` is corrected and so breaks "changes when and
+only when the membership does"; digesting the ids alone, where a label cannot be certified and one member could say `masked-q-learning`
+while its neighbour said `double-q-learning` under one id (ASM-27's own rejected alternative); leaving the utility out, which repeats that
+finding for the objective; **digesting the shape**, which certifies a fact the record already carries at the cost of renaming a
+baselines-only pool that has not changed, where ASM-27 names the membership alone (`shape.md` §4); prefixing the baselines' lines, which
+renames every pool in the tree; and `hash()`, which is process-salted (ASM-16).
 
 ## 5. `offer` extends exactly one family
 
 `offer(pool, version)` returns a new pool, and the version joins **one** family (`pool.md` §6, `surface.md` §7), its
-`rule` and its `utility` checked against the catalogue first (§6, `utility.md` §4):
+`rule`, its `utility` and its `game` checked against the pool first (§6, `utility.md` §4, `shape.md` §3):
 
-1. its `lineage` names a member that is its own family's **newest** → that family advances; a lineage that is **no
-   member's `id`** → a **new family** opens, labelled by that lineage, refused if it would be the (m+1)th (§3) — which
-   is how a second arm's first snapshot, naming the rung start its sibling's names, joins the window (ASM-26, D-19);
-2. its `lineage` names a member that is not its family's newest → `LineageNotExtended`, naming the lineage and that
-   family's newest: the chain would fork, and a fork has no order (`records.md` §7, ASM-26);
-3. its `rule` or its `utility` differs from the value its family's **first** member declares → `RuleMismatch` or
-   `UtilityMismatch`, naming the version and both values: one family is one estimator trained toward one objective
-   (§1, `utility.md` §4, D-19, D-20);
-4. then, if the window now holds `m+1` versions, §3's member is evicted; the baselines are untouched and the id is
-   recomputed (§4).
+1. its `lineage` names a member that is its own family's **newest** → that family advances; a lineage that is **no member's `id`** → a **new family** opens, labelled by that lineage, refused if it would be the (m+1)th (§3) — which is how a second arm's first snapshot, naming the rung start its sibling's names, joins the window (ASM-26, D-19);
+2. its `lineage` names a member that is not its family's newest → `LineageNotExtended`, naming the lineage and that family's newest: the chain would fork, and a fork has no order (`records.md` §7, ASM-26);
+3. its `rule` or its `utility` differs from the value its family's **first** member declares → `RuleMismatch` or `UtilityMismatch`, naming the version and both values: one family is one estimator trained toward one objective (§1, `utility.md` §4, D-19, D-20);
+4. then, if the window now holds `m+1` versions, §3's member is evicted; the baselines are untouched, the id is recomputed (§4) and the pool keeps its shape (`pool.md` §6).
 
-Step 1 is what D-19 bought: before it only one chain was extendable, so a second family could be declared and never
-rolled — the finding V-F4 records (D-19, `docs/L1/league.md` §2). Step 2 keeps the window one-directional: an offer is
-a snapshot of a lineage, never a fork of it (ASM-18, `pool.md` §7), and `offer` plays no hand and re-reads no
-checkpoint, so rolling stays a declaration operation (ASM-2, `docs/L1/league.md` §1).
+Step 1 is what D-19 bought: before it only one chain was extendable, so a second family could be declared and never rolled — the finding
+V-F4 records (D-19, `docs/L1/league.md` §2). Step 2 keeps the window one-directional: an offer is a snapshot of a lineage, never a fork of
+it (ASM-18, `pool.md` §7), and `offer` plays no hand and re-reads no checkpoint, so rolling stays a declaration operation (ASM-2).
 
 ## 6. The refusals this design adds
 
@@ -137,14 +135,13 @@ checkpoint, so rolling stays a declaration operation (ASM-2, `docs/L1/league.md`
 | `build_pool` | `MemberDuplicate`, `LineageConflict`, `LineageCycle` | §1's three unorderable declarations |
 
 Canonical spellings are `errors.md` §4's table — the rule's rows and, beside them, the utility's (`utility.md` §4) —
-each following `errors.md` §3's grammar. A `rule` that is absent, empty or carrying `"\n"`, `"\r"` or `"\x1f"` is
-`MemberInvalid` at both entry points, and so is a `utility` that is absent, empty or carries one of those — a member that
-declares **no** `utility` is refused by name, never read as the catalogue's first member (`utility.md` §2). A member
-**record** whose declared `rule` or `utility` disagrees with its checkpoint's is the other pair of refusals, raised in
-`policy.py` and owned by `scheduler.md` §5–§6: they are about a load, not a window (`utility.md` §4).
+each following `errors.md` §3's grammar. A `rule` that is absent, empty or carrying `"\n"`, `"\r"` or `"\x1f"` is `MemberInvalid`
+at both entry points, and so is a `utility` that is absent, empty or carries one of those — a member that declares **no** `utility`
+is refused by name, never read as the catalogue's first member (`utility.md` §2). A member **record** whose declared `rule`, `utility`
+or `game` disagrees with its checkpoint's is the other family of refusals, raised in `policy.py` and owned by `scheduler.md` §5–§6:
+they are about a load, not a window (`utility.md` §4, `shape.md` §3).
 
 ## 7. What is deliberately free
 
-- how the families are held while computing — lists, a label→chain mapping, one pass or two: only that §1's grouping
-  and §2's order are the result, and whether the window is regrouped per `offer` or carried inside `Pool` (`pool.md` §9);
+- how the families are held while computing — lists, a label→chain mapping, one pass or two: only that §1's grouping and §2's order are the result, and whether the window is regrouped per `offer` or carried inside `Pool` (`pool.md` §9);
 - how §3's tie is decided — index order, chain sizes or an explicit age — provided ties go to the earlier family (`errors.md` §3's grammar covers the wording).

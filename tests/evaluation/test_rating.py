@@ -47,6 +47,7 @@ from _evaluation_support import (
     champion_won_everything,
     count,
     declared_internal,
+    default_shape,
     entry_bounded,
     entry_hands,
     entry_value,
@@ -56,7 +57,9 @@ from _evaluation_support import (
     matrix_cells,
     matrix_member_ids,
     no_file_reads,
+    other_shape,
     rating_entries,
+    shapes,
 )
 
 
@@ -525,6 +528,110 @@ class RatingTest(EvaluationCase):
             rating,
             "rating returned a records.md §11 record (surface.md §11): %r" % (rating,),
         )
+
+    # -- the one shape a rating is fitted over (D-29) -------------------------
+    def test_evl_5_13_a_rating_is_fitted_over_one_shape_s_cells_and_says_which(self):
+        """EVL-5.13 a matrix whose cells name two shapes, and one whose own `game` contradicts its cells, are refused naming the shapes; a matrix with no `game` anywhere rates exactly as before and its record's `game` is the default; and the record names the one shape it fitted, so two shapes' ratings are never tabulated together (`rating.md` §1, §5-§6, `surface.md` §11, `shape.md` §3-§4, G33, D-29)."""
+        package = self.evaluation()
+        default, other = shapes()
+        baseline_table = hand_matrix(balanced)
+        self.assertNotIn(
+            "game",
+            baseline_table,
+            "the case starts from a table that names no shape anywhere, which is every "
+            "table already recorded (shape.md §2, G31)",
+        )
+        fitted = package.rating(baseline_table)
+        self.assertEqual(
+            fitted["game"],
+            default,
+            "a table that names no shape is the default shape's, and the rating says so "
+            "while fitting it exactly as it always did (rating.md §5-§6, shape.md §2, "
+            "G33): %r" % (fitted["game"],),
+        )
+        self.assertEqual(
+            package.rating(hand_matrix(balanced, game=default, cell_game=default)),
+            fitted,
+            "naming the default shape explicitly is the same table as naming none, so "
+            "the shape reads as one fact under two spellings and rating's arithmetic "
+            "is untouched by it (rating.md §1, §5-§6, shape.md §2, G33)",
+        )
+        with self.subTest(case="a matrix whose cells name two shapes"):
+            two_shapes = hand_matrix(balanced)
+            cells = list(matrix_cells(two_shapes))
+            cells[0] = dict(cells[0], game=other)
+            mixed = dict(two_shapes, cells=tuple(cells))
+            before = self.stream_state()
+            self.assert_evaluation_refusal(
+                package.rating,
+                mixed,
+                entry="rating",
+                groups=(("cells",), (default,), (other,)),
+                label="a table whose cells name two shapes",
+                kind="ShapeMismatch",
+            )
+            self.assert_stream_unchanged(
+                before, "rating() refusing a two-shape table"
+            )
+        with self.subTest(case="a matrix whose own game contradicts its cells"):
+            contradictory = hand_matrix(balanced, game=other)
+            self.assertFalse(
+                [cell for cell in matrix_cells(contradictory) if "game" in cell],
+                "the cells of the contradictory table name no shape and so read as the "
+                "default, which is what its own `game` contradicts (rating.md §6, "
+                "shape.md §2, G33)",
+            )
+            self.assert_evaluation_refusal(
+                package.rating,
+                contradictory,
+                entry="rating",
+                groups=(("matrix",), (default,), (other,)),
+                label="a table whose own game its cells contradict",
+                kind="ShapeMismatch",
+            )
+        with self.subTest(case="one shape named everywhere is fitted"):
+            other_table = hand_matrix(balanced, game=other, cell_game=other)
+            other_rating = package.rating(other_table)
+            self.assertEqual(
+                other_rating["game"],
+                other,
+                "a table whose record and cells agree on the second shape is fitted and "
+                "the record names that shape (rating.md §1, §5, shape.md §4, G33): %r"
+                % (other_rating["game"],),
+            )
+        with self.subTest(case="two ratings never mix shapes"):
+            self.assertNotEqual(
+                fitted["game"],
+                other_rating["game"],
+                "the two records name two shapes, so neither is a table of the other's "
+                "(rating.md §5, shape.md §4, docs/L1/shapes.md §6): %r vs %r"
+                % (fitted["game"], other_rating["game"]),
+            )
+            self.assertEqual(
+                tuple(fitted["members"]),
+                tuple(other_rating["members"]),
+                "the two tables hold one membership, so the shape is the only fact that "
+                "separates them -- which is exactly why it is recorded (rating.md §5, "
+                "shape.md §4): %r vs %r"
+                % (fitted["members"], other_rating["members"]),
+            )
+            for name in fitted["members"]:
+                with self.subTest(member=name):
+                    self.assertEqual(
+                        set(fitted["values"][name]),
+                        set(other_rating["values"][name]),
+                        "each entry is one shape's value, interval, hands and bounded "
+                        "flag, and the two records are read apart rather than merged "
+                        "(records.md §11, rating.md §5): %r vs %r"
+                        % (fitted["values"][name], other_rating["values"][name]),
+                    )
+            self.assertNotIn(
+                "game",
+                fitted["values"][fitted["members"][0]],
+                "the shape is the record's one fact and not a per-member key, so no "
+                "entry of a rating can claim a second game (rating.md §5, shape.md §4): "
+                "%r" % (fitted["values"][fitted["members"][0]],),
+            )
 
 
 if __name__ == "__main__":

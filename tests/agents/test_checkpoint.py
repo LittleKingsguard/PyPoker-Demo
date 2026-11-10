@@ -15,6 +15,7 @@ container and on the version-1 set the repository actually ships, discovered by
 walking `checkpoints/` and opened read-only (D-16, D-19).
 """
 
+import io
 import json
 import os
 import subprocess
@@ -22,22 +23,30 @@ import sys
 import unittest
 import zipfile
 
+import numpy as np
+
 from _agents_support import (
     ANNEAL_SEED,
     CHECKPOINT_NAMES,
+    DEFAULT_SHAPE,
     LEARNER_SEED,
     OTHER_SEED,
+    OTHER_SHAPE,
     REPO_ROOT,
     SRC_ROOT,
     AgentsCase,
     anneal_batch,
+    container_document,
     declared_internal,
     features,
     finite_float,
     flat_encoder,
+    game_container,
     learner_spec,
     plain_int,
+    shape_decisions,
     token_encoder,
+    version_container,
 )
 
 #: The tree the repository ships its version-1 containers under, read **read-only**
@@ -86,6 +95,29 @@ else:
     print("refused", False)
 print("doctored", "torch" in sys.modules)
 """
+
+
+#: `checkpoint.md` §2.1's keys in the order that table lists them, **without** the `game`
+#: field: a version-3 container is one the default shape's writer produced, and its document
+#: is that table's own order — `game` sits between `kind` and `learning_rule` in a version-4
+#: one and is absent here, so this tuple is what "the two members are byte-for-byte today's"
+#: means for the document's shape (`checkpoint.md` §2.1, §3, `shapes.md` §5, ASM-40).
+FORMAT_THREE_KEYS = (
+    "format",
+    "format_version",
+    "dtype",
+    "backend",
+    "kind",
+    "learning_rule",
+    "utility",
+    "settings",
+    "representation",
+    "seed",
+    "exploration",
+    "target",
+    "params",
+    "tie_break",
+)
 
 
 def rewrite_metadata(source, target, field, value):
@@ -880,6 +912,475 @@ class CheckpointTest(AgentsCase):
             "reading the shipped set moved its tree: checkpoints/ belongs to "
             "`training` and this module reads it read-only, writing only where it is "
             "told (surface.md §8, module-map.md §5)",
+        )
+
+
+class ShapeCheckpointTest(AgentsCase):
+    """The container's format 4, its `game` field, and the four version rules the shape adds.
+
+    `docs/L2/agents/shapes.md` §5 and `docs/L3/agents/checkpoint.md` §2.1-§3 answer D-29's
+    second shape with a **format version, not a migration**: a learner of the default shape
+    writes today's version 3 with no `game` field at all, so a fixed-limit save's two
+    decompressed members are byte-for-byte today's; any other declared shape writes version 4
+    with `game` immediately after `kind`; and a version-1, 2 or 3 container is read as the
+    default shape and must not carry the field.  `SUPPORTED_VERSIONS` is `(1, 2, 3, 4)`, a
+    version-4 container without `game`, one naming the **default** shape and one of an older
+    version carrying it are all refused by name as fields their writer would never have
+    written, and a `load` spec naming a shape its container contradicts is refused naming
+    **both** shapes, exactly as a contradictory `seed`, `learning_rule` or `utility` is
+    (`checkpoint.md` §3, `surface.md` §8-§9, `sizing.md` §6, ASM-40, D-29).
+
+    Every container a case doctors is built from one this module wrote — both members the
+    file's own bytes, the version and the field the case is about rewritten
+    (`game_container`, `version_container`) — so no case here writes under `checkpoints/`,
+    except AGT-7.23, which opens one shipped version-1 file read-only and fingerprints the
+    tree across the read (`surface.md` §8, `module-map.md` §5, ASM-18).
+    """
+
+    def setUp(self):
+        """One scratch directory per case, made on first use and removed with the case."""
+        super().setUp()
+        self._folder = None
+
+    def path(self, name):
+        """A container's path inside this case's own scratch directory."""
+        if self._folder is None:
+            self._folder = self.tempdir()
+        return os.path.join(self._folder, name)
+
+    def other_shape_member(self):
+        """A learned learner of the **second** shape, at a state a checkpoint records.
+
+        Annealed, so its parameters are past the initial draw and its recorded schedule
+        position is a real one, and of the shape no default would give: a container read as
+        the default shape would report a different head and a different count, so a reading
+        that fell back to the default fails here rather than passing anyway (`shapes.md` §5).
+        """
+        learner = self.annealed_learner(
+            "shape-checkpoint",
+            {"kind": "naive-stack", "width": 6, "depth": 1, "game": OTHER_SHAPE},
+        )
+        self.assertEqual(
+            getattr(learner, "game", None),
+            OTHER_SHAPE,
+            "the source member of these cases decides in %r, so a container read as the "
+            "default shape differs from what was written (shapes.md §5, D-29)" % (OTHER_SHAPE,),
+        )
+        return learner
+
+    def test_agt7_18_a_format_four_round_trip_carries_the_game(self):
+        """AGT-7.18 `save` of a `no-limit-100` learner writes `format_version` 4 with `game` immediately after `kind`, and `load` restores a learner whose `game`, `actions`, `param_count` and decisions are the saved one's (`docs/L2/agents/shapes.md` §5, `docs/L3/agents/shapes.md` §5, `checkpoint.md` §2.1, §3, `surface.md` §8-§9, `sizing.md` §6, ASM-40, ASM-5, D-29).
+
+        The document is read from the container's own `metadata.json` — the member name
+        `checkpoint.md` §2 fixes — with its key order preserved, which is the only way
+        "immediately after `kind`" is observable at all.  The restore is asserted where it
+        decides: `Learner.game` and `Learner.actions`, the entry point's `param_count`, a
+        policy's `game` (the vocabulary a descriptor is decoded in, `rule.md` §7) and the
+        decisions `act` makes over real decisions dealt on that shape.  A spec naming the
+        file's own shape agrees on that compared key and loads (`surface.md` §9).
+        """
+        package = self.agents()
+        learner = self.other_shape_member()
+        path = package.save(learner, self.path("v4-no-limit-8127.pt"))
+        metadata, _parameters = container_document(path)
+        self.assertEqual(
+            plain_int(metadata["format_version"], "metadata['format_version']"),
+            4,
+            "a container of any declared shape other than the default is format version 4 "
+            "(checkpoint.md §2.1, §3, shapes.md §5, ASM-40)",
+        )
+        self.assertEqual(
+            metadata.get("game"),
+            OTHER_SHAPE,
+            "a version 4 container records, in `game`, the declared shape it was written on "
+            "(checkpoint.md §2.1, §3, shapes.md §5, D-29)",
+        )
+        keys = tuple(metadata)
+        self.assertIn("kind", keys)
+        self.assertEqual(
+            keys.index("game"),
+            keys.index("kind") + 1,
+            "`game` is written immediately after `kind` in the document's own key order, so "
+            "the shape is read before either catalogue member (checkpoint.md §2.1, "
+            "docs/L3/agents/shapes.md §5); the document's order was %r" % (keys,),
+        )
+        restored = package.load(None, path)
+        self.assertEqual(
+            getattr(restored, "game", None),
+            OTHER_SHAPE,
+            "a learner restored from a version 4 container does not carry the shape the file "
+            "records (shapes.md §5, checkpoint.md §3, ASM-5)",
+        )
+        self.assertEqual(
+            plain_int(getattr(restored, "actions", None), "Learner.actions"),
+            6,
+            "the restored learner's head is not the six-descriptor head the file's shape "
+            "declares (docs/L3/agents/shapes.md §2, checkpoint.md §3)",
+        )
+        self.assertEqual(
+            plain_int(package.param_count(restored), "param_count"),
+            plain_int(package.param_count(learner), "param_count"),
+            "the restored learner does not report the count the saved one does, so the head "
+            "the file's shape declares was not the head it was rebuilt on (checkpoint.md §3, "
+            "restore.md §2, ASM-40)",
+        )
+        policy = package.as_policy(restored, flat_encoder(), LEARNER_SEED)
+        self.assertEqual(
+            getattr(policy, "game", None),
+            OTHER_SHAPE,
+            "the policy a restored learner yields decodes in the shape its container records, "
+            "so a six-index learner's descriptor is one of that shape's six (rule.md §7, "
+            "shapes.md §5)",
+        )
+        rows = shape_decisions(OTHER_SHAPE, 8)
+        for position, row in enumerate(rows):
+            saved = package.act(learner, row["dense"], row["mask"])
+            loaded = package.act(restored, row["dense"], row["mask"])
+            with self.subTest(hand=position):
+                self.assertEqual(
+                    plain_int(loaded["action"], "act(...)['action']"),
+                    plain_int(saved["action"], "act(...)['action']"),
+                    "the restored learner did not decide as the saved one, so the six-index "
+                    "head's values did not travel (checkpoint.md §1, §4, ASM-5)",
+                )
+                self.assertIs(
+                    loaded["tie"],
+                    saved["tie"],
+                    "the restored decision's `tie` flag is not the saved one's, and the flag "
+                    "is the learner's own record (records.md §6, §15, checkpoint.md §1)",
+                )
+        via_spec = package.load(
+            learner_spec(
+                kind="naive-stack", width=6, depth=1, game=OTHER_SHAPE
+            ),
+            path,
+        )
+        self.assertEqual(
+            package.param_count(via_spec),
+            package.param_count(learner),
+            "a spec naming the file's own shape agrees on that compared key and loads "
+            "(surface.md §9, checkpoint.md §3)",
+        )
+
+    def test_agt7_19_a_default_shape_save_is_still_format_three_without_the_field(self):
+        """AGT-7.19 `save` of a default-shape learner writes `format_version` 3 and no `game` member at all, its document's key order is `checkpoint.md` §2.1's own and its parameter count the today's formula's, and the decompressed array is the draw `architecture.md` §4 declares at the default head (`docs/L2/agents/shapes.md` §5, `docs/L3/agents/checkpoint.md` §2.1, §3, `docs/L3/agents/shapes.md` §2, `sizing.md` §6, `surface.md` §8, ASM-40).
+
+        Rejected in the design: always writing version 4, which moves every future
+        fixed-limit save's bytes.  So a default-shape container is **today's**, and the two
+        ways that is observable here are its document's shape — fourteen keys in §2.1's order
+        and no `game` among them — and its array: the online block is
+        `model._initial_parameters`' own draw for that kind, width, depth and seed, and the
+        target copy beside it is that draw, because a fresh learner's copy is a copy
+        (`architecture.md` §4's step 5, `rule.md` §8).
+        """
+        package = self.agents()
+        learner = self.build(kind="naive-stack", width=6, depth=1)
+        path = package.save(learner, self.path("v3-default-shape-8127.pt"))
+        metadata, raw = container_document(path)
+        self.assertNotIn(
+            "game",
+            metadata,
+            "a default-shape save carries a `game` field, and its writer writes none: the "
+            "container is version 3 and its two members are today's (shapes.md §5, "
+            "checkpoint.md §2.1, §3, ASM-40)",
+        )
+        self.assertEqual(
+            plain_int(metadata["format_version"], "metadata['format_version']"),
+            3,
+            "a container of the default shape is format version 3, today's (shapes.md §5, "
+            "checkpoint.md §3, ASM-40)",
+        )
+        self.assertEqual(
+            tuple(metadata),
+            FORMAT_THREE_KEYS,
+            "the document's key order is not checkpoint.md §2.1's without the field the "
+            "default shape never writes — a `game` inserted anywhere, or a key moved, makes "
+            "the member more than today's; the document's order was %r" % (tuple(metadata),),
+        )
+        count = plain_int(package.param_count(learner), "param_count")
+        self.assertEqual(
+            plain_int(metadata["params"]["count"], "metadata['params']['count']"),
+            count,
+            "the container's recorded count is not `param_count`'s, which at A = 3 is "
+            "today's formula (architecture.md §5, checkpoint.md §2.1, ASM-40)",
+        )
+        self.assertEqual(
+            plain_int(metadata["params"]["length"], "metadata['params']['length']"),
+            2 * count,
+            "a dense kind pins no sparse mask, so the array is the online parameters and "
+            "their target copy and nothing else (checkpoint.md §2, §2.1)",
+        )
+        array = np.load(io.BytesIO(raw), allow_pickle=False)
+        self.assertEqual(array.dtype, np.dtype("float64"))
+        self.assertEqual(int(array.shape[0]), 2 * count)
+        initial = declared_internal("model", "_initial_parameters")
+        expected = np.asarray(
+            initial("naive-stack", 6, 1, 0.0, LEARNER_SEED), dtype=np.float64
+        )
+        self.assertEqual(
+            int(expected.shape[0]),
+            count,
+            "the declared draw's length is not the count, so this case cannot say what the "
+            "member holds (architecture.md §4, rule.md §8)",
+        )
+        self.assertTrue(
+            np.array_equal(array[:count], expected),
+            "the online block is not architecture.md §4's own draw for that kind, width, "
+            "depth and seed, so the default head's draw sequence moved (docs/L3/agents/"
+            "shapes.md §2, ASM-40)",
+        )
+        self.assertTrue(
+            np.array_equal(array[count : 2 * count], expected),
+            "the target copy is not the online values at construction, so one of the two "
+            "halves of the member is not today's (architecture.md §4's step 5)",
+        )
+
+    def test_agt7_20_a_version_four_container_without_the_field_is_refused(self):
+        """AGT-7.20 a version-4 container whose `metadata.json` has no `game` is refused naming the field (`docs/L2/agents/shapes.md` §5, `docs/L3/agents/checkpoint.md` §3, `surface.md` §9, `errors.md` §3, ASM-40).
+
+        `game` is **required** of a version-4 container: it is the identity a pool member, a
+        run and a table read, and nothing defaults it — the file is refused rather than read
+        as the default shape, which is the one reading the version-4 rule forbids
+        (`checkpoint.md` §3's version table).
+        """
+        package = self.agents()
+        source = package.save(self.other_shape_member(), self.path("v4-source-8127.pt"))
+        dropped = version_container(
+            source, self.path("v4-without-the-field-8127.pt"), 4, drop=("game",)
+        )
+        metadata, _parameters = container_document(dropped)
+        self.assertNotIn("game", metadata, "the doctored copy still carries the field")
+        self.assertEqual(
+            plain_int(metadata["format_version"], "metadata['format_version']"),
+            4,
+            "the doctored copy is not a version-4 container (checkpoint.md §3)",
+        )
+        self.assert_agents_refusal(
+            package.load,
+            None,
+            dropped,
+            entry="load",
+            groups=(("game",), ("metadata",)),
+            label="a version-4 container without a game field",
+        )
+        self.assertEqual(
+            package.param_count(package.load(None, source)),
+            package.param_count(self.other_shape_member()),
+            "the container the doctored copy came from must still load, so the refusal above "
+            "is the missing field's and not the file's (checkpoint.md §3)",
+        )
+
+    def test_agt7_21_a_game_the_writer_would_not_have_written_is_refused(self):
+        """AGT-7.21 a version-4 container naming the **default** shape is refused as a field its writer would never have written — a default-shape save writes version 3 — naming the field and the value, and a version-1, version-2 or version-3 container **carrying** `game` is refused on that same rule (`docs/L2/agents/shapes.md` §5, `docs/L3/agents/checkpoint.md` §3, `docs/L3/agents/shapes.md` §5, `surface.md` §9, `errors.md` §2-§3, ASM-40).
+
+        Both refusals are one rule, stated once in `checkpoint.md` §3: a field a version's
+        writer never wrote and a file carrying it was edited.  The version-4 half is a
+        default-shape save with its `format_version` raised to 4 and the default shape's own
+        name written into `game`; the older half is a version-4 container lowered to each of
+        1, 2 and 3 with `game` left in place, and the refusal names the field, its value and
+        the version the field is absent from in every one of the four cases.
+        """
+        package = self.agents()
+        default_source = package.save(
+            self.build(kind="naive-stack", width=6, depth=1),
+            self.path("v3-default-source-8127.pt"),
+        )
+        named_default = game_container(
+            default_source,
+            self.path("v4-naming-the-default-8127.pt"),
+            4,
+            game=DEFAULT_SHAPE,
+        )
+        metadata, _parameters = container_document(named_default)
+        self.assertEqual(
+            metadata.get("game"),
+            DEFAULT_SHAPE,
+            "the doctored copy is not a version-4 container naming the default shape",
+        )
+        self.assert_agents_refusal(
+            package.load,
+            None,
+            named_default,
+            entry="load",
+            groups=(
+                ("game",),
+                (DEFAULT_SHAPE,),
+                ("format version 3", "version 3"),
+            ),
+            label="a version-4 container naming the default shape",
+        )
+        other_source = package.save(
+            self.other_shape_member(), self.path("v4-other-source-8127.pt")
+        )
+        for version in (1, 2, 3):
+            with self.subTest(version=version):
+                carrying = game_container(
+                    other_source,
+                    self.path("v%d-carrying-the-field-8127.pt" % (version,)),
+                    version,
+                )
+                recorded, _array = container_document(carrying)
+                self.assertEqual(
+                    plain_int(recorded["format_version"], "metadata['format_version']"),
+                    version,
+                    "the doctored copy is not a version-%d container" % (version,),
+                )
+                self.assertEqual(
+                    recorded.get("game"),
+                    OTHER_SHAPE,
+                    "the doctored copy no longer carries the shape it was written on",
+                )
+                self.assert_agents_refusal(
+                    package.load,
+                    None,
+                    carrying,
+                    entry="load",
+                    groups=(("game",), (OTHER_SHAPE,), ("version %d" % (version,),)),
+                    label="a version-%d container carrying game" % (version,),
+                )
+
+    def test_agt7_22_a_spec_naming_another_shape_is_refused_naming_both(self):
+        """AGT-7.22 a `load` spec whose `game` disagrees with the shape the container is read as is refused naming the key and **both** shapes, exactly as a contradictory `seed` is, while a spec naming the file's own shape loads and one naming a shape outside the catalogue is refused naming it and the declared names (`docs/L2/agents/shapes.md` §5, `docs/L3/agents/checkpoint.md` §3, `surface.md` §9, `errors.md` §2-§4, ASM-40).
+
+        The shape is compared on the same rule the two catalogue members are: validated
+        against the module's own catalogue first — so a name it does not carry is
+        `UnknownShape`, this module's refusal, and never defaulted — and then compared with
+        the shape the file is **read as**, a version-1-to-3 file being the default shape
+        whatever a caller says.  Both directions are driven here, so neither shape is
+        privileged by the comparison.
+        """
+        package = self.agents()
+        members = {
+            DEFAULT_SHAPE: self.build(kind="naive-stack", width=6, depth=1),
+            OTHER_SHAPE: self.other_shape_member(),
+        }
+        paths = {}
+        for shape, learner in members.items():
+            with self.subTest(shape=shape, saved=True):
+                paths[shape] = package.save(
+                    learner, self.path("v-%s-8127.pt" % (shape,))
+                )
+                agreed = package.load(
+                    learner_spec(
+                        kind="naive-stack", width=6, depth=1, game=shape
+                    ),
+                    paths[shape],
+                )
+                self.assertEqual(
+                    package.param_count(agreed),
+                    package.param_count(learner),
+                    "a spec naming the file's own shape agrees on that compared key and "
+                    "loads (surface.md §9, checkpoint.md §3)",
+                )
+        for file_shape, spec_shape in (
+            (DEFAULT_SHAPE, OTHER_SHAPE),
+            (OTHER_SHAPE, DEFAULT_SHAPE),
+        ):
+            with self.subTest(shape=spec_shape, file=file_shape):
+                self.assert_refused(
+                    package.load,
+                    learner_spec(
+                        kind="naive-stack", width=6, depth=1, game=spec_shape
+                    ),
+                    paths[file_shape],
+                    entry="load",
+                    groups=(("game",), (spec_shape,), (file_shape,)),
+                    label="a spec naming %r against a container read as %r"
+                    % (spec_shape, file_shape),
+                )
+        self.assert_agents_refusal(
+            package.load,
+            learner_spec(
+                kind="naive-stack", width=6, depth=1, game="limit-seven-8127"
+            ),
+            paths[OTHER_SHAPE],
+            entry="load",
+            groups=(
+                ("game",),
+                ("limit-seven-8127",),
+                (DEFAULT_SHAPE,),
+                (OTHER_SHAPE,),
+            ),
+            label="a spec naming a shape the catalogue does not carry",
+        )
+
+    def test_agt7_23_a_shipped_version_one_container_loads_as_the_default_shape(self):
+        """AGT-7.23 one of the containers the repository ships is format version 1 with no `game` field, and `load(None, path)` reads it as the **default** shape: `Learner.game` is `fixed-limit-20`, `actions` is three and `param_count` is the count the file's own metadata records — opened read-only, with the tree's fingerprint unmoved (`docs/L2/agents/shapes.md` §5, `docs/L3/agents/checkpoint.md` §3, `surface.md` §9, `sizing.md` §6, ASM-18, ASM-40, ASM-5).
+
+        The 18 shipped containers were written before the second shape existed and none is
+        regenerated, so a version-1 file is read as the default shape, exactly as it is read
+        as `masked-q-learning` and `net-chips` — the only members its writer could have used
+        (D-19, D-20, D-29).  AGT-7.15 and AGT-7.17 drive that reading on a synthetic copy and
+        on the whole shipped set; this case reads one real file and says what shape it
+        restores, which is the shape half of the same contract.  `checkpoints/` belongs to
+        `training`: the case opens one container for reading, reads its document with
+        `container_document`, and fingerprints every file's size and mtime across the read so
+        a byte written under the tree shows here (`surface.md` §8, `module-map.md` §5).
+        """
+        package = self.agents()
+        if not os.path.isdir(SHIPPED_ROOT) or not os.listdir(SHIPPED_ROOT):
+            self.skipTest(
+                "the shipped version-1 set is not in this checkout: there is no "
+                "checkpoints/ tree (or it holds no file) under %r, so the container "
+                "checkpoint.md §3 reads as the default shape cannot be opened" % (REPO_ROOT,)
+            )
+        containers = shipped_containers(SHIPPED_ROOT)
+        if not containers:
+            self.skipTest(
+                "the shipped version-1 set is not in this checkout: %r holds no file that "
+                "opens as a zip container, so checkpoint.md §3's reading of a shipped "
+                "version cannot be exercised" % (SHIPPED_ROOT,)
+            )
+        path = containers[0]
+        name = os.path.relpath(path, REPO_ROOT)
+        before = tree_fingerprint(SHIPPED_ROOT)
+        metadata, _parameters = container_document(path)
+        self.assertEqual(
+            plain_int(metadata["format_version"], "metadata['format_version']"),
+            1,
+            "the shipped container %r is not format version 1, and a version-1 container is "
+            "the one that carries no game field (checkpoint.md §3, shapes.md §5)" % (name,),
+        )
+        self.assertNotIn(
+            "game",
+            metadata,
+            "the shipped container %r carries a `game` field: no version-1 writer wrote one, "
+            "and one that carries it was edited and is refused by name (checkpoint.md §3, "
+            "shapes.md §5, ASM-40)" % (name,),
+        )
+        restored = package.load(None, path)
+        self.assertEqual(
+            getattr(restored, "game", None),
+            DEFAULT_SHAPE,
+            "the shipped container %r is not read as the default shape, the only one its "
+            "writer could have used (checkpoint.md §3, docs/L2/agents/shapes.md §5, D-29)"
+            % (name,),
+        )
+        self.assertEqual(
+            plain_int(getattr(restored, "actions", None), "Learner.actions"),
+            len(features().action_space(shape=DEFAULT_SHAPE)),
+            "the restored learner's head is not the default shape's own descriptor count "
+            "(shapes.md §1-§2, sizing.md §6)",
+        )
+        self.assertEqual(
+            plain_int(getattr(restored, "actions", None), "Learner.actions"),
+            3,
+            "the default shape declares three indices and the shipped container restored a "
+            "learner of another width (docs/L2/agents/shapes.md §2, ASM-40, D-29)",
+        )
+        self.assertEqual(
+            plain_int(package.param_count(restored), "param_count"),
+            plain_int(metadata["params"]["count"], "metadata['params']['count']"),
+            "the restored learner's count is not the count the container records, and a load "
+            "checks `params.count` against the head the shape it is read as declares "
+            "(checkpoint.md §2.1, §3, restore.md §2)",
+        )
+        self.assertEqual(
+            tree_fingerprint(SHIPPED_ROOT),
+            before,
+            "reading the shipped set moved its tree: checkpoints/ belongs to `training` and "
+            "this module reads it read-only, writing only where it is told (surface.md §8, "
+            "module-map.md §5, ASM-18)",
         )
 
 

@@ -64,6 +64,12 @@ RANKS = "23456789TJQKA"
 #: The ranks D-21 pins as face cards: J, Q, K **or A** (`folders.md` §2, D-21).
 FACE_RANKS = frozenset("JQKA")
 
+#: The declared spelling `features.action_space` publishes for the minimum legal raise-to,
+#: and the only place this module names it: a decision's own descriptors are matched
+#: against it and this module re-derives no vocabulary (`shapes.md` §3,
+#: `features/surface.md` §7, `baselines.md` §3).
+MINIMUM_RAISE = "raise-minimum"
+
 #: The facts the canonical spelling, the inequality and the three folder rules read, in
 #: the readout's order (`folders.md` §2, `surface.md` §11).
 FACTS = (
@@ -263,6 +269,24 @@ def _indices(legal_actions):
     return tuple(int(index) for index in features.legal_indices(legal_actions))
 
 
+def _descriptor(legal_actions, index):
+    """One chosen index as the `legal_actions` member at that index's own position.
+
+    Every one of the six policies returns through this one function, so the lookup is
+    implemented once and no baseline decodes an index in a shape's vocabulary
+    (`baselines.md` §1-§2, `docs/L2/agents/baselines.md` §2).  The descriptor is the
+    `legal_actions` member at the position the chosen index holds in
+    `features.legal_indices`, never `legal_actions[index]`: a band masked out at the
+    decision is absent from that sequence, so positions shift (`features/surface.md` §8
+    fixes `legal_indices` as position-aligned, §9 makes `decode_action` shape-dependent,
+    and a baseline carries no shape).  On the default shape the two readings agree,
+    because the legal indices are `0, 1, 2` and their positions are `0, 1, 2`, so
+    nothing at the default shape moves (`baselines.md` §1-§2, `features/surface.md` §8).
+    """
+    indices = _indices(legal_actions)
+    return legal_actions[indices.index(int(index))]
+
+
 def _canonical(readout, indices):
     """One decision as the one UTF-8 string `baselines.md` §2 canonicalises it to.
 
@@ -308,10 +332,22 @@ def _random_index(readout, legal_actions, seed):
 
 
 def _always_call_index(legal_actions):
-    """`baselines.md` §3: index 1 whenever it is legal, else index 2, never 0."""
+    """`baselines.md` §3: index 1 whenever it is legal, else the minimum legal completion.
+
+    With check/call unavailable the rule is the decision's **minimum legal completion**:
+    the `raise-minimum` descriptor where `legal_actions` offers one, and otherwise index
+    2, the first raise index every declared vocabulary carries.  `raise-minimum` is the
+    declared spelling `features.action_space` publishes, which this module re-derives no
+    vocabulary for: it recognises the decision's own descriptor and never decodes one, and
+    a shape whose minimum carried another name would fall back to the first raise
+    (`baselines.md` §3, `shapes.md` §3, `features/surface.md` §7).
+    """
     indices = _indices(legal_actions)
     if 1 in indices:
         return 1
+    for position, descriptor in enumerate(legal_actions):
+        if descriptor == MINIMUM_RAISE:
+            return indices[position]
     if 2 in indices:
         return 2
     return indices[0]
@@ -445,7 +481,7 @@ class Baseline:
             index = _fold_no_pair_or_better_index(decision, legal_actions)
         else:
             index = _fold_large_bet_index(decision, legal_actions)
-        return features.decode_action(int(index))
+        return _descriptor(legal_actions, index)
 
 
 def build_baseline(name, seed):

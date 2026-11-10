@@ -1,47 +1,58 @@
 # engine — the hand
 
 - **Owner:** the hand’s data structure and its wrapper over a `pokerkit` state: the handle, `new_hand` (the project’s single seeding point), the **seat mapping**, and the two entry points that are a pure function of a finished or running hand (`is_terminal`, `payoffs`)
-- **Ceiling:** 110 lines. At the ceiling, split by owner — never append
+- **Ceiling:** 118 lines — raised from 110 for the second declared shape: the handle’s third field, the second `create_state` call and the no-cap row’s first-decision check. At the ceiling, split by owner — never append
 
 ## 1. The value
 
     class Hand:                    # src/engine/hand.py — NOT surface
         _state: pokerkit.state.State
         _history: tuple[str, ...]  # one entry per applied action, oldest first (history.md §1)
+        _shape: str                # the canonical name of the shape it was dealt from (config.md §1)
 
 A `Hand` is an **opaque handle**: no public attribute, no mapping access, no iterator, no `__eq__`
 (identity equality only), and a constant `__repr__` such as `<engine.Hand>`. A caller only ever
-passes it back; nothing in it is surface (`e2e-surface.md` §1, brief §5).
+passes it back; nothing in it is surface (`e2e-surface.md` §1).
 
 The module keeps **no state of its own**: the whole state of a hand lives in its handle, so two
 handles are independent and a hand dealt earlier is unaffected by a hand dealt later (`L2
 environment.md` §1, ASM-2). No module-level cache, no "current hand", no registry.
 
-Internally a `Hand` is exactly two things: the `pokerkit` state and this project’s public history.
-Everything a readout needs is derived from the state on demand and never cached in the handle — a
-cache would be a second source of truth that a `deepcopy` could desynchronise.
+Internally a `Hand` is exactly three things — the state, the public history and the shape’s name — and
+everything a readout needs is derived from the state on demand: a cache would be a second source of
+truth that a `deepcopy` could desynchronise.
 
-## 2. `new_hand(seed)`
+The **shape lives in the handle** and nowhere else: `readout`, `legal_actions`, `apply_action` and
+`advance` need its vocabulary or its bet structure, and none of them may take a shape beside a hand,
+because a second argument could name a different game from the deal that was made (`surface.md` §1,
+`shapes.md` §3). The third field is that canonical name, and a step copies it forward (`advance.md` §1).
 
-    def new_hand(seed: int) -> Hand
+## 2. `new_hand(seed, shape=None)`
 
-    refuse unless isinstance(seed, int) and not isinstance(seed, bool)      # errors.md, InvalidSeed
-    random.seed(seed)                       # THE single seeding point of the project (ASM-2)
-    state = FixedLimitTexasHoldem.create_state(
-                AUTOMATIONS, True, 0, (1, 2), 2, 4, 20, 2,
-            )                               # automations, ante_trimming, antes, blinds, small, big,
-                                            # starting stacks, player count
-    return Hand(state, ())
+    def new_hand(seed: int, shape=None) -> Hand
+
+    validate_seed(seed)                      # not an int, or a bool — errors.md, InvalidSeed
+    name = require_shape(shape, "new_hand")  # a name outside the catalogue — config.md §1, UnknownShape
+    random.seed(seed)                        # THE single seeding point of the project (ASM-2)
+    return Hand(create_state(shape_row(name)), (), name)
+
+Both refusals happen **before** `random.seed`, so a refused call cannot move the stream and neither
+depends on the other. `create_state(row)` picks the library class from the row's `bet_structure`
+(`config.md` §2): the fixed row's call is the one this module has always made, and the no-cap row hands
+`pokerkit` the big blind as its minimum bet:
+
+    "fixed-limit" -> FixedLimitTexasHoldem.create_state(AUTOMATIONS, True, 0, blinds, 2, 4, 20, 2)
+    "no-limit"    -> NoLimitTexasHoldem.create_state(AUTOMATIONS, True, 0, blinds, min_bet, 100, 2)
 
 Why this is enough: `pokerkit` shuffles the deck inside `create_state` (`state.py:1241`,
 `shuffle(self.deck_cards)`, `from random import shuffle`), so seeding the global stream immediately
 before creation fixes the **whole** deck order, and every later card comes from that order — a step
-consumes a few incidental draws (the reserved-card shuffle of `platform.md` §4) but cannot change the
-deal, and `advance` hands those draws back (`advance.md` §1).
+consumes a few incidental draws (`platform.md` §4) but cannot change the deal, and `advance` hands
+them back (`advance.md` §1). The **shape does not move that order**: the seed is set, then the state
+its row declares is created, so a default-shape deal is unchanged card for card (`shapes.md` §5, D-29).
 
 `bool` is refused although `bool` is an `int` subclass: a recorded seed is an integer, and `True` as
-a seed is a defect a test can see (`protocol.md` §2). The refusal happens **before** `random.seed`,
-so a refused call cannot move the stream.
+a seed is a defect a test can see (`protocol.md` §2).
 
 `AUTOMATIONS` is the module’s constant: `ANTE_POSTING, BET_COLLECTION, BLIND_OR_STRADDLE_POSTING,
 CARD_BURNING, HOLE_DEALING, BOARD_DEALING, HOLE_CARDS_SHOWING_OR_MUCKING, HAND_KILLING,
@@ -60,7 +71,7 @@ players the consequence is fixed, and it is the opposite of this project’s con
 |---|---|---|
 | posts | the small blind 1 | the big blind 2 |
 | acts first | pre-flop | flop, turn, river |
-| chips behind at the first decision | 19 | 18 |
+| chips behind at the first decision, stack 20 | 19 | 18 |
 
 `docs/L2/engine/environment.md` §1 requires **seat 0 to be the button**: it posts the small blind of
 1, it acts first pre-flop, and seat 1 acts first on every later street. Therefore
@@ -73,18 +84,24 @@ players the consequence is fixed, and it is the opposite of this project’s con
 readout’s `seat` fact, the acting seat of a decision, and the policy `play_hand` calls. No `pokerkit`
 index ever reaches a caller. Do not "simplify" this by passing `(2, 1)` to `create_state`: the library
 reverses an already-reversed pair again and the button lands back on the wrong seat
-(`guardrails.md` G2).
+(`guardrails.md` G2). Both rows have two seats and the same blinds, so this map is the shape's too: no
+row re-seats a hand (`shapes.md` §2).
 
 ## 4. The first decision, as a check on the whole mapping
 
-At any seed the first decision must read: `street == "preflop"`, `pot == 3`, `stacks == (19, 18)`,
-`to_call == 1`, `seat == (0, True)`, `len(hole) == 2`, `board == ()`, `history == []`. If a build
-reads `stacks == (18, 19)` or `seat == (1, False)`, the seat map is inverted and nothing else in the
-module can be trusted (`readout.md` §2).
+At any seed the **default shape's** first decision must read: `street == "preflop"`, `pot == 3`,
+`stacks == (19, 18)`, `to_call == 1`, `seat == (0, True)`, `len(hole) == 2`, `board == ()`,
+`history == []`. If a build reads `stacks == (18, 19)` or `seat == (1, False)`, the seat map is
+inverted and nothing else in the module can be trusted (`readout.md` §2).
 
-Conservation, asserted at every decision: `pot + sum(stacks) == 40` (`L2 environment.md` §1) —
-committed chips sit in the pot, never in a stack, and `state.total_pot_amount` includes the current
-street’s outstanding bets (`state.py:2601-2606`).
+The **no-cap row's** own first decision carries the same seating and its own numbers: `pot == 3`,
+`stacks == (99, 98)`, `to_call == 1`, `seat == (0, True)`, `limit == (2, 0)`, `board == ()` — differing
+only where the row differs (`config.md` §6, `shapes.md` §2).
+
+Conservation, asserted at every decision: `pot + sum(stacks)` is the row's chips in play, 40 in the
+default shape and 200 in the no-cap one, because committed chips sit in the pot and never in a stack
+(`L2 environment.md` §1, `config.md` §4) — and `state.total_pot_amount` includes the current street’s
+outstanding bets (`state.py:2601-2606`).
 
 ## 5. `is_terminal` and `payoffs`
 

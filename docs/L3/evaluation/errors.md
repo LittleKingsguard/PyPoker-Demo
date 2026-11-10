@@ -3,16 +3,12 @@
 - **Owner:** the error classes and the message grammar every refusal of this module follows, the canonical message
   per refusal the L2 surface declares, and what is deliberately *not* refused
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** `declarations.md` §7, `pool.md` §8, `families.md` §6, `scheduler.md` §6–§7, `matrix.md` §7, `report.md` §3
+- **Rev 6:** D-29's second shape — three classes beside the two mismatches and the checkpoint's: `UnknownShape`, `ShapeMismatch` and `UnknownExploration`, one base and forty-two subclasses (§2–§5, `shape.md` §3, §5)
+- **Read with:** `shape.md` §2–§5, `declarations.md` §7, `pool.md` §8, `families.md` §6, `scheduler.md` §6–§7, `matrix.md` §7, `report.md` §3
 
 ## 1. Why a hierarchy
 
-`surface.md` §1 says an invalid argument is refused by raising an error that names the violated contract, and that no entry
-point coerces a value, substitutes a default, swallows an error or returns part of a record. The error is therefore the only
-reporting channel: nothing comes back as a failure record, and no refused call has an observable effect (`pool.md` §8,
-`rating.md` §6). The hierarchy exists so a caller can catch "this module refused me" without catching a `KeyError` from a
-bug — a mistyped key, a `TypeError` from a helper or a NumPy error from the fit each leak an internal decision as a crash;
-the one declared catch is `scheduler.md` §6's.
+`surface.md` §1 says an invalid argument is refused by raising an error that names the violated contract, and that no entry point coerces a value, substitutes a default, swallows an error or returns part of a record. The error is therefore the only reporting channel: nothing comes back as a failure record, and no refused call has an observable effect (`pool.md` §8, `rating.md` §6). The hierarchy exists so a caller can catch "this module refused me" without catching a `KeyError` from a bug — a mistyped key, a `TypeError` from a helper or a NumPy error from the fit each leak an internal decision as a crash; the one declared catch is `scheduler.md` §6's.
 
 ## 2. The classes — `src/evaluation/errors.py`
 
@@ -30,9 +26,11 @@ the one declared catch is `scheduler.md` §6's.
     class UnknownRule(EvaluationError)             # a member's rule is not one of the catalogue's (rules.md §4, D-19)
     class UnknownUtility(EvaluationError)          # a member's utility is not one of the catalogue's (utility.md §4, D-20)
     class UnknownBaseline(EvaluationError)         # a pool declaration's baselines names a baseline the catalogue lacks (ASM-32, D-21)
+    class UnknownShape(EvaluationError)           # a shape name the restated catalogue does not carry (shape.md §1–§3, D-29)
     class RuleMismatch(EvaluationError)            # two declarations of one rule disagree: a record against its checkpoint's,
                                                    #   or a version's rule against the family it extends (families.md §1, §5)
     class UtilityMismatch(EvaluationError)         # the utility's pair of the same two disagreements (utility.md §4, D-20)
+    class ShapeMismatch(EvaluationError)           # two declarations of one shape disagree, any of the seven pairs (shape.md §3, §4, D-29)
     class FamilyBoundExceeded(EvaluationError)     # a declaration or an offer holds more families than the bound allows (ASM-26)
     class PoolNotFrozen(EvaluationError)           # matrix: the pool may still change while it is tabled
     class InvalidSeed(EvaluationError)             # opponent, match: the seed is not an integer
@@ -52,16 +50,18 @@ the one declared catch is `scheduler.md` §6's.
     class CheckpointUnreadable(EvaluationError)    # policy_from, a member's path: no readable file, or no readable zip
     class CheckpointRecordMissing(EvaluationError) # container: no seed or encoding name, or not in a form this module reads
     class UnknownEncoding(EvaluationError)         # a checkpoint: build_encoder refuses the name, or as_policy its encoder
+    class UnknownExploration(EvaluationError)      # policy_from's mode is neither 'schedule' nor 'off' (shape.md §5, sizing.md §4)
     class MissingFamily(EvaluationError)           # report: an absent evidence family — named as protocol() spells it
     class MembershipMismatch(EvaluationError)      # report: the matrix's membership is not the pool's plus the variants
     class RatingMismatch(EvaluationError)          # report: the rating does not name exactly the matrix's members
     class HeaderIncomplete(EvaluationError)        # report: a header item is missing — the item is named
     class InvalidArgument(EvaluationError)         # any: an argument of the wrong type — a not-mapping record, a non-str rung
 
-**One base and thirty-nine subclasses**, one per refusal family of `surface.md` §5–§13 — D-19 added `UnknownRule`,
+**One base and forty-two subclasses**, one per refusal family of `surface.md` §5–§13 — D-19 added `UnknownRule`,
 `RuleMismatch` and `FamilyBoundExceeded` in that order, D-20 added `UnknownUtility` and `UtilityMismatch` beside the
-rule's pair, and D-21 added `UnknownBaseline` beside the utility's, which is where `errors.py` declares them (`rules.md` §4,
-`families.md` §6, `utility.md` §4, `pool.md` §8, D-19, D-20, D-21).
+rule's pair, D-21 added `UnknownBaseline` beside the utility's, and D-29 added `UnknownShape`, `ShapeMismatch` and
+`UnknownExploration` beside the two mismatches and the checkpoint's classes (`rules.md` §4, `families.md` §6, `utility.md` §4,
+`shape.md` §3, §5, `pool.md` §8, D-19, D-20, D-21, D-29).
 They are **not** module-level names of the `evaluation` package: they live below an entry point and are not surface
 (`README.md` §3, `e2e-surface.md` §1). Their names and nesting are nonetheless contract, because `README.md` §4 makes
 `errors.py` contract for `tests/evaluation/`: only `test_errors.py` (`EVL-9.1`–`EVL-9.2`) asserts a subclass by name.
@@ -72,17 +72,15 @@ Every message has the form
 
     "<entry point>(<argument or field>): <the violated contract>, got <what was passed>"
 
-so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a missing
-key — the message names the key instead of inventing a `got` clause. A `report` reusing `rating.md` §6's checks names the
-violated rule in the **field** slot (`hands` / `cells` / `pair` / the missing baseline), and `cell_count(K): …` names the
-callable `league()` returns (`declarations.md` §5). Three properties: the message names the entry point, the rule or
-`cell_count` and the key at fault; it never claims a value was accepted; and a member, a family or a baseline is named by
-its **id**.
+so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a missing key —
+the message names the key instead of inventing a `got` clause. A `report` reusing `rating.md` §6's checks names the violated rule
+in the **field** slot (`hands` / `cells` / `pair` / the missing baseline), and `cell_count(K): …` names the callable `league()`
+returns (`declarations.md` §5). Three properties: the message names the entry point, the rule or `cell_count` and the key at fault;
+it never claims a value was accepted; and a member, a family, a baseline or a shape is named by its **id** or its own spelling.
 
 ## 4. The canonical messages
 
-L4 follows these spellings; the unit battery matches them tolerantly (the entry point's name, the field's name and the
-value), and `tests/e2e/`'s `refusal_text` reader accepts any wording that names the family, the pool rule or the member.
+L4 follows these spellings; the unit battery matches them tolerantly (the entry point's name, the field's name and the value), and `tests/e2e/`'s `refusal_text` reader accepts any wording that names the family, the pool rule, the shape or the member.
 
 | Where | Message |
 |---|---|
@@ -121,6 +119,8 @@ value), and `tests/e2e/`'s `refusal_text` reader accepts any wording that names 
 | `report` foreign | `report(matrix): 'version-outsider-9901' is not a member of the pool the report names` |
 | `report` rating | `report(rating): the rating names 'variant-1' and the matrix does not` |
 | `report` header | `report(header): the header is missing the required item 'table seed'` |
+| a shape's name or its two declarations | `build_pool(game): the shape 'fixed-limit-40' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100')`; `offer(version 'version-osprey'): the member records the shape 'no-limit-100' and the pool is 'fixed-limit-20', and a pool is one shape's`; `match(left, right): the sides record the shapes 'fixed-limit-20' and 'no-limit-100', and a cell is played on one shape`; `matrix(variant-1): the variant records the shape 'no-limit-100' and the table is 'fixed-limit-20'`; `report(record): the run records 'no-limit-100', the pool 'fixed-limit-20' and the matrix 'no-limit-100', and a report is one shape's` |
+| `policy_from` mode | `policy_from(exploration): the mode must be 'schedule' or 'off', got 'greedy'` |
 | `cell_count` | `cell_count(K): the bound must be an integer of at least 2, a members mapping or a sequence, got 1` |
 
 ## 5. What is *not* refused
@@ -138,10 +138,9 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
   the container deciding; refused (`MemberInvalid`, a missing required key) only in a version declaration (`scheduler.md` §5, `rules.md` §4, `utility.md` §2);
 - a member record carrying **extra keys**, one with no `path`, and a **`policy-1`/`policy-2` side** whose capacity and rule are
   simply unmeasured (`surface.md` §5, `scheduler.md` §5);
-- a **numpy integer** for a seed, a count or a position (`numpy.int64` is an `Integral`), but never a **`bool`**; a **hand-built
-  matrix** handed to `rating`, and a matrix carrying this module's own keys beside the required ones (`rating.md` §1, `surface.md` §11);
-- a **`table` label's value** re-judged by `rating`, a cell whose two directions disagree with its hand count, and an **explicit
-  `n/a` family** in a record (`rating.md` §6, `report.md` §1, §3).
+- a **numpy integer** for a seed, a count or a position (`numpy.int64` is an `Integral`), but never a **`bool`**; a **hand-built matrix** handed to `rating`, and a matrix carrying this module's own keys beside the required ones (`rating.md` §1, `surface.md` §11);
+- an **absent `game` anywhere** — a pool declaration, a member record, a cell, a matrix, a rating, a report's three records or a version-1-to-3 container: it reads as the **default** shape, and only a name that *is* declared but uncatalogued is refused (`shape.md` §2) — and a **baseline's silence about a shape**: `agents.build_baseline(name, seed)` takes none, so a side, a cell and a member record naming `game: None` for a baseline are admitted (`shape.md` §4, `scheduler.md` §5);
+- a **`table` label's value** re-judged by `rating`, a cell whose two directions disagree with its hand count, and an **explicit `n/a` family** in a record (`rating.md` §6, `report.md` §1, §3).
 
 ## 6. Where the messages are asserted
 

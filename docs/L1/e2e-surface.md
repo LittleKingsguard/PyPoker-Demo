@@ -16,7 +16,7 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 
 **Policy protocol.** A policy is a callable taking `(readout, legal_actions)` and returning one action descriptor from `legal_actions`. `engine` calls policies and never imports one; `agents.as_policy` and `evaluation.policy_from` return one. A policy that returns an illegal action is a contract violation, not a fold (D-2). A policy built from a learner also carries `learning_rule`, the catalogue member its model learned under, and `utility`, the catalogue member whose reward it was trained on, so a table can name the population and the objectives it measured; a baseline policy and a policy handed in from outside carry neither (D-19, D-20, `rules.md` §7, `utilities.md` §7).
 
-**Game shape.** A shape is a declared row of `engine.game_shapes()` — the seats, blinds, starting stack, chips in play, bet structure, action vocabulary, head width and amount normalisers of one game — and `fixed-limit-20` is the first and the **default**, so a caller that names no shape gets today's game (`shapes.md` §2). Every entry point that can differ by shape takes the shape's name as an optional argument or key whose absence means the default: `engine.game_config`, `features.action_space`, `features.build_encoder`, `agents.build_learner`'s spec, `evaluation.build_pool`'s declaration and `training.run`'s configuration. A name outside the catalogue is refused **naming it and the declared names** — never defaulted — and a record, a pool or a container the named shape contradicts is refused naming both; absence is the default, and no record names a shape it did not measure (`shapes.md` §3, D-13). The chips in play are the shape's own total, so `pot + sum(stacks)` is 40 in the default shape and the shape's total elsewhere (`shapes.md` §2).
+**Game shape.** A shape is a declared row of `engine.game_shapes()` — the seats, blinds, starting stack, chips in play, bet structure, action vocabulary, head width and amount normalisers of one game — and `fixed-limit-20` is the first and the **default**, so a caller that names no shape gets today's game (`shapes.md` §2). Every entry point that can differ by shape takes the shape's name as an optional argument or key whose absence means the default: `engine.game_config`, `engine.new_hand`, `engine.play_hand`, `features.action_space`, `features.build_encoder`, `features.decode_action`, `agents.build_learner`'s spec, `agents.as_policy`, `evaluation.build_pool`'s declaration, `evaluation.policy_from` and `training.run`'s configuration (`shapes.md` §4 lists the three the design's first list left out and why a hand cannot be told its shape any other way). A name outside the catalogue is refused **naming it and the declared names** — never defaulted — and a record, a pool or a container the named shape contradicts is refused naming both; absence is the default, and no record names a shape it did not measure (`shapes.md` §3, D-13). The chips in play are the shape's own total, so `pot + sum(stacks)` is 40 in the default shape and the shape's total elsewhere (`shapes.md` §2).
 
 **Readout facts — the information set.** `engine.readout(hand)` returns a mapping with exactly these keys, and they are the same facts for every rung (D-3):
 
@@ -62,13 +62,13 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 |---|---|---|---|
 | `game_shapes` | — | the declared shapes, `fixed-limit-20` first and the default, each with its seats, blinds, starting stack, chips in play, bet structure, action vocabulary, head width and amount normalisers (`shapes.md` §2, D-29) | fixed |
 | `game_config` | a shape name, optional | the named shape's parameters — with no argument, the fixed game's: two seats, blinds 1/2, one blind level, stacks 20, fixed bets 2 and 4, raise cap 4 (ASM-6), unchanged; a name outside `game_shapes` is refused by name (D-29) | fixed |
-| `new_hand` | seed | a hand handle; seeds the global `random` (ASM-2) | general |
+| `new_hand` | seed, a shape name, optional | a hand handle dealt on that shape — the default game when none is named; seeds the global `random` (ASM-2, `shapes.md` §4) | general |
 | `readout` | hand | the facts of §2 for the acting seat | general |
 | `legal_actions` | hand | ordered action descriptors, the engine's order | general |
 | `apply_action` | hand, action descriptor | the advanced hand; the hand it was given is unchanged, so a caller may keep an earlier handle | general |
 | `is_terminal` | hand | whether the hand is over | general |
 | `payoffs` | hand | net chips per seat for the completed hand, summing to zero | general |
-| `play_hand` | seed, the seat-0 policy, the seat-1 policy | an episode record: the ordered decisions with their facts, chosen descriptors, the amount the engine resolved for a raise and the raise's own bounds, and rewards, plus the payoffs (`records.md` §5) | general |
+| `play_hand` | seed, the seat-0 policy, the seat-1 policy, a shape name, optional | an episode record on that shape — the default game when none is named — of the ordered decisions with their facts, chosen descriptors, the amount the engine resolved for a raise and the raise's own bounds, and rewards, plus the payoffs (`records.md` §5, `shapes.md` §4) | general |
 | `equity` | the hand or that hand's readout, seed, sample count | the acting seat's win probability against a uniformly random opponent hand, from `pokerkit`'s equity calculation (ASM-4); a policy-based caller has no hand, so the readout of the decision is an accepted argument (D-6) | general |
 
 ### 3.2 `features` — 7
@@ -81,7 +81,7 @@ Every entry point is a module-level name of the module's package: `engine.new_ha
 | `encode` | encoder, readout | one observation for that readout | general |
 | `action_space` | a shape name, optional | the named shape's vocabulary of §2 in its own index order — the three indices when none is named | fixed |
 | `legal_indices` | legal action descriptors | the legal indices for that decision | general |
-| `decode_action` | index | the action descriptor `engine.apply_action` accepts | general |
+| `decode_action` | index, a shape name, optional | the action descriptor `engine.apply_action` accepts, in that shape's order — the default shape's three when none is named | general |
 
 ### 3.3 `agents` — 10
 

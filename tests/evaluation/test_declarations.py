@@ -28,7 +28,10 @@ from _evaluation_support import (
     HEADER_ITEMS,
     SEED_SET,
     EvaluationCase,
+    declared_internal,
+    default_shape,
     no_file_reads,
+    other_shape,
 )
 
 #: The seven families' declared content items (`declarations.md` §3, `protocol.md` §1).
@@ -489,6 +492,77 @@ class DeclarationsTest(EvaluationCase):
                 self.assert_evaluation_refusal(
                     cell_count, *args, entry="cell_count", groups=groups, label="cell_count(%s)" % label
                 )
+
+    def test_evl_1_15_the_edge_restates_the_two_shapes_and_the_two_modes(self):
+        """EVL-1.15 `declarations.py` restates the catalogue's two shape names, default first, with `DEFAULT_SHAPE` the first, the two exploration modes with `EXPLORATION_DEFAULT` the first, and the probe seed a pinned baseline is constructed at -- the five constants `shape.md` §1 places at this edge (`shape.md` §1-§2, §5, `surface.md` §2, D-29)."""
+        names = declared_internal("declarations", "SHAPE_NAMES")
+        self.assertEqual(
+            tuple(names),
+            ("fixed-limit-20", "no-limit-100"),
+            "the edge restates the catalogue's two names in its order, default first "
+            "(shape.md §1, docs/L1/shapes.md §2, D-29): %r" % (tuple(names),),
+        )
+        self.assertEqual(
+            len(set(names)),
+            len(tuple(names)),
+            "the two declared names are distinct, so a shape is one row and never an "
+            "alias of another (shape.md §1): %r" % (tuple(names),),
+        )
+        for name in names:
+            with self.subTest(shape=name):
+                self.assertIsInstance(
+                    name,
+                    str,
+                    "a shape is named by a string and by nothing else (shape.md §1-§2): "
+                    "%r" % (name,),
+                )
+                self.assertTrue(
+                    name.strip() and name == name.strip(),
+                    "a declared name is one token without surrounding space, because it "
+                    "is a record's value and not prose (shape.md §2, errors.md §3): %r"
+                    % (name,),
+                )
+        self.assertEqual(
+            declared_internal("declarations", "DEFAULT_SHAPE"),
+            tuple(names)[0],
+            "the declared default shape is the catalogue's first name, which is what an "
+            "absent `game` reads as everywhere (shape.md §1-§2, D-29): %r"
+            % (declared_internal("declarations", "DEFAULT_SHAPE"),),
+        )
+        self.assertEqual(
+            (default_shape(), other_shape()),
+            tuple(names),
+            "this battery's two readers name the same two shapes in the same order, so a "
+            "case that declares the second shape declares the catalogue's (shape.md §1, "
+            "§6)",
+        )
+        modes = declared_internal("declarations", "EXPLORATION_MODES")
+        self.assertEqual(
+            tuple(modes),
+            ("schedule", "off"),
+            "the two exploration modes policy_from accepts are declared here, the default "
+            "first (shape.md §5, sizing.md §4, D-29): %r" % (tuple(modes),),
+        )
+        self.assertEqual(
+            declared_internal("declarations", "EXPLORATION_DEFAULT"),
+            tuple(modes)[0],
+            "the declared default mode is the first, so a caller that names none gets the "
+            "keyed draw it always got (shape.md §5): %r"
+            % (declared_internal("declarations", "EXPLORATION_DEFAULT"),),
+        )
+        probe = declared_internal("declarations", "PROBE_SEED")
+        self.assertTrue(
+            isinstance(probe, int) and not isinstance(probe, bool),
+            "the probe seed is one integer, the seed a pinned baseline is constructed at "
+            "(shape.md §1, pool.md §2, ASM-2): %r" % (probe,),
+        )
+        self.assertEqual(
+            probe,
+            0,
+            "the probe seed is 0 as shape.md §1 declares it, so the construction is "
+            "reproducible and reads as no seed a caller chose (shape.md §1, pool.md §2): "
+            "%r" % (probe,),
+        )
 
 
 if __name__ == "__main__":

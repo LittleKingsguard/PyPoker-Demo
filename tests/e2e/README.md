@@ -1,4 +1,4 @@
-# `tests/e2e/` — the L1 end-to-end battery (Rev 3)
+# `tests/e2e/` — the L1 end-to-end battery (Rev 4)
 
 The battery that drives the built artifact through the declared entry points of
 `docs/L1/e2e-surface.md` §3. Authored at L1 under `docs/L1/battery.md`; the harness module
@@ -23,7 +23,7 @@ neither writes into the repository's `checkpoints/` (`docs/L1/battery.md` §2,
 nothing beyond the standard library and the six declared packages, so it stays collectable
 under either runner (`docs/L1/battery.md` §2). **The `-t .` is not optional**: without it
 discovery does not import this package, so the write-root hook never runs, the case set is not
-the battery's 268, and the run writes into the repository's `checkpoints/` instead of a private
+the battery's 298, and the run writes into the repository's `checkpoints/` instead of a private
 temporary root (`docs/L1/battery.md` §2).
 
 Every case is red before implementation exists. Each one reaches its first declared
@@ -34,37 +34,42 @@ collection error, and never an error thrown by the battery itself.
 ## Files and families
 
 Rev 2 replaced the head-to-head opponent with the bounded round-robin league (D-16):
-`evaluation` declares eleven entry points and the map forty-nine (`e2e-surface.md` §3.4,
-§4). D-19 makes the learning rule a catalogue (`docs/L1/rules.md`), which is FAM-17, and D-20
-makes the terminal reward one (`docs/L1/utilities.md`), which is FAM-18. The families below are
-the eighteen of `battery.md` §3, in its order.
+`evaluation` declares eleven entry points. D-19 makes the learning rule a catalogue
+(`docs/L1/rules.md`), which is FAM-17, and D-20 makes the terminal reward one
+(`docs/L1/utilities.md`), which is FAM-18. Rev 4 follows D-29: the project declares a second
+game shape (`docs/L1/shapes.md`), which adds one entry point — `engine.game_shapes`, so
+`engine` is ten and the map **fifty** (`e2e-surface.md` §3.1, §4) — and a sized action
+(`docs/L1/sizing.md`), which is FAM-19 and FAM-20. The families below are the twenty of
+`battery.md` §3, in its order.
 
 | File | Family | What it holds | Cases |
 |---|---|---|---|
 | `_surface.py` | — | `sys.path` plumbing for `src/`, the six package imports, the invented seeds and hand counts, the tolerant readers the whole battery shares (the baseline catalogue, a folder's rule recomputed from a readout, the declared starting stack), the shared tables, and the base case | — |
 | `_records.py` | — | the `records.md` readers FAM-6..FAM-16 assert through (version §7, pool §8, cell §9, matrix §10, rating §11, run record §12), the container-agnostic matrix doctorers, the process-wide scratch area the shared pool needs, and the version/table fixtures | — |
-| `test_fam01_surface.py` | FAM-1 | one case per entry point, all 49, in `e2e-surface.md` §3 order | 49 |
-| `test_fam02_invariance.py` | FAM-2 | the D-2 game, the D-3 action vocabulary and the information set, identical across the ladder, and D-21's eleventh fact `hand_class` — `None` pre-flop, an integer 0..8 after it, carried by no encoding, and, over a walk of real hands, **not a constant**: the post-flop values include both high card (`0`) and a pair or better (D-21, ASM-30) | 14 |
+| `test_fam01_surface.py` | FAM-1 | one case per entry point, all 50, in `e2e-surface.md` §3 order — `engine.game_shapes` is the fiftieth, numbered last so `shapes.md` §4's citations of FAM-1.1 and FAM-1.14 keep their subjects (D-29) | 50 |
+| `test_fam02_invariance.py` | FAM-2 | the D-2 game, the D-3 action vocabulary and the information set, identical across the ladder, and D-21's eleventh fact `hand_class` — `None` pre-flop, an integer 0..8 after it, carried by no encoding, and, over a walk of real hands, **not a constant**: the post-flop values include both high card (`0`) and a pair or better (D-21, ASM-30) — with every one of those assertions stated **for the shape in force**: today's game and today's three indices with no shape named (unchanged), and the second shape's dealt game, its six descriptors in their declared order, one index per descriptor, a decode that round-trips, and the same eleven facts (D-29, `shapes.md` §2–§3, §5) | 18 |
 | `test_fam03_ladder.py` | FAM-3 | six rungs in brief §2's order; every adjacent and intra-rung pair; the one frozen pool both arms of R4, R5 and R6 declare and record; the **set** of learning rules a pair holds constant (D-19) | 19 |
 | `test_fam04_seeds.py` | FAM-4 | the seed contract of `protocol.md` §2 and §4 with the pool in the reproducible tuple | 13 |
-| `test_fam05_baselines.py` | FAM-5 | the six-name catalogue with its order and its `anchor` flags, `random`, `always-call` and `oracle` as checkable rules, and D-21's three folders folded exactly where their rule says on real decisions, never raising while a check/call is legal, deterministic and seed-free, with a name outside the catalogue refused by name (D-6, ASM-4, D-21, ASM-31, ASM-32) | 14 |
+| `test_fam05_baselines.py` | FAM-5 | the six-name catalogue with its order and its `anchor` flags, `random`, `always-call` and `oracle` as checkable rules, and D-21's three folders folded exactly where their rule says on real decisions, never raising while a check/call is legal, deterministic and seed-free, with a name outside the catalogue refused by name (D-6, ASM-4, D-21, ASM-31, ASM-32) — and the same six on the shape in force: `random` legal in both vocabularies, no folder raising out of it, and `fold-large-bet` folding where the second shape finally offers a call above half the declared stack (ASM-31, ASM-34, D-29) | 16 |
 | `test_fam06_pool.py` | FAM-6 | the bound M, the pinned baselines, `offer`'s eviction from an unfrozen window, a frozen pool holding still, R1's three-baseline pool, the membership's deterministic id, a version's `rule` and the id that certifies it, the pool's `rules`, a second family rolling into and surviving a full window (D-19), and the declaration's optional `baselines` key — none named holds D-6's three alone, the folders join pinned after them and move the id, and an uncatalogued name is refused by name, with a declared folder pinned through four offers exactly as D-6's three are (D-21, ASM-32) | 21 |
-| `test_fam07_scheduler.py` | FAM-7 | one cell at a time: hand accounting, seat alternation, both directions from one set of hands, the drawn opponent, and a cell's `rules` for its two members (D-19) | 10 |
+| `test_fam07_scheduler.py` | FAM-7 | one cell at a time: hand accounting, seat alternation, both directions from one set of hands, the drawn opponent, and a cell's `rules` for its two members (D-19) — with `opponent` asserted on the **pool's** shape: a pool is one game's, and the draw reaches a member that decides in its six descriptors (D-29, `shapes.md` §3) | 11 |
 | `test_fam08_matrix.py` | FAM-8 | membership, K(K−1)/2 cells, one hand count, the baseline cells, the three refusals, each member's rule with the matrix's `population` (D-19), and a table over a pool that declares D-21's folders — K(K−1)/2 cells over that membership, its folder cells included (ASM-33, D-21) | 11 |
 | `test_fam09_rating.py` | FAM-9 | one value and a 95% interval per member, Bradley-Terry, D-6's three anchored at zero, the bounded member, and the anchor of a table whose pool declares the folders — the three of D-6 and never a folder (ASM-17, ASM-32, D-21) | 9 |
 | `test_fam10_tables.py` | FAM-10 | the two budgets and their cell sizes, the live table's arithmetic, and the cost record | 5 |
 | `test_fam11_report.py` | FAM-11 | the seven evidence families, a named refusal for each missing one, R1's pool row, the single-variant axis row, and a pool family that carries the measured population's rules (D-19) | 13 |
 | `test_fam12_checkpoints.py` | FAM-12 | the M-retained-snapshots-plus-final-model rule, the decision boundary, the retained window, the shipped index, and the rule each checkpoint and each index entry records (D-19) | 8 |
 | `test_fam13_parity.py` | FAM-13 | R1 against R2 on identical work, the recorded cost of both, and the driver's own clock (D-7) | 6 |
-| `test_fam14_harness.py` | FAM-14 | `drive`, `fixtures`, `factory`, `seam`, `expect` and `timings` as support, not substitute | 11 |
+| `test_fam14_harness.py` | FAM-14 | `drive`, `fixtures`, `factory`, `seam`, `expect` and `timings` as support, not substitute — the seam walk on the shape in force, today's three indices and the named shape's six (D-29) | 12 |
 | `test_fam15_custom.py` | FAM-15 | the battery's own seventh rung, its declared membership and the invented pool, run and reported as data | 5 |
 | `test_fam16_blind.py` | FAM-16 | the 37 blind instances of §5 below | 37 |
 | `test_fam17_rules.py` | FAM-17 | the learning-rule catalogue D-19 adds: two named rules with their targets, one capacity and one contract between them, the declared default, a name outside the catalogue refused by name, a checkpoint's rule, a configuration that trains **two** rules, fairness on the rule axis, and the heterogeneous table that names its population | 10 |
 | `test_fam18_utilities.py` | FAM-18 | the utility catalogue D-20 adds: two named utilities with their rewards, one capacity and one contract between them, `net-chips` the declared default, a name outside the catalogue refused by name in a spec, a variant entry, a pool member and a `load` spec, a checkpoint's utility with a contradicting `load` refused, the shipped index whose every entry names a `utility` with one shipped version-1 container read as `net-chips` through `evaluation.policy_from`, a configuration that trains **two** utilities whose arms' curves differ, fairness on the `utility` axis, and the table that names both objectives | 13 |
+| `test_fam19_shapes.py` | FAM-19 | the second game shape D-29 declares: the catalogue in full, default first, with each row's seats, blinds, stack, chips in play, bet structure, vocabulary, head width and normalisers; `game_config()` as the default row and `game_config(name)` as that shape's; an uncatalogued name refused by name at every widened entry point; the five carriers (configuration, run record and its header, pool, container, report) and the refusals that make the identity load-bearing; a version-4 container carrying `game` beside a version-3 one carrying none, and the 18 shipped version-1 containers read as the default shape; a learner refusing another shape's decision and `param_count` following the vocabulary; and the whole fixed-limit path unchanged when no shape is named (`shapes.md` §2–§5, ASM-35, ASM-40, D-29) | 12 |
+| `test_fam20_sized.py` | FAM-20 | the sized action: the six descriptors in their declared index order, each raise resolving to its own band's maximum, the four bands partitioning `[m, A]` with one owner per legal amount, an empty band masked out rather than collapsed, the index order not monotone in amount (the all-in before the minimum), a decision record carrying `amount`/`minimum`/`maximum`, the greedy pass bounded and refused beyond its bound rather than truncated, `exploration="off"` deciding identically at two seeds while `schedule` does not, and a mode outside the two refused by name (`sizing.md` §2–§4, records.md §5, §15, ASM-36–ASM-38, D-29) | 9 |
 
-268 cases: FAM-1 49, FAM-2 14, FAM-3 19, FAM-4 13, FAM-5 14, FAM-6 21, FAM-7 10,
-FAM-8 11, FAM-9 9, FAM-10 5, FAM-11 13, FAM-12 8, FAM-13 6, FAM-14 11, FAM-15 5,
-FAM-16 37, FAM-17 10, FAM-18 13.
+298 cases: FAM-1 50, FAM-2 18, FAM-3 19, FAM-4 13, FAM-5 16, FAM-6 21, FAM-7 11,
+FAM-8 11, FAM-9 9, FAM-10 5, FAM-11 13, FAM-12 8, FAM-13 6, FAM-14 12, FAM-15 5,
+FAM-16 37, FAM-17 10, FAM-18 13, FAM-19 12, FAM-20 9.
 
 This directory is the harness's *consumer*, not its implementation: the `50 + 10×N` line
 ceiling of `docs/L1/module-map.md` §4 applies to the harness's own files, and
@@ -92,6 +97,12 @@ else the battery plays stays in the tens of hands per case (`battery.md` §2), a
 timing cases assert that a cost record carries the hands counted and a per-hand cost or its
 reciprocal throughput — read by what the keys name, never by a literal spelling — and never
 that a wall clock was beaten (ASM-15).
+
+D-29's two families cost no table: FAM-19 reads the shape identity off a **hand-built**
+no-cap `records.md` §10 record and its rating (six invented cells, no hands played) and runs
+the loop at the ten-hand budget its greedy pass is read at; FAM-20 walks decisions of no-cap
+hands — tens of hands per case — and reads the pass a ten-hand run retains. No case tables
+the second shape, because a table's *values* are no case's subject (`battery.md` §5).
 
 ## Invented instances
 
@@ -146,6 +157,21 @@ an instance that appears in no design document. The battery's own vocabulary:
   declared membership are the battery's own, written to `ladder.md` §3's schema — the
   membership declaration of `records.md` §8 included, which is how a custom league reaches
   the loop as data — and the unregistered name `R7-bottleneck`;
+- the two declared shapes of `shapes.md` §2, `fixed-limit-20` (the default) and
+  `no-limit-100`, read off `engine.game_shapes()` and never spelled twice — the row is
+  `fixed`, so its instances are the declaration's own and no shape is invented — with
+  `pot-limit-40-battery` as the invented name **outside** the catalogue, refused by
+  `engine.game_config` and by every widened name (FAM-19.3, FAM-19.4, `shapes.md` §2, D-29);
+- `_surface.SHAPE_SEEDS` (the battery's own ten seeds) and `_surface.SHAPE_WIDTH` /
+  `SHAPE_DEPTH` (59 at depth 3, one architecture for both heads, so a shape swap is one axis
+  and no capacity moves with it) — the widths the ladder's parameter budget does not fix
+  (ASM-10, `sizing.md` §6);
+- the battery's own configuration **on one shape**, `R13-sized-cadence` with its single
+  variant `sized-arm` and pool id `pool-r13-sized-cadence` (`SurfaceCase.shaped_rung`): its
+  axis, seed set and membership are the battery's and its `game` key is what D-29 lets a
+  configuration declare (`shapes.md` §1, §3, `records.md` §2), and FAM-19.11's no-cap table
+  is a hand-built `records.md` §10 record, so the report's shape identity costs no cells
+  (`battery.md` §2);
 - the seam labels `echo-legal` and `seeded-legal` — a seam takes **any label**, because
   its contract is the policy protocol and not the label, with `recording` and `synthetic`
   the documented behaviours (`e2e-surface.md` §3.6, `records.md` §14) — and the observed
@@ -195,13 +221,17 @@ an instance that appears in no design document. The battery's own vocabulary:
 | FAM-16.36 | `harness.expect` | an invented observed value, judged under a kind `fixtures()` lists; an invented kind refused by name |
 | FAM-16.37 | `harness.timings` | the clock of a seed 90210 case driven through the driver |
 
-The twelve `fixed` rows are exempt (`battery.md` §4): the game of D-2, the six baselines of
-D-6 and D-21, the six rungs of brief §2, the league of D-16, the enumerations (encodings,
-backends, action vocabulary), the device list and the protocol have one instance each, and it
-is the project's own — a baseline exists only by a catalogue name, so `agents.baselines` and
-`agents.build_baseline` are tested in FAM-5 and never blinded (`e2e-surface.md` §5). `features.observation_spec` is one of the twelve because an encoder exists
-only by one of the two declared encodings, so no invented instance of it can be built
-through the surface (`e2e-surface.md` §5); it is tested in FAM-1 and FAM-2, not blinded.
+The **thirteen** `fixed` rows are exempt (`battery.md` §4): the two game shapes of D-2 and
+D-29, the two encodings of D-3, the six baselines of D-6 and D-21, the six rungs of brief §2,
+the league of D-16, the two learning rules of D-19, the two utilities of D-20, the device list
+and the protocol have one instance each, and it is the project's own — a baseline exists only
+by a catalogue name, so `agents.baselines` and `agents.build_baseline` are tested in FAM-5 and
+never blinded (`e2e-surface.md` §5). `features.observation_spec` is one of the thirteen because
+an encoder exists only by one of the two declared encodings, and `engine.game_shapes` is the
+thirteenth because its instances **are** the declaration and no caller can invent a shape
+through the surface (`e2e-surface.md` §5, `shapes.md` §2): neither can be blinded, and both are
+tested in FAM-1, FAM-2 and FAM-19 instead. The `general` count therefore stays 37 and the
+blind set does not shrink.
 
 ## Freedoms the cases leave to the implementation
 
@@ -282,4 +312,19 @@ tolerant reader rather than a word this battery invented:
 - a missing readout fact is an **absent surface name**, not a `KeyError` from inside the
   battery: the case that needed it fails with the fact named
   (`_surface.readout_fact`), because `e2e-surface.md` §2 makes the eleven keys the
-  contract (`battery.md` §1, D-11).
+  contract (`battery.md` §1, D-11);
+- the **shape in force** is read off `engine.game_shapes()` and named as the entry points
+  name it — `_surface.shape_rows` / `shape_names_of` / `shape_row_of` for the catalogue,
+  `vocabulary_of` and `normalisers_of` for one row's facts, and `SHAPE_DEFAULT` /
+  `SHAPE_SECOND` as the catalogue's first two names — with `None` meaning the default
+  everywhere, exactly as the entry points read it (`shapes.md` §2–§3, D-29);
+- the sized bands are recomputed from **each decision's own reported bounds** and never
+  from a span the battery hoped to reach: `_surface.band_resolution` applies `sizing.md`
+  §2's four intervals to the `minimum` and `maximum` the episode record states,
+  `_surface.band_amounts` gives a band's legal amounts, and `_surface.band_owners` answers
+  which descriptor owns each amount of `[m, A]` — so "exactly one descriptor" is judged
+  against the decision it was recorded at (`records.md` §5, `battery.md` §2);
+- a run record's `greedy` block is read by its own required keys rather than by a nesting:
+  `_surface.run_greedy` returns every pass with the key path it was reached through, so a
+  case says which variant and which seed a pass belongs to without assuming either
+  (`records.md` §12, §15).

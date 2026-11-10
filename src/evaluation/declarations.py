@@ -9,7 +9,10 @@ no others (ASM-14, ASM-21).
 
 `M`, `BASELINES`, `TABLE_SEED`, `TABLES`, `FAMILIES`, `HEADER_ITEMS`, `RATING` and
 `cell_count` live here (`README.md` §4) and are *not* package-level surface names
-(`e2e-surface.md` §1, D-12).
+(`e2e-surface.md` §1, D-12).  The game **shape**'s constants and the two validators this
+edge reads a shape name and an exploration mode with live here too -- `SHAPE_NAMES`,
+`DEFAULT_SHAPE`, `EXPLORATION_MODES`, `EXPLORATION_DEFAULT`, `PROBE_SEED`,
+`require_shape` and `require_exploration` (`shape.md` §1-§2, §5, D-29).
 """
 
 import numbers
@@ -17,7 +20,7 @@ from collections.abc import Mapping
 
 import agents
 
-from .errors import InvalidMembership
+from .errors import InvalidMembership, UnknownExploration, UnknownShape
 
 #: M, the window's bound: a pool holds at most this many versions plus the catalogue's
 #: pinned baselines (`league.md` §2, §4, ASM-14, ASM-33).
@@ -38,6 +41,39 @@ CATALOGUE = tuple(_DECLARED)
 #: members of every pool, and they are the rating's anchor; a folding baseline D-21 adds
 #: is neither (`protocol.md` §3, `league.md` §5, ASM-32, `folders.md` §4).
 BASELINES = tuple(name for name in CATALOGUE if _DECLARED[name].get("anchor"))
+
+#: The two declared game shapes' names, in the catalogue's order -- default first
+#: (`docs/L1/shapes.md` §1-§2, `shape.md` §1, D-29).  Only the names and their order are
+#: restated: `module-map.md` §2 grants this module neither `engine.game_shapes` nor
+#: `engine.game_config`, so the arrow it holds is a cell's hands and nothing else (D-13).
+#: The restatement is **deliberate and not a second catalogue**: the join battery
+#: (`tests/integration/evaluation/`) holds `SHAPE_NAMES` equal, in that order, to the
+#: names `engine.game_shapes()` publishes, and `EXPLORATION_MODES` equal to the set
+#: `agents.as_policy` accepts -- the same restatement `agents` and `features` make at
+#: their own edges, so a restatement that drifts is a red join case and never a silent
+#: catalogue of its own (`shape.md` §1, `docs/L1/e2e-surface.md` §3.1).
+SHAPE_NAMES = ("fixed-limit-20", "no-limit-100")
+
+#: The declared default shape: what an **absent** `game` reads as, everywhere -- a pool
+#: declaration, a member record, an offered version, a cell, a matrix, a rating, a
+#: report's three records and a version-1-to-3 container alike (`shape.md` §2).  Absence
+#: is the default and never a defaulting of a present name: a name the catalogue does not
+#: carry is `UnknownShape` and is never mapped onto this (`shape.md` §2-§3).
+DEFAULT_SHAPE = SHAPE_NAMES[0]
+
+#: The two exploration modes `policy_from` accepts, the default first (`shape.md` §5):
+#: `schedule` is the keyed draw of the exploration schedule `agents.as_policy` makes, and
+#: `off` is the masked maximum and the tie-break alone, with **no generator drawn from**
+#: (`docs/L1/sizing.md` §4, §7, D-29).
+EXPLORATION_MODES = ("schedule", "off")
+
+#: The default mode: absence is today's behaviour, so a caller that names none gets
+#: exactly the policy it got before the argument existed (`shape.md` §5).
+EXPLORATION_DEFAULT = EXPLORATION_MODES[0]
+
+#: The seed a pinned baseline's probe is built at -- a **construction** only, with no hand
+#: played, no file read and no stream moved (`pool.md` §2, ASM-2).
+PROBE_SEED = 0
 
 #: The league's one table seed -- the design revision's own date, so the number is
 #: recognisable as the league's and is no battery instance (`declarations.md` §6).
@@ -107,6 +143,44 @@ _FAMILY_RECORDS = {
     "axis row": ("value",),
     "header": HEADER_ITEMS,
 }
+
+
+def require_shape(value, entry, argument="game"):
+    """The shape name `value` denotes, or `UnknownShape` naming it and the declared names.
+
+    `None` is the **default** shape, and that is the absence of a name rather than a
+    defaulting of one: a field that says nothing is read as `DEFAULT_SHAPE`, while a name
+    the restated catalogue does not carry -- a non-string included -- is refused naming
+    the entry point, the field, the value and `SHAPE_NAMES`, and is never substituted
+    (`shape.md` §2-§3, `errors.md` §3-§4, D-29, D-13).  Every entry point of this module
+    that reads a `game` reads it through here, so the two contracts stay one rule.
+    """
+    if value is None:
+        return DEFAULT_SHAPE
+    for name in SHAPE_NAMES:
+        if isinstance(value, str) and value == name:
+            return name
+    raise UnknownShape(
+        "%s(%s): the shape %r is not one of the declared shapes %r"
+        % (entry, argument, value, SHAPE_NAMES)
+    )
+
+
+def require_exploration(value, entry):
+    """The exploration mode `value` names, or `UnknownExploration` naming both modes.
+
+    There is no absence to read: `policy_from`'s second argument is the declared default
+    `schedule` when the caller passes none, so a value outside the two modes is a value
+    the caller wrote -- a non-string included -- and is refused naming the entry point,
+    the mode and `EXPLORATION_MODES` (`shape.md` §5, `errors.md` §3-§4, D-29).
+    """
+    for mode in EXPLORATION_MODES:
+        if isinstance(value, str) and value == mode:
+            return mode
+    raise UnknownExploration(
+        "%s(exploration): the mode must be %r or %r, got %r"
+        % (entry, EXPLORATION_MODES[0], EXPLORATION_MODES[1], value)
+    )
 
 
 def cell_count(value):

@@ -1,6 +1,6 @@
-"""`engine` — the fixed game of D-2 as an RL environment (docs/L3/engine/README.md).
+"""`engine` — the declared game shapes as RL environments (docs/L3/engine/README.md).
 
-The package declares exactly the nine entry points of `docs/L2/engine/surface.md` §1
+The package declares exactly the ten entry points of `docs/L2/engine/surface.md` §1
 and nothing else public: `Hand`, the error classes, the card and action spellings,
 the constants and every helper stay in the submodules (layout.md §2, G11).  Each
 entry point is a thin wrapper, so the package's namespace cannot grow a second export
@@ -20,6 +20,7 @@ if _TYPE_CHECKING:  # a type name only; `Hand` is not a module-level name (G11)
     from .hand import Hand
 
 __all__ = (
+    "game_shapes",
     "game_config",
     "new_hand",
     "readout",
@@ -32,14 +33,19 @@ __all__ = (
 )
 
 
-def game_config() -> dict:
-    """The fixed game's parameters as one mapping (surface.md §3)."""
-    return _config.game_config()
+def game_shapes() -> dict:
+    """The declared game shapes, default first, each as one row (surface.md §12)."""
+    return _config.game_shapes()
 
 
-def new_hand(seed: int) -> "Hand":
-    """Deal one hand from `seed`, the project's single seeding point (surface.md §4)."""
-    return _hand.new_hand(seed)
+def game_config(shape=None) -> dict:
+    """The named shape's parameters as one mapping; no name is the default (surface.md §3)."""
+    return _config.game_config(shape)
+
+
+def new_hand(seed: int, shape=None) -> "Hand":
+    """Deal one hand from `seed` on `shape`, the project's single seeding point (surface.md §4)."""
+    return _hand.new_hand(seed, shape)
 
 
 def readout(hand: "Hand") -> dict:
@@ -48,7 +54,7 @@ def readout(hand: "Hand") -> dict:
 
 
 def legal_actions(hand: "Hand") -> tuple[str, ...]:
-    """The ordered descriptors the acting seat may choose (surface.md §6)."""
+    """The ordered descriptors the acting seat may choose, in its shape's order (surface.md §6)."""
     return _actions.legal_actions(hand)
 
 
@@ -67,9 +73,9 @@ def payoffs(hand: "Hand") -> dict[int, int]:
     return _hand.payoffs(hand)
 
 
-def play_hand(seed: int, seat0_policy, seat1_policy) -> dict:
-    """One whole hand driven by the two policies (surface.md §10)."""
-    return _episode.play_hand(seed, seat0_policy, seat1_policy)
+def play_hand(seed: int, seat0_policy, seat1_policy, shape=None) -> dict:
+    """One whole hand driven by the two policies, on `shape` (surface.md §10)."""
+    return _episode.play_hand(seed, seat0_policy, seat1_policy, shape)
 
 
 def equity(decision: "Hand | dict", seed: int, samples: int) -> float:

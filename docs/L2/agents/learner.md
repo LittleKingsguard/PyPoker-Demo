@@ -1,32 +1,35 @@
 # agents — the learner family, the baselines, and the contracts at this edge
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-10
 - **Owner of this file:** the one learner family and the rule catalogue it learns under (§1), the R1↔R2 backend
   axis (§2), the parameter budget (§3), a version as a checkpoint (§4), the six fixed baselines and their anchor
   (§5), the contracts `features`, `engine`, `training` and `evaluation` hold at this edge (§6–§8), the battery
   invariants this module carries (§9) and what is left to L3 (§10) (D-6, D-7, ASM-7, ASM-10, ASM-25, D-19, D-21, D-13)
-- **Rev 7:** D-21's folder baselines carried here — §5 names **six** baselines instead of three, states the three
+- **Ceiling:** 250 lines. At the ceiling, split by owner — never append
+- **Rev 8:** D-29's second game shape carried here — §3's output term is `A·W + A` and the spec's `game` is what moves
+  it, §4's restore recovers the shape its format version declares and states the format-3/format-4 rule, §6's output
+  width is the shape's descriptor count, §9 names D-29's cases, and the baselines' rules move to `baselines.md` §3
+  (`shapes.md` §1–§5, `sizing.md` §6, ASM-40, D-29)
+- **Rev 7:** D-21's folder baselines carried here — §5 named **six** baselines instead of three, states the three
   folders' predicates under ASM-31's one legality rule and the `anchor` flag that keeps the rating's scale, §7's
   readout is the **eleven** facts with `hand_class`, and §8/§9 say what a caller may assume of the six (`folders.md`
   §2, §4, ASM-30, ASM-31, ASM-32, D-21)
 - **Rev 6:** D-19's estimator axis carried here — §1 states the catalogue's two rules and the one contract they
-  answer, §3's capacity is unmoved by a rule, §4's checkpoint records the rule, and §5/§8 say what a policy and a
-  caller may assume (`rules.md` §2–§8, D-19)
-- **Ceiling:** 250 lines. At the ceiling, split by owner — never append
+  answer, §3's capacity is unmoved by a rule, §4's checkpoint records the rule (`rules.md` §2–§8, D-19)
 
 ## 1. One learner family, and the rules it learns under
 
 The ladder has one learner family and a **catalogue** of two learning rules, each named by the learner spec
-(`rules.md` §2, §4, ASM-7, D-19). A learner is a function from an observation and a legal mask to three values; the
-value of an index outside the mask is never read, never a target and never updated (D-2, `records.md` §4, ASM-25).
+(`rules.md` §2, §4, ASM-7, D-19). A learner is a function from an observation and a legal mask to `A` values, `A` the
+shape's descriptor count — three on the default game, six on the other — and the value of an index outside the mask is
+never read, never a target and never updated (D-2, `records.md` §4, ASM-25, `shapes.md` §2).
 
 - **The two rules, and what each aims at.** `masked-q-learning` moves the value of the transition's `action`
   toward `reward + discount ×` the masked **maximum** of the target copy's successor values; `double-q-learning`
   toward `reward + discount ×` the target copy's value **at the index the online parameters' masked argmax
-  selects** — selection by the online parameters, evaluation by the copy, the remedy the diagnosis names for an
-  upward-biased maximum (`strata/records/r2-plateau-diagnosis.md`, `rules.md` §2, ASM-25). Both aim at `reward`
-  alone at a terminal transition, and the masking is the contract: an index outside `next_legal` is not a
-  bootstrapping candidate (D-2, `records.md` §4).
+  selects** — selection by one estimate, evaluation by another (`rules.md` §2, ASM-25). Both aim at `reward` alone at
+  a terminal transition, and the masking is the contract: an index outside `next_legal` is not a candidate
+  (D-2, `records.md` §4).
 - **One capacity, one state layout, one contract.** The rules differ in the target's arithmetic and nowhere else:
   validation, loop, statistics, step and refresh counter are one path, and the parameters plus their target copy are
   the same under either — so `param_count`, the checkpoint's array and ASM-10's ±2% match are identical, and
@@ -42,14 +45,14 @@ value of an index outside the mask is never read, never a target and never updat
   (`surface.md` §1, §6, §10). Its position is part of the learner's state and advances inside `learn` only
   (ASM-7, ASM-5, `protocol.md` §4), and the rule is not read here (`rules.md` §3).
 - **The declarations the two rules share.** Learning rate, batch size, target-update interval, optimiser family,
-  exploration schedule and discount are one value each for the whole ladder, published by `learners()` so a report
-  can name them; there is **no per-rule block**, so a rule swap is one axis and no budget moves with it
-  (`surface.md` §3, ASM-7, `rules.md` §2, `ladder.md` §3, §4). The `discount` is named by no L1 declaration and no
-  bootstrap target can be computed without it. A variant entry that names them (`records.md` §2) is the run record's
-  data, never a per-learner argument: the copy a pair's fairness check compares is its rules' set (`rules.md` §8).
+  exploration schedule and discount are one value each for the whole ladder, published by `learners()` so a report can
+  name them; there is **no per-rule block**, so a rule swap is one axis and no budget moves with it (`surface.md` §3,
+  ASM-7, `rules.md` §2, `ladder.md` §3, §4). The `discount` is named by no L1 declaration and no bootstrap target can be
+  computed without it. A variant entry that names them (`records.md` §2) is the run record's data, never a per-learner
+  argument (`rules.md` §8).
 - **Nothing rung-shaped, and one signal.** No entry point takes a rung, a variant name, an opponent, a hand count or a
-  table budget, so no rung can carry a copy of the rule (`module-map.md` §3, D-3, `ladder.md` §1), and `learn` reports
-  a mean absolute TD error per batch — both backends', both rules', the ladder's common curve signal (`surface.md` §7).
+  table budget, so no rung can carry a copy of the rule (`module-map.md` §3, D-3), and `learn` reports a mean absolute
+  TD error per batch — both backends', both rules', the ladder's common curve signal (`surface.md` §7).
 
 ## 2. R1 against R2: the backend is the only axis
 
@@ -70,9 +73,8 @@ one forward-pass arithmetic order and one tie-break rule — a constraint on the
 (§10 below) — so on the same seeded hands against the same opponents they choose the same actions, which is what
 FAM-13 asserts and what a parity row showing a large skill difference would falsify (`battery.md` §3 FAM-13). The
 check is on **decisions and not on values**: what it forbids is a backend that differs in the model, the rule, the
-order or the tie-break, and agreeing where a decision reads three values and one comparison is L3's obligation
-(`ladder.md` §5, D-7). R2's own evidence is the clock the run record and `harness.timings` carry, never a wall clock
-the battery demands, and R2 still reports its table labelled a parity comparison (D-7, D-8, ASM-15, `ladder.md` §5).
+order or the tie-break (`ladder.md` §5, D-7). R2's own evidence is the clock the run record and `harness.timings`
+carry, never a wall clock the battery demands (D-7, D-8, ASM-15).
 
 ## 3. The parameter budget, as `param_count` measures it
 
@@ -82,8 +84,8 @@ A comparison pair — adjacent rungs and every intra-rung pair — is matched to
 - **Counted:** every value the update can change — the input block first: for a dense kind the first layer's
   weights at the width the encoding declares, for a token kind the embedding table at the vocabulary it declares,
   and then the value network the kind's `width` and `depth` fix (`encodings.md` §1, §4, §6, `e2e-surface.md` §3.3).
-  The observation itself is never counted, being `encode`'s output and not a parameter; which layers and how many are
-  the kind's design and L3's (§10 below), while what binds here is that the count covers the whole model.
+  The observation itself is never counted, being `encode`'s output; which layers and how many are the kind's design and
+  L3's (§10 below), while what binds here is that the count covers the whole model.
 - **Not counted:** a copy of the parameters kept for a target, any non-trainable buffer, and the exploration
   schedule's constants, because none of them is a trainable parameter (`e2e-surface.md` §3.3, ASM-10).
 - **The rule does not move the number.** Both catalogue members learn over the same online parameters and the same
@@ -93,7 +95,8 @@ A comparison pair — adjacent rungs and every intra-rung pair — is matched to
   measured by one rule on both arms: a learner complete at construction — sized from its encoder or from its kind's
   declared `observation_size` (`surface.md` §3, §4) — holds one count for its lifetime, and the rule set and
   hyperparameters a pair holds constant mean a matched budget cannot be an artefact of the measurement
-  (`rules.md` §8, ASM-7, ASM-10, D-19). **`sizes` never moves the number** (`records.md` §3, `protocol.md` §4).
+  (`rules.md` §8, ASM-7, ASM-10, D-19). **`sizes` never moves the number** (`records.md` §3, `protocol.md` §4); the
+  spec's `game` does, the output term being `A·W + A` (`shapes.md` §2, ASM-40).
 
 ## 4. A version is a checkpoint
 
@@ -102,65 +105,39 @@ lets a shipped member decide as its learner did (D-16, `protocol.md` §5). The p
 boundary**, a function of state and decision rather than a stream position (`surface.md` §1, §6, ASM-5):
 
 - **What a restore must recover,** from the file alone, is everything a decision reads: the backend, the kind and its
-  settings, the representation — family, size and encoding name — the learner's seed, its parameter values, its
-  schedule's position, **the rule it was trained under** and **the utility whose reward it was trained on**, so a member
-  is read under the members its file records (`surface.md` §3, §4, §9, `encodings.md` §1, D-19, D-20, `utility.md` §4).
-- **A version-1 or version-2 file is read by defaults, not refused.** The repository ships 18 version-1 checkpoints
-  written before either catalogue existed: they carry neither field and are read as `masked-q-learning` and
-  `net-chips`; a version-2 container carries the rule and is read as `net-chips`, and either older version
-  carrying a field its writer never wrote is refused by name. Nothing is regenerated (`utility.md` §4, `rules.md` §6, ASM-5).
+  settings, the representation — family, size and encoding name — **the shape its format version declares**, the
+  learner's seed, its parameter values, its schedule's position, **the rule it was trained under** and **the utility
+  whose reward it was trained on**, so a member is read under the shape, the rule and the utility its file records
+  (`surface.md` §3, §4, §9, `shapes.md` §5, `encodings.md` §1, D-19, D-20, D-29).
+- **The shape is a format version, not a migration.** A container of the **default** shape is format **3** with no
+  `game` field, so a fixed-limit save's decompressed members are byte-for-byte today's; one of any other declared
+  shape is format **4** and requires `game`. A version-1-to-3 file reads as the default shape, a version-4 one naming
+  the default shape is refused, and a spec naming a shape its file contradicts is refused naming both (`shapes.md` §5).
+- **A version-1 or version-2 file is read by defaults, not refused.** The 18 version-1 checkpoints the repository ships
+  were written before either catalogue existed: they carry neither field and are read as `masked-q-learning` and
+  `net-chips`; a version-2 container carries the rule and is read as `net-chips`, and an older version carrying a field
+  its writer never wrote is refused by name (`utility.md` §4, `rules.md` §6, ASM-5).
 - **The record's own form is not contract:** what the file is called inside, how it is laid out and which version
   number it writes are L3's (§10). What binds is the recovery above and `surface.md` §9's refusals — an unreadable
   path, a form this module does not read, and a spec disagreeing with the file on a key it carries (`records.md` §3).
 - **A shipped member's policy is built at the checkpoint's recorded seed,** which is why a checkpoint records it: at
-  that seed the policy decides as `act` does, the loss-free equality `protocol.md` §5 states (ASM-5), and the rule and
-  utility a member reports are its file's (`utility.md` §3, D-20).
+  that seed the policy decides as `act` does, the loss-free equality `protocol.md` §5 states, and the rule, utility and
+  shape a member reports are its file's (`utility.md` §3, `shapes.md` §5, ASM-5, D-20).
 - **What this module contributes to a version record.** `records.md` §7 requires `id`, `path`, `rung`, `variant`,
   `seed`, `step`, `samples`, `lineage`, `rule` and `utility`; this module supplies the `path` `save` returns and the
-  learner's `seed`, `rule` and `utility`, and nothing else — `rung` and `variant` are labels a learner never learns
+  learner's `seed`, `rule` and `utility` — `rung` and `variant` are labels a learner never learns
   (D-3, `module-map.md` §3), `lineage` is the pool's (`league.md` §2), and `samples` counts hands (`records.md` §7).
-- **Retention is not this module's.** Ten equally spaced snapshots plus a final model, the last M kept in the
-  window, is the run's and the pool's rule (ASM-18, `protocol.md` §5, `league.md` §2); `save` writes the one file it
-  was asked for (`surface.md` §8).
+- **Retention is not this module's.** Ten equally spaced snapshots plus a final model, the last M kept in the window,
+  is the run's and the pool's rule (ASM-18, `protocol.md` §5, `league.md` §2); `save` writes the one file it was asked
+  for (`surface.md` §8).
 
 ## 5. The six fixed baselines
 
-`baselines()` names **six**: `random`, `always-call` and `oracle` are D-6's, and `fold-no-pair-or-face`,
-`fold-no-pair-or-better` and `fold-large-bet` are D-21's three folders. None of them learns from a match, and all six
-are pool members and matrix columns at the same hand count as every league cell — the only fixed standard a self-play
-league has — and a baseline policy carries **no** `learning_rule` (D-6, `protocol.md` §3, D-16, `league.md` §4, D-19).
-
-| Baseline | Its rule | What a battery can assert |
-|---|---|---|
-| `random` | a uniform draw over the decision's legal indices, from a generator seeded from the baseline's seed (`protocol.md` §3) | it never returns an illegal index; one seed agrees twice and two seeds differ (`protocol.md` §3, `surface.md` §12) |
-| `always-call` | check/call whenever that is legal, never fold, and the minimum legal completion when raising is the only option (`protocol.md` §3) | it folds in no decision of any hand (`protocol.md` §3) |
-| `oracle` | check/call when the hand's equity is at least the pot odds `to_call / (pot + to_call)`, and fold when that inequality fails and folding is legal (`protocol.md` §3, ASM-4) | its choice is consistent with that inequality at every decision, recomputable from `engine.equity` and the readout (`protocol.md` §3, ASM-4) |
-
-The three folders carry one fold predicate each — `fold-no-pair-or-face` pre-flop on unpaired hole cards with no J, Q,
-K or A, `fold-no-pair-or-better` from the flop on a `hand_class` of `0`, and `fold-large-bet` on any street where the
-call exceeds half the declared starting stack — and otherwise check/call; each folds only where folding is legal and
-never raises while check/call is legal, and consumes no randomness (`protocol.md` §3, `folders.md` §2, ASM-31, D-21).
-
-- **The `anchor` flag keeps the rating's scale.** Every record carries it: true for D-6's three, false for the folders,
-  and `evaluation` zeros the fit on the mean of the flagged three, so a rating recorded before D-21 and one recorded
-  after it are read on one scale (ASM-32, `league.md` §5, D-16).
-- **The oracle is a rule, not a model.** Its equity comes from `engine.equity`, queried with the readout it was
-  handed, **the seed the baseline was built with** and the sample count `baselines()` declares — so a caller
-  holding that seed and that count re-issues the query and checks the inequality itself, which is why a rebuilt
-  baseline repeats its decisions (`surface.md` §11, `engine/surface.md` §11, `protocol.md` §3, §4, ASM-4).
-- **The oracle is blind by construction.** It never raises, because a raise is not a pot-odds question: it is
-  deliberately strong on the pot-odds axis `protocol.md` §3 names and blind on every other — no history, no
-  opponent, no adaptation (ASM-4, D-6). That blindness is what makes it a baseline rather than a competitor (D-6).
-- **A baseline never learns, and its state advances nowhere.** `learn` refuses a value that is not a learner, and
-  nothing here retains anything from a hand a baseline played, so a baseline's column is the same rule at every hand
-  count and every call order (`surface.md` §1, §7, §12, D-6, `protocol.md` §3). Because no state advances, its random
-  draw is keyed by the decision as a learner's exploration is (`surface.md` §1, §12).
-- **A baseline has no trainable parameters:** `baselines()` declares its `params` as `0`, and that declared zero is
-  the count a cell records beside every other member's count — `param_count` refuses a baseline because a baseline
-  is not a learner (`surface.md` §5, §11, `records.md` §9).
-- **A policy receives only `(readout, legal_actions)`,** so a baseline is a function of the decision it is handed and
-  never of the hand it is inside — which is why `engine.equity` accepts a readout as well as a hand
-  (`e2e-surface.md` §2, `engine/surface.md` §11, `engine/environment.md` §6).
+The rules of the six — `random`'s keyed uniform draw, `always-call`'s procedure, `oracle`'s pot-odds inequality at the
+sample count `baselines()` declares, the three folders' predicates under ASM-31's one legality rule, the blindness, the
+`params` of `0` and the `anchor` flag that keeps the rating's scale — are `baselines.md` §3's, beside the two surface
+rows in §1–§2; this document keeps only what `training` and `evaluation` may assume of them (§8) and the battery
+invariant that lands here (§9, D-6, ASM-4, ASM-31, ASM-32, D-21).
 
 ## 6. The contract at the `features` edge (D-13)
 
@@ -180,18 +157,20 @@ What this module may rely on, as what it consumes and never as that module's int
   given, distinct, ascending and never empty — the mask `act` takes is exactly this sequence (`features/surface.md`
   §8, `surface.md` §2);
 - `decode_action(index)` returns the descriptor `engine.apply_action` accepts, so the index a learner chooses
-  becomes the action a policy returns, and `action_space()` fixes the three output units of every learner and the
-  vocabulary a report's header quotes (`features/surface.md` §7, §9, `e2e-surface.md` §2, `protocol.md` §1);
+  becomes the action a policy returns, and `action_space(shape=...)` fixes the output layer's width — the shape's
+  descriptor count `A`, three on the default shape and six on the other — and the vocabulary a report's header quotes
+  (`features/surface.md` §7, §9, `e2e-surface.md` §2, `protocol.md` §1, `shapes.md` §2);
 - **The edge is granted and five calls wide.** `module-map.md` §2 grants this module `encode`, `observation_spec`,
-  `action_space`, `legal_indices` and `decode_action`, because a learner consumes an observation and `as_policy`
-  must encode the readouts its policy receives. `build_encoder` is not among the five, so the encoder always
-  arrives from the caller — in a learner spec, in `as_policy`, or from `training` and `evaluation` — and this module
-  builds none (`surface.md` §4, §10, `features/surface.md` §4, D-3, D-13).
-- **The sizing rule is a contract in both directions.** Each kind's declared `observation_size` must equal the width
-  of the `shape` a dense encoding's `observation_spec` declares — a one-element tuple — or the `vocabulary` a token
+  `action_space`, `legal_indices` and `decode_action`, because a learner consumes an observation and `as_policy` must
+  encode the readouts its policy receives. `build_encoder` is not among the five, so the encoder always arrives from
+  the caller — in a learner spec, in `as_policy`, or from `training` and `evaluation` (`surface.md` §4, §10,
+  `features/surface.md` §4, D-3, D-13). The shape is read through `action_space(shape=...)` for exactly this reason
+  (`shapes.md` §1).
+- **The sizing rule is a contract in both directions.** Each kind's declared `observation_size` must equal the width of
+  the `shape` a dense encoding's `observation_spec` declares — a one-element tuple — or the `vocabulary` a token
   encoding's declares, that vocabulary being the datum `e2e-surface.md` §2 makes the size of a token learner, never an
-  observation's length; and `build_learner` given an encoder must refuse a disagreement, naming both, while a caller
-  with no encoder is sized from the declared value (`e2e-surface.md` §3.3, `surface.md` §3, §4, D-3).
+  observation's length; and `build_learner` given an encoder must refuse a disagreement, naming both
+  (`e2e-surface.md` §3.3, `surface.md` §3, §4, D-3).
 
 ## 7. The contract at the `engine` edge (D-13)
 
@@ -202,7 +181,8 @@ What this module may rely on, as what it consumes and never as that module's int
   its readout, repeats for one decision, seed and count, and hands the global stream back as it found it — which is
   why an oracle can ask it mid-hand (`engine/surface.md` §11, `engine/environment.md` §4, ASM-4). The third granted
   call is `game_config`, read by `fold-large-bet` for the declared starting stack rather than a copied `20`
-  (`folders.md` §2, ASM-31); nothing else in `engine` is called (`module-map.md` §2, §3, D-2).
+  (`folders.md` §2, ASM-31); nothing else in `engine` is called (`module-map.md` §2, §3, D-2) — `game_shapes` is not,
+  which is why the shape catalogue is restated here and read for its width through `action_space` (`shapes.md` §1).
 
 ## 8. What `training` and `evaluation` may assume
 
@@ -212,7 +192,7 @@ What this module may rely on, as what it consumes and never as that module's int
 | `evaluation` | `baselines` and `build_baseline` yield the six policies a table needs as members, each with the `params` of `0` and the `anchor` flag the catalogue declares and no `learning_rule` (`e2e-surface.md` §3.4, `records.md` §9, ASM-32, D-19, D-21); `load` restores a member from its path alone, under the rule its container records, and `param_count` reports that member's capacity (`records.md` §7, §9, `rules.md` §6); `as_policy` at the member's recorded seed decides as its learner did, and the policy it returns carries the member's `learning_rule`, so a cell names the estimator that produced each member even for a variant built in process (`e2e-surface.md` §2, `records.md` §9, ASM-5, D-19); the encoder that call needs is `evaluation`'s own, because `module-map.md` §2 grants `evaluation` `build_encoder` and `encode` precisely so `policy_from` turns a checkpoint into a policy (D-16, this file's §6); no baseline's behaviour depends on any match it played (D-6) |
 
 Neither caller may assume anything about a learner's internals, its file format, its error classes or its arithmetic
-order — those are L3's (`module-map.md` §5, D-12) — and neither branches on the rule (`rules.md` §3, D-19).
+order — those are L3's (`module-map.md` §5, D-12) — and neither branches on the rule or the shape (`rules.md` §3, D-19).
 
 ## 9. The invariants the battery asserts against this module
 
@@ -231,7 +211,10 @@ The other families reach this module only as a path: FAM-4's seed contract bites
 (`ladder.md` §3), and FAM-7 through the baseline policies `match` is given beside the members it loads (`league.md` §3).
 D-19's cases — the catalogue's two members and their order, the spec's rule and its default, the two targets, the
 checkpoint's field and the policy's attribute — are the unit battery's, since no L1 family reads a rule, and the
-module's own internals belong to `tests/agents/` (`battery.md` §5, `rules.md` §3, `module-map.md` §5).
+module's own internals belong to `tests/agents/` (`battery.md` §5, `rules.md` §3, `module-map.md` §5). D-29's are the
+same two batteries' on the same rule: the shape's head width and the `A·W + A` term, the six-index decision space, the
+`tie` flag, the two exploration modes and the four container versions, since no L1 family reads a shape at this edge
+either (`shapes.md` §2–§5, ASM-37, ASM-40, D-29).
 
 ## 10. What is left to L3
 
@@ -244,7 +227,8 @@ This document stops at the entry point and at the records they exchange. `role_l
   exploration draw of §1 is derived from the learner's generator (`protocol.md` §4, ASM-7);
 - **how each rule's target is computed** and that the two rules share one state layout, one update and one return
   (`rules.md` §3, ASM-25);
-- the checkpoint format's bytes, version and field names, subject to the recovery §4 states and a version-1 file's
-  reading, and the error classes the refusals raise, the rule's refusal included (`protocol.md` §5, `rules.md` §6).
+- the checkpoint format's bytes, the field names of each format version and the shape's field in the version that
+  carries one, subject to the recovery §4 states and an older file's reading, and the error classes the refusals
+  raise, the rule's and the shape's refusals included (`protocol.md` §5, `rules.md` §6, `shapes.md` §5, ASM-40).
 
 Each is free here and designed there; none may change a record key `surface.md` marks **required**, a refusal that document names, or the one contract of §1 (`records.md` §1, `battery.md` §3, `rules.md` §3, D-19, D-20).

@@ -203,13 +203,20 @@ class EvidenceChain(J.JoinCase):
         blank; the matrix and the rating the report is about are its own arguments
         (`docs/L3/evaluation/report.md` §1–§2).  The record is hand-built — `training`
         produces one, and this module never writes it — but every family's value is
-        a shape the protocol declares (`records.md` §13, D-6).
+        a shape the protocol declares (`records.md` §13, D-6).  The one family the
+        report completes is the header's: beside the nine items a **record** states
+        it writes the tenth key `shape`, the one shape the run, the pool family and
+        the matrix agree on, on its own copy and never in the argument
+        (`docs/L3/evaluation/report.md` §1-§2, §4, `docs/L3/evaluation/shape.md` §4,
+        G21, G35, D-29).
         """
         table = J.shared_matrix()
         fitted = J.shared_rating()
+        pool_family = J.shared_pool_record()
         record = J.run_record(table, fitted)
         assembled = J.report(J.RUNG, record, table, fitted)
         declared = J.family_names()
+        resolved = pool_family["game"]
         self.assertEqual(
             [name for name in declared if name in assembled],
             declared,
@@ -223,12 +230,36 @@ class EvidenceChain(J.JoinCase):
                 "no family is reduced to a blank (record.md §13, D-6): %r"
                 % (name,),
             )
-            self.assertEqual(
-                J.canonical(J.family_of(assembled, name)),
-                J.canonical(record[name]),
-                "the report copies a family by value and never reshapes it "
-                "(docs/L3/evaluation/report.md §2): %r" % (name,),
-            )
+            if name == "header":
+                self.assertEqual(
+                    J.canonical(J.family_of(assembled, name)),
+                    J.canonical(dict(record[name], shape=resolved)),
+                    "the header family is the record's own items plus the one shape the "
+                    "run, the pool and the matrix agree on, written on the report's copy "
+                    "(docs/L3/evaluation/report.md §1-§2, shape.md §4, G21, G35, D-29): "
+                    "%r" % (J.family_of(assembled, name),),
+                )
+                self.assertEqual(
+                    set(dict(J.family_of(assembled, name))) - set(record[name]),
+                    {"shape"},
+                    "the completion adds the one key and nothing else, so the header's "
+                    "nine items stay what the record stated "
+                    "(docs/L3/evaluation/report.md §2, §4, G35): %r"
+                    % (J.family_of(assembled, name),),
+                )
+                self.assertNotIn(
+                    "shape",
+                    dict(record[name]),
+                    "and it is written on the report's own copy, never into the record "
+                    "it was handed (docs/L3/evaluation/report.md §4, shape.md §4)",
+                )
+            else:
+                self.assertEqual(
+                    J.canonical(J.family_of(assembled, name)),
+                    J.canonical(record[name]),
+                    "the report copies a family by value and never reshapes it "
+                    "(docs/L3/evaluation/report.md §2): %r" % (name,),
+                )
         self.assertEqual(
             J.canonical(J.family_of(assembled, "matrix")),
             J.canonical(table),

@@ -3,14 +3,11 @@
 - **Owner:** one numbered note per risk this design identified, in the order they bite, each naming its rule and the
   test that catches it
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Read with:** all of `README.md`, `declarations.md`, `pool.md`, `families.md`, `utility.md`, `scheduler.md`, `matrix.md`,
-  `rating.md`, `tables.md`, `report.md`, `errors.md`
+- **Rev 6:** D-29's second shape — G7, G20, G21 and G30 re-issued (the read-back's `game`, the three recorded facts, the header's tenth key, the seven-element side), and G31–G36 added for the risks the shape introduces
+- **Read with:** all of `README.md`, `declarations.md`, `shape.md`, `pool.md`, `families.md`, `utility.md`, `scheduler.md`,
+  `matrix.md`, `rating.md`, `tables.md`, `report.md`, `errors.md`
 
-The unit battery's files and case ids are contract — one file per document, `test_declarations.py` (`EVL-1.k`) through
-`test_guardrails.py` (`EVL-11.k`), the prefixes fixed and **not** contiguous (8 and 10 are unused, and `README.md` has no
-file of its own because its rules are G1's). Each note is a place where a plausible implementation breaks a contract the
-unit battery (`tests/evaluation/`) or the L1 battery (`tests/e2e/`) asserts; a note's **Unverified** clause names what no
-case drives.
+The unit battery's files and case ids are contract — one file per document, `test_declarations.py` (`EVL-1.k`) through `test_guardrails.py` (`EVL-11.k`), the prefixes fixed and **not** contiguous (8 and 10 are unused, and `README.md` has no file of its own because its rules are G1's). Each note is a place where a plausible implementation breaks a contract the unit battery (`tests/evaluation/`) or the L1 battery (`tests/e2e/`) asserts; a note's **Unverified** clause names what no case drives.
 ## G1 — Eleven names, and `__all__` in the L1 order
 `src/evaluation/__init__.py` exports exactly the eleven names of `README.md` §3 in that order and no twelfth — not `Pool`, not `EvaluationError`, not `TABLE_SEED` (`e2e-surface.md` §1, D-12).
 Caught by: `test_declarations.py::EVL-1.1`, `test_guardrails.py::EVL-11.g1`, FAM-1.27–1.37.
@@ -29,8 +26,8 @@ Caught by: `test_pool.py::EVL-2.3`, `::EVL-2.10`, FAM-6.3, FAM-6.11.
 ## G6 — `offer` extends one family, evicts fair-share, and returns a new pool
 The offered version joins the family whose **newest** member it names, or opens a new family on a label no member carries; a full window evicts the oldest member of the family that holds the most, ties to the earlier family (`families.md` §3, §5); the baselines stay, the argument pool is unchanged and the id is recomputed (`pool.md` §1, `families.md` §4). Mutating the argument, evicting by `samples` instead of by window position, or evicting oldest-first across the concatenation, is red.
 Caught by: `test_pool.py::EVL-2.11`, `::EVL-2.12`, FAM-6.6, FAM-16.21.
-## G7 — `pool_members` returns §8's record, with `rules` and `utilities`, and the version records verbatim
-`{"id", "m", "frozen", "members", "rules", "utilities"}`, freshly built per call (`pool.md` §5, `utility.md` §3): `members` is the baselines then the window, each version the `records.md` §7 record the declaration carried with its `rule` and its `utility` untouched — both fields the declaration's own, nothing filled in — `rules` the **distinct** rules those versions declare **in the window's order**, and `utilities` their counterpart; both are the empty tuple for R1's pool, never `(None,)`. A read-back that is the internal tuple itself, or one whose `rules` is a set or a sorted list, is red: `EVL-2.13` edits the record and asks again.
+## G7 — `pool_members` returns §8's record, with `game`, `rules` and `utilities`, and the version records verbatim
+`{"id", "m", "frozen", "game", "members", "rules", "utilities"}`, freshly built per call (`pool.md` §5, `utility.md` §3, `shape.md` §4): `game` is **required** and names the one shape the pool is on — an absent declaration key reads as the default, and a read-back that omits the key, or reads it off a member instead of the pool, is red; `members` is the baselines then the window, each version the `records.md` §7 record the declaration carried with its `rule`, its `utility` and its `game` untouched — all three the declaration's own, nothing filled in — `rules` the **distinct** rules those versions declare **in the window's order**, and `utilities` their counterpart; both are the empty tuple for R1's pool, never `(None,)`. A read-back that is the internal tuple itself, or one whose `rules` is a set or a sorted list, is red: `EVL-2.13` edits the record and asks again.
 Caught by: `test_pool.py::EVL-2.13`, `::EVL-2.14`, FAM-6.10, FAM-6.11, FAM-18.11.
 ## G8 — Every seed is a derivation, and it is `scheduler.md` §3's
 Four tagged functions, `int.from_bytes(sha256(...).digest()[:8], "big") % (2 ** 31)`, the parts joined by `\x1f` after the tag, and a fifth derivation that is a modulo (`_draw_index`). `seed + i`, `random.Random(seed)`, a module-level counter, a digest of a checkpoint path, or a call to `random.seed` anywhere in `src/evaluation/` is red — and the last is red twice, because the global stream belongs to `engine.new_hand` (ASM-2).
@@ -50,14 +47,14 @@ Caught by: `test_matrix.py::EVL-4.1`, `::EVL-4.2`, `::EVL-4.8`, FAM-8.1, FAM-8.2
 ## G13 — Every cell is played at the table's one hand count
 `hands_per_cell` comes from `league()["tables"][table]` — 120 or 1500 — and **every** cell gets it, the three baseline cells included (`matrix.md` §6). A cheaper cell for a baseline, or a hand count derived from a wall clock, is red (`league.md` §3, ASM-15).
 Caught by: `test_matrix.py::EVL-4.3`, `::EVL-4.4`, FAM-8.3, FAM-8.4, FAM-10.2.
-## G14 — The matrix record's keys, in this order, and a table seed no argument supplies
-`members`, `cells`, `rules`, `population`, `hands_per_cell`, `table_seed`, `table`, then `pool`, `member_records`, `unlabelled`, `cell_count` (`matrix.md` §5); `table_seed` is `declarations.TABLE_SEED` and `matrix` takes no seed (`matrix.md` §3); `table` is the label **as a value**, never a substring. A second seed argument, a per-call seed, `pool` holding the pool record instead of its id, or `population` sorted by insertion rather than lexically, is red.
+## G14 — The matrix record's keys, in this order, its `game` required, and a table seed no argument supplies
+`members`, `cells`, `rules`, `population`, `utilities`, `utility_population`, `hands_per_cell`, `table_seed`, `table`, then `game` (this module's own, **required**), `pool`, `member_records`, `unlabelled`, `cell_count` (`matrix.md` §5); `table_seed` is `declarations.TABLE_SEED` and `matrix` takes no seed (`matrix.md` §3); `table` is the label **as a value**, never a substring. A second seed argument, a per-call seed, a shape argument, `pool` holding the pool record instead of its id, a `game` inferred from a member rather than the pool's, or `population` sorted by insertion rather than lexically, is red.
 Caught by: `test_matrix.py::EVL-4.5`, `::EVL-4.6`, FAM-8.5, FAM-16.24.
 ## G15 — The anchor is applied every iteration, so the baselines' mean is exactly 0
 The shift of `rating.md` §3 step 4 runs inside the loop, not once at the end; the likelihood is shift-invariant, so a missing re-centring costs nothing in likelihood and everything in meaning. A mean of `0.04` is red. The one exception is `rating.md` §3's pinned anchoring baseline, where the pin is taken last and so displaces the mean it was applied after.
 Caught by: `test_rating.py::EVL-5.2`, FAM-9.4, FAM-16.25. **Unverified**: that pinned-baseline table, which no case drives.
 ## G16 — Refuse exactly what the contract refuses, with §3's grammar
-Every refusal of `errors.md` §2–§4 and no other, raised before the first cell is played, the first checkpoint loaded or the first value fitted (`errors.md` §1, §5) — `UnknownRule`, `UnknownUtility`, `RuleMismatch`, `UtilityMismatch` and `FamilyBoundExceeded` included, and the two mismatches the ones that must come **after** their load (`families.md` §6, `utility.md` §4). Both directions fail: too few, where a `KeyError` escapes instead of `PoolDeclarationInvalid`; too many, where a valid instance — a rich declaration, a `path`-less member, a **bare §7 record** declaring no rule or no utility handed to `match`/`matrix`/`opponent` — is refused.
+Every refusal of `errors.md` §2–§4 and no other, raised before the first cell is played, the first checkpoint loaded or the first value fitted (`errors.md` §1, §5) — `UnknownRule`, `UnknownUtility`, `RuleMismatch`, `UtilityMismatch`, `FamilyBoundExceeded`, `UnknownShape`, `ShapeMismatch` and `UnknownExploration` included, and the mismatches the ones that must come **after** their load (`families.md` §6, `utility.md` §4, `shape.md` §3). Both directions fail: too few, where a `KeyError` escapes instead of `PoolDeclarationInvalid`; too many, where a valid instance — a rich declaration, a `path`-less member, a **bare §7 record** declaring no rule or no utility handed to `match`/`matrix`/`opponent`, or a record naming **no** `game`, which is the default shape — is refused.
 Caught by: `test_errors.py::EVL-9.1`–`EVL-9.11`, `test_pool.py::EVL-2.16`, `test_scheduler.py::EVL-3.9`, `test_matrix.py::EVL-4.8`, `::EVL-4.9`, `test_rating.py::EVL-5.8`, `test_report.py::EVL-7.4`, FAM-8.7–8.9, FAM-11.2–11.8, FAM-18.11.
 ## G17 — The bound is ±10, and it never breaks the interval open
 A member that won everything has no finite maximum-likelihood value; step 4 pins it at `BOUND = 10.0` (a member that lost everything at `−BOUND`), `bound_applied` and that member's `bounded` are `True`, and the widened interval still contains the value (`rating.md` §3–§4; `bound` is written **after** `bound_applied`). Returning `inf`, clipping the interval instead of widening it, or pinning a member before the anchor's shift, is red.
@@ -68,11 +65,11 @@ Caught by: `test_rating.py::EVL-5.7`, `::EVL-5.6`, FAM-9.2, FAM-9.7.
 ## G19 — The shipped artefact is evidence, and nothing reads it
 `tables/league-full.json` with `schema`, `table`, `pool`, `matrix`, `rating`, `provenance`, `cost` (`tables.md` §3), written by `evaluation.tables`' `__main__`, **never** by an entry point; its cost block carries `measured: true` with no ceiling (ASM-21), and `provenance.member_status` says which player each member is (`tables.md` §2, §5). An entry point that opens the file, or a `league()` carrying a per-hand number, is red; no L1 case reads it.
 Caught by: `test_tables.py::EVL-6.1`–`EVL-6.6`, `test_guardrails.py::EVL-11.g19`.
-## G20 — `policy_from` reads exactly two recorded facts, and the rule is the built policy's
-The seed and the encoding name come from the checkpoint's own container (`scheduler.md` §5.1), and nothing else is read: the learner, its parameters and its **rule** stay `agents.load`'s — the rule reported is the `learning_rule` attribute of the policy `agents.as_policy` built, which is what the file records (`rules.md` §6, ASM-20). Member and bare path are built alike. A path digest, a table-derived seed, a **catalogue read**, or a rule parsed out of `metadata.json` instead of taken from the policy, is red.
+## G20 — `policy_from` reads exactly three recorded facts, and the rule is the built policy's
+The seed, the encoding name and the **shape** come from the checkpoint's own container (`scheduler.md` §5.1), and nothing else is read: the learner, its parameters and its **rule** stay `agents.load`'s — the rule reported is the `learning_rule` attribute of the policy `agents.as_policy` built, which is what the file records (`rules.md` §6, ASM-20). The encoder is built **for the recorded shape** — `features.build_encoder(name, shape=game)` — and the policy by `agents.as_policy(learner, encoder, seed, exploration)`. Member and bare path are built alike. A path digest, a table-derived seed, a **catalogue read**, a rule parsed out of `metadata.json` instead of taken from the policy, or an encoder built without the recorded shape, is red.
 Caught by: `test_scheduler.py::EVL-3.8`, `::EVL-3.15`, `test_guardrails.py::EVL-11.g20`, FAM-12.3 and FAM-16.26.
-## G21 — `report` copies and never invents
-Each of the seven families is copied by value from the record under the name `protocol()` spells — `axis row` included — and the report adds none, filling an absent family, wrapping `n/a` into a record, or sorting members by rating being red (`report.md` §2, §4). The pool family's `rules` **and** `utilities` are the two completed keys, written on the report's own copy and never into the argument (`report.md` §1–§2, `utility.md` §3, D-20).
+## G21 — `report` copies and never invents, and the shape rides in the header family
+Each of the seven families is copied by value from the record under the name `protocol()` spells — `axis row` included — and the report adds none, filling an absent family, wrapping `n/a` into a record, or sorting members by rating being red (`report.md` §2, §4). The pool family's `rules` **and** `utilities` are the two completed keys, written on the report's own copy and never into the argument (`report.md` §1–§2, `utility.md` §3, D-20) — and the header family's **tenth** key `shape` is the third, written beside the nine a record states while `HEADER_ITEMS` stays nine (`declarations.md` §2.1, `shape.md` §4). A report that adds a top-level `game`, or one whose header family lacks the resolved shape, is red.
 Caught by: `test_report.py::EVL-7.1`–`EVL-7.3`, FAM-11.1, FAM-11.9–11.11, FAM-16.27, FAM-18.11.
 ## G22 — Run every battery
 The census needs no guard: `tests/e2e/__init__.py` points the write root at a private temporary directory before any case, as `tests/conftest.py` does (`docs/L3/harness/layout.md` §5, `battery.md` §2).
@@ -103,9 +100,51 @@ Caught by: `test_pool.py` (an uncatalogued `rule` raises `UnknownRule` naming th
 ## G29 — A version declaration that names no utility is refused by name, never read as the catalogue's first member
 `build_pool` and `offer` refuse an omitted `utility` as a missing required key (`MemberInvalid`, naming the member and the key), because defaulting one reports a member as trained under an objective nobody declared — and the pool id, the record's `utilities` and the matrix's `utility_population` would all certify the wrong objective (`utility.md` §2, §4, `pool.md` §2, `records.md` §7, ASM-27, D-20). The reading that **stays** admitted is the bare §7 record handed to `match`, `matrix` or `opponent`, where the container is the witness (`utility.md` §2, `scheduler.md` §5). Mapping a *declared but uncatalogued* name onto the default stays red too (`utility.md` §4, `errors.md` §5).
 Caught by: `test_utility.py::EVL-14.3` (the absent key is refused by name), `::EVL-14.6` (an offered version that names none is refused), `::EVL-14.13` (the bare record stays admitted), FAM-18.11.
-## G30 — The side tuple is six elements, and every reader unpacks six
-`_side` returns `(id, policy, params, unlabelled, rule, utility)`; `_play_cell` unpacks all six and `_membership` reads
-`side[4]` and `side[5]` for its records' `rule` and `utility`, so a five-element side — or a cell whose `utilities` maps
-positionally instead of by member id — leaves one member's utility on another (`scheduler.md` §4–§5, `matrix.md` §5,
-`utility.md` §3, D-20).
+## G30 — The side tuple is seven elements, and every reader unpacks seven
+`_side` returns `(id, policy, params, unlabelled, rule, utility, game)`; `_play_cell` unpacks all seven, `_membership` reads
+`side[4]`, `side[5]` and `side[6]` for its records' `rule`, `utility` and `game`, and `matrix._variant_shape` reads `side[6]` — so
+a six-element side, or a cell whose `utilities` maps positionally instead of by member id, leaves one member's utility or one
+member's shape on another (`scheduler.md` §5, `matrix.md` §4–§5, `utility.md` §3, `shape.md` §4, D-20, D-29).
 Caught by: `test_scheduler.py::EVL-3.7`, `test_matrix.py::EVL-4.5`, FAM-7.6, FAM-18.10.
+## G31 — The default shape is an **absence**, never a defaulting of a present name
+An absent `game` reads as `SHAPE_NAMES[0]`; a `game` that is present and uncatalogued is `UnknownShape` **naming it and the
+declared names** (`shape.md` §2–§3). The two failure modes are opposite and both bite: mapping an uncatalogued name onto the
+default, which is the silent substitution `e2e-surface.md` §2 forbids and which would make a typo play the fixed game; and
+refusing an absent one, which would make every record the repository already holds unreadable — the 18 shipped version-1
+containers, `tables/league-full.json` and `checkpoints/evidence/r1-live.json` among them (`docs/L1/shapes.md` §3, §5).
+Caught by: `test_pool.py` (a pool built from a declaration naming no `game` reads back `fixed-limit-20`), `test_errors.py::EVL-9.4`
+(an uncatalogued shape raises `UnknownShape` naming the declared two), `test_scheduler.py` (a version-1 container loads as the
+default shape), FAM-19's shape cases.
+## G32 — The pool id must not digest the shape
+The payload is one line per member — a baseline's bare id, a version's `id`, `\x1f`, its `rule`, `\x1f`, its `utility` — and the
+shape is **outside** it (`families.md` §4, `pool.md` §4, ASM-27): ASM-27's rule is that the id changes when and only when the
+membership does, so a shape in the digest would rename a baselines-only pool that had not changed — R1's
+`pool-bcbea031cb617939` and the file shipped beside it — and would make two pools of one membership on two shapes two ids, where
+the design's point is that they are **one id and two tables** (`records.md` §8, `shape.md` §4, `tables.md` §3). It bites
+silently: every id is still well formed and only the certification is wrong.
+Caught by: `test_pool.py::EVL-2.4` (the exact string, recomputed from the rule-bearing payload), `::EVL-2.5`, FAM-6.8, FAM-6.9.
+## G33 — A rating is one shape's, and two shapes' ratings are never tabulated together
+`rating` reads the matrix's `game` and each cell's `game`, both tolerantly, and refuses a matrix whose cells name more than one
+shape or whose own `game` is not the shape its cells name — naming the shapes — so no value is ever a distance measured in one
+game and read in another (`rating.md` §1, §6, `shape.md` §3, `docs/L1/shapes.md` §6, ASM-17). The returned record carries the one
+shape it fitted, and the arithmetic does not read it: a fit that took a shape as an input would be a different rating model, and
+a fit that ignored the disagreement would tabulate two games on one scale.
+Caught by: `test_rating.py` (a two-shape matrix raises `ShapeMismatch` naming both), `test_report.py` (the report's three-way
+refusal), FAM-9's shape case, FAM-19.
+## G34 — The `off` mode draws nothing and decides identically at two seeds
+`policy_from(path, "off")` returns the masked maximum and the tie-break alone, and **no generator is drawn from**: two policies at two
+seeds decide identically on one readout, and a case that patches the generator and asserts it was never called is the direct test
+(`shape.md` §5, `scheduler.md` §7, `docs/L1/sizing.md` §4). Building the policy with the schedule's keyed draw and calling it
+"greedy" — or reading the ε = 0.05 tail as nearly greedy — is red, because the census `docs/L1/sizing.md` §7 computes would then be a sample of the exploration schedule and not of the policy (D-28, D-29).
+Caught by: `test_scheduler.py` (two seeds, one readout, identical answers under `off`; the generator untouched), FAM-12's mode
+cases, FAM-19.
+## G35 — A report requires no new content item of a record, the shape included
+The header family's tenth key `shape` is written by the report onto its **own copy** of that family; `HEADER_ITEMS` keeps nine,
+`protocol()["header"]` keeps nine, and no family's `required` tuple grows (`declarations.md` §2.1, §3, `report.md` §1–§4). A report
+that *requires* a shape item — a tenth `HEADER_ITEMS` entry, a new family, a stricter `required` tuple — refuses a record another
+battery hand-builds and every record already on disk, which is over-refusal and therefore a defect of its own (`errors.md` §5,
+`shape.md` §2). It bites hardest on the L1 battery, whose records predate the shape.
+Caught by: `test_report.py::EVL-7.1`–`EVL-7.4`, `test_declarations.py` (the seven families' `required` tuples and `HEADER_ITEMS` unchanged), FAM-11.1, FAM-11.9.
+## G36 — A cell's hands are dealt on the cell's shape, handed to `play_hand` as its fourth argument
+`_play_cell` calls `engine.play_hand(hand_seed, left_policy, right_policy, shape=game)` at **both** seat arrangements, `game` being the shape the cell is played on: the table's, from `pool_members(pool)["game"]`, when `matrix` supplies it, and `_cell_shape(...)`'s resolution at `match` (`scheduler.md` §1, §5, `matrix.md` §1, `shape.md` §4, D-29). A `play_hand` called without it deals the **default** shape, so a `no-limit-100` version member decodes its six-index vocabulary against a fixed-limit deal's three legal descriptors and `engine` refuses its descriptor (`InvalidAction`, naming it) before the cell can report anything: the cell's shape would then be a label on a deal it never shaped, and that cell unplayable. It bites **silently** for every default-shape cell, because `engine` reads an absent shape as `fixed-limit-20`: an absent argument and the default's own name deal identically, so no gated number moves and only a second-shape cell is red.
+Caught by: `tests/integration/evaluation/test_join_shapes.py::JOIN-EVL-15.4` (a default-shape baseline opposite a `no-limit-100` member is played on that shape, its `game` saying so and every decision legal), FAM-19.

@@ -1,7 +1,7 @@
 # engine — L4 guardrails
 
 - **Owner:** one note per risk this design identified, in the order they bite, each with the rule L4 must hold and the symptom of getting it wrong
-- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+- **Ceiling:** 152 lines — raised from 120 for the four guardrails the second shape adds (G12–G15). At the ceiling, split by owner — never append
 - **Read with:** `hand.md`, `actions.md`, `readout.md`, `episode.md`, `equity.md`, `errors.md`, `layout.md`
 
 These are not suggestions. Each one is a place where a plausible, tidy-looking implementation breaks a
@@ -29,7 +29,7 @@ to where you started), and sorting the stacks (chips are per seat, not ascending
 it wrong: the first decision reads `stacks == (18, 19)` or `seat == (1, False)`, `payoffs` is keyed
 by the wrong seat, and every per-seat fact in the project is mirrored.
 
-## G3 — The one spelling: a card is a two-character `str`, an action is one of three `str`s
+## G3 — The one spelling: a card is a two-character `str`, an action is one of its shape's `str`s
 
 No `pokerkit` object leaves this module: not a `Card`, not a `Deck`, not an operation, not the state
 (`readout.md` §3, `actions.md` §1). The reason is not taste: `features` must read a readout without
@@ -54,13 +54,13 @@ two `new_hand(SAME_SEED)` calls followed by `random.random()` disagree, or an as
 
 ## G5 — The 200-decision bound, and the hand that must end
 
-Every hand must reach `is_terminal` within 200 applied actions — measured at 8 under
-always-check-or-call and 12 under always-raise-if-legal, far below (`platform.md` §1). A property of
-the fixed game plus the automations, not something to force; it is a *test* of the automations being
-complete. Symptom: a `while not is_terminal(hand)` loop in `play_hand` spins because an un-automated
-operation (a missing `HAND_KILLING`, or an un-dealt board) stalls the state. Do not add a decision cap
-to `play_hand` as a "safety": a hand that does not end is a defect to report, not a loop to truncate —
-and a truncation would return a record whose payoffs are not the hand’s.
+Every hand must reach `is_terminal` within 200 applied actions — measured at 8 under always-check-or-call
+and 12 under always-raise-if-legal in the default shape, at 8 and 2 in the no-cap row, all far below
+(`platform.md` §1, `config.md` §6). A property of the declared rows plus the automations, not something to
+force; it is a *test* of the automations being complete. Symptom: a `while not is_terminal(hand)` loop in
+`play_hand` spins because an un-automated operation (a missing `HAND_KILLING`, or an un-dealt board) stalls
+the state. Do not add a decision cap to `play_hand` as a "safety": a hand that does not end is a defect to
+report, not a loop to truncate — and a truncation would return a record whose payoffs are not the hand’s.
 
 ## G6 — Cost per hand (ASM-15), and why the equity sample dominates
 
@@ -109,9 +109,44 @@ battery pairs the street name with the board length (`0 ⟺ preflop`, `3 ⟺ flo
 
 ## G11 — Nothing below an entry point is surface
 
-No battery may reach past the nine names, so the helper names in `layout.md` §1 are free to change;
-but the nine names, their argument counts, their returns and their value types are not
-(`layout.md` §2, `e2e-surface.md` §1). In particular do not add a tenth module-level name to
-`src/engine/__init__.py` for convenience — not `Hand`, not `EngineError`, not `ACTIONS`. A caller that
+No battery may reach past the ten names, so the helper names in `layout.md` §1 are free to change;
+but the ten names, their argument counts, their returns and their value types are not
+(`layout.md` §2, `e2e-surface.md` §1). In particular do not add an eleventh module-level name to
+`src/engine/__init__.py` for convenience — not `Hand`, not `EngineError`, not a vocabulary constant. A caller that
 needs a seat index reads it out of `readout["seat"]`; a caller that needs the vocabulary reads it from
 `features.action_space()`.
+
+## G12 — A shape name is refused, never defaulted, and `None` is not a name
+
+`require_shape` is the only place the shape question is answered: `None` returns `DEFAULT_SHAPE`, which is
+absence, and any value the catalogue does not carry raises `UnknownShape` naming it and the declared names
+(`config.md` §1, D-13). Do not fall back to the default on an unknown name — the silent substitution
+`surface.md` §1 forbids, and it would play a 20-chip hand under a no-limit name — and do not let `None`
+reach the handle. Symptom: `new_hand(seed, "no-limit-50")` deals a hand instead of raising, or
+`legal_actions` finds no vocabulary because `_shape` was never canonicalised.
+
+## G13 — The four bands are disjoint and total, and an empty band is masked out
+
+The arithmetic is `sizing.md` §2's and must be exact: `raise-quarter` → `m + L//4`, legal iff `L//4 >= 1`;
+`raise-half` → `m + L//2`, legal iff `L//2 > L//4`; `raise-all-in` → `A`, legal iff `A > m + L//2`;
+`raise-minimum` → `m`, legal whenever a raise is (`actions.md` §2, `config.md` §5). A band with no legal
+integer in it is **absent from `legal_actions`**, never collapsed onto a neighbour: at `L = 0` only
+`raise-minimum` is legal, at `L = 1` only it and `raise-all-in`. Symptom: a build offers `raise-half` where
+`L//2 == L//4`, so two descriptors resolve to one amount and the recorded amount names no single band.
+
+## G14 — The fixed-limit path is byte-identical
+
+The second shape may not move the first: `game_config()` with no argument returns the same fifteen keys and
+values, and a fixed-limit hand's deal, history entries, payoffs and episode record's five existing facts are
+unchanged — the only change is the three keys added beside them (`episode.md` §3, `shapes.md` §5). Two ways
+to break it: threading an amount into the fixed-limit step, turning `complete_bet_or_raise_to()` from a
+no-argument call into a one-argument one, and re-deriving the row inside `new_hand` **after** `random.seed`,
+which moves the stream and so the deal. Symptom: a `history` entry or a `game_config()` key differs.
+
+## G15 — The index order is the shape's declaration, never a sort
+
+`fold` 0, `check-call` 1, then the shape's raise descriptors in the declared order — the measured price
+order, worst first, so the all-in sits **before** the minimum (`config.md` §6, `sizing.md` §3). A build must
+not sort a legal set, must not re-order for readability, and must never derive an index from an amount.
+Symptom: `features.legal_indices` lands a descriptor on the wrong head position, or a tie-break resolves
+toward the cheapest band and manufactures a PASS (`sizing.md` §3, D-29).

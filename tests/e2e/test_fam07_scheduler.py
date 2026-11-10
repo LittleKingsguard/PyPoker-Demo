@@ -9,6 +9,13 @@ opponent from the same pool, and what it returns is a pool member.
 
 The cell sizes and seeds below (14, 23, 11 and the battery's own seeds) are the
 battery's inventions; the league's cells are 120 and 1,500 (``league.md`` §6).
+
+**`opponent` is drawn from the pool, and the pool is one shape's.**  A pool records the
+shape its members play (`records.md` §8), a drawn **version** decodes in the vocabulary
+its container records, and a drawn **baseline** is shape-silent and plays whatever shape
+the hands are dealt on — so FAM-7.8 drives the drawn policy on the pool's own shape and
+FAM-7.11 proves the draw reaches a member that decides in that shape's six descriptors
+(`shapes.md`` §3, D-29).
 """
 
 import os
@@ -180,18 +187,36 @@ class FAM7Scheduler(S.SurfaceCase):
         )
 
     def test_fam7_8_opponent_returns_a_policy_of_the_declared_protocol(self):
-        """FAM-7.8 evaluation.opponent returns one policy drawn from the pool."""
+        """FAM-7.8 evaluation.opponent returns one policy of §2, drawn from the pool.
+
+        The pool here is on the **default** shape, so the policy it draws decides in
+        today's three indices and never outside the decision's legal set — unchanged
+        (`shapes.md` §5).  The same function on a pool declared on the second shape is
+        FAM-7.11's (`records.md` §8, ``shapes.md`` §3, D-29).
+        """
         pool = self.pool(tags=("kestrel", "bramble"))
+        self.assertEqual(
+            self.pool_game(pool),
+            self.shape_names()[0],
+            "a pool that names no shape is on the default one (records.md §8, shapes.md §3)",
+        )
         policy = self.opponent(pool, S.SEED_G)
         self.assertTrue(callable(policy), "opponent must return a policy of §2: %r" % (policy,))
         walk = self.decision_walk(S.SEED_H, policy, limit=3)
         self.assertTrue(walk, "the drawn opponent answered no decision at all")
+        vocabulary = set(self.vocabulary())
         for _hand, _readout, legal, action, index in walk:
             self.assertIn(
                 index,
-                {0, 1, 2},
-                "a drawn opponent chooses from the three-index vocabulary (e2e-surface §2): %r"
-                % (index,),
+                vocabulary,
+                "a drawn opponent chooses from the pool's shape's vocabulary, today's three "
+                "indices (e2e-surface §2): %r" % (index,),
+            )
+            self.assertIn(
+                index,
+                set(self.ep("features", "legal_indices")(legal)),
+                "a drawn opponent chooses a legal index: %r against %r"
+                % (index, sorted(self.ep("features", "legal_indices")(legal))),
             )
             self.assertTrue(
                 any(S.canon(action) == S.canon(candidate) for candidate in legal),
@@ -241,6 +266,98 @@ class FAM7Scheduler(S.SurfaceCase):
             "records.md §9 makes a cell's `rules` each member's rule by its id — the "
             "catalogue name its policy carries — so a cell says which two estimators met "
             "(e2e-surface.md §2, league.md §3, D-19): %r" % (rules,),
+        )
+
+
+    # -- the shape in force (D-29) ----------------------------------------
+    def pool_game(self, pool):
+        """The one shape a pool record names — a **required** key (``records.md`` §8)."""
+        declared = self.members(pool)
+        return S.declared_field(declared, "a pool record (records.md §8)", "game")
+
+    def test_fam7_11_opponent_draws_a_member_of_the_pool_s_own_shape(self):
+        """FAM-7.11 on a pool declared on the second shape, the draw plays that shape.
+
+        A pool is one shape's: its record names the shape every member of it plays
+        (`records.md` §8), its version members' containers are that shape's, and the
+        policy `opponent` draws therefore decides in **that** shape's vocabulary — a
+        version's policy decodes in the six descriptors its head was built for, and a
+        drawn baseline is shape-silent and answers whatever legal set the hands deal
+        (`e2e-surface.md` §2, ``shapes.md`` §3, §6, `sizing.md` §3, D-29).
+
+        The case draws at every residue of the pool's member count, so the version member
+        is reached and not merely hoped for: the draws that answer differently from all
+        three fixed baselines are version draws, and every one of them is held to the six
+        indices and the legal set of the hand it was handed.  Two draws at one seed are the
+        same policy, as FAM-7.9 asserts of a default-shape pool (`league.md` §3).
+        """
+        shape = self.second_shape()
+        pool = self.shaped_pool(shape, tags=("kestrel",))
+        self.assertEqual(
+            self.pool_game(pool),
+            shape,
+            "a pool declared on the named shape records it (records.md §8, shapes.md §3)",
+        )
+        self.assertEqual(
+            set(self.vocabulary(shape)),
+            set(range(len(S.SIZED_ACTIONS))),
+            "the named shape's vocabulary is its six descriptors (sizing.md §3)",
+        )
+        members = self.members(pool)
+        member_ids = [str(member.get("id")) for member in members["members"]]
+        self.assertGreaterEqual(
+            len(member_ids),
+            2,
+            "the pool holds the pinned baselines and the version drawn here: %r" % (member_ids,),
+        )
+        # What each fixed baseline answers on one hand of this shape: a version draw is one
+        # that differs from all three, which is how the draw is shown to reach it.
+        hand = self.hand(S.SEED_I, shape)
+        baseline_answers = []
+        for name in S.ANCHOR_BASELINES:
+            policy = self.baseline(name, S.SEED_D)
+            baseline_answers.append(tuple(
+                entry[4] for entry in self.decision_walk(S.SEED_I, policy, limit=3, shape=shape)
+            ))
+        version_draws = 0
+        draws = 0
+        for seed in range(len(member_ids)):
+            policy = self.opponent(pool, seed)
+            first = [
+                entry[4] for entry in self.decision_walk(S.SEED_I, policy, limit=3, shape=shape)
+            ]
+            draws += 1
+            self.assertTrue(
+                first,
+                "a drawn opponent answers the named shape's decisions at seed %r" % (seed,),
+            )
+            again = [
+                entry[4]
+                for entry in self.decision_walk(S.SEED_I, self.opponent(pool, seed),
+                                                limit=3, shape=shape)
+            ]
+            self.assertEqual(
+                first,
+                again,
+                "one pool and one seed draw one opponent, on any shape (ASM-2, D-16): "
+                "%r against %r" % (first, again),
+            )
+            for index in first:
+                self.assertIn(
+                    index,
+                    set(self.vocabulary(shape)),
+                    "a drawn member of a named shape's pool answers in that shape's indices "
+                    "(e2e-surface.md §2, sizing.md §3): %r" % (index,),
+                )
+            if tuple(first) not in baseline_answers:
+                version_draws += 1
+        self.assertGreaterEqual(
+            version_draws,
+            1,
+            "the draw must reach the pool's version member and not only its baselines, or "
+            "'drawn from the pool' is asserted of the pool's baselines alone (D-16, "
+            "shapes.md §3): %d draws, %d version draws, baselines answered %r"
+            % (draws, version_draws, baseline_answers),
         )
 
 

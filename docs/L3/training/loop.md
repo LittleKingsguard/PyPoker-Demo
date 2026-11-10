@@ -1,154 +1,76 @@
 # training — the one loop
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09 · **Rev 7** forwards a variant's `utility` to `agents.build_learner` and to the transition step, and records it per variant, per pool member and as the run's `utilities` set (§1 steps 3 and 6, §3–§4, D-20) · **Rev 8** forwards a `pool` entry's `baselines` and reads one `baselines` row per baseline the frozen pool holds (§1 step 2, §3–§4, D-21)
-- **Owner:** `run()` — the nine steps every rung is a configuration of (§1), the per-pair pass (§2), the run record key by key
-  (§3), the sub-records it carries (§4), the arguments and their defaults (§5), the refusals (§6), determinism (§7); Rev 2 refuses
-  the declarations a run would not use and reports the declared `param_budget` (§3–§4); Rev 3 reads the `hyper` block and the
-  `learning_rule` at either level; **Rev 4** forwards and records a variant's rule (§1 step 3, §3–§4); **Rev 5** adds `rules` to the
-  record's `pool` block, off its version members (D-19)
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09 · **Rev 9** threads the run's own game **shape** through every step and ends every run with the exploration-off pass — a fourth return from `_train_variant_seed`, `_transitions`' and `_learner_policy`'s `shape`, the header's `game` and `action space`, two new refusals — and splits §3's key-by-key table and §4's sub-records into `record.md` (`shapes.md` §2–§3, `sizing.md` §4, `records.md` §15, ASM-38, D-28, D-29) · **Rev 8** forwards a `pool` entry's `baselines` and reads one `baselines` row per baseline the frozen pool holds (D-21) · **Rev 7** forwards a variant's `utility` to `agents.build_learner` and to the transition step (D-20)
+- **Owner:** `run()` — the nine steps every rung is a configuration of (§1), the per-pair pass (§2), the record's keys and the one-id rule (§3), the sub-records in one line each (§4), the arguments and their defaults (§5), the refusals (§6), determinism (§7); Rev 2 refuses the declarations a run would not use and reports the declared `param_budget`; Rev 3 reads the `hyper` block and the `learning_rule` at either level; **Rev 4** forwards and records a variant's rule (D-19); **Rev 5** adds `rules` to the `pool` block (D-19); **Rev 9** makes the shape and the pass parts of all nine steps
 - **Ceiling:** 190 lines. At the ceiling, split by owner — never append
-- **Read with:** `registry.md` §1–§3, `seeds.md` §2–§4, `episode.md` §1–§6, `reward.md` §1–§5, `curves.md` §5, `checkpoints.md` §3–§4,
-  `devices.md` §3, `errors.md` §4
+- **Read with:** `registry.md` §1–§3, `record.md` §1–§3, `greedy.md` §1–§5, `seeds.md` §2–§4, `episode.md` §1–§6, `reward.md` §1–§5, `curves.md` §5, `checkpoints.md` §3–§4, `devices.md` §3, `errors.md` §2, §4
 
 ## 1. The nine steps (D3)
 
-One pass of `run`, in this order, for any configuration — a registry rung or one written to `ladder.md` §3 and in no design
-document (`loop.md` §3, FAM-15.1). Steps 3–8 repeat per variant and per seed; steps 1, 2 and 9 happen once.
+One pass of `run`, in this order, for any configuration — a registry rung or one written to `ladder.md` §3 and in no design document (`loop.md` §3, FAM-15.1). Steps 3–8 repeat per variant and per seed; steps 1, 2 and 9 happen once.
 
-1. **Resolve, refusing what the run would discard.** A string goes through `rung(name)` (`registry.md` §5). A mapping is used as it
-   stands, refused in this order and always naming the key or the value it saw: the shape and the keys it reads (`name`, `variants`,
-   `pool`, `seeds`, `samples`, `device`, `table`) and then the seed set's and budget's values (§5, `surface.md` §4); each entry's
-   `backend`, `encoding` and `architecture` (`check_variant`); every declared `param_budget` that is not a positive integer; the
-   declarations a run would not use — the `hyper` keys, a `learning_rule` or a `utility` no catalogue `agents.learners()` publishes
-   carries, and the `snapshot_every` of either level, each at both levels (§2) — and, for two entries, the **five** settings both arms
-   must share (§6); then the pool, at step 2. No step after this one sees a configuration this one refused (`errors.md` §2).
-2. **Freeze the pool before the first hand.** The declaration is `{"members": <config["pool"]["members"] filtered to versions
-   whose `path` names a readable file>, "m": config["pool"]["m"], "frozen": config["pool"]["frozen"]}`, plus `"baselines"` — named catalogue
-   baselines the configuration admits — when its `pool` entry declares one, forwarded as it stands and never defaulted here; it goes to
-   `evaluation.build_pool` and `evaluation.pool_members` reads the membership back. No snapshot of this run enters it (D-16, ASM-16, ASM-32, `registry.md` §3, D-21).
-3. **Build the variant under the rule and the utility it declares.** `features.build_encoder(entry["encoding"])`, then
-   `features.observation_spec(encoder)` as the cross-check: `spec["representation"]` must equal the entry's `encoding`, or the run
-   refuses naming both (`surface.md` §4, `features/surface.md` §5). Per seed, `agents.build_learner({"backend", "architecture",
-   "seed", "encoder"})` with the run's seed as the learner's own seed, plus `"learning_rule"` and `"utility"` when the entry — else
-   its configuration — names them; a variant naming either passes no key and `agents` builds that catalogue's first, so the spec is a
-   declaration and never a member this module substituted (ASM-2, D-19, D-20, `agents/surface.md` §4, `protocol.md` §4).
-4. **Seed the work, not the arm.** Hand *i* of a run at `seed` is dealt at `_deal_seed(seed, i)` and draws its opponent at
-   `_opponent_seed(seed, i)`, both functions of the run seed and *i* alone (`seeds.md` §2). The opponent is
-   `evaluation.opponent(pool, `_opponent_seed(seed, i)`)` (`evaluation/surface.md` §8, ASM-16).
-5. **Play the hand through `engine`.** The learner's seat is `_seat(i)` (`episode.md` §1) and its policy is
-   `_learner_policy(learner, encoder)` (`episode.md` §2); seats alternate by swapping the two arguments, because seat 0 holds the
-   button in every hand (`engine/surface.md` §4, D-2). The call is `engine.play_hand(deal_seed, seat0, seat1)`.
-6. **Learn once per hand.** The episode's decisions for the learner's own seat become `records.md` §4 transitions and go to
-   `agents.learn` as one batch, in the caller's order, neither sampled nor shuffled (`episode.md` §5, ASM-7); the transition step is
-   handed `_trained_utility(config, entry)`, the utility the variant is trained on, which is **the one place a utility is applied**
-   (`episode.md` §3, `reward.md` §1, D-20). Its `td_error` is the hand's learning signal (`curves.md` §3). **A hand in which the
-   learner's seat never acted produces no batch and no update** — `learn` refuses an empty sequence — and contributes no signal
-   (`agents/rule.md` §3).
-7. **Snapshot every interval.** After hand *i* with `(i + 1) % interval == 0`, and at most ten times, the run makes the pair's
-   directory and calls `agents.save(learner, layout._write_path(layout._snapshot_path(...)))`, keeping the path it returns
-   (`checkpoints.md` §2, `write-root.md` §1, §5). The interval is `budget // 10`; §2 says why it is not the declared `snapshot_every`.
-8. **Write the final model.** After the last hand, `agents.save(learner, layout._write_path(layout._final_path(...)))` writes
-   `final.ckpt` for that pair (`checkpoints.md` §2, ASM-18), and the pair's curve closes with the spread across seeds (`curves.md` §4);
-   the helper names the *declared* layout, `_write_path` re-roots it and `layout._relative` spells it (`write-root.md` §2, §5, §6).
-9. **Assemble the record.** `_record(...)` returns §3's mapping and nothing beyond it: a run claims no table position and fits no
-   rating (`module-map.md` §3, `records.md` §13, `surface.md` §4).
+1. **Resolve, refusing what the run would discard.** A string goes through `rung(name)` (`registry.md` §5). A mapping is used as it stands, refused in this order and always naming the key or the value it saw: the shape and the keys it reads (`name`, `variants`, `pool`, `seeds`, `samples`, `device`, `table`, `game`) and then the seed set's and budget's values (§5, `surface.md` §4); each entry's `backend`, `encoding` and `architecture` (`check_variant`); every declared `param_budget` that is not a positive integer; the declarations a run would not use — the `hyper` keys, a `learning_rule` or a `utility` no catalogue `agents.learners()` publishes carries, a `game` no catalogue `engine.game_shapes()` publishes carries, and the `snapshot_every` of either level, each at both levels (§2) — and, for two entries, the **six** settings both arms must share (§6). Then the shape is resolved **once**, `shape = _game(configuration)`: the `game` at the configuration, else at its first variant entry, else the catalogue's first shape, an uncatalogued name being `UnknownShape` naming the level, the name and both declared names and never defaulted (`shapes.md` §2–§3, D-29) — and the pass's hand bound is checked, `greedy._check_hands(hands, where)`, because the pass's hand count **is** this budget and a run that could not produce its own record must not spend itself training (`greedy.md` §4, `sizing.md` §4, ASM-38); then the pool, at step 2. No step after this one sees a configuration this one refused (`errors.md` §2).
+2. **Freeze the pool before the first hand.** The declaration is `{"members": <config["pool"]["members"] filtered to versions whose `path` names a readable file>, "m": <the pool entry's declared bound, else the league's M>, "frozen": True, "game": <the run's shape>}`, plus `"baselines"` — named catalogue baselines the configuration admits — when its `pool` entry declares one, forwarded as it stands and never defaulted here; it goes to `evaluation.build_pool` and `evaluation.pool_members` reads the membership back. The shape is forwarded because a pool is one shape's: a member of another shape is that entry point's `ShapeMismatch`, refused before a hand (`records.md` §8, `shapes.md` §3, `evaluation/pool.md` §1, D-29). No snapshot of this run enters it (D-16, ASM-16, ASM-32, `registry.md` §3, D-21).
+3. **Build the variant under the shape, the rule and the utility it declares.** `features.build_encoder(entry["encoding"], shape=shape)`, then `features.observation_spec(encoder)` — the second call is the boundary check the run makes on a value it did not build, so a spec that is not an encoder's is refused there rather than at the first hand, while the encoding a spec reports is `build_encoder`'s own consequence of the encoding it was handed and is not re-compared here (`surface.md` §4, `features/surface.md` §5). Per seed, `agents.build_learner({"backend", "architecture", "seed", "encoder", "game"})` with the run's seed as the learner's own seed, plus `"learning_rule"` and `"utility"` when the entry — else its configuration — names them; a variant naming either passes no key and `agents` builds that catalogue's first, so the spec is a declaration and never a member this module substituted (ASM-2, D-19, D-20, `agents/surface.md` §4, `protocol.md` §4). `game` is always passed and is the resolved name: the head is as wide as that shape's descriptor count, so the parameter count follows the shape and no backend holds a `3` of its own (`sizing.md` §6, `shapes.md` §2, D-29), and the policy this loop assembles decodes its index in the same vocabulary (`episode.md` §2).
+4. **Seed the work, not the arm.** Hand *i* of a run at `seed` is dealt at `_deal_seed(seed, i)` and draws its opponent at `_opponent_seed(seed, i)`, both functions of the run seed and *i* alone (`seeds.md` §2). The opponent is `evaluation.opponent(pool, `_opponent_seed(seed, i)`)` (`evaluation/pool.md` §4, ASM-16) — the same draw the pass will replay at the same hand (`greedy.md` §1).
+5. **Play the hand through `engine`.** The learner's seat is `_seat(i)` (`episode.md` §1) and its policy is `_learner_policy(learner, encoder, shape)` (`episode.md` §2); seats alternate by swapping the two arguments, because seat 0 holds the button in every hand (`engine/surface.md` §4, D-2). The call is `engine.play_hand(deal_seed, seat0, seat1, shape=shape)`, so both sides and the drawn opponent play the run's own game and never the engine's default (`engine/surface.md` §10, `shapes.md` §2, D-29).
+6. **Learn once per hand.** The episode's decisions for the learner's own seat become `records.md` §4 transitions and go to `agents.learn` as one batch, in the caller's order, neither sampled nor shuffled (`episode.md` §5, ASM-7); the transition step is handed `_trained_utility(config, entry)`, the utility the variant is trained on, which is **the one place a utility is applied** (`episode.md` §3, `reward.md` §1, D-20), and the run's `shape`, so its chips-in-play guard reads that shape's own total — 40 on the default shape and 200 on the six-descriptor one (`episode.md` §3, `reward.md` §4, `shapes.md` §2, D-29). Its `td_error` is the hand's learning signal (`curves.md` §3). **A hand in which the learner's seat never acted produces no batch and no update** — `learn` refuses an empty sequence — and contributes no signal (`agents/rule.md` §3).
+7. **Snapshot every interval.** After hand *i* with `(i + 1) % interval == 0`, and at most ten times, the run makes the pair's directory and calls `agents.save(learner, layout._write_path(layout._snapshot_path(...)))`, keeping the path it returns (`checkpoints.md` §2, `write-root.md` §1, §5). The interval is `budget // 10`; §2 says why it is not the declared `snapshot_every`.
+8. **Write the final model, then play the pass.** After the last hand, `agents.save(learner, layout._write_path(layout._final_path(...)))` writes `final.ckpt` for that pair (`checkpoints.md` §2, ASM-18), and the pair's curve closes with the spread across seeds (`curves.md` §4); the helper names the *declared* layout, `_write_path` re-roots it and `layout._relative` spells it (`write-root.md` §2, §5, §6). With the model on disk — so the block is reproducible from the checkpoint the record names — the run then plays the pair's **greedy pass**: `greedy._pass(pool, shape, seed, budget, agents.as_policy(learner, encoder, int(seed), "off"), where)`, the one decision stream a run retains, played over the pair's own sample and writing nothing (`greedy.md` §1–§3, `sizing.md` §4, `records.md` §15, ASM-38, D-28).
+9. **Assemble the record.** `_record(...)` returns §3's mapping — `record.md` §1's keys — and nothing beyond it, the run's `game` and the per-variant, per-seed `greedy` block included: a run claims no table position and fits no rating (`module-map.md` §3, `records.md` §12, §13, §15, `record.md` §1, §3, `surface.md` §4, D-29).
 
-**The nine steps are the same for R1 and for a configuration in no registry**; only the data differs, and that is the whole of D-3
-(`ladder.md` §1, FAM-15, FAM-16.29). No step is conditional on a rung name, a rule or a utility, because all three are declarations a
-configuration carries (`rules.md` §4, `utilities.md` §5, D-19, D-20).
+**The nine steps are the same for R1 and for a configuration in no registry**; only the data differs, and that is the whole of D-3 (`ladder.md` §1, FAM-15, FAM-16.29). No step is conditional on a rung name, a rule, a utility **or a shape**, because all four are declarations a configuration carries and the shape is forwarded as data — that is the whole of D-29's "the shape is data all the way down" (`rules.md` §4, `utilities.md` §5, `shapes.md` §1–§2, D-19, D-20, D-29).
 
 ## 2. One variant × one seed: `_train_variant_seed`
 
-`_train_variant_seed(config, entry, seed, budget, device) -> (curve, checkpoints, timing)` runs steps 3–8 for one pair and returns
-three plain records; it is the only place a learner exists (`loop.py`, `README.md` §4). Three rules of its own:
+`_train_variant_seed(config, entry, seed, budget, device, pool=None, shape=None) -> (curve, checkpoints, timing, greedy_block)` runs steps 3–8 and the pass step 8 ends with, and returns **four** plain records; it is the only place a learner exists (`loop.py`, `README.md` §4). Three rules of its own:
 
-- **The interval is `budget // 10`, not the declared `snapshot_every`.** ASM-18 fixes ten equally spaced snapshots, and a run's budget
-  is not the configuration's declared one: the battery runs 60 and 250 hands (`battery.md` §2). At 250 hands a declared 100 would write
-  two snapshots and leave FAM-12.4's five-version window unobservable; at `budget // 10` it writes exactly ten, the last at
-  `10 × interval ≤ budget` (`curves.md` §2). The declared value is **recorded**, in §4's `variants` row.
-- **The pass is sequential and single-threaded**: one hand at a time, because one global `random` stream deals every hand and
-  concurrency is not available (`protocol.md` §4, ASM-2). No hand is buffered, replayed or reordered.
-- **The timing is measured, not asserted**: `_timings(start, hands)` reads `time.perf_counter()` around the pair's hands and returns
-  §4's four facts; a run never claims a wall clock was beaten (`records.md` §12, ASM-15, FAM-13.5).
+- **The interval is `budget // 10`, not the declared `snapshot_every`.** ASM-18 fixes ten equally spaced snapshots, and a run's budget is not the configuration's declared one: the battery runs 60 and 250 hands (`battery.md` §2). At 250 hands a declared 100 would write two snapshots and leave FAM-12.4's five-version window unobservable; at `budget // 10` it writes exactly ten, the last at `10 × interval ≤ budget` (`curves.md` §2). The declared value is **recorded**, in §4's `variants` row.
+- **The pass is sequential and single-threaded**: one hand at a time, because one global `random` stream deals every hand and concurrency is not available (`protocol.md` §4, ASM-2). No hand is buffered, replayed or reordered.
+- **The timing is measured, not asserted**: `_timings(start, hands)` reads `time.perf_counter()` around the pair's hands and returns §4's four facts; a run never claims a wall clock was beaten (`records.md` §12, ASM-15, FAM-13.5).
 
-**Both axes are resolved one way, and neither is substituted.** `_declared_rule` and `_declared_utility` read the entry's declaration
-first, its configuration's second — a level declaring none, or `None`, is no claim and they return `None` — and `_trained_rule` and
-`_trained_utility` fall back to the **catalogue's first** member of their axis, through `declarations.learning_rules()` and
-`declarations.utilities()`, so a variant naming neither is trained under `masked-q-learning` on `net-chips` (`rules.md` §4, `utilities.md` §5, D-19, D-20).
+**The shape is threaded, never branched on.** `shape` is resolved once at step 1 and passed down, so every derivation the loop makes from the game is the run's own and never `engine.game_config()`'s default: the encoder's spec, the learner's head width, the deal, the policy's decode and the transition step's guard (`policies.py`, `shapes.md` §2, `sizing.md` §5–§6, D-29). A `_train_variant_seed` and a `_pool` called with no shape resolve it from the configuration they were handed, so a unit case may pass one argument fewer and no path ever falls back to the default shape silently (`README.md` §4, D-13).
 
-**The declaration a run would discard is refused; a catalogued member is not (Rev 4, Rev 7).** At §1 step 1 a `learning_rule` or a
-`utility` the catalogue `agents.learners()` publishes does not carry is `IgnoredDeclaration`, as a `hyper` key whose value is not that
-key's `declarations.HYPER` value (an unknown key included) and a `snapshot_every` that is not the **declared** samples ÷ 10 is — each at
-the configuration and at each entry, and both levels are named. Two arms declaring two values for one of the **five** settings that reach
-the pair check are `PairDeclarationsDiffer`, naming the key and both values; a catalogued rule or utility is not one of them, so two arms
-may declare two of either and both are trained (D-19, D-20, `rules.md` §8, `utilities.md` §8). A `param_budget` that is not a positive
-integer is `VariantSettingInvalid`; an absent setting — or one spelled `None` — is no claim, and a `hyper` that is not a mapping names no
-key (`declarations.md` §2–§4, ASM-7, ASM-10, ASM-18).
-**The comparison is by declaration, not by shape.** `seeds` compares as a sequence, and two `hyper` blocks differ when a key **both**
-name carries two values; with those two checks above, the pair check covers `samples`, `seeds`, `device`, `table`, `param_budget`
-(`declarations.md` §4).
+**The pass comes last, and it is the only decision stream a run retains.** Once the pair's final model is written, `greedy._pass` replays the pair's own sample against `agents.as_policy` at `exploration="off"` and returns `records.md` §15's block (`greedy.md` §1, `sizing.md` §4, ASM-38). Running it after the save is what makes the block reproducible from the record; the training decisions themselves are never retained (D-28), and the block is a function of the tuple this section's three rules already fix (`greedy.md` §5).
 
-Every write in the pass goes through `os.makedirs(parent, exist_ok=True)` before `agents.save`, because `save` invents no directory and
-refuses a path whose parent is missing (`agents/surface.md` §8, `checkpoints.md` §2). The parent is made **under the write root**,
-`layout._write_root()` — `CHECKPOINT_ROOT` unless the ambient `PYPOKER_CHECKPOINT_ROOT` names another root — and both artefacts reach
-`save` through `layout._write_path`, so a battery's run writes a temporary tree and the shipped one is untouched (`write-root.md` §6).
+**Both axes are resolved one way, and neither is substituted.** `_declared_rule` and `_declared_utility` read the entry's declaration first, its configuration's second — a level declaring none, or `None`, is no claim and they return `None` — and `_trained_rule` and `_trained_utility` fall back to the **catalogue's first** member of their axis, through `declarations.learning_rules()` and `declarations.utilities()`, so a variant naming neither is trained under `masked-q-learning` on `net-chips` (`rules.md` §4, `utilities.md` §5, D-19, D-20). The shape resolves the same way through `_declared(configuration, "game")` and `declarations.require_game`, except that absence is the **default shape** and never "no claim", because a shape is a property of the configuration and not an optional member (§1 step 1, `shapes.md` §3, D-29).
+
+**The declaration a run would discard is refused; a catalogued member is not (Rev 4, Rev 7, Rev 9).** At §1 step 1 a `learning_rule` or a `utility` the catalogue `agents.learners()` publishes does not carry is `IgnoredDeclaration`, as a `game` the catalogue `engine.game_shapes()` publishes does not carry is `UnknownShape` — its own class, naming the level, the name and both declared names — as a `hyper` key whose value is not that key's `declarations.HYPER` value (an unknown key included) and a `snapshot_every` that is not the **declared** samples ÷ 10 is, each at the configuration and at each entry, and both levels are named. Two arms declaring two values for one of the **six** settings that reach the pair check are `PairDeclarationsDiffer`, naming the key and both values; a catalogued rule or utility is not one of them, so two arms may declare two of either and both are trained, while a `game` **is** one of them, because two arms of a pair are trained and evaluated on one shape and a shape is never a rung's axis (D-19, D-20, `rules.md` §8, `utilities.md` §8, `shapes.md` §1, §6, `ladder.md` §4, D-29). A `param_budget` that is not a positive integer is `VariantSettingInvalid`; an absent setting — or one spelled `None` — is no claim, and a `hyper` that is not a mapping names no key (`declarations.md` §2–§4, ASM-7, ASM-10, ASM-18).
+**The comparison is by declaration, never by structural equality.** `seeds` compares as a sequence, and two `hyper` blocks differ when a key **both** name carries two values; with those two checks above, the pair check covers `samples`, `seeds`, `device`, `table`, `param_budget` and `game` (`declarations.md` §4).
+
+Every write in the pass goes through `os.makedirs(parent, exist_ok=True)` before `agents.save`, because `save` invents no directory and refuses a path whose parent is missing (`agents/surface.md` §8, `checkpoints.md` §2). The parent is made **under the write root**, `layout._write_root()` — `CHECKPOINT_ROOT` unless the ambient `PYPOKER_CHECKPOINT_ROOT` names another root — and both artefacts reach `save` through `layout._write_path`, so a battery's run writes a temporary tree and the shipped one is untouched (`write-root.md` §6). The **pass** writes nothing at all: it has no path, no directory and no artefact, and the record's `checkpoints` block is the one the save produced (`greedy.md` §1, `record.md` §2).
 
 ## 3. The run record, key by key (D3)
 
-`records.md` §12's thirteen **required** keys — `variants` among them, and `rules` and `utilities` since D-19 and D-20 — and then this
-module's own evidence keys, `header`, `baselines` and `axis row` (`surface.md` §4, `utilities.md` §7):
-| Key | Content |
-|---|---|
-| `rung` | the rung name, or the unregistered configuration's own `name` (`records.md` §12) |
-| `curves` | variant → seed → `{samples, td_error, spread}` — the ten snapshot steps, the mean absolute `td_error` of each interval, the spread across seeds (`curves.md` §5) |
-| `pool` | `{id, lineage, m, frozen, members, rules, utilities}`: the **declared** id, the read-back `m`, `frozen` and ordered members — the pool's **pinned** baselines first (the anchor three, then any declared folder), then the version window — and `rules` and `utilities`, the distinct rules and utilities those version members declare (`records.md` §8, §12, `registry.md` §3, ASM-32, D-19, D-20, D-21) |
-| `checkpoints` | variant → seed → `{snapshots: [<the retained five paths>], final: <that pair's final model>}`, each path `layout._relative` of what `agents.save` was handed: repository-relative with POSIX separators inside the repository root and **unchanged — absolute — outside it** (`checkpoints.md` §2, `write-root.md` §5) |
-| `seeds` | the seed set the run used, after §5's default |
-| `budget` | the hands per variant per seed the run used, after §5's default |
-| `device` | the device the run used, after §5's default (`protocol.md` §6, D-8) |
-| `params` | variant → `{budget: 10000, lower: 9800.0, upper: 10200.0}` — the declared budget and its ±2% bound: the entry's `param_budget`, else the configuration's, else `declarations.PARAM_BUDGET`, validated at §1 step 1 (§6); a run measures no capacity (`surface.md` §4, ASM-10) |
-| `table` | the declared table budget, `live` or `full`; a configuration declaring none is recorded at `live` (`league.md` §6, `loop.md` §2) |
-| `timings` | variant → seed → `{hands, wall_clock_seconds, seconds_per_hand, hands_per_second}` (§4, `records.md` §12) |
-| `variants` | the list of `{name, backend, encoding, architecture, learning_rule, utility, samples, snapshot_every}` — the entry's declaration, **the rule and the utility the variant was actually built under**, and the interval the run used (§4, D-19, D-20) |
-| `rules` | the distinct rules the run declared and trained, in declaration order: one name for a ladder rung, two for a configuration whose arms name two estimators (`records.md` §12, `rules.md` §7, D-19) |
-| `utilities` | the same set on D-20's axis: the distinct utilities the run declared and trained, in declaration order, read through `_trained_utility` — one for a ladder rung, two for a configuration whose arms name two (`records.md` §12, `utilities.md` §7, D-20) |
+`records.md` §12's fifteen **required** keys — thirteen before D-29, which adds `game` and `greedy` — then this module's own evidence keys, `header`, `baselines` and `axis row` (`surface.md` §4, `records.md` §12, §15, `utilities.md` §7, D-29). **The table that fixes each key, key by key, is `record.md` §1**, moved there whole at Rev 9, when this file was at its 190-line ceiling; the split keeps §3's number, which `tests/training/test_loop.py` cites, and it is a pointer and not a second claim.
 
-**One id per record, and it is the declared one** (D3): `pool.id` is `config["pool"]["id"]` — for a registry rung the read-back id of
-the membership, for a custom configuration its own `"pool-r7"`-style id — and the read-back digest id is **not** carried anywhere in the
-record, because `tests/e2e/_surface.py`'s `pool_identity` reads every `id` a record declares and two ids in one two-variant record fail FAM-3.18 (ASM-16).
+**One id per record, and it is the declared one** (D3): `pool.id` is `config["pool"]["id"]` — for a registry rung the read-back id of the membership, for a custom configuration its own `"pool-r7"`-style id — and the read-back digest id is **not** carried anywhere in the record, because `tests/e2e/_surface.py`'s `pool_identity` reads every `id` a record declares and two ids in one two-variant record fail FAM-3.18 (ASM-16).
+
+**And the two keys D-29 adds are as plain as the rest.** `game` names the single shape the run played, so a record never names a shape it did not measure; `greedy` is one block per variant per seed, keyed exactly as `curves` is, and is the **only** decision log in the record (`record.md` §3, `greedy.md` §2–§3, `sizing.md` §4, D-28, D-29).
 
 ## 4. The sub-records, in the shape their readers expect
 
-- `curves[V][str(seed)] = {"samples": [...], "td_error": [...], "spread": [...]}` — three ten-element lists: the axis, the signal and the across-seed spread repeated at each of that variant's seeds because it is one fact about it (`curves.md` §5).
-- `checkpoints[V][str(seed)] = {"snapshots": [five paths], "final": <one path>}` — the retained last M = 5 of the ten the pair wrote
-  and that pair's final model, six artefacts and never eleven (`checkpoints.md` §3, `write-root.md` §5); `_records.py`'s `checkpoint_paths_of` reads this key alone.
-- `params[V] = {"budget": 10000, "lower": 9800.0, "upper": 10200.0}` — declared, never measured: the entry's `param_budget`, else the configuration's, else 10,000, with `lower`/`upper` that number ∓2% (`module-map.md` §2, ASM-10).
-- `timings[V][str(seed)] = {"hands": budget, "wall_clock_seconds": ..., "seconds_per_hand": ..., "hands_per_second": ...}` — the facts
-  `harness.timings` reports; the four key names are deliberate, because the battery's `timing_facts` classifies a key by what it names
-  (`e2e-surface.md` §3.6, ASM-15, FAM-13.5).
-- `variants[i] = {name, backend, encoding, architecture, learning_rule, utility, samples, snapshot_every}` — `architecture` the entry's
-  record copied verbatim, `samples` its declared budget (the run's hands when the entry declares none), `snapshot_every` the interval the
-  run used, and `learning_rule`/`utility` **the member of each axis the learner was built under**: the entry's, else its configuration's,
-  else the catalogue's first, which is what `agents` built when the entry named neither (`rules.md` §4, `utilities.md` §5, D-19, D-20).
-- `rules = [<one rule per distinct estimator trained>]` and `utilities = [<one utility per distinct objective trained>]` — the sets the
-  per-variant rows name, in declaration order and deduped, so `records.md` §12's `rules` and `utilities` are read off the record itself;
-  `pool.rules` and `pool.utilities` are the same sets for the opposition, off the members' own fields (`records.md` §8, §12, `rules.md` §7, `utilities.md` §7, D-19, D-20).
-- `baselines` and `header` — `_pool_baselines(pool_record)` reads the baseline ids the frozen pool **actually holds** off its own members,
-  so `baselines["rows"]` is one `{member, hand count, pinned: True, measured: False}` row per baseline the pool holds — the anchor three
-  and any declared folder, in the pool's order — and the header's `parameter counts` carry a declared `0` for each of those names: no
-  count here is a hard-coded three (`records.md` §8, `protocol.md` §3, ASM-32, D-21, `evaluation/surface.md` §13).
+Each sub-record is fixed in `record.md` §2, moved there whole at Rev 9; its shape, in one line each:
+
+- `curves[V][str(seed)]` — three ten-element lists: the axis, the signal and the across-seed spread, repeated at each of that variant's seeds because it is one fact about it (`curves.md` §5).
+- `checkpoints[V][str(seed)]` — `{snapshots: [the retained five], final: <one path>}`: six artefacts per pair and never eleven, and the pass adds no seventh (`checkpoints.md` §3, `write-root.md` §5, `greedy.md` §1).
+- `params[V]` — the declared budget and its ∓2% band, declared and never measured (`module-map.md` §2, ASM-10).
+- `timings[V][str(seed)]` — the four facts `harness.timings` reports; the key names are deliberate, because the battery's `timing_facts` classifies a key by what it names (`e2e-surface.md` §3.6, ASM-15, FAM-13.5).
+- `variants[i]` — the entry's declaration plus **the rule and the utility the learner was actually built under**, and the interval the run used (`rules.md` §4, `utilities.md` §5, D-19, D-20).
+- `rules` and `utilities` — the two sets the per-variant rows name, deduped in declaration order; `pool.rules` and `pool.utilities` are the same sets for the opposition (`records.md` §8, §12, D-19, D-20).
+- `baselines` and `header` — one row per baseline the pool holds with its declared `0`, and a header whose `game` and `action space` rows are the run's **shape's** (`record.md` §3, ASM-32, D-21, D-29).
 
 ## 5. The arguments, and what an omitted one means (D3)
 
 `run(rung, seeds=None, budget=None, device=None)` (`surface.md` §4):
 
-- `seeds` omitted → the configuration's own `seeds`, else its first variant entry's `seeds`; a configuration carrying neither is `ConfigurationInvalid` naming `seeds`.
+- `seeds` omitted → the configuration's own `seeds`, else its first variant entry's `seeds`; a configuration carrying neither is `MissingConfigurationKey` naming `seeds`, and no seed set is substituted for an absent one (§6, `e2e-surface.md` §2, D-12).
 - `budget` omitted → the configuration's `samples`, else its first variant entry's `samples`, else `LIVE_BUDGET` is **not**
   substituted: a configuration carrying none is refused naming `samples` (`e2e-surface.md` §2, D-12).
 - `device` omitted → the configuration's `device`, else `devices()["default"]`, which is `"cpu"`; a named device must be one
   `devices()["available"]` lists, or the run refuses naming it (`devices.md` §1, D-8).
-- `snapshot_every` and `table` are read from the configuration and are never arguments: the interval is `budget // 10` (§2) and a
-  missing `table` is recorded as `live`; `learning_rule`, `utility` and a `pool` entry's `baselines` are read from the declaration too (`utilities.md` §5, D-20, D-21).
+- `game` is **not** an argument: it is the configuration's own key, read at the configuration then at its first entry, and its absence is the catalogue's first shape — so the shape reaches a run only as a declaration and never as a caller's option (`surface.md` §4, `shapes.md` §3, D-29).
+- `snapshot_every`, `table` and the pool's `baselines` are read from the configuration and are never arguments: the interval is `budget // 10` (§2), a missing `table` is recorded as `live`, and `learning_rule`, `utility` and `game` are read from the declaration too (`utilities.md` §5, D-20, D-21, D-29).
 
 ## 6. The refusals of this document
 
@@ -162,29 +84,27 @@ dealt and before anything is written; the two rows marked *the owner's class* an
 | `VariantCountInvalid` | `variants` holds zero, three or more entries; one or two only (`ladder.md` §2, `surface.md` §4) |
 | `VariantSettingInvalid` | a setting the run reads has the wrong shape: `backend` or `encoding` is not a string, `architecture` is not a mapping, `width`/`depth` is not a positive integer, `sparsity` is outside `[0, 1]`, or a declared `param_budget` — at the configuration or at an entry — is not a positive integer — the field, its level and its value are named (`records.md` §2, `ladder.md` §3, ASM-10) |
 | *(the owner's class)* | a `backend`, an `encoding`, an `architecture.kind`, a `learning_rule` or a `utility` the owning module does not declare is refused by **that** module, at §1 step 3: `features.build_encoder` for the encoding and `agents.build_learner` for the backend, the kind, the rule and the utility, whose message names the value; this module reads no such catalogue except the two `learners()` publishes, and re-wraps none (`module-map.md` §2, `features/surface.md` §4, `agents/surface.md` §4, D-20) |
-| `MissingConfigurationKey` | a configuration carrying none of the places §5 looks for `seeds`, `samples` or `device` — the key is named (§5) |
+| `MissingConfigurationKey` | a configuration carrying none of the places §5 looks for `seeds` or `samples` — the key is named, and no value is substituted for an absent one. `device` is not among them: an omitted device resolves to `devices()`'s declared default (§5, D-8) |
 | `InvalidSeeds` | the seed set is empty, repeats a seed, or holds a non-integer (ASM-2, `surface.md` §4) |
 | `InvalidBudget` | `budget` is not a positive integer, or is below ten hands — ten equally spaced snapshots need ten hands (`surface.md` §4, ASM-18) |
 | `UnknownDevice` | a named `device` that `devices()["available"]` does not list, named (D-8, `devices.md` §1) |
+| `UnknownShape` | a `game` naming a shape the catalogue `engine.game_shapes()` publishes does not carry — or a value that is not a shape name at all — at the configuration or at any entry: the level, the value and **both declared names** are named, and no name is ever defaulted; raised at §1 step 1, before the pool is built (`shapes.md` §2–§3, `declarations.require_game`, D-29, D-13) |
 | `IgnoredDeclaration` | a declaration the run would not use, raised after every shape check above and before the pool: a `learning_rule` or a `utility` the catalogue `agents.learners()` publishes does not carry, a `hyper` key whose value is not that key's `declarations.HYPER` value (an unknown key included), and a `snapshot_every` at either level that is not the **declared** samples ÷ 10 — each **at the configuration and at each entry**, naming the level, the key, the member or value declared and the catalogue or value the run uses (`declarations.md` §2–§3, `rules.md` §2, `utilities.md` §2, D-19, D-20, ASM-18) |
-| `PairDeclarationsDiffer` | a two-entry configuration whose arms declare two values for one of `samples`, `seeds`, `device`, `table` or `param_budget` — **five** of the seven settings a pair shares, because `hyper` and `snapshot_every` are refused earlier and per arm by `IgnoredDeclaration` and the pair class is unreachable for them: two arms cannot differ on a `hyper` value or an interval without one arm disagreeing with the declaration in force, and the `hyper`, member and interval checks run before the pair check — a key only one arm declares is no claim, and the message names the key and both values. `learning_rule` and `utility` are **not** among them: two arms may declare two of either, which are the pair's `rule` and `utility` axes (`declarations.md` §2, §4, `rules.md` §8, `utilities.md` §8, ASM-8, ASM-16) |
-| `ChipConservationBroken` | a hand whose chips in play disagree with the stacks the game declares, or whose `U(s_0)` is `0` — raised by the transition step under `stack-shortfall`, naming the seed and both totals (`reward.md` §4, `errors.md` §2, ASM-6, D-20) |
-| *(the pool's own class)* | `build_pool`'s or `pool_members`' refusal — an `m` above the league's M, a member lacking `id`, `lineage`, `rule` or `utility`, a bad chain — propagates unchanged in `evaluation`'s class and is **never repaired** (`surface.md` §4, `evaluation/surface.md` §5, ASM-27) |
+| `PairDeclarationsDiffer` | a two-entry configuration whose arms declare two values for one of `samples`, `seeds`, `device`, `table`, `param_budget` or `game` — **six** of the eight settings a pair shares, because `hyper` and `snapshot_every` are refused earlier and per arm by `IgnoredDeclaration` and the pair class is unreachable for them: two arms cannot differ on a `hyper` value or an interval without one arm disagreeing with the declaration in force, and the `hyper`, member and interval checks run before the pair check — a key only one arm declares is no claim, and the message names the key and both values. `game` is one of the six because a pair is trained and evaluated on **one shape** and a shape is never a rung's axis; `learning_rule` and `utility` are **not** among them, since two arms may declare two of either, which are the pair's `rule` and `utility` axes (`declarations.md` §2, §4, `rules.md` §8, `utilities.md` §8, `shapes.md` §1, §6, `ladder.md` §4, ASM-8, ASM-16, D-29) |
+| `GreedyPassRefused` | the pass's two bounds: a `budget` above 2,000 hands per variant per seed, refused at §1 step 1 with the budget and the bound — so a 200,000-hand shipped-budget run is refused **before** it trains — or, as the pass accumulates, the moment one more decision record would cross 24,000; never truncated, and a pass of exactly a bound is inside it (`greedy.md` §4, `sizing.md` §4, `records.md` §15, ASM-38) |
+| `ChipConservationBroken` | a hand whose chips in play disagree with the stacks **the run's own shape** declares — 40 on the default shape, 200 on the six-descriptor one — or whose `U(s_0)` is `0`: raised by the transition step under `stack-shortfall`, naming the seed and both totals, so a readout of one shape read against the other is refused by name (`reward.md` §4, `episode.md` §3, `errors.md` §2, ASM-6, D-20, D-29) |
+| *(the pool's own class)* | `build_pool`'s or `pool_members`' refusal — an `m` above the league's M, a member lacking `id`, `lineage`, `rule` or `utility`, a bad chain, a member of another shape — propagates unchanged in `evaluation`'s class and is **never repaired** (`surface.md` §4, `evaluation/pool.md` §1–§2, ASM-27, `shapes.md` §3) |
 
 ## 7. Determinism
 
 One `(configuration, seed set, budget, pool membership)` gives one record twice: the same curves, the same pool id, the same
-checkpoint paths, and the same rules and utilities (`surface.md` §4, FAM-4.7), because each variant's rule and utility are
-declarations and not draws. Three facts carry it: the deal and opponent seeds are derivations of `(seed, i)` (`seeds.md` §2), the
-learner's generator is seeded from the run seed (`agents/architecture.md` §4), and the pool is frozen before the first hand so the
-opponent draw depends on the membership alone (`registry.md` §3, ASM-16). A different seed set gives different curves (FAM-4.8), a
-different membership a different pool id (FAM-4.9); the **timings** are the one field two runs of one tuple differ in (`surface.md` §4).
+checkpoint paths, the same rules and utilities, and the same `greedy` block (`surface.md` §4, FAM-4.7, `greedy.md` §5, ASM-38), because each variant's rule, utility and shape are declarations and not draws. Four facts carry it: the deal and opponent seeds are derivations of `(seed, i)` (`seeds.md` §2), the learner's generator is seeded from the run seed (`agents/architecture.md` §4), the pool is frozen before the first hand so the opponent draw depends on the membership alone (`registry.md` §3, ASM-16), and the pass draws from no generator at all, because its mode is `off` (`greedy.md` §1, §5, `docs/L3/agents/rule.md` §4). A different seed set gives different curves (FAM-4.8), a different membership a different pool id (FAM-4.9); the **timings** are the one field two runs of one tuple differ in (`surface.md` §4). The block's guarantee is the record's and no wider: within one process, because the training path itself is hash-order sensitive across processes (`greedy.md` §5).
 
 ## 8. What is left to L4
 
 The loop's control structure, whether the per-pair pass is a generator or a list, how the snapshot count is tracked, the name and shape
-of the resolve step's declaration checks, how a variant's rule and utility are resolved from its entry and its configuration, and where
-the `param_budget` validation sits (at step 1 and inside `_param_budget`); and every private name other than `_train_variant_seed`,
-`_timings`, `_record` and `_pool_baselines`, whose signatures are contract for `tests/training/` (`README.md` §4). Not L4's: §1's order, the nine steps' content,
-the `budget // 10` interval, the record's thirteen keys, the one-id rule, both members forwarded and built under, the four timing key names,
-one `baselines` row per baseline the pool holds with its declared `0`, the order §1 step 1 refuses in and the message texts (`guardrails.md` G21–G23).
+of the resolve step's declaration checks, how a variant's rule and utility are resolved from its entry and its configuration, where
+the `param_budget` validation sits (at step 1 and inside `_param_budget`), how the resolved shape is threaded from `run` down to the pass, and every private name other than `_train_variant_seed`,
+`_timings`, `_record`, `_header`, `_pool_baselines` and `_game`, whose signatures are contract for `tests/training/` (`README.md` §4) — `_train_variant_seed`'s **four**-tuple and its `pool`/`shape` arguments, and `_transitions`' and `_learner_policy`'s `shape` among them. Not L4's: §1's order, the nine steps' content,
+the `budget // 10` interval, the record's fifteen keys and the content of the two D-29 keys, the one-id rule, both members forwarded and built under, the four timing key names,
+one `baselines` row per baseline the pool holds with its declared `0`, one shape resolved once and forwarded whole, the pass's position after the save and its two bounds, the order §1 step 1 refuses in and the message texts (`guardrails.md` G21–G23, ASM-38, D-29).

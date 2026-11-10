@@ -1,17 +1,18 @@
 # training — the terminal reward, and the one place a utility is applied
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-09
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09 · **Rev 2** reads the two quantities the transform needs — `s_0` and `T` — from the **run's own shape** through `engine.game_config(shape)` and `_chips_in_play(..., shape)`, so the arithmetic normalises against that shape's chips in play and a readout of one shape read against the other is refused by name (`shapes.md` §2–§3, `episode.md` §3, D-29)
 - **Owner:** the utility axis this module applies — where the transform sits and why (§1), the catalogue's **reward token** as the
   selector and never a member name copied here (§2), the two arithmetics and the four scores (§3), the chips-in-play guard and the
   class it raises (§4), what every other decision keeps and what this module never touches (§5), and what is left to L4 (§6);
-  D-20, `utilities.md` §2–§5, `records.md` §4–§5, ASM-12, ASM-28
+  D-20, `utilities.md` §2–§5, `records.md` §4–§5, ASM-12, ASM-28, `shapes.md` §2, D-29
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
-- **Read with:** `episode.md` §3–§6, `loop.md` §1 steps 3 and 6, §4, `fairness.md` §4, `errors.md` §2, §4, `guardrails.md` G25
+- **Read with:** `episode.md` §3–§6, `loop.md` §1 steps 3 and 6, §4, `record.md` §1, `fairness.md` §4, `errors.md` §2, §4, `guardrails.md` G25
 
 ## 1. This module is the one place a utility is applied
 
-`_transitions(episode, seat, encoder, utility=None)` is the step that turns one hand's decisions into the batch `agents.learn`
-consumes, and its fourth argument is the **name** of the utility the variant is trained on (`episode.md` §3, `loop.md` §1 step 6).
+`_transitions(episode, seat, encoder, utility=None, shape=None)` is the step that turns one hand's decisions into the batch `agents.learn`
+consumes, and its fourth and fifth arguments are the **name** of the utility the variant is trained on and the **run's own shape**, which
+is what the guard and the normaliser read (`episode.md` §3, `loop.md` §1 step 6, `shapes.md` §2, D-29).
 At the seat's **terminal** decision — the last decision that seat made, positionally (`episode.md` §4) — and only there, the
 transform replaces the record's `reward` with the number that utility delivers. Every other decision keeps the `0.0` the episode
 placed (`records.md` §4, §5, ASM-12, D-20).
@@ -63,11 +64,11 @@ with, where `s_before = s_0` is the stack a hand is dealt from, `s_after = s_0 +
 
 Both quantities the transform needs are read and never assumed (`utilities.md` §4, ASM-28):
 
-- `s_0` is `engine.game_config()["starting_stack"]`, the stack the fixed game deals every hand from — **20** (D-2, ASM-6);
+- `s_0` is `engine.game_config(shape)["starting_stack"]`, the stack **the run's own shape** deals every hand from — **20** on the default shape and **100** on the no-cap one (D-2, ASM-6, `shapes.md` §2, D-29);
 - `T` is `sum(readout["stacks"]) + readout["pot"]` at the decision, the pot being un-awarded and the chips conserved, so the two
-  seats' stacks and the pot together are all the chips the hand holds — **40 at every decision of the fixed game** (§4, ASM-6).
+  seats' stacks and the pot together are all the chips the hand holds — **40 at every decision of the default shape** and **200 on the six-descriptor one** (§4, ASM-6, D-29).
 
-At the fixed game the four scores are therefore exact, and they are the arithmetic D-20 chose this utility for (D-20, ASM-28):
+At the fixed-limit shape the four scores are therefore exact, and they are the arithmetic D-20 chose this utility for; the same four are the second shape's own around its 200 chips in play (D-20, ASM-28, D-29):
 
 | `delta` | `U(s_0) = (40 − 20)²` | `U(s_after)` | `r` |
 |---|---|---|---|
@@ -82,11 +83,12 @@ asymmetry is arithmetic and no claim about play: it prefers the cheaper variance
 
 ## 4. The chips-in-play guard, and the class its refusals carry
 
-    _chips_in_play(decision, seed, seat) -> (total, starting_stack)   # T and s_0, or ChipConservationBroken
+    _chips_in_play(decision, seed, seat, shape=None) -> (total, starting_stack)   # T and s_0, or ChipConservationBroken
 
-`T` is read from one decision's readout and checked against the stacks the game declares: it must equal
-`engine.game_config()["seats"] × starting_stack`, or the hand is refused by name with **the hand's seed and both totals**, because a
-normaliser that is not the game's own would make one reward incommensurable with the next (ASM-6, ASM-28, `utilities.md` §4).
+`T` is read from one decision's readout and checked against the stacks **the run's own shape** declares: it must equal
+`engine.game_config(shape)["seats"] × starting_stack`, or the hand is refused by name with **the hand's seed and both totals**, because a
+normaliser that is not the game's own would make one reward incommensurable with the next — and a 200-chip readout read against the
+default shape's 40 is exactly that case (ASM-6, ASM-28, `utilities.md` §4, `shapes.md` §2, D-29).
 
 Both refusals are `errors.ChipConservationBroken`, a `training` class and not a called module's (`errors.md` §2):
 
@@ -114,4 +116,4 @@ quantities are named inside the arithmetic, and the internals of `_shortfall`, `
 `_chips_in_play`. Not L4's: the transform's location and its terminal-only delivery, the selection by reward token, both arithmetics
 and the four scores, the guard's two refusals and the class both carry, `0.0` at every non-terminal decision, and the untouched
 `learner.py` branches (`guardrails.md` G25, `utilities.md` §4, D-20). `_reward_token`, `_reward_function` and `REWARDS` are
-contract for `tests/training/`, as is `_transitions`' fourth argument (`README.md` §4).
+contract for `tests/training/`, as are `_transitions`' fourth and fifth arguments — the utility's name and the run's shape (`README.md` §4).

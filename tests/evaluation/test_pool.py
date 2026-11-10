@@ -32,11 +32,14 @@ from _evaluation_support import (
     EvaluationCase,
     baseline_members,
     declaration,
+    default_shape,
     member_id,
+    other_shape,
     pool_digest,
     pool_member_ids,
     pool_rules,
     probe_readouts,
+    shapes,
     version_chain,
     version_record,
 )
@@ -1048,6 +1051,225 @@ class PoolTest(EvaluationCase):
             groups=(("famil",), ("2",)),
             label="an offer that would open the third family of a two-member window",
         )
+
+
+    # -- the one shape a pool is on (D-29) ------------------------------------
+    def test_evl_2_28_the_pool_record_s_game_is_required_and_reads_the_declaration(self):
+        """EVL-2.28 `pool_members` returns `game` as a **required** key naming the one shape the pool is on: a declaration naming no `game` yields the default shape, one naming the second shape yields that, the two records are otherwise identical in their membership, and a declared `game` the catalogue does not carry is refused by name and never defaulted (`pool.md` §1-§2, §5, `records.md` §8, `shape.md` §2-§4, D-29)."""
+        package = self.evaluation()
+        default, other = shapes()
+        chain = version_chain(VERSION_IDS[:2])
+        silent = package.pool_members(
+            package.build_pool(declaration(members=chain, m=POOL_M, frozen=True))
+        )
+        self.assertIn(
+            "game",
+            silent,
+            "the read-back carries `game`, a required key of records.md §8 (pool.md §5, "
+            "records.md §8, shape.md §4): %r" % (tuple(silent),),
+        )
+        self.assertEqual(
+            silent["game"],
+            default,
+            "a declaration that names no shape is a pool on the default one (pool.md §1, "
+            "shape.md §2, D-29): %r" % (silent["game"],),
+        )
+        named = package.pool_members(
+            package.build_pool(
+                declaration(
+                    members=version_chain(VERSION_IDS[:2], game=other),
+                    m=POOL_M,
+                    frozen=True,
+                    game=other,
+                )
+            )
+        )
+        self.assertEqual(
+            named["game"],
+            other,
+            "a declaration naming the second shape reads back on it, so the record names "
+            "what the declaration said (pool.md §1, §5, shape.md §3-§4): %r"
+            % (named["game"],),
+        )
+        self.assertEqual(
+            pool_member_ids(named),
+            pool_member_ids(silent),
+            "the two pools hold one membership: the shape is a field of the record and "
+            "changes no member's position or name (pool.md §1, §5, shape.md §4): %r vs %r"
+            % (pool_member_ids(named), pool_member_ids(silent)),
+        )
+        self.assertEqual(
+            sorted(named),
+            sorted(silent),
+            "the two records carry the same keys, so the shape is one fact beside the "
+            "others and not a second record's shape (records.md §8, pool.md §5): %r vs %r"
+            % (sorted(named), sorted(silent)),
+        )
+        for label, value in (
+            ("fixed-limit-40", "fixed-limit-40"),
+            ("an empty name", ""),
+            ("a non-string", 40),
+        ):
+            with self.subTest(declared_game=label):
+                self.assert_evaluation_refusal(
+                    package.build_pool,
+                    dict(declaration(members=(), m=5, frozen=True), game=value),
+                    entry="build_pool",
+                    groups=((str(value),), (default,), (other,)),
+                    label="a declared shape %r" % (label,),
+                    kind="UnknownShape",
+                )
+
+    def test_evl_2_29_a_member_of_another_shape_is_refused_naming_both_shapes(self):
+        """EVL-2.29 a version member whose `game` is not its pool's is `ShapeMismatch` naming the member and both shapes -- through `build_pool` and through `offer` alike, before a family is grouped and before a hand is played -- because a pool is one shape's and no window mixes two (`pool.md` §2-§3, §8, `errors.md` §4, `shape.md` §3-§4, D-29)."""
+        package = self.evaluation()
+        default, other = shapes()
+        foreign = version_record(VERSION_IDS[0], START_LABEL, step=4, game=other)
+        self.assert_evaluation_refusal(
+            package.build_pool,
+            declaration(members=[foreign], m=POOL_M, frozen=True),
+            entry="build_pool",
+            groups=((VERSION_IDS[0],), (other,), (default,)),
+            label="a version of the second shape declared into a default-shape pool",
+            kind="ShapeMismatch",
+        )
+        self.assert_evaluation_refusal(
+            package.build_pool,
+            declaration(members=[foreign], m=POOL_M, frozen=True, game=default),
+            entry="build_pool",
+            groups=((VERSION_IDS[0],), (other,), (default,)),
+            label="the same declaration with the pool's shape named explicitly",
+            kind="ShapeMismatch",
+        )
+        with self.subTest(case="the same disagreement through offer"):
+            open_pool = self.open_pool(members=version_chain(VERSION_IDS[:1]))
+            offered = version_record(VERSION_IDS[1], VERSION_IDS[0], step=5, game=other)
+            before = self.stream_state()
+            self.assert_evaluation_refusal(
+                package.offer,
+                open_pool,
+                offered,
+                entry="offer",
+                groups=((VERSION_IDS[1],), (other,), (default,)),
+                label="a version of the second shape offered to a default-shape pool",
+                kind="ShapeMismatch",
+            )
+            self.assert_stream_unchanged(
+                before, "offer() refusing a version of another shape"
+            )
+            self.assertEqual(
+                pool_member_ids(self.pool_members(open_pool)),
+                BASELINES + (VERSION_IDS[0],),
+                "the argument pool is unchanged by a refused offer (pool.md §3, §6, "
+                "shape.md §3): %r" % (self.pool_members(open_pool),),
+            )
+        with self.subTest(case="the pool's own shape is the one a version is held to"):
+            other_pool = self.open_pool(
+                members=version_chain(VERSION_IDS[:1], game=other), m=POOL_M, game=other
+            )
+            self.assert_evaluation_refusal(
+                package.offer,
+                other_pool,
+                version_record(VERSION_IDS[1], VERSION_IDS[0], step=6),
+                entry="offer",
+                groups=((VERSION_IDS[1],), (other,), (default,)),
+                label="a default-shape version offered to a second-shape pool",
+                kind="ShapeMismatch",
+            )
+
+    def test_evl_2_30_the_pool_id_is_not_a_function_of_the_shape(self):
+        """EVL-2.30 two pools of one membership on two shapes wear **one** id, and a declaration naming no `game` gives exactly the id it gave before the shape existed -- the digest of the ordered member lines alone, recomputed here (`families.md` §4, `pool.md` §1, §4, `surface.md` §5, `shape.md` §4, ASM-27, G32, D-29)."""
+        package = self.evaluation()
+        default, other = shapes()
+        chain = version_chain(VERSION_IDS[:2])
+        silent = package.pool_members(
+            package.build_pool(declaration(members=chain, m=POOL_M, frozen=True))
+        )
+        named_default = package.pool_members(
+            package.build_pool(
+                declaration(members=chain, m=POOL_M, frozen=True, game=default)
+            )
+        )
+        self.assertEqual(
+            silent["game"],
+            default,
+            "the absent key is the default shape, which is what makes the two "
+            "declarations one pool (shape.md §2, D-29): %r" % (silent["game"],),
+        )
+        self.assertEqual(
+            named_default["game"],
+            default,
+            "the named key is the same shape, read as the name it is (shape.md §2): %r"
+            % (named_default["game"],),
+        )
+        self.assertEqual(
+            silent["id"],
+            named_default["id"],
+            "a declaration naming no `game` gives exactly the id the same declaration "
+            "gives with the default named: the shape is not in the digest "
+            "(families.md §4, pool.md §1, G32): %r vs %r"
+            % (silent["id"], named_default["id"]),
+        )
+        declared_lines = list(pool_member_ids(silent))
+        self.assertEqual(
+            silent["id"],
+            pool_digest(silent["members"]),
+            "the id is the digest of the ordered member lines -- a baseline's id alone, "
+            "a version's id, its rule and its utility -- and of nothing else "
+            "(families.md §4, ASM-27, G32): %r for %r" % (silent["id"], declared_lines),
+        )
+        other_pool = package.pool_members(
+            package.build_pool(
+                declaration(
+                    members=version_chain(VERSION_IDS[:2], game=other),
+                    m=POOL_M,
+                    frozen=True,
+                    game=other,
+                )
+            )
+        )
+        self.assertEqual(
+            other_pool["game"],
+            other,
+            "the second pool is the second shape's (pool.md §1, shape.md §4): %r"
+            % (other_pool["game"],),
+        )
+        self.assertEqual(
+            other_pool["id"],
+            silent["id"],
+            "two pools of one membership on two shapes wear one id and are never one "
+            "table: the shape is a required field of the record and not of its id "
+            "(pool.md §1, §4, shape.md §4, ASM-27, G32): %r vs %r"
+            % (other_pool["id"], silent["id"]),
+        )
+        self.assertEqual(
+            other_pool["id"],
+            pool_digest(other_pool["members"]),
+            "the shared id is still exactly the digest of the membership's own lines, "
+            "which is what makes it one id and not a collision (families.md §4, "
+            "ASM-27, G32)",
+        )
+        with self.subTest(case="a baselines-only pool keeps the id it had"):
+            bare = package.pool_members(
+                package.build_pool(declaration(members=(), m=5, frozen=True))
+            )
+            self.assertEqual(
+                bare["id"],
+                pool_digest(bare["members"]),
+                "R1's pool digests its three baseline lines and nothing else, so the "
+                "shape's arrival renamed no pool (families.md §4, ASM-18, G32): %r"
+                % (bare["id"],),
+            )
+            with_shape = package.pool_members(
+                package.build_pool(declaration(members=(), m=5, frozen=True, game=other))
+            )
+            self.assertEqual(
+                with_shape["id"],
+                bare["id"],
+                "the same three baselines on the other shape are one id and two tables "
+                "(pool.md §1, shape.md §4, G32): %r vs %r"
+                % (with_shape["id"], bare["id"]),
+            )
 
 
 #: A seed for a corrected member field: the digest must not read it (EVL-2.5).

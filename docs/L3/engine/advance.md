@@ -5,16 +5,23 @@
 
 ## 1. Copy, never replay
 
-    def advance(hand: Hand, action: str) -> Hand      # src/engine/hand.py; called by apply_action
+    def advance(hand: Hand, action: str, amount=None) -> Hand   # src/engine/hand.py; apply_action calls it
 
     saved = random.getstate()                         # the platform draws, so the caller's stream is kept
     try:
         state = copy.deepcopy(hand._state)            # the copy is taken first, unconditionally
-        operation = apply_one(state, action)          # stepping.md §2 — predicate then method
+        operation = apply_one(state, action, amount)  # stepping.md §2 — predicate then method
     finally:
         random.setstate(saved)
-    entry = history_entry(hand._state, operation)     # the PRE-step street, §2
-    return Hand(state, hand._history + (entry,))
+    entry = history_entry(hand._state, action, operation)   # the PRE-step street, §2
+    return Hand(state, hand._history + (entry,), hand._shape)
+
+`amount` travels with the step and is the raise-to `apply_action` resolved for a sized descriptor; it is
+`None` for a fold, for a check-call and for the fixed row's `raise`, which is what keeps that shape
+byte-identical — its step is still `complete_bet_or_raise_to()` with no argument, so its deals, its
+history entries and its payoffs are unchanged card for card (`actions.md` §2, `sizing.md` §2). The shape's
+name travels with it too: the returned handle is the same shape's, because no entry point takes a shape
+beside a hand (`hand.md` §1).
 
 The save/restore is not decoration. `_begin_dealing` evaluates `get_dealable_cards(None, False)` on
 every street transition and that path runs `shuffled(self.reserved_cards)` merely to take a length, so
@@ -25,8 +32,8 @@ found it") and keeps a caller’s own draws — a `random` baseline policy’s, 
 the deal.
 
 Chosen shape: `deepcopy` of the `pokerkit` state, then the action on the copy. The handle is immutable
-by construction — `Hand._state` and `Hand._history` are never rebound and never mutated — so
-"`apply_action` leaves its argument at its own state" (`L2 surface.md` §1 rule 6) holds without the
+by construction — `Hand._state`, `Hand._history` and `Hand._shape` are never rebound and never mutated —
+so "`apply_action` leaves its argument at its own state" (`L2 surface.md` §1 rule 6) holds without the
 implementer having to remember anything.
 
 Rejected: **replay** — store the seed in the handle and re-create the state by re-seeding `random` and

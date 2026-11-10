@@ -76,3 +76,15 @@ class ChipConservationBroken(TrainingError):
 
 class PairDeclarationsDiffer(TrainingError):
     """`run` / `fairness`: two arms of a pair declare two values for one setting they share."""
+
+
+class UnknownShape(TrainingError):
+    """`run` / `fairness`: a `game` naming a shape the catalogue does not declare, or a
+    value that is not a shape name at all — the name and the declared names are named,
+    and no name is ever defaulted (shapes.md §2–§3, D-29, D-13)."""
+
+
+class GreedyPassRefused(TrainingError):
+    """`run`: one variant's greedy pass at one seed would exceed its hand or decision
+    bound, so it is refused with both counts and never truncated (`sizing.md` §4,
+    `records.md` §15, ASM-38)."""

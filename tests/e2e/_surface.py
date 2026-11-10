@@ -19,7 +19,11 @@ four things and nothing else:
 * it holds the league builders Rev 2 needs (D-16): a membership declaration with M
   and the frozen flag, a pool, its members, an advance by ``offer``, one ``match``
   cell, a ``matrix``, a ``rating``, and the run record completed with
-  ``protocol.md`` §1's seven evidence families.
+  ``protocol.md`` §1's seven evidence families;
+* it reads the **game shape in force** (D-29): the catalogue ``engine.game_shapes()``
+  publishes, the row a name denotes, and the four sized bands of ``sizing.md`` §2, so a
+  case that names no shape asserts today's game and a case that names the no-cap one
+  asserts that shape's — never a second spelling of either (``shapes.md`` §2, D-13).
 
 Nothing here reaches past an entry point of ``docs/L1/e2e-surface.md`` §3.  The one
 expensive object the battery builds — the live matrix — is built once per process and
@@ -85,6 +89,73 @@ FULL_CELL_HANDS = 1500
 
 FLAT = "flat-numeric"
 TOKENS = "card-tokens"
+
+# --------------------------------------------------------------------------
+# The declared game shapes (e2e-surface.md §2 "Game shape", §5; shapes.md §2, D-29).
+#
+# `engine.game_shapes()` is the declaration itself — the row is `fixed`, so no shape is
+# invented here and the two names are the design's own — and every reader below takes a
+# **shape name** whose absence is the default, exactly as the entry points do.  The
+# descriptors of each vocabulary are the design's rows too: three on the default shape and
+# the six of `sizing.md` §2–§3 on the no-cap one, in that shape's declared index order.
+# --------------------------------------------------------------------------
+SHAPE_DEFAULT = "fixed-limit-20"    # the catalogue's first row, and the default (shapes.md §2)
+SHAPE_SECOND = "no-limit-100"       # the second declared row (shapes.md §2, D-29)
+SHAPE_ORDER = (SHAPE_DEFAULT, SHAPE_SECOND)
+
+#: The three descriptors of the fixed-limit shape, and the six of the no-cap one, in each
+#: shape's own index order — the no-cap order is the measured price order, worst first, so
+#: it is deliberately **not** monotone in amount (sizing.md §3, e2e-surface.md §2).
+FIXED_ACTIONS = ("fold", "check-call", "raise")
+SIZED_ACTIONS = (
+    "fold",
+    "check-call",
+    "raise-quarter",
+    "raise-half",
+    "raise-all-in",
+    "raise-minimum",
+)
+#: The four raise bands a no-cap shape declares, in its declared index order.
+SIZED_RAISES = ("raise-quarter", "raise-half", "raise-all-in", "raise-minimum")
+#: The seven descriptors the two vocabularies name between them, each once (both shapes
+#: share `fold` and `check-call`, and the fixed shape's `raise` is its own).
+ALL_ACTIONS = ("fold", "check-call", "raise") + SIZED_RAISES
+
+#: The keys every row of `engine.game_shapes()` carries (shapes.md §2, e2e-surface.md §3.1).
+SHAPE_ROW_KEYS = (
+    "name",
+    "default",
+    "seats",
+    "blinds",
+    "starting_stack",
+    "chips_in_play",
+    "bet_structure",
+    "small_bet",
+    "big_bet",
+    "raise_cap",
+    "actions",
+    "head_width",
+    "normalisers",
+)
+#: The five amount normalisers a shape declares (shapes.md §2, sizing.md §5).
+NORMALISER_KEYS = ("stack", "pot", "to_call", "amount", "count")
+
+#: One invented shape name the catalogue does **not** carry, for the refusals D-29 owes a
+#: name outside it (`shapes.md` §2, `records.md` §8).  It is the battery's own and appears
+#: in no design document (`battery.md` §4, D-15).
+UNKNOWN_SHAPE = "pot-limit-40-battery"
+
+#: The invented seeds a shaped walk is driven at — one hand per seed, the battery's own
+#: (`battery.md` §4).  The no-cap game's hands end sooner (an all-in raise is legal at every
+#: decision), so these seeds are enough for a walk that shows the bands in force.
+SHAPE_SEEDS = (SEED_A, SEED_B, SEED_C, SEED_D, SEED_E, SEED_F, SEED_G, SEED_H, SEED_I, SEED_J)
+SHAPE_TABLE_SEEDS = (TABLE_SEED_A, TABLE_SEED_B)
+
+#: One architecture, two shapes: the size the battery builds both heads at, so the only
+#: thing that differs between two learners is the shape whose vocabulary sets the head
+#: (`sizing.md` §6, ASM-40).
+SHAPE_WIDTH = 59
+SHAPE_DEPTH = 3
 
 # The baseline catalogue `protocol.md` §3 publishes, in catalogue order: D-6's three fixed
 # rules first, then D-21's three simple folders (`e2e-surface.md` §3.3, D-6, D-21).  A case
@@ -635,12 +706,12 @@ def card_rank(spelling):
 
 
 def starting_stack(config):
-    """The starting stack `engine.game_config()` declares, read tolerantly.
+    """The starting stack a ``engine.game_config(shape)`` row declares, read tolerantly.
 
-    ``e2e-surface.md`` §3.1 fixes the game's stacks as 20 and leaves the declaration's key
-    spelling to the implementation, so the number is read by what its key names —
-    ``starting_stack``, ``starting stacks``, a ``stacks`` pair — and never spelled here
-    (``folders.md`` §2, ASM-31).
+    ``e2e-surface.md`` §3.1 fixes the default game's stacks as 20 and the no-cap shape's
+    as 100, and leaves the declaration's key spelling to the implementation, so the number
+    is read by what its key names — ``starting_stack``, ``starting stacks``, a ``stacks``
+    pair — and never spelled here (``folders.md`` §2, ASM-31, ``shapes.md`` §2).
     """
     found = []
     if is_mapping(config):
@@ -653,10 +724,11 @@ def starting_stack(config):
     ]
     if not candidates:
         raise AssertionError(
-            "engine.game_config() must declare the fixed game's starting stack "
-            "(e2e-surface.md §3.1); it declared %r" % (config,)
+            "engine.game_config(shape) must declare the shape's starting stack "
+            "(e2e-surface.md §3.1, shapes.md §2); it declared %r" % (config,)
         )
     return max(candidates)
+
 
 
 def folder_rule_folds(name, readout, stack):
@@ -876,10 +948,12 @@ def index_entries(index):
 def action_vocabulary(space):
     """The indices a declared action vocabulary names, read from its keys as well as values.
 
-    ``e2e-surface.md`` §2 fixes three indices — 0 fold, 1 check/call, 2 raise — and not
-    the container: a vocabulary may be a sequence, a mapping keyed by name, or a mapping
-    keyed by the indices themselves.  Reading only the values would miss the third shape
-    and report an empty vocabulary.
+    ``e2e-surface.md`` §2 fixes the **shape's** vocabulary — three indices on the default
+    shape and six on the no-cap one — and not the container: a vocabulary may be a
+    sequence, a mapping keyed by name, or a mapping keyed by the indices themselves.
+    Reading only the values would miss the third shape and report an empty vocabulary.
+    A vocabulary written as a bare sequence of descriptors fixes one index per position,
+    whatever its length, because position **is** the index (``sizing.md`` §3).
     """
     found = set()
 
@@ -903,12 +977,166 @@ def action_vocabulary(space):
             add(value)
 
     walk(space, 0)
-    if not found and isinstance(space, (list, tuple)) and len(space) == 3:
-        # A vocabulary written as three ordered entries — the words without an index of
-        # their own — still fixes the three indices positionally, which is what §2 asks
-        # for: three indices and no more.
-        found = {0, 1, 2}
+    if not found and isinstance(space, (list, tuple)) and space:
+        # A vocabulary written as ordered entries — the words without an index of their
+        # own — still fixes one index per position, which is what §2 asks for.
+        found = set(range(len(space)))
     return found
+
+
+# --------------------------------------------------------------------------
+# The game shape in force (e2e-surface.md §2, §3.1; shapes.md §2–§3)
+# --------------------------------------------------------------------------
+def shape_rows(declared):
+    """The catalogue ``engine.game_shapes()`` publishes, as ``[(name, row)]`` in its order.
+
+    ``shapes.md`` §2 makes the catalogue one ordered mapping, default first, each row a
+    mapping carrying :data:`SHAPE_ROW_KEYS`; the container is the declaration's, so both
+    an ordered mapping and a sequence of rows are read one row per shape.  A catalogue
+    that declares nothing is a failure of the case that needed it, never of this reader.
+    """
+    pairs = []
+    if isinstance(declared, Mapping):
+        for name, row in declared.items():
+            if is_mapping(row):
+                pairs.append((str(name), row))
+            else:
+                pairs.append((str(name), {"name": str(name)}))
+        return pairs
+    if isinstance(declared, (list, tuple)):
+        for row in declared:
+            if is_mapping(row):
+                name = None
+                for key in ("name", "shape", "id"):
+                    if isinstance(row.get(key), str):
+                        name = row[key]
+                        break
+                pairs.append((str(name) if name else "shape-%d" % (len(pairs),), row))
+            elif isinstance(row, str):
+                pairs.append((row, {"name": row}))
+    return pairs
+
+
+def shape_names_of(declared):
+    """The catalogue's shape names, in the order it declares them (``shapes.md`` §2)."""
+    return [name for name, _row in shape_rows(declared)]
+
+
+def shape_row_of(declared, name):
+    """One declared row, or a clear failure naming the shape the catalogue does not carry."""
+    for declared_name, row in shape_rows(declared):
+        if declared_name == name:
+            return row
+    raise AssertionError(
+        "engine.game_shapes() must declare the row %r (shapes.md §2); it declared %r"
+        % (name, shape_names_of(declared))
+    )
+
+
+def vocabulary_of(row):
+    """One row's descriptors, in that shape's declared index order (``shapes.md`` §2)."""
+    if not is_mapping(row):
+        raise AssertionError("a shape row must be a mapping (shapes.md §2); got %r" % (row,))
+    for key, value in row.items():
+        if _family_token(key) in ("actions", "vocabulary", "descriptors"):
+            if isinstance(value, Mapping):
+                ordered = sorted(value.items(), key=lambda item: str(item[0]))
+                return tuple(
+                    inner.get("name", key) if is_mapping(inner) else str(inner)
+                    for _key, inner in ordered
+                )
+            return tuple(str(item) for item in value)
+    raise AssertionError(
+        "a shape row declares its action vocabulary, in its own index order "
+        "(shapes.md §2, sizing.md §3); the row carries %r"
+        % (sorted(str(key) for key in row),)
+    )
+
+
+def normalisers_of(row):
+    """One row's five amount normalisers, under whatever key declares them (§5)."""
+    if not is_mapping(row):
+        raise AssertionError("a shape row must be a mapping (shapes.md §2); got %r" % (row,))
+    for key, value in row.items():
+        if "normalis" in _family_token(key) or "normaliz" in _family_token(key):
+            return value
+    raise AssertionError(
+        "a shape row declares its amount normalisers (shapes.md §2, sizing.md §5); the "
+        "row carries %r" % (sorted(str(key) for key in row),)
+    )
+
+
+def is_raise(descriptor):
+    """Whether one descriptor is a raise of any shape (``sizing.md`` §2–§3)."""
+    return isinstance(descriptor, str) and "raise" in descriptor.lower()
+
+
+def band_resolution(descriptor, minimum, maximum):
+    """The amount a raise descriptor resolves to at one decision, or ``None`` if masked out.
+
+    ``sizing.md`` §2's arithmetic, in legal amounts: with ``L = A − m``, ``raise-minimum``
+    owns ``{m}``, ``raise-quarter`` ``(m, m+⌊L/4⌋]``, ``raise-half``
+    ``(m+⌊L/4⌋, m+⌊L/2⌋]`` and ``raise-all-in`` ``(m+⌊L/2⌋, A]``, each resolving to its
+    own band's maximum; a band with no legal integer in it is empty and **masked out**,
+    never collapsed onto its neighbour.  ``None`` is also the answer for the fixed-limit
+    shape's ``raise``: it resolves to the minimum legal completion, which the engine
+    decides and this reader does not restate as a band.
+
+    The bounds are the decision's own — the episode record's ``minimum`` and ``maximum``
+    (``records.md`` §5) — so a case compares the engine's resolved amount with the
+    arithmetic of the decision it was resolved at and never with a span it assumed.
+    """
+    if minimum is None or maximum is None:
+        return None
+    minimum, maximum = int(minimum), int(maximum)
+    span = maximum - minimum
+    if descriptor == "raise-minimum":
+        return minimum
+    if descriptor == "raise-quarter":
+        return minimum + span // 4 if span // 4 >= 1 else None
+    if descriptor == "raise-half":
+        return minimum + span // 2 if span // 2 > span // 4 else None
+    if descriptor == "raise-all-in":
+        return maximum if maximum > minimum + span // 2 else None
+    return None
+
+
+def band_amounts(descriptor, minimum, maximum):
+    """The legal amounts one raise descriptor owns at one decision (``sizing.md`` §2).
+
+    The half-open integer interval of :func:`band_resolution`, as a set — empty when the
+    band is masked out, which is the fact a case asserts cannot collapse onto a neighbour.
+    """
+    if minimum is None or maximum is None:
+        return set()
+    minimum, maximum = int(minimum), int(maximum)
+    span = maximum - minimum
+    if descriptor == "raise-minimum":
+        return {minimum}
+    if descriptor == "raise-quarter":
+        return set(range(minimum + 1, minimum + span // 4 + 1))
+    if descriptor == "raise-half":
+        return set(range(minimum + span // 4 + 1, minimum + span // 2 + 1))
+    if descriptor == "raise-all-in":
+        return set(range(minimum + span // 2 + 1, maximum + 1))
+    return set()
+
+
+def band_owners(minimum, maximum):
+    """Every legal amount in ``[m, A]`` with the raise descriptors that own it.
+
+    ``sizing.md`` §2 makes the four bands disjoint and total, so this reader is where a
+    case checks that **every legal amount belongs to exactly one descriptor** — two
+    descriptors claiming one amount, or an amount claimed by none, both show up here.
+    """
+    owners = {}
+    for amount in range(int(minimum), int(maximum) + 1):
+        owners[amount] = [
+            descriptor for descriptor in SIZED_RAISES
+            if amount in band_amounts(descriptor, minimum, maximum)
+        ]
+    return owners
+
 
 
 def _family_token(text):
@@ -1536,6 +1764,44 @@ def refusal_text(call):
     return None
 
 
+def run_greedy(record):
+    """Every ``records.md`` §15 pass a run record retains, as ``[(path, block)]``.
+
+    The path is the keys the block was reached through — usually the variant and then the
+    seed — so a case can say which arm and which seed a pass belongs to without assuming
+    either the nesting or the order.
+
+    ``records.md`` §12 makes ``greedy`` the run record's own required block and §15 makes
+    it one pass per variant per seed, so the key holds a mapping from the variant to its
+    seeds — and the container is the implementation's freedom.  A block is recognised by
+    its own required keys (``mode`` beside ``hands`` or ``decisions``), so this reader
+    hands back the passes themselves and never a nesting this battery invented; an empty
+    answer is the case's to fail on, in its own words (`battery.md` §1, D-13).
+    """
+    found = []
+
+    def walk(value, path, depth):
+        if depth > 8:
+            return
+        if is_mapping(value):
+            tokens = {_family_token(key) for key in value}
+            if "mode" in tokens and ("hands" in tokens or "decisions" in tokens):
+                found.append((tuple(path), value))
+                return
+            for key, inner in value.items():
+                walk(inner, path + (str(key),), depth + 1)
+        elif isinstance(value, (list, tuple)):
+            for position, inner in enumerate(value):
+                walk(inner, path + (str(position),), depth + 1)
+
+    if not is_mapping(record):
+        return found
+    for key, value in record.items():
+        if "greedy" in _family_token(key):
+            walk(value, (), 0)
+    return found
+
+
 # --------------------------------------------------------------------------
 # The ladder's own declarations, read tolerantly
 # --------------------------------------------------------------------------
@@ -1957,8 +2223,70 @@ class SurfaceCase(unittest.TestCase):
         return self.expectation_kinds()[0]
 
     # -- declared-object builders, all through declared entry points --------
-    def encoder(self, representation=FLAT):
-        return self.ep("features", "build_encoder")(representation)
+    def encoder(self, representation=FLAT, shape=None):
+        """One encoder for one encoding on the shape in force (``shapes.md`` §2, §5).
+
+        ``features.build_encoder``'s shape is a **keyword-only** optional whose absence is
+        the default shape, so a caller that names none gets exactly the encoder it always
+        got and a caller that names one gets that shape's divisors and bucket edges
+        (`sizing.md` §5, `e2e-surface.md` §3.2).
+        """
+        return self.ep("features", "build_encoder")(representation, shape=shape)
+
+    def action_space(self, shape=None):
+        """One shape's declared vocabulary, in that shape's index order (§3.2)."""
+        return self.ep("features", "action_space")(shape=shape)
+
+    def decode_action(self, index, shape=None):
+        """One index's descriptor in one shape's vocabulary (§3.2)."""
+        return self.ep("features", "decode_action")(index, shape=shape)
+
+    def vocabulary(self, shape=None):
+        """One shape's descriptors by index, in that shape's declared order (§2, §3.2)."""
+        return {
+            index: self.decode_action(index, shape)
+            for index in sorted(action_vocabulary(self.action_space(shape)))
+        }
+
+    def shapes(self):
+        """The declared shape catalogue, as ``[(name, row)]`` in declared order (§3.1)."""
+        return shape_rows(self.ep("engine", "game_shapes")())
+
+    def shape_names(self):
+        """The declared shape names, default first (§3.1, ``shapes.md`` §2)."""
+        return [name for name, _row in self.shapes()]
+
+    def shape_row(self, shape=None):
+        """One declared row; no name is the catalogue's first, the default (``shapes.md`` §3)."""
+        catalogue = self.shapes()
+        if not catalogue:
+            raise AssertionError("engine.game_shapes() declared no shape at all")
+        if shape is None:
+            return catalogue[0][1]
+        return shape_row_of(dict(catalogue), shape)
+
+    def second_shape(self):
+        """The one shape the catalogue declares that is **not** the default (D-29).
+
+        Read off ``engine.game_shapes()`` rather than spelled: the catalogue is the
+        declaration, and the row is `fixed` because its instances are that declaration
+        (`e2e-surface.md` §5, ``shapes.md`` §2).
+        """
+        catalogue = self.shapes()
+        if len(catalogue) < 2:
+            raise AssertionError(
+                "engine.game_shapes() must declare more than one shape (shapes.md §2, "
+                "D-29); it declared %r" % ([name for name, _row in catalogue],)
+            )
+        return catalogue[1][0]
+
+    def game_config(self, shape=None):
+        """One shape's game parameters; no name is the default game (§3.1)."""
+        return self.ep("engine", "game_config")(shape)
+
+    def stack_of(self, shape=None):
+        """The starting stack the shape in force declares (``folders.md`` §2, ASM-31)."""
+        return starting_stack(self.game_config(shape))
 
     def architecture_kind(self, preference):
         """A kind string the implementation itself declared in ``agents.learners``."""
@@ -1977,7 +2305,7 @@ class SurfaceCase(unittest.TestCase):
 
     def learner_spec(self, width=96, depth=3, seed=SEED_A, backend="numpy",
                      kind=None, sparsity=0.0, residual=False, learning_rule=None,
-                     utility=None):
+                     utility=None, game=None):
         """The battery's learner spec: the four names §3.3 gives, plus the settings.
 
         ``docs/L1/e2e-surface.md`` §3.3 declares ``backend, architecture, sizes,
@@ -1996,6 +2324,10 @@ class SurfaceCase(unittest.TestCase):
         is built under it, and a spec that names none is built under the catalogue's
         first member, ``net-chips`` (``utilities.md`` §5, ``records.md`` §3).  The key is
         added only when a case names a utility, for the same reason.
+
+        ``game`` is D-29's third optional selection: the shape whose vocabulary sets the
+        learner's head, absent meaning the default shape, so a spec that names none is
+        exactly the spec every caller before FAM-19 passed (`shapes.md` §2–§3, §6).
         """
         if kind is None:
             kind = self.architecture_kind("naive")
@@ -2016,6 +2348,8 @@ class SurfaceCase(unittest.TestCase):
             spec["learning_rule"] = learning_rule
         if utility is not None:
             spec["utility"] = utility
+        if game is not None:
+            spec["game"] = game
         return spec
 
     def learner(self, **kwargs):
@@ -2209,16 +2543,91 @@ class SurfaceCase(unittest.TestCase):
             "variants": variants,
         }
 
-    def policy(self, learner, encoder=None, seed=SEED_A):
+    def shaped_rung(self, shape=SHAPE_SECOND, seeds=(SEED_A,), samples=None,
+                    name="R13-sized-cadence", variant="sized-arm",
+                    width=SHAPE_WIDTH, depth=SHAPE_DEPTH,
+                    pool_id="pool-r13-sized-cadence", members=(), baselines=()):
+        """The battery's own configuration **on one declared shape** (`shapes.md` §1–§3).
+
+        It appears in no design document: its name, its axis, its one variant's name, its
+        width and depth, the seed set it is handed, its pool id and its membership are the
+        battery's own (`battery.md` §4).  What it declares is exactly what D-29 makes legal
+        — one variant entry naming the shape in its `game` key, and a `pool` entry whose
+        declaration names the same shape — so a run of it plays and records **that** shape
+        and a table over it is one shape's (`shapes.md` §1, §3, §6).
+
+        The membership is the baselines alone unless a case hands real members in: a case
+        that only needs the shape pays for no version it does not read (`battery.md` §2).
+        """
+        if samples is None:
+            samples = BUDGET_TINY
+        kind = self.architecture_kind("naive")
+        entry = {
+            "name": variant,
+            "backend": "numpy",
+            "encoding": FLAT,
+            "architecture": {
+                "kind": kind,
+                "width": width,
+                "depth": depth,
+                "sparsity": 0.0,
+                "residual": False,
+            },
+            "learning_rule": RULE_DEFAULT,
+            "utility": UTILITY_DEFAULT,
+            "game": shape,
+            "param_budget": 12000,
+            "samples": int(samples),
+            "seeds": list(seeds),
+            "device": "cpu",
+            "table": "live",
+        }
+        declaration = {
+            "id": pool_id,
+            "lineage": "R6 residual",
+            "m": LEAGUE_BOUND,
+            "frozen": True,
+            "game": shape,
+            "members": [dict(member) for member in members],
+        }
+        if baselines:
+            declaration["baselines"] = list(baselines)
+        return {
+            "name": name,
+            "axis": "the game shape at one architecture",
+            "carried_from": "residual",
+            "primary": variant,
+            "pool": declaration,
+            "variants": [entry],
+        }
+
+    def shaped_pool(self, shape=SHAPE_SECOND, tags=("kestrel",), frozen=True,
+                    baselines=()):
+        """A pool declared **on one shape**, with its versions built in that shape's head.
+
+        ``records.md`` §8's optional ``game`` key is the one shape the pool is on, and
+        every member's own container is that shape's, so the pool and its members agree
+        (`shapes.md` §3, D-29).
+        """
+        return self.pool(tags=tags, frozen=frozen, baselines=baselines, game=shape)
+
+    def policy(self, learner, encoder=None, seed=SEED_A, exploration="schedule"):
+        """One learner as a policy at the caller's seed and exploration mode (§3.3, §3.4).
+
+        The mode is D-29's optional fourth argument: ``schedule`` — the default, and
+        today's behaviour — or ``off``, where the decision is the masked maximum and the
+        tie-break alone and no generator is drawn from (`sizing.md` §4).
+        """
         if encoder is None:
             encoder = self.encoder()
-        return self.ep("agents", "as_policy")(learner, encoder, seed)
+        return self.ep("agents", "as_policy")(learner, encoder, seed, exploration)
 
     def baseline(self, name="random", seed=SEED_D):
         return self.ep("agents", "build_baseline")(name, seed)
 
-    def hand(self, seed=SEED_A):
-        return self.ep("engine", "new_hand")(seed)
+    def hand(self, seed=SEED_A, shape=None):
+        """One hand on the shape in force; no name is the default game (§3.1, shapes.md §3)."""
+        return self.ep("engine", "new_hand")(seed, shape)
 
     def readout(self, hand):
         return self.ep("engine", "readout")(hand)
@@ -2226,20 +2635,23 @@ class SurfaceCase(unittest.TestCase):
     def legal(self, hand):
         return self.ep("engine", "legal_actions")(hand)
 
-    def play(self, seed=SEED_A, policy_a=None, policy_b=None):
+    def play(self, seed=SEED_A, policy_a=None, policy_b=None, shape=None):
+        """One episode on the shape in force; no name is the default game (§3.1)."""
         if policy_a is None:
             policy_a = self.baseline("always-call", SEED_D)
         if policy_b is None:
             policy_b = self.baseline("always-call", SEED_D)
-        return self.ep("engine", "play_hand")(seed, policy_a, policy_b)
+        return self.ep("engine", "play_hand")(seed, policy_a, policy_b, shape)
 
     # -- decisions ---------------------------------------------------------
     def chosen_index(self, legal, action):
-        """The action vocabulary's index for a policy's descriptor.
+        """The shape's index for a policy's descriptor at one decision.
 
-        ``docs/L1/e2e-surface.md`` §2 fixes the vocabulary at three indices and
-        ``features.legal_indices`` returns the legal indices of a decision; the case
-        reads the chosen descriptor's index by its position in ``legal_actions``.
+        ``docs/L1/e2e-surface.md`` §2 makes the vocabulary **the shape's** — three indices
+        on the default shape, six on the no-cap one — and ``features.legal_indices``
+        returns the legal indices of a decision, position-aligned; the case reads the
+        chosen descriptor's index by its position in ``legal_actions``, so it names no
+        particular index and no particular shape (`sizing.md` §3).
         """
         indices = list(self.ep("features", "legal_indices")(legal))
         for position, candidate in enumerate(legal):
@@ -2282,10 +2694,10 @@ class SurfaceCase(unittest.TestCase):
             "cannot read an action index out of agents.act's return: %r" % (result,)
         )
 
-    def finished_hand(self, seed=SEED_A, limit=200):
+    def finished_hand(self, seed=SEED_A, limit=200, shape=None):
         """Play one hand to its end through the declared engine entry points."""
         engine = self.mod("engine")
-        hand = engine.new_hand(seed)
+        hand = engine.new_hand(seed, shape)
         policy = self.baseline("always-call", SEED_D)
         steps = 0
         while not engine.is_terminal(hand) and steps < limit:
@@ -2293,7 +2705,7 @@ class SurfaceCase(unittest.TestCase):
             steps += 1
         return hand
 
-    def decision_walk(self, seed=SEED_A, policy=None, limit=200):
+    def decision_walk(self, seed=SEED_A, policy=None, limit=200, shape=None):
         """Drive one hand through the declared engine entry points.
 
         Returns ``[(hand, readout, legal, action, index)]`` for each decision until the
@@ -2301,7 +2713,7 @@ class SurfaceCase(unittest.TestCase):
         ``apply_action``, ``is_terminal`` and ``features.legal_indices`` are used.
         """
         engine = self.mod("engine")
-        hand = engine.new_hand(seed)
+        hand = engine.new_hand(seed, shape)
         if policy is None:
             policy = self.baseline("always-call", SEED_D)
         walk = []
@@ -2313,7 +2725,7 @@ class SurfaceCase(unittest.TestCase):
             hand = engine.apply_action(hand, action)
         return walk
 
-    def seated_walk(self, seed=SEED_A, policies=None, limit=240):
+    def seated_walk(self, seed=SEED_A, policies=None, limit=240, shape=None):
         """Drive one hand with **one policy per seat**, through the engine's entry points.
 
         ``policies`` maps a seat index to the policy that plays it; the acting seat is the
@@ -2326,7 +2738,7 @@ class SurfaceCase(unittest.TestCase):
         engine = self.mod("engine")
         if policies is None:
             policies = {"default": self.baseline("always-call", SEED_D)}
-        hand = engine.new_hand(seed)
+        hand = engine.new_hand(seed, shape)
         walk = []
         while len(walk) < limit and not engine.is_terminal(hand):
             readout = engine.readout(hand)
@@ -2338,7 +2750,7 @@ class SurfaceCase(unittest.TestCase):
             hand = engine.apply_action(hand, action)
         return walk
 
-    def folder_walk(self, folder, opponent, seed=SEED_A, seat=0):
+    def folder_walk(self, folder, opponent, seed=SEED_A, seat=0, shape=None):
         """Every decision one folder makes in one hand, as ``seat``'s policy.
 
         The folder is built through ``agents.build_baseline`` and every other seat is
@@ -2352,11 +2764,17 @@ class SurfaceCase(unittest.TestCase):
         """
         policies = {
             seat: self.baseline(folder, SEED_D),
-            "default": self.baseline(opponent, SEED_G),
+            # `opponent` is a catalogue name, or a policy this battery hands in: a folder
+            # can fold only where folding is legal, and a case that needs a call above a
+            # shape's half-stack drives the folder against a policy that bets that much
+            # (`folders.md` §2, ASM-31, ASM-34).
+            "default": opponent if callable(opponent) else self.baseline(opponent, SEED_G),
         }
         return [
             (readout, legal, action, index)
-            for decided_seat, readout, legal, action, index in self.seated_walk(seed, policies)
+            for decided_seat, readout, legal, action, index in self.seated_walk(
+                seed, policies, shape=shape
+            )
             if decided_seat == seat
         ]
 
@@ -2388,7 +2806,7 @@ class SurfaceCase(unittest.TestCase):
         return out
 
     # -- the league (D-16) -------------------------------------------------
-    def version(self, tag, width=None, depth=None, rule=None, utility=None):
+    def version(self, tag, width=None, depth=None, rule=None, utility=None, game=None):
         """One invented version, in the record shape ``records.md`` §7 pins.
 
         ``e2e-surface.md`` §2 makes a version "a checkpoint of a run, carrying an id,
@@ -2409,6 +2827,13 @@ class SurfaceCase(unittest.TestCase):
         it, defaulting to the catalogue's first member as ``rule`` does, so every caller
         that predates the catalogue keeps the version it built before
         (``utilities.md`` §5, §6, §7).
+
+        ``game`` is D-29's third member fact on the same terms: the learner is built in
+        ``game``'s head — so its container is that shape's — and the record declares the
+        shape, which ``records.md`` §7 requires of a member of a non-default shape and
+        forbids of a default-shape one.  The key is added only when a case names a shape,
+        so every caller that predates the second shape keeps the version it built before
+        (``shapes.md`` §3, ``sizing.md`` §6).
         """
         spec = VERSIONS[tag]
         if width is None:
@@ -2421,11 +2846,11 @@ class SurfaceCase(unittest.TestCase):
             utility = UTILITY_DEFAULT
         path = os.path.join(self.scratch(), "version-%s.pt" % tag)
         learner = self.learner(width=width, depth=depth, seed=spec["seed"],
-                               learning_rule=rule, utility=utility)
+                               learning_rule=rule, utility=utility, game=game)
         written = self.ep("agents", "save")(learner, path)
         if written:
             path = str(written)
-        return {
+        record = {
             "id": "version-%s" % tag,
             "path": path,
             "rung": spec["rung"],
@@ -2437,9 +2862,12 @@ class SurfaceCase(unittest.TestCase):
             "rule": rule,
             "utility": utility,
         }
+        if game is not None:
+            record["game"] = game
+        return record
 
     def membership(self, tags=("kestrel",), frozen=True, width=None, depth=None,
-                   rule=None, utility=None, baselines=()):
+                   rule=None, utility=None, baselines=(), game=None):
         """An invented pool declaration, in the shape ``records.md`` §8 pins.
 
         A declaration is ``members`` (the versions, by id and lineage), ``m`` (the
@@ -2453,18 +2881,24 @@ class SurfaceCase(unittest.TestCase):
         (``records.md`` §8, ASM-32, D-21).  It is omitted when empty, so a declaration
         that names no folder is exactly the declaration this battery declared before
         D-21 and keeps the membership and the id it had.
+
+        ``game`` is §8's other optional key: the one shape the pool is on, absent meaning
+        the default, and it is handed to each version so a member and its declaration name
+        one shape (`records.md` §8, ``shapes.md`` §3, D-29).
         """
         declaration = {
-            "members": [self.version(tag, width, depth, rule, utility) for tag in tags],
+            "members": [self.version(tag, width, depth, rule, utility, game) for tag in tags],
             "m": LEAGUE_BOUND,
             "frozen": bool(frozen),
         }
         if baselines:
             declaration["baselines"] = list(baselines)
+        if game is not None:
+            declaration["game"] = game
         return declaration
 
     def pool(self, tags=("kestrel",), frozen=True, width=None, depth=None, rule=None,
-             utility=None, baselines=()):
+             utility=None, baselines=(), game=None):
         """A pool through ``evaluation.build_pool`` (``e2e-surface.md`` §3.4).
 
         ``tags`` is either the invented version tags to declare, or a ready declaration
@@ -2476,7 +2910,7 @@ class SurfaceCase(unittest.TestCase):
         """
         declaration = (
             tags if is_mapping(tags)
-            else self.membership(tags, frozen, width, depth, rule, utility, baselines)
+            else self.membership(tags, frozen, width, depth, rule, utility, baselines, game)
         )
         return self.ep("evaluation", "build_pool")(declaration)
 
@@ -2510,10 +2944,17 @@ class SurfaceCase(unittest.TestCase):
             self.version(tag, width, depth)["path"]
         )
 
-    def variant_policy(self, seed=SEED_H, width=VERSION_WIDTH, depth=VERSION_DEPTH):
-        """One of a rung's variant members: a learner in evaluation mode (§2)."""
+    def variant_policy(self, seed=SEED_H, width=VERSION_WIDTH, depth=VERSION_DEPTH,
+                       game=None):
+        """One of a rung's variant members: a learner in evaluation mode (§2).
+
+        ``game`` builds the learner — and so the encoder and the policy — on that shape,
+        which is how a variant joins a table whose pool is on it (`shapes.md` §3, §6).
+        """
         return self.ep("agents", "as_policy")(
-            self.learner(width=width, depth=depth, seed=seed), self.encoder(), seed
+            self.learner(width=width, depth=depth, seed=seed, game=game),
+            self.encoder(shape=game),
+            seed,
         )
 
     def match(self, left=None, right=None, hands=CELL_HANDS, seed=TABLE_SEED_A):
@@ -2589,7 +3030,7 @@ class SurfaceCase(unittest.TestCase):
             return TABLE_SEED_A
         return int(candidates[0])
 
-    def pool_row(self, tags=(), pool=None):
+    def pool_row(self, tags=(), pool=None, shape=None):
         """The pool evidence family, in the pool-record shape of ``records.md`` §8.
 
         A pool record carries its id, its bound, its frozen flag and its ordered
@@ -2621,21 +3062,30 @@ class SurfaceCase(unittest.TestCase):
         members += [{"id": name, "baseline": True, "pinned": True}
                     for name in ANCHOR_BASELINES]
         identifier = "pool-" + ("-".join(tags) if tags else "baselines")
-        return {"id": identifier, "m": LEAGUE_BOUND, "frozen": True, "members": members}
+        row = {"id": identifier, "m": LEAGUE_BOUND, "frozen": True, "members": members}
+        # `records.md` §8 makes a pool record's `game` required; absence reads as the
+        # default shape, which is what a row built with no name states (`shapes.md` §3).
+        if shape is not None:
+            row["game"] = shape
+        return row
 
     def header_family(self, seeds=(SEED_A,), budget=BUDGET_TINY, device="cpu",
-                      cell_hands=LIVE_CELL_HANDS, table_seed=None, record=None):
+                      cell_hands=LIVE_CELL_HANDS, table_seed=None, record=None,
+                      shape=None):
         """The header family: everything a third party needs to re-run the table.
 
         ``protocol.md`` §1: the game configuration, the action vocabulary, the
         parameter counts of every member, the sample budget, the cell size, the seed
-        set, the table seed, the device and the checkpoint paths.
+        set, the table seed, the device and the checkpoint paths — and ``report`` writes
+        the **shape** the run, the pool and the matrix agree on as a tenth item
+        (``records.md`` §13, ``shapes.md`` §3).  ``shape`` is the shape **in force**: with
+        no name the family names today's game and today's three indices, unchanged.
         """
         counts = {name: 0 for name in ANCHOR_BASELINES}
         counts["variant"] = VERSION_WIDTH
         return {
-            "game": self.ep("engine", "game_config")(),
-            "action space": self.ep("features", "action_space")(),
+            "game": self.game_config(shape),
+            "action space": self.action_space(shape),
             "parameter counts": counts,
             "sample budget": budget,
             "cell size": cell_hands,
@@ -2648,7 +3098,7 @@ class SurfaceCase(unittest.TestCase):
     def evidence_record(self, run_record, matrix=None, rating=None, pool_row=None,
                         include=FAMILIES, seeds=(SEED_A,), budget=BUDGET_TINY,
                         device="cpu", axis_row="n/a, single variant",
-                        cell_hands=LIVE_CELL_HANDS):
+                        cell_hands=LIVE_CELL_HANDS, shape=None):
         """A run record completed with the evidence families ``protocol.md`` §1 names.
 
         ``training`` produces the run record and ``evaluation`` measures the table; the
@@ -2694,6 +3144,7 @@ class SurfaceCase(unittest.TestCase):
                 cell_hands=cell_hands,
                 table_seed=self.table_seed_of(matrix) if matrix is not None else None,
                 record=run_record,
+                shape=shape,
             )
         return record
 

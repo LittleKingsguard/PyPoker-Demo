@@ -2,6 +2,7 @@
 
 - **Owner:** the error classes and the message grammar every refusal of this module follows, and what
   is deliberately *not* refused
+- **Rev:** 2 · **Date:** 2026-11-09
 - **Ceiling:** 105 lines. At the ceiling, split by owner — never append
 
 ## 1. Why a hierarchy at all
@@ -21,12 +22,14 @@ action index escaping this module would each be an internal decision leaking as 
 
     class FeaturesError(Exception)          # base of every refusal of this module
     class UnknownEncoding(FeaturesError)    # build_encoder: a name that is not a declared encoding
+    class UnknownShape(FeaturesError)       # build_encoder, action_space, decode_action: a shape name
+                                            #         outside the catalogue, which is never defaulted
     class InvalidEncoder(FeaturesError)     # observation_spec / encode: not an encoder this module built
     class InvalidReadout(FeaturesError)     # encode: not a mapping, a missing carried field, or a
                                             #         carried value this encoding cannot represent
     class InvalidActionList(FeaturesError)  # legal_indices: not a sequence of descriptors, or empty
-    class UnknownAction(FeaturesError)      # legal_indices: a descriptor outside the three
-    class InvalidActionIndex(FeaturesError) # decode_action: not an index, or outside {0, 1, 2}
+    class UnknownAction(FeaturesError)      # legal_indices: a descriptor outside the declared descriptors
+    class InvalidActionIndex(FeaturesError) # decode_action: not an index, or outside the shape's vocabulary
 
 The classes are **not** module-level names of the `features` package: they live below an entry point and
 are not surface (`README.md` §3, `e2e-surface.md` §1). The battery asserts the *behaviour* — that a call
@@ -47,8 +50,9 @@ matches them tolerantly (the entry point's name, the argument's or field's name,
 | Where | Message |
 |---|---|
 | `build_encoder` name | `build_encoder(name): the encoding must be one of ('flat-numeric', 'card-tokens'), got 'Flat-Numeric'` |
+| `build_encoder` shape | `build_encoder(shape): 'fixed-limit-30' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100'), and a shape name is never defaulted (shapes.md §2, D-29)` — the one message with no `got` clause, the declared names standing in its place; the same grammar on `action_space` and `decode_action`, each naming itself and the argument |
 | `observation_spec` argument | `observation_spec(encoder): the argument must be an encoder returned by build_encoder, got dict` |
-| `encode` encoder | `encode(encoder): the argument must be an encoder returned by build_encoder, got None` |
+| `encode` encoder | `encode(encoder): the argument must be an encoder returned by build_encoder, got NoneType` — the type's own name, as `observation_spec`'s line above prints it |
 | `encode` not a mapping | `encode(readout): the readout must be a mapping with the nine carried facts, got list` |
 | `encode` missing field | `encode(readout): the readout is missing 'hole', which this encoding carries` |
 | `encode` street | `encode(readout): 'street' must be one of ('preflop', 'flop', 'turn', 'river'), got 'pre-flop'` |
@@ -62,9 +66,9 @@ matches them tolerantly (the entry point's name, the argument's or field's name,
 | `encode` history entry | `encode(readout): 'history' must hold the four documented entries, and 'preflop seat 0 bets 5' is not one` |
 | `legal_indices` shape | `legal_indices(legal_actions): the argument must be a non-empty sequence of action descriptors, got 'fold'` |
 | `legal_indices` empty | `legal_indices(legal_actions): a decision has at least one legal action, got ()` |
-| `legal_indices` descriptor | `legal_indices(legal_actions): 'call' is not one of ('fold', 'check-call', 'raise')` |
+| `legal_indices` descriptor | `legal_indices(legal_actions): 'call' is not one of the declared action descriptors ('fold', 'check-call', 'raise', 'raise-quarter', 'raise-half', 'raise-all-in', 'raise-minimum')` |
 | `decode_action` non-integer | `decode_action(index): the index must be an integer, got '1'` |
-| `decode_action` out of range | `decode_action(index): the index must be one of 0, 1 or 2, got 3` |
+| `decode_action` out of range | `decode_action(index, shape): the index must be one of (0, 1, 2) on the shape 'fixed-limit-20', whose vocabulary is ('fold', 'check-call', 'raise'), got 3` |
 
 Two properties the battery relies on: the message always contains the entry point's own name, the name of
 the argument or field at fault, and the offending value, so a caller can see which contract it broke and
@@ -78,17 +82,17 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 
 - an extra key in a readout, `legal` above all: a key the encoding does not carry is ignored
   (`surface.md` §6);
-- the same card twice in `hole` or `board`, and `hole` equal to a `board` card: the deal's business;
-- a `board` of one or two cards: representable (one or two card slots, the rest zeros or pads), and the
-  deal does not produce one;
+- the same card twice in `hole` or `board`, `hole` equal to a `board` card, and a `board` of one or two
+  cards: the deal's business, or representable (one card and four zero-or-pad slots) and not produced here;
 - a `history` shorter than 24 entries, which is the normal case, and a hand with no action at all;
 - any non-negative magnitude of any amount: each token ladder is total over the non-negative integers
-  (`card-tokens.md` §4), and the dense encoding divides by a fixed divisor (`flat-numeric.md` §4). A
+  (`card-tokens.md` §4), and the dense encoding divides by the shape's own divisor (`flat-numeric.md` §4). A
   **negative** count is refused, in both encodings and for one reason: no ladder has a bucket below
   zero, so the token encoding could not spell it, and one fact set has one representable domain in this
   module. The engine never produces one (`readout.md` §2);
-- a readout whose `pot + sum(stacks)` is not 40: that invariant is the engine's (`readout.md` §2) and
-  re-checking it here would be a second source of truth;
+- a readout whose `pot + sum(stacks)` is not the shape's chips in play — 40 on the default shape, 200 on
+  `no-limit-100`: that invariant is the engine's (`readout.md` §2), and re-checking it would be a second
+  source of truth;
 - two encoders built from one name, an encoder held for a long time, and a readout reused across calls:
   the module keeps no state and holds no cache;
 - a `numpy` integer where a chip count, a seat index or an action index is expected: `numpy.int64` is an
@@ -97,6 +101,5 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
   reason the `seat` block's flag must be a real `bool`, not a `numpy.bool_`: a flag is spelled one way
   (`flat-numeric.md` §4).
 
-The three shapes that *are* refused on a readout are the ones that are not a readout at all: it is not a
-mapping, it is missing a field the encoding carries, or a carried value has no spelling in the declared
-encoding. That is a check on a value's well-formedness, not on a caller's convenience.
+The three ways a readout *is* refused all say it is not a readout at all: not a mapping, a missing carried
+field, or a carried value with no spelling — well-formedness, not a caller's convenience.

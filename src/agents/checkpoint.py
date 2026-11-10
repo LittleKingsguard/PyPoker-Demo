@@ -8,14 +8,23 @@ whose reward it was trained on among them — and `parameters.npy` one `float64`
 C-order, 1-D array of length `2·P + M`: the online parameters, the target copy, then
 each sparse layer's mask as `0.0`/`1.0`.
 
-`format_version` is 3 (`rules.md` §6, `utilities.md` §6, D-19, D-20).  The repository
-ships 18 containers of version 1, written before either catalogue existed, and none is
+`format_version` is 3 for a learner of the **default** shape (`rules.md` §6,
+`utilities.md` §6, `shapes.md` §5, D-19, D-20, ASM-40).  The repository ships 18
+containers of version 1, written before either catalogue existed, and none is
 regenerated: a version-1 file carries no `learning_rule` and no `utility` and is read
 as `masked-q-learning` and `net-chips`, the only members its writer could have used; a
 version-2 file carries the rule and no utility and is read as `net-chips`.  A file of
 either older version that *carries* a `utility` is refused by name, and a version-1 file
 carrying a `learning_rule` is refused too, because no writer of those versions wrote
 one (`checkpoint.md` §3).
+
+**The shape is a format version, not a migration.**  A learner of the default shape
+writes version **3** and no `game` field, so a fixed-limit save's two members are
+byte-for-byte today's; a learner of any other declared shape writes version **4** and a
+`game` field naming that shape, written immediately after `kind`.  A version-1, 2 or 3
+container is read as the default shape and must not carry a `game`; a version-4 one
+requires it, refuses the default shape's own name, and refuses a name outside the module's
+catalogue (`shapes.md` §5, `sizing.md` §6, ASM-40).
 """
 
 from __future__ import annotations
@@ -34,14 +43,18 @@ from .errors import (
     CheckpointUnreadable,
     CheckpointUnwritable,
     UnknownRule,
+    UnknownShape,
     UnknownUtility,
 )
 
 MAGIC = "pypoker-agents-checkpoint"
+#: The version a container of the **default** shape is written as, and today's.
 FORMAT_VERSION = 3
-#: The three versions this module reads: 3's two required members, 2's rule alone, and
-#: 1's absence of both (`checkpoint.md` §3, `utilities.md` §6).
-SUPPORTED_VERSIONS = (1, 2, FORMAT_VERSION)
+#: The version a container of any other declared shape is written as (`shapes.md` §5).
+GAME_FORMAT_VERSION = 4
+#: The four versions this module reads: 4's shape and two members, 3's two members, 2's
+#: rule alone, and 1's absence of both (`checkpoint.md` §3, `utilities.md` §6).
+SUPPORTED_VERSIONS = (1, 2, FORMAT_VERSION, GAME_FORMAT_VERSION)
 DTYPE = "float64"
 METADATA = "metadata.json"
 PARAMETERS = "parameters.npy"
@@ -115,7 +128,7 @@ def _tensors(layout):
     tensors.append(
         {
             "name": "output.weights",
-            "shape": [layout.width, 3],
+            "shape": [layout.width, layout.actions],
             "offset": int(offset),
             "count": int(count),
         }
@@ -123,9 +136,9 @@ def _tensors(layout):
     tensors.append(
         {
             "name": "output.bias",
-            "shape": [3],
+            "shape": [layout.actions],
             "offset": int(layout.b_out),
-            "count": 3,
+            "count": layout.actions,
         }
     )
     return tensors
@@ -150,57 +163,66 @@ def _metadata(learner):
     """The object `checkpoint.md` §2.1 records for one learner."""
     layout = learner.layout
     schedule = declarations.HYPER["exploration"]
-    return {
+    # The version is the **shape's** and the fields are inserted in §2.1's order, so a
+    # learner of the default shape writes today's version 3 and no `game` at all: the
+    # two decompressed members of a fixed-limit save are byte-for-byte today's
+    # (`shapes.md` §5, `sizing.md` §6, ASM-40).
+    other_shape = learner.game != declarations.DEFAULT_SHAPE
+    record = {
         "format": MAGIC,
-        "format_version": FORMAT_VERSION,
+        "format_version": GAME_FORMAT_VERSION if other_shape else FORMAT_VERSION,
         "dtype": DTYPE,
         "backend": learner.backend_name,
         "kind": learner.kind,
-        # The catalogue member the learner was trained under: a version-2 field, and the
-        # one a table reads to name a member's population (`rules.md` §6, §7, D-19).
-        "learning_rule": learner.rule,
-        # The catalogue member whose reward its training target carried: written
-        # immediately after the rule, required of a version-3 container, and the field a
-        # table reads to name a member's objective (`utilities.md` §6, §7, D-20).
-        "utility": learner.utility,
-        "settings": {
-            "width": int(learner.width),
-            "depth": int(learner.depth),
-            "sparsity": float(learner.sparsity),
-            "residual": bool(learner.residual),
-        },
-        "representation": {
-            "family": learner.family,
-            "encoding": learner.encoding,
-            "size": int(learner.size),
-            "shape": _shape(learner.shape),
-            "dtype": learner.dtype,
-        },
-        "seed": int(learner.seed),
-        "exploration": {
-            "position": int(learner.position),
-            "schedule": {
-                "start": float(schedule["start"]),
-                "end": float(schedule["end"]),
-                "samples": int(schedule["samples"]),
-            },
-        },
-        "target": {
-            "counter": int(learner.counter),
-            "interval": int(declarations.HYPER["target_update_interval"]),
-        },
-        "params": {
-            "count": int(layout.count),
-            "target_offset": int(layout.count),
-            "length": int(2 * layout.count + layout.mask_count),
-            "tensors": _tensors(layout),
-            "masks": _masks_metadata(layout),
-        },
-        "tie_break": {
-            "rule": "smallest-masked-index-within-tolerance",
-            "tolerance": 1e-09,
+    }
+    if other_shape:
+        # The shape it was written on, immediately after `kind`: a version-4 field, and
+        # the identity a pool member, a run and a table read (`shapes.md` §5, D-29).
+        record["game"] = learner.game
+    record["learning_rule"] = learner.rule
+    # The catalogue member whose reward its training target carried: written
+    # immediately after the rule, required of a version-3 and a version-4 container,
+    # and the field a table reads to name a member's objective (`utilities.md` §6, §7,
+    # D-20).
+    record["utility"] = learner.utility
+    record["settings"] = {
+        "width": int(learner.width),
+        "depth": int(learner.depth),
+        "sparsity": float(learner.sparsity),
+        "residual": bool(learner.residual),
+    }
+    record["representation"] = {
+        "family": learner.family,
+        "encoding": learner.encoding,
+        "size": int(learner.size),
+        "shape": _shape(learner.shape),
+        "dtype": learner.dtype,
+    }
+    record["seed"] = int(learner.seed)
+    record["exploration"] = {
+        "position": int(learner.position),
+        "schedule": {
+            "start": float(schedule["start"]),
+            "end": float(schedule["end"]),
+            "samples": int(schedule["samples"]),
         },
     }
+    record["target"] = {
+        "counter": int(learner.counter),
+        "interval": int(declarations.HYPER["target_update_interval"]),
+    }
+    record["params"] = {
+        "count": int(layout.count),
+        "target_offset": int(layout.count),
+        "length": int(2 * layout.count + layout.mask_count),
+        "tensors": _tensors(layout),
+        "masks": _masks_metadata(layout),
+    }
+    record["tie_break"] = {
+        "rule": "smallest-masked-index-within-tolerance",
+        "tolerance": 1e-09,
+    }
+    return record
 
 
 def _writable(path):
@@ -269,6 +291,16 @@ def _wrong(text, label, wanted, value):
         "load(path): %r records the field %r, which must be %s, got %r"
         % (text, label, wanted, value)
     )
+
+
+def _or_written(versions):
+    """`1, 2, 3 or 4`: the written versions as one clause, read off the tuple itself.
+
+    The clause is derived from `SUPPORTED_VERSIONS` rather than typed out, so a version
+    added to the table cannot leave the message naming the old set (`errors.md` §3).
+    """
+    parts = ["%d" % (int(version),) for version in versions]
+    return "%s or %s" % (", ".join(parts[:-1]), parts[-1])
 
 
 def _counted(text, value, label):
@@ -364,6 +396,11 @@ def _form(text, metadata):
     _field(text, metadata, "dtype", "dtype", _named)
     _field(text, metadata, "backend", "backend", _named)
     _field(text, metadata, "kind", "kind", _named)
+    # The shape is a field of the form when it is present; whether it must be present is
+    # the format version's question and `_declared` answers it (`checkpoint.md` §3,
+    # `shapes.md` §5).
+    if "game" in metadata:
+        _field(text, metadata, "game", "game", _named)
     # The two catalogue members are fields of the form when they are present; whether
     # each must be present is the format version's question and `_declared` answers it
     # (`checkpoint.md` §3).
@@ -437,14 +474,46 @@ def _declared(text, metadata):
     version = metadata["format_version"]
     if version not in SUPPORTED_VERSIONS:
         raise _wrong(
-            text, "format_version", "%d, %d or %d" % SUPPORTED_VERSIONS, version
+            text, "format_version", _or_written(SUPPORTED_VERSIONS), version
         )
-    # Both catalogue members' presence is the format version's: version 3 requires the
-    # rule and the utility, version 2 requires the rule and predates the utility, and
-    # version 1 predates both — so a file of an older version carrying a field its
-    # writer never wrote was edited and is refused by name (`checkpoint.md` §3,
+    # The shape's presence is the format version's, on the same rule the two catalogue
+    # members follow (`shapes.md` §5, `sizing.md` §6, ASM-40): version 4 **requires** a
+    # `game` naming the shape it was written on, refuses the default shape's own name --
+    # a field its writer would never have written, a default-shape save writing version 3
+    # -- and refuses a name the module's catalogue does not carry, never defaulting it.
+    # A version-1, 2 or 3 container predates any other shape and must carry no `game`.
+    if version == GAME_FORMAT_VERSION:
+        if "game" not in metadata:
+            raise CheckpointUnreadable(
+                "load(path): %r has a metadata.json without the field %r"
+                % (text, "game")
+            )
+        if metadata["game"] not in declarations.SHAPE_NAMES:
+            raise UnknownShape(
+                "load(path): %r records the field 'game', which must be one of %r, got %r"
+                % (text, declarations.SHAPE_NAMES, metadata["game"])
+            )
+        if metadata["game"] == declarations.DEFAULT_SHAPE:
+            raise _wrong(
+                text,
+                "game",
+                "a declared shape other than the default %r, whose container is a "
+                "format version %d one" % (declarations.DEFAULT_SHAPE, FORMAT_VERSION),
+                metadata["game"],
+            )
+    elif "game" in metadata:
+        raise _wrong(
+            text,
+            "game",
+            "absent from a format version %d container" % (version,),
+            metadata["game"],
+        )
+    # Both catalogue members' presence is the format version's: version 4 and version 3
+    # require the rule and the utility, version 2 requires the rule and predates the
+    # utility, and version 1 predates both — so a file of an older version carrying a
+    # field its writer never wrote was edited and is refused by name (`checkpoint.md` §3,
     # `rules.md` §6, `utilities.md` §6, D-19, D-20).
-    if version == FORMAT_VERSION:
+    if version in (FORMAT_VERSION, GAME_FORMAT_VERSION):
         for field, catalogue, refusal in (
             ("learning_rule", declarations.LEARNING_RULES, UnknownRule),
             ("utility", declarations.UTILITIES, UnknownUtility),
@@ -566,7 +635,7 @@ def _read_container(path):
         except (zipfile.BadZipFile, OSError) as error:
             raise CheckpointUnreadable(
                 "load(path): %r is not a pypoker-agents-checkpoint of format version "
-                "1, 2 or 3 (%s)" % (text, error)
+                "%s (%s)" % (text, _or_written(SUPPORTED_VERSIONS), error)
             ) from None
         with container:
             names = container.namelist()
@@ -585,8 +654,8 @@ def _read_container(path):
         ) from None
     if not isinstance(metadata, dict):
         raise CheckpointUnreadable(
-            "load(path): %r is not a pypoker-agents-checkpoint of format version 1, 2 "
-            "or 3" % (text,)
+            "load(path): %r is not a pypoker-agents-checkpoint of format version %s"
+            % (text, _or_written(SUPPORTED_VERSIONS))
         )
     for field in REQUIRED:
         if field not in metadata:
@@ -602,13 +671,18 @@ def _read_container(path):
     _declared(text, metadata)
     # A version-1 or version-2 container carries no `utility` and is read as the only
     # utility its writer could have used; a version-1 container carries no
-    # `learning_rule` and is read as the only rule its writer could have used.  Both
-    # readings happen once, here, so `_compare` and `_rebuild` see the members the file
-    # is read as (`rules.md` §6, `utilities.md` §6, `checkpoint.md` §3, D-19, D-20).
+    # `learning_rule` and is read as the only rule its writer could have used.  A
+    # version-1, 2 or 3 container carries no `game` and is read as the **default**
+    # shape, the only one its writer could have used.  All three readings happen once,
+    # here, so `_compare` and `_rebuild` see the members and the shape the file is read
+    # as (`rules.md` §6, `utilities.md` §6, `shapes.md` §5, `checkpoint.md` §3, D-19,
+    # D-20, D-29).
     if metadata["format_version"] == 1:
         metadata["learning_rule"] = declarations.DEFAULT_LEARNING_RULE
     if metadata["format_version"] in (1, 2):
         metadata["utility"] = declarations.DEFAULT_UTILITY
+    if metadata["format_version"] in (1, 2, FORMAT_VERSION):
+        metadata["game"] = declarations.DEFAULT_SHAPE
     try:
         array = numpy.load(io.BytesIO(raw_parameters), allow_pickle=False)
     except (ValueError, OSError):
@@ -636,8 +710,8 @@ def _compare(spec, metadata):
     refused naming `load(spec)` and the offending value, so no `TypeError` from
     `int()` escapes and nothing is coerced (`surface.md` §1, `errors.md` §4).  A
     `learning_rule` is validated against the catalogue before it is compared, and so is
-    a `utility`; a disagreement names both values as a `seed`'s does (`rules.md` §6,
-    `utilities.md` §6, D-19, D-20).
+    a `utility` and a `game`; a disagreement names both values as a `seed`'s does
+    (`rules.md` §6, `utilities.md` §6, `shapes.md` §5, D-19, D-20, D-29).
     """
     if spec is None:
         return
@@ -689,6 +763,17 @@ def _compare(spec, metadata):
                 "load(spec): the spec's utility %r is not the checkpoint's utility %r"
                 % (named_utility, metadata["utility"])
             )
+    if "game" in spec:
+        # The shape is compared exactly as the rule and the utility are: validated
+        # against the module's catalogue first -- so a name it does not carry is refused
+        # by name and never defaulted -- and a disagreement names **both** shapes, the
+        # spec's and the shape the file is read as (`shapes.md` §5, `surface.md` §9).
+        named_game = declarations.require_game(spec["game"], "load", "'game'")
+        if named_game != metadata["game"]:
+            raise CheckpointMismatch(
+                "load(spec): the spec's game %r is not the shape %r the checkpoint is "
+                "read as" % (named_game, metadata["game"])
+            )
     if "encoder" in spec:
         encoded = _learner.encoder_spec(spec["encoder"], "load", "spec", "encoder")
         recorded = metadata["representation"]
@@ -718,6 +803,14 @@ def _rebuild(text, metadata, array):
     settings = metadata["settings"]
     recorded = metadata["representation"]
     size = recorded["size"]
+    # The shape the file is read as, and `A` — that shape's descriptor count, **read**
+    # off `features.action_space` and never a constant.  The layout is rebuilt on that
+    # head, so `params.count`, `params.length` and the array's own length are checked
+    # against the head the container's shape declares: a file whose `game` and whose
+    # `params` disagree is refused at the count below, naming the field and both values
+    # (`shapes.md` §5, `restore.md` §2, ASM-40).
+    game = metadata["game"]
+    actions = declarations.actions_for(game)
     try:
         # `settings.residual` is validated as a field of the form and is read for
         # nothing else: the restored connection is the reconstructed kind's own, so a
@@ -730,6 +823,7 @@ def _rebuild(text, metadata, array):
             settings["sparsity"],
             size,
             recorded["family"],
+            actions,
         )
     except (KeyError, TypeError, ValueError):
         raise CheckpointUnreadable(
@@ -739,9 +833,9 @@ def _rebuild(text, metadata, array):
     count = metadata["params"]["count"]
     if count != layout.count:
         raise CheckpointUnreadable(
-            "load(path): %r records the field 'params.count', which must be the count "
-            "its own geometry gives, got %d (the geometry gives %d)"
-            % (text, count, layout.count)
+            "load(path): %r records the field 'params.count', which must be the count of "
+            "the head the shape %r declares and its own geometry gives, got %d (the "
+            "geometry gives %d)" % (text, game, count, layout.count)
         )
     length = metadata["params"]["length"]
     if length != 2 * count + layout.mask_count or int(array.shape[0]) != length:
@@ -804,6 +898,11 @@ def _rebuild(text, metadata, array):
         metadata["utility"],
         metadata["exploration"]["position"],
         metadata["target"]["counter"],
+        # The shape the file is read as, and that shape's descriptor count: a version-4
+        # container names it, a version-1-to-3 one is read as the default, and the head
+        # `params.count` was checked against is this `A` (`shapes.md` §5, ASM-40).
+        game=game,
+        actions=actions,
     )
 
 

@@ -134,8 +134,12 @@ def forward(state, layout, observation, target=False, need_cache=True):
         layers.append((carried, matrix, pre))
         carried = carried + rectified if layout.residual else rectified
     offset, length = layout.w_out
-    output = state.params[base + offset : base + offset + length].reshape(width, 3)
-    output_bias = state.params[base + layout.b_out : base + layout.b_out + 3]
+    output = state.params[base + offset : base + offset + length].reshape(
+        width, layout.actions
+    )
+    output_bias = state.params[
+        base + layout.b_out : base + layout.b_out + layout.actions
+    ]
     values = carried @ output + output_bias
     if need_cache:
         cache = {"carried": carried, "layers": layers, "output": output, "input": block}
@@ -147,11 +151,11 @@ def apply(state, layout, cache, action, delta, rate):
     torch = _torch()
     width = layout.width
     gradient = torch.zeros(layout.count, dtype=torch.float64)
-    chosen = torch.zeros(3, dtype=torch.float64)
+    chosen = torch.zeros(layout.actions, dtype=torch.float64)
     chosen[int(action)] = 1.0
     offset, length = layout.w_out
     gradient[offset : offset + length] = torch.outer(cache["carried"], chosen).reshape(-1)
-    gradient[layout.b_out : layout.b_out + 3] = chosen
+    gradient[layout.b_out : layout.b_out + layout.actions] = chosen
     upstream = cache["output"] @ chosen
     for layer in range(layout.trunk - 1, -1, -1):
         carried, matrix, pre = cache["layers"][layer]

@@ -2,6 +2,7 @@
 
 - **Owner:** one note per risk this design identified, in the order they bite, each with the rule L4
   must hold and the symptom of getting it wrong
+- **Rev:** 2 · **Date:** 2026-11-09
 - **Ceiling:** 175 lines. At the ceiling, split by owner — never append
 - **Read with:** `README.md`, `encoder.md`, `flat-numeric.md`, `card-tokens.md`, `vocabulary.md`,
   `errors.md`, `layout.md`
@@ -19,9 +20,8 @@ and to nothing else — is this property.
 
 Symptom of getting it wrong: `_encode_flat` and `_encode_tokens` side by side, or an
 `if encoder.name == "flat-numeric": … else: …` in `encode`, or a third of the two encodings' logic
-duplicated in a "shared" helper used by one of them. The battery's "one design" cases are written to
-catch exactly that; and the failure is not cosmetic, because the second path is where the two encodings
-start to disagree about a fact.
+duplicated in a "shared" helper used by one of them — the second path is where the two encodings start to
+disagree about a fact, so the battery's "one design" cases are written to catch exactly that.
 
 ## G2 — The encoder stays opaque
 
@@ -29,9 +29,9 @@ start to disagree about a fact.
 `__repr__` that names only the encoding (`encoder.md` §1). `observation_spec` refuses anything that is not
 one; `build_encoder` is the only way to get one.
 
-Symptom: a spec `dict` is accepted by `observation_spec` (the `InvalidEncoder` refusal becomes
-unreachable); a caller does `build_encoder("card-tokens") == build_encoder("card-tokens")` and caches on
-it; or `encoder["shape"]` works, which means the internals are the surface and D-12 is broken.
+Symptom: a spec `dict` is accepted by `observation_spec` (the `InvalidEncoder` refusal becomes unreachable);
+a caller caches on `build_encoder("card-tokens") == build_encoder("card-tokens")`; or `encoder["shape"]`
+works, which means the internals are the surface and D-12 is broken.
 
 ## G3 — Widths, offsets and shapes are the design's numbers, not recomputed
 
@@ -61,42 +61,44 @@ No `import random`, no `numpy.random`, no seeding, no hashing that depends on `P
 iteration of a set (`surface.md` §1, ASM-2). Every one of the seven names is a function of its arguments.
 
 Symptom: `random.getstate()` or `np.random.get_state()` differs after a call (the unit battery compares
-both); two encodes of one readout differ in one slot. A set used to build a block is the usual cause —
-iterate the declared tuple, never a set.
+both); two encodes of one readout differ in one slot — usually because a set was iterated to build a block.
 
-## G6 — `action_space()` carries no integer but `0`, `1` and `2`
+## G6 — `action_space()` carries no integer but the shape's own indices
 
-The three indices and prose only (`vocabulary.md` §2). No amount, no chip count, no `"raise to 4"`, no
-`"sizes": (2, 4)`. **No string in the record contains a digit at all**, which is the form both batteries
+A shape's indices and prose only (`vocabulary.md` §2): `0`, `1`, `2` on the default shape and `0`–`5` on
+`no-limit-100`, each record built from the shape row the caller asked for. No amount, no chip count, no
+`"raise to 4"`, no `"sizes": (2, 4)`, no `"size": 3`; a sized band's note is **prose** — `band`, never the
+chips it resolves to. **No string in the record contains a digit at all**, which is the form both batteries
 can decide: the L1 reader folds integers and all-digit strings, and the unit battery asserts the stronger
-"no digit anywhere in any key or value".
+"no digit anywhere in any key or value" on the record each shape returns.
 
-Symptom: FAM-2.9 fails with `{0, 1, 2, 4}` — and it fails in a way that looks like a battery bug, because
-the reader also folds digit-only strings and mapping keys into the vocabulary it reports. A digit inside
-prose escapes the L1 reader and is caught only by the unit battery, which is why the stronger rule is the
-one L4 must hold.
+Symptom: FAM-2.9 fails with `{0, 1, 2, 4}`, and it looks like a battery bug because the reader folds
+digit-only strings and mapping keys too; a digit inside prose escapes the L1 reader and only the unit
+battery catches it.
 
-## G7 — `legal_indices` is positional, and validates before it maps
+## G7 — `legal_indices` is positional, per shape, and validates before it maps
 
-One index per descriptor, in the argument's order (`vocabulary.md` §3). Build it as a comprehension over
-the argument; never `set(...)`, never `sorted(...)`, never `ACTIONS.index` inside a set, never a fold for
-an unknown descriptor. Refuse a `str`, a `set`, a mapping, an iterator and an empty sequence, each naming
-what was refused.
+One index per descriptor, in the argument's order, read off the one `DESCRIPTOR_INDEX` table built from
+every shape's row (`vocabulary.md` §3) — it takes no shape and needs none. Build it as a comprehension over
+the argument; never `set(...)`, never `sorted(...)`, never a per-shape branch, never a fold for an unknown
+descriptor. Refuse a `str`, a `set`, a mapping, an iterator and an empty sequence, each naming what was
+refused.
 
-Symptom: `legal_indices(("check-call", "raise"))` returns `{0, 1}` or `(0, 1)` because something sorted
-the indices — FAM-2.11's one-to-one and FAM-16.10's `{1, 2}` both fail, and `chosen_index` in
-`tests/e2e/_surface.py` turns a policy's choice into the wrong index, which shows up as a *later* case
-disagreeing about a trajectory rather than as a mask error. `("call",)` must raise naming `'call'`, never
-return `(0,)`.
+Symptom: `legal_indices(("check-call", "raise-minimum"))` returns `{1, 5}` or a sorted `(1, 5)` because a set
+got involved — FAM-2.11's one-to-one and FAM-16.10's `{1, 2}` fail, and `chosen_index` in
+`tests/e2e/_surface.py` turns a policy's choice into the wrong index. `("call",)` must raise naming `'call'`.
 
-## G8 — `decode_action` maps an index and nothing else, and never coerces
+## G8 — `decode_action` maps an index in one shape's vocabulary, and never coerces
 
-`ACTIONS[index]` after two checks: an `Integral` that is not a `bool`, and `0 <= index <= 2`
-(`vocabulary.md` §4). No `int(index)`, no `try: … except: return "fold"`, no clamping a `3` to `2`.
+The shape's `actions[index]` after two checks: an `Integral` that is not a `bool`, and `0 <= index <
+len(actions)` — `0–2` by default, `0–5` on `no-limit-100` (`vocabulary.md` §4). No `int(index)`, no `try: …
+except: return "fold"`, no clamping a `3` to `2`. The shape is an **argument**, never module state: two
+callers may decode in two vocabularies in one process, and an index is meaningful only beside the shape
+that declared it.
 
 Symptom: `decode_action("1")` returns `"check-call"`; `decode_action(True)` returns `"check-call"`;
-`decode_action(3)` returns `"raise"`. It never claims legality, so it must not consult a decision, a
-readout or a hand — it has none.
+`decode_action(6, shape="no-limit-100")` returns a descriptor instead of refusing. It never claims legality,
+so it must not consult a decision, a readout or a hand — it has none.
 
 ## G9 — Refuse exactly what the contract refuses, before writing anything
 
@@ -106,10 +108,8 @@ duplicate card, a one-card board, a short history, a `legal` key, or a `numpy` i
 the first write so the message is the only observable effect.
 
 Symptom: two directions, and both are failures. Too few: a `KeyError: 'hole'` escapes instead of an
-`InvalidReadout` naming the field, or `encode` happily returns an all-zero board for a readout with no
-board. Too many: a case that passes a valid instance — a repeated card, `legal` left in the mapping, a
-`numpy.int64` pot — is turned into a refusal, and a refusal where the contract has none is a defect
-(`battery.md` §4).
+`InvalidReadout` naming the field. Too many: a case that passes a valid instance — a repeated card, `legal`
+left in the mapping, a `numpy.int64` pot — is turned into a refusal (`battery.md` §4).
 
 ## G10 — The pad is `0`, and only two blocks pad
 
@@ -117,8 +117,8 @@ board. Too many: a case that passes a valid instance — a repeated card, `legal
 (`card-tokens.md` §3). `to_call` of 0 is id `61`, never `0`; a stack of 0 is `77`, never `0`. The dense
 encoding has no pad at all — a zero there is a value (`seat` slot 0 for seat 0, `to_call` 0.0).
 
-Symptom: an observation carrying `-1` or `96`; a checkable `to_call == 0` read as the pad, which erases
-the difference between "nothing to call" and "no fact"; `history` pad written as `93` (fold).
+Symptom: an observation carrying `-1` or `96`; a checkable `to_call == 0` read as the pad, erasing the
+difference between "nothing to call" and "no fact"; a `history` pad written as `93` (fold).
 
 ## G11 — Every returned record is plain, fresh data
 
@@ -127,38 +127,32 @@ the difference between "nothing to call" and "no fact"; `history` pad written as
 tuple in the one declared order, `vocabulary` an `int` or `None` (`encoder.md` §3, §6).
 
 Symptom: a caller mutates a returned spec and a second call returns the mutation (the record is shared);
-`encodings()["flat-numeric"] == observation_spec(build_encoder("flat-numeric"))` is `False` because one
-path builds a numpy dtype and the other a string; `fields` is a `set` and its order is not stable across
-processes.
+`encodings()`'s entries stop equalling `observation_spec`'s; a `fields` that is a `set`.
 
 ## G12 — The import boundary: `numpy` and the standard library, nothing else
 
 `layout.md` §3. In particular **no `pokerkit`** — the card spelling is two characters this module parses
-itself — and no other project module, not even `engine`, whose three descriptors are restated in
-`vocabulary.py` rather than imported.
+itself — and no other project module, not even `engine`, whose descriptors and shape rows are restated in
+`vocabulary.py` and `declarations.py` rather than imported.
 
-Symptom: `import features` leaves `'pokerkit' in sys.modules` (the boundary check fails), or `cards.py`
-begins `from pokerkit import Card` to understand a readout, which is the D-3 violation G3 of the engine's
-own guardrails exists to prevent.
+Symptom: `import features` leaves `'pokerkit'` or `engine` in `sys.modules`.
 
 ## G13 — One grammar for a history entry, read at fixed positions
 
 ASM-E2's four forms (`README.md` §4), and the verb is the entry's fourth token: `folds` → 0, `checks` and
-`calls` → 1, `raises` → 2 (`flat-numeric.md` §5, `card-tokens.md` §5). A `raises` entry has two more
-tokens (`to`, `<amount>`), so a parser that assumes five tokens breaks on the one action the ladder cares
-most about. A fifth form is refused, naming the entry.
+`calls` → 1, `raises` → 2 (`flat-numeric.md` §5, `card-tokens.md` §5) — the action **kind**, never a
+vocabulary index. A `raises` entry has two more tokens (`to`, `<amount>`), so a parser that assumes five
+breaks on the action the ladder cares most about; a fifth form is refused, naming the entry.
 
 Symptom: a river history mis-read because the street name is compared instead of skipped; a `raises to 8`
-entry raising `IndexError`; a `checks` entry counted as a fold because the parser looked for `call`.
+entry raising `IndexError`; a `raises` entry's id read as a vocabulary index, which the second shape denies.
 
 ## G14 — Nothing below an entry point is surface
 
-`__all__` is exactly the seven names, in the order `layout.md` §2 gives (`README.md` §3). No eighth name
-for convenience: not `Encoder`, not `FeaturesError`, not `ACTIONS`, not `ENCODINGS`.
+`__all__` is exactly the seven names, in `layout.md` §2's order (`README.md` §3) — no eighth, not `Encoder`,
+not `FeaturesError`, not `DESCRIPTOR_INDEX`, not `SHAPE_ROWS`.
 
-Symptom: a battery or `agents` starts calling `features.ACTIONS`, and the module now has two surfaces, one
-of which is not in any L2 document. A caller that needs the vocabulary calls `action_space()`; a caller
-that needs an encoder calls `build_encoder`.
+Symptom: a battery or `agents` starts calling `features.SHAPE_ROWS`, and the module has two surfaces.
 
 ## G15 — Run the two batteries, and read the failures
 
@@ -167,6 +161,15 @@ that needs an encoder calls `build_encoder`.
     .venv/bin/python -m pytest tests/e2e/test_fam16_blind.py -q -k features
     .venv/bin/python -m pytest tests/e2e/test_fam01_surface.py -q -k features
 
-The unit battery is written against this design and is authoritative for the internals; the four e2e
-commands are the join with the engine and with `agents`' expectations, and nothing in this module may be
-changed to make one of them pass by breaking the other. `tests/e2e/` is read-only for this module.
+The unit battery is authoritative for the internals; the four e2e commands are the join with the engine and
+with `agents`' expectations, and neither may be broken to make the other pass.
+
+## G16 — One shape row, and no `engine` import
+
+Each shape's descriptors, normalisers and ladders are written down **once**, in `declarations.SHAPE_ROWS`
+(`encoder.md` §4); a second spelling in `src/features/` — a divisor in a writer, an edge in a block table, a
+descriptor tuple in `vocabulary.py` — is the defect, because the two statements then drift and no battery can
+say which one an observation was built from. `engine.game_shapes()` is the other statement, joined by the
+battery and never by an import (`layout.md` §3, G12).
+
+Symptom: a divisor edited in the shape row but not in the writer that reads it; `engine` in `sys.modules`.

@@ -3,11 +3,15 @@
 A policy is a callable `policy(readout, legal_actions)` that encodes the readout with
 the caller's encoder, takes the mask `features.legal_indices` gives it, decides by
 `rule.md` §4-§5 with its **own** seed, and returns `features.decode_action` of the
-index it chose — always one of `legal_actions`.  It holds the learner's state as a
-copy taken at build time, so a later `learn` cannot change a policy already built
-(`surface.md` §10, ASM-5).  It carries the catalogue member its learner learned under
-and the one whose reward it was trained on, and no decision it makes reads either
-(`rules.md` §7, `utilities.md` §7, D-19, D-20).
+index it chose — always one of `legal_actions` — in **the learner's shape's** vocabulary.
+It holds the learner's state as a copy taken at build time, so a later `learn` cannot
+change a policy already built (`surface.md` §10, ASM-5).  It carries the catalogue
+member its learner learned under and the one whose reward it was trained on, and no
+decision it makes reads either (`rules.md` §7, `utilities.md` §7, D-19, D-20).  Its
+**exploration mode** is its own fourth argument: `schedule` takes `rule.decide`'s keyed
+draw as it always has, and `off` takes `rule.decide_greedy` and constructs no generator
+at all, so two `off` policies at different seeds decide identically (`shapes.md` §4,
+`sizing.md` §4).
 
 Its refusals are **this** module's (`errors.md` §2-§3): a readout that is not a
 mapping, or that is missing a fact the rule needs, is refused as `agents`'
@@ -23,7 +27,7 @@ from collections.abc import Mapping
 
 import features
 
-from . import learner as _learner, rule
+from . import declarations, learner as _learner, rule
 from .errors import EncoderMismatch, InvalidReadout
 
 #: The one readout fact no encoding carries and the rule still needs: the decision's
@@ -40,6 +44,12 @@ class Policy:
     label a table's members, so a table names the population and the objectives it
     measured even when a variant was built in process and no record of it exists yet
     (`e2e-surface.md` §2, `rules.md` §7, `utilities.md` §7, D-19, D-20).
+
+    `game` is the shape whose vocabulary the chosen index is decoded in — the learner's
+    own, so a policy of a six-index learner returns one of that shape's six descriptors
+    and never the default shape's `raise` (`shapes.md` §3, §7) — and `_exploration` is
+    the mode it was built with, `schedule` or `off` (`shapes.md` §4).  Neither is one of
+    the two attributes `e2e-surface.md` §2 declares.
     """
 
     __slots__ = (
@@ -50,8 +60,10 @@ class Policy:
         "_position",
         "_encoder",
         "_facts",
+        "_exploration",
         "learning_rule",
         "utility",
+        "game",
     )
 
     def __init__(
@@ -65,6 +77,8 @@ class Policy:
         facts,
         learning_rule,
         utility,
+        game,
+        exploration,
     ):
         self._backend = backend
         self._layout = layout
@@ -75,6 +89,8 @@ class Policy:
         self._facts = tuple(facts)
         self.learning_rule = learning_rule
         self.utility = utility
+        self.game = game
+        self._exploration = exploration
 
     def __repr__(self):
         return "Policy(%r, position %d, seed %d, %s, %s)" % (
@@ -116,17 +132,34 @@ class Policy:
         scored, _cache = self._backend.forward(
             self._state, self._layout, observation, need_cache=False
         )
-        index = rule.decide(
-            self._seed, self._layout.family, self._position, scored, observation, mask
-        )
-        return features.decode_action(int(index))
+        if self._exploration == "off":
+            # The masked maximum and the tie-break alone, at every seed: `decide_greedy`
+            # constructs no generator, so no draw is taken and the policy's seed is not
+            # read (`shapes.md` §4, `sizing.md` §4).
+            index, _tie = rule.decide_greedy(scored, mask)
+        else:
+            index, _tie = rule.decide(
+                self._seed,
+                self._layout.family,
+                self._position,
+                scored,
+                observation,
+                mask,
+            )
+        # The descriptor is the **learner's shape's**: an index decodes only in the
+        # vocabulary that declared it (`shapes.md` §3, §7, `features/surface.md` §9).
+        return features.decode_action(int(index), shape=self.game)
 
 
-def as_policy(learner, encoder, seed):
-    """One learner as a policy, at its own state and the caller's seed (§10, §7)."""
+def as_policy(learner, encoder, seed, exploration="schedule"):
+    """One learner as a policy, at its own state and the caller's seed and mode (§10, §7)."""
     held = _learner._require_learner(learner, "as_policy")
     encoded = _learner.encoder_spec(encoder, "as_policy")
     policy_seed = _learner._seed(seed, "as_policy")
+    # The exploration mode is the **policy's** and never the hyper block's: `HYPER` keeps
+    # its one annealed schedule whatever a policy is built with, so a mode changes no
+    # training (`shapes.md` §4, `rule.md` §6, D-19).
+    mode = declarations.require_exploration(exploration, "as_policy")
     declared_size = _learner.encoder_size(encoded)
     if encoded["kind"] != held.family or declared_size != held.size:
         raise EncoderMismatch(
@@ -155,4 +188,8 @@ def as_policy(learner, encoder, seed):
         # ... and the utility it was trained on, so the same table can name the
         # objectives it measured (`e2e-surface.md` §2, `utilities.md` §7, D-20).
         held.utility,
+        # ... and the shape whose vocabulary its descriptor is decoded in, together with
+        # the mode it decides under (`shapes.md` §3–§4).
+        held.game,
+        mode,
     )

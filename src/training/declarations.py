@@ -4,12 +4,19 @@ There is one rollout driver, one encoder factory, one learner family, one loop a
 league; a rung is a row of this file, so no rung can drift into its own copy of the loop
 and a seventh configuration runs without new code (ladder.md §1, FAM-15). Nothing here
 computes: it is data a resolver reads and a fairness report quotes.
+
+Two tables below are not the ladder's and are declared here because no granted call
+publishes them: the **declared game shapes** (`shapes.md` §2, D-29) — the names, their
+order and each shape's descriptor count — and the **greedy pass's two bounds**
+(`sizing.md` §4, `records.md` §15, ASM-38). Both are read, never written, by every path
+that has to name a shape or measure a pass (`module-map.md` §2, D-13).
 """
 
 from collections.abc import Mapping
 
 import agents
 import evaluation
+import features
 
 from . import errors
 
@@ -45,6 +52,32 @@ DEVICE = "cpu"
 #: and `utilities()` are how the run learns which names exist.
 LEARNING_RULE = "masked-q-learning"
 UTILITY = "net-chips"
+
+#: The two declared game shapes' names, in `engine.game_shapes()`'s order — default
+#: first (`shapes.md` §2, D-29).  Only the names, their order and their descriptor
+#: counts are restated: `module-map.md` §2 grants this module `engine.game_config` and
+#: no `game_shapes`, and `features.decode_action` and no `features.action_space`, so the
+#: two tables below are held equal to the catalogue `engine` and `features` publish by
+#: the integration battery's shape join (`tests/integration/training/`) and by nothing
+#: this module asserts about itself (D-13, `shapes.md` §4).
+SHAPE_NAMES = ("fixed-limit-20", "no-limit-100")
+
+#: The declared default: the first shape, which is what a configuration naming no
+#: `game` is trained and evaluated on and what an absent `game` in a run record reads
+#: as (`shapes.md` §3, D-29).  A name is never defaulted onto this; only absence is.
+DEFAULT_SHAPE = SHAPE_NAMES[0]
+
+#: `A`, each declared shape's descriptor count: three on the fixed-limit shape, six on
+#: the no-cap one (`shapes.md` §2, `sizing.md` §3).  It is the shape's head width and
+#: the number of indices `features.decode_action` answers for it (`sizing.md` §6).
+SHAPE_ACTIONS = {"fixed-limit-20": 3, "no-limit-100": 6}
+
+#: The two bounds one variant's greedy pass must stay inside, per seed: at most 2,000
+#: hands and at most 24,000 decision records, and a pass that would exceed either is
+#: refused with both counts and **never truncated**, because a truncated log silently
+#: reports a different sample (`sizing.md` §4, `records.md` §15, ASM-38).
+GREEDY_HANDS = 2000
+GREEDY_DECISIONS = 24000
 
 #: `agents.learners()["hyper"]`'s declarations, quoted so a fairness report can name the
 #: hyperparameters a pair holds constant (ladder.md §4, docs/L3/agents/rule.md §6).
@@ -109,10 +142,12 @@ AXES = (
 #: declaration names it (`records.md` §8, D-21).
 BASELINES = tuple(evaluation.league()["baselines"])
 
-#: The seven settings both arms of one pair declare one value for: `learning_rule` and
+#: The settings both arms of one pair declare one value for: `learning_rule` and
 #: `utility` are not among them, because two arms may declare two catalogue members of
 #: either axis and every variant is trained (docs/L2/training/declarations.md §4,
-#: rules.md §8, utilities.md §8, D-19, D-20).
+#: rules.md §8, utilities.md §8, D-19, D-20).  `game` is: two arms of one comparison are
+#: trained and evaluated on **one** shape, because a table is one shape and a shape is
+#: never a rung's axis (`shapes.md` §1, §6, ladder.md §4, D-29).
 PAIR_SETTINGS = (
     "hyper",
     "samples",
@@ -121,6 +156,7 @@ PAIR_SETTINGS = (
     "snapshot_every",
     "table",
     "param_budget",
+    "game",
 )
 
 
@@ -148,6 +184,81 @@ def utilities():
     `learning_rules()` gives (`utilities.md` §2, §5, D-20, `agents/surface.md` §3).
     """
     return tuple(agents.learners()["utilities"])
+
+
+def require_game(value, entry, argument="game"):
+    """The shape name `value` denotes, or the refusal naming it and the declared names.
+
+    `None` is the **default** shape, and that is the absence of a name rather than a
+    defaulting of one: a configuration that declares no `game` is trained and evaluated on
+    the catalogue's first row, while a name the catalogue does not carry — a non-string
+    included — is refused naming it and every declared name, and is never substituted
+    (`shapes.md` §2–§3, D-29, D-13).  The name is checked against this module's restated
+    `SHAPE_NAMES`, and `engine.game_config` refuses the same names in the same words, so a
+    run on an uncatalogued shape never reaches a hand.
+    """
+    if value is None:
+        return DEFAULT_SHAPE
+    for name in SHAPE_NAMES:
+        if isinstance(value, str) and value == name:
+            return name
+    raise errors.UnknownShape(
+        "%s(%s): %r is not one of the declared shapes %r, and a shape name is never "
+        "defaulted (shapes.md §2, D-29)" % (entry, argument, value, SHAPE_NAMES)
+    )
+
+
+def shape_actions(shape=None):
+    """`A`, one declared shape's descriptor count (`shapes.md` §2, `sizing.md` §6).
+
+    The head's width and the number of indices the shape's vocabulary holds, read off
+    `SHAPE_ACTIONS` for the shape `require_game` resolved.  `features.decode_action` stays
+    the authority on which indices exist — `vocabulary` asks it per index — and this count
+    is the loop's own, so no caller spells a `3` or a `6` inline.
+    """
+    return int(SHAPE_ACTIONS[require_game(shape, "shape_actions")])
+
+
+def vocabulary(shape=None):
+    """One shape's action vocabulary as `{index: descriptor}`, in its declared order.
+
+    Three indices on the default shape and six on the no-cap one, each descriptor read
+    through the granted `features.decode_action(index, shape=...)` — so this module holds
+    no spelling of a descriptor and the two directions (`legal_indices`, `decode_action`)
+    stay one vocabulary's (`features/surface.md` §7, §9, `shapes.md` §2, D-13).  For the
+    default shape the mapping is the `{0: fold, 1: check-call, 2: raise}` a run has always
+    reported (`loop.md` §6, `fairness.md` §4).
+    """
+    name = require_game(shape, "vocabulary")
+    return {
+        index: features.decode_action(index, shape=name)
+        for index in range(shape_actions(name))
+    }
+
+
+def _check_game(where, configuration, entries):
+    """Refuse a `game` the catalogue does not carry, at the configuration and at each entry.
+
+    The shape a configuration trains and is evaluated on is a **named** declaration, so it
+    is read at either level exactly as `learning_rule` and `utility` are, and an
+    uncatalogued name is refused there rather than forwarded: a `game` naming a shape
+    `engine.game_shapes()` does not declare is `UnknownShape` naming the level, the value
+    and the declared names, and a level declaring none — or `None` — is no claim and reads
+    as the default (`shapes.md` §2–§3, `records.md` §2, D-29, D-13).
+    """
+    own = configuration.get("game")
+    if own is not None:
+        require_game(own, "training.run", "game of the configuration %r" % (where,))
+    for entry in entries:
+        declared = entry.get("game") if isinstance(entry, Mapping) else None
+        if declared is None:
+            continue
+        require_game(
+            declared,
+            "training.run",
+            "game of the variant %r" % (entry.get("name"),),
+        )
+
 
 
 def _architecture(kind, width, depth, sparsity=0.0, residual=False):
@@ -614,12 +725,13 @@ def check_declarations(configuration):
     """Refuse every declaration a run would not use, before the pool is built.
 
     One place for the rule `docs/L2/training/declarations.md` §2–§4 states: a `hyper` key
-    that is unknown or disagrees with `HYPER`, and a `learning_rule` or a `utility` the
-    catalogues `agents.learners()` publishes do not carry — each **at the configuration
-    and at each entry** — and a `snapshot_every` at either level that is not the declared
-    samples ÷ 10, plus, for a two-entry configuration, the seven settings both arms must
-    share. Every refusal is raised before the first hand is dealt and before anything is
-    written (ASM-7, ASM-8, ASM-18, utilities.md §5, D-19, D-20,
+    that is unknown or disagrees with `HYPER`, a `learning_rule` or a `utility` the
+    catalogues `agents.learners()` publishes do not carry, and a `game` the catalogue
+    `engine.game_shapes()` publishes does not carry — each **at the configuration and at
+    each entry** — and a `snapshot_every` at either level that is not the declared samples
+    ÷ 10, plus, for a two-entry configuration, the eight settings both arms must share.
+    Every refusal is raised before the first hand is dealt and before anything is written
+    (ASM-7, ASM-8, ASM-18, utilities.md §5, D-19, D-20, shapes.md §2, D-29,
     docs/L3/training/loop.md §1 step 1).
     """
     where = configuration.get("name")
@@ -627,6 +739,7 @@ def check_declarations(configuration):
     _check_hyper(where, configuration, entries)
     _check_learning_rule(where, configuration, entries)
     _check_utility(where, configuration, entries)
+    _check_game(where, configuration, entries)
     _check_snapshot_every(configuration, where, entries)
     if len(entries) != 2:
         return

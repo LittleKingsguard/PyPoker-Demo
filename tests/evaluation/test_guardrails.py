@@ -1,10 +1,13 @@
 """EVL-11 — one case per numbered guardrail of `docs/L3/evaluation/guardrails.md`.
 
-Each case is named after the guardrail id it drives (`EVL-11.g1` ... `EVL-11.g21`)
-and asserts the external behaviour that guardrail says is at risk: a plausible
-implementation that breaks the contract it names is red here. The cases reuse the
-support module's invented instances, hand-built records and the two shared real
-matrices, so each one is a focused check and not a second copy of the whole battery.
+Each case is named after the guardrail id it drives (`EVL-11.g1` ... `EVL-11.g21`,
+plus `EVL-11.g31` for the shape's absence rule) and asserts the external behaviour
+that guardrail says is at risk: a plausible implementation that breaks the contract it
+names is red here. The cases reuse the support module's invented instances, hand-built
+records and the two shared real matrices, so each one is a focused check and not a
+second copy of the whole battery. Three of them carry D-29: G7's read-back now has
+seven keys with `game` among them (`shape.md` §4), G14's matrix record requires its own
+`game`, and G21's header family is the record's header **plus** the resolved `shape`.
 
 Two guardrails are read carefully:
 
@@ -49,6 +52,7 @@ from _evaluation_support import (
     count,
     declared_internal,
     declaration,
+    default_shape,
     direction_counts,
     family_value,
     first_legal,
@@ -60,6 +64,7 @@ from _evaluation_support import (
     member_id,
     member_ids_of_cell,
     no_file_reads,
+    other_shape,
     params_of,
     pool_digest,
     pool_member_ids,
@@ -69,6 +74,7 @@ from _evaluation_support import (
     report_inputs,
     run_record,
     seat_split_counts,
+    shapes,
     token,
     unlabelled_of,
     version_chain,
@@ -325,16 +331,25 @@ class GuardrailsTest(EvaluationCase):
         )
 
     def test_evl_11_g7_pool_members_returns_the_record_and_the_version_records_verbatim(self):
-        """EVL-11.G7 `pool_members` is `{id, m, frozen, members, rules, utilities}` freshly built per call, each version the `records.md` §7 record the declaration carried, untouched (`pool.md` §5, `records.md` §8, D-19, D-20)."""
+        """EVL-11.G7 `pool_members` is `{id, m, frozen, game, members, rules, utilities}` freshly built per call -- `game` **required**, naming the one shape the pool is on, so a read-back that omits it or reads it off a member is red -- and each version the `records.md` §7 record the declaration carried, its `rule`, its `utility` and its `game` untouched (`pool.md` §5, `records.md` §8, §7, `shape.md` §4, D-19, D-20, D-29)."""
         package = self.evaluation()
         declared = version_chain(VERSION_IDS[:2])
         pool = package.build_pool(declaration(members=declared, m=POOL_M, frozen=True))
         first = package.pool_members(pool)
         self.assertEqual(
             set(first),
-            {"id", "m", "frozen", "members", "rules", "utilities"},
-            "a pool record is records.md §8's six required keys, `rules` and `utilities` "
-            "included (pool.md §5, records.md §8, D-19, D-20): %r" % (tuple(first),),
+            {"id", "m", "frozen", "game", "members", "rules", "utilities"},
+            "a pool record is records.md §8's seven required keys, `game` beside `rules` "
+            "and `utilities` (pool.md §5, records.md §8, shape.md §4, D-19, D-20, D-29): "
+            "%r" % (tuple(first),),
+        )
+        self.assertEqual(
+            first["game"],
+            default_shape(),
+            "the read-back names the one shape the pool is on, and a declaration that "
+            "named none is the default -- read off the **pool** and not off a member, "
+            "which names no shape at all (pool.md §5, shape.md §2, §4, G7): %r"
+            % (first["game"],),
         )
         first["members"] = ()
         first["id"] = "pool-0000000000000000"
@@ -355,6 +370,43 @@ class GuardrailsTest(EvaluationCase):
                         "declaration carried, %r untouched (pool.md §5, G7): %r"
                         % (key, versions[index]),
                     )
+                self.assertEqual(
+                    set(versions[index]),
+                    set(record),
+                    "and a version that declared no `game` reads back with **none**: "
+                    "absence is the default shape and is never filled in, so the record "
+                    "gains no key (pool.md §5, shape.md §2, §4, G7): %r"
+                    % (versions[index],),
+                )
+        with self.subTest(case="the shape is the pool's, on either shape"):
+            for shape in shapes():
+                built = package.build_pool(declaration(members=(), m=5, frozen=True, game=shape))
+                self.assertEqual(
+                    package.pool_members(built)["game"],
+                    shape,
+                    "a baselines-only pool carries the declaration's shape even though no "
+                    "member names one, so the fact is the pool's and never a member's "
+                    "(pool.md §5, shape.md §4, G7): %r" % (shape,),
+                )
+        with self.subTest(case="a member of the pool's other shape reads back with it"):
+            declared_with_shape = version_chain(VERSION_IDS[:2], game=other_shape())
+            other = package.build_pool(
+                declaration(members=declared_with_shape, m=POOL_M, frozen=True, game=other_shape())
+            )
+            read = package.pool_members(other)
+            self.assertEqual(
+                read["game"],
+                other_shape(),
+                "the record names the shape the pool was declared on (pool.md §5, "
+                "shape.md §3-§4): %r" % (read["game"],),
+            )
+            for record in read["members"][3:]:
+                self.assertEqual(
+                    record.get("game"),
+                    other_shape(),
+                    "a member that declared the pool's shape reads back with it, "
+                    "untouched (records.md §7, shape.md §4, G7): %r" % (record,),
+                )
 
     def test_evl_11_g8_every_seed_is_a_derivation_and_no_stream_is_seeded_here(self):
         """EVL-11.G8 the four tagged derivations are `int.from_bytes(sha256(...).digest()[:8], "big") % 2**31` over the parts joined by `\\x1f`, `_draw_index` is a modulo, and every entry point that plays nothing leaves the global stream where it found it (`scheduler.md` §3, `surface.md` §1, ASM-2)."""
@@ -542,7 +594,7 @@ class GuardrailsTest(EvaluationCase):
                     )
 
     def test_evl_11_g14_the_matrix_record_s_carries_its_keys_and_a_table_seed_no_argument_supplies(self):
-        """EVL-11.G14 `members`, `cells`, `rules`, `population`, `utilities`, `utility_population`, `hands_per_cell`, `table_seed`, `table`, then `pool`, `member_records`, `unlabelled`, `cell_count`; `table_seed` is the league's, a second seed argument does not exist, and `table` is the label as a value (`matrix.md` §5, §7, `records.md` §10, G14, D-19, D-20)."""
+        """EVL-11.G14 `members`, `cells`, `rules`, `population`, `utilities`, `utility_population`, `hands_per_cell`, `table_seed`, `table`, then this module's own `game` (**required**), `pool`, `member_records`, `unlabelled`, `cell_count`; `table_seed` is the league's, a second seed argument does not exist, and `table` is the label as a value (`matrix.md` §5, §7, `records.md` §10, `shape.md` §4, G14, D-19, D-20, D-29)."""
         package = self.evaluation()
         matrix = self.shared_matrix("k4")
         self.assertEqual(
@@ -557,13 +609,22 @@ class GuardrailsTest(EvaluationCase):
                 "hands_per_cell",
                 "table_seed",
                 "table",
+                "game",
                 "pool",
                 "member_records",
                 "unlabelled",
                 "cell_count",
             ),
-            "the matrix record's keys and their order are matrix.md §5's (G14): %r"
-            % (tuple(matrix),),
+            "the matrix record's keys and their order are matrix.md §5's, `game` after the "
+            "nine records.md §10 keys and before this module's other four (G14, "
+            "shape.md §4): %r" % (tuple(matrix),),
+        )
+        self.assertEqual(
+            matrix["game"],
+            self.pool_members(self.shared_pool("k4"))["game"],
+            "a table's shape is the pool's and it takes no shape argument, so the record "
+            "names the shape of the pool it measured (matrix.md §1, §5, shape.md §4, "
+            "G14): %r" % (matrix["game"],),
         )
         self.assertEqual(
             count(matrix["table_seed"], "a matrix's table_seed"),
@@ -834,19 +895,42 @@ class GuardrailsTest(EvaluationCase):
                 )
 
     def test_evl_11_g21_report_copies_and_never_invents(self):
-        """EVL-11.G21 each of the seven families is copied by value from the record under `protocol()`'s spelling, `axis row` included, R1's pool row is the baselines it had, the single-variant axis row stays `n/a, single variant`, and the seeds, table, table seed and device travel beside them (`report.md` §2, §4, G21)."""
+        """EVL-11.G21 each of the seven families is copied by value from the record under `protocol()`'s spelling, `axis row` included -- except the header, which is that record's header **plus** the tenth key `shape` the report resolved, written on the report's own copy -- R1's pool row is the baselines it had, the single-variant axis row stays `n/a, single variant`, and the seeds, table, table seed and device travel beside them (`report.md` §1-§2, §4, `shape.md` §4, G21, G35, D-29)."""
         package = self.evaluation()
         rung, record, matrix, rating = report_inputs()
         report = package.report(rung, record, matrix, rating)
         for family in FAMILIES:
             with self.subTest(family=family):
-                self.assertEqual(
-                    family_value(report, family),
-                    record[family],
-                    "the %r family is copied by value from the record and never invented, "
-                    "reshaped or sorted (report.md §2, §4, G21): %r"
-                    % (family, family_value(report, family)),
-                )
+                if family == "header":
+                    self.assertEqual(
+                        family_value(report, family),
+                        dict(record[family], shape=default_shape()),
+                        "the header family is the record's own nine items and the one "
+                        "shape the report resolved, completed on the report's copy and "
+                        "never in the argument (report.md §1-§2, shape.md §4, G21, "
+                        "G35): %r" % (family_value(report, family),),
+                    )
+                    self.assertEqual(
+                        dict(family_value(report, family), shape=None),
+                        dict(dict(record[family]), shape=None),
+                        "the completion adds `shape` and changes no item the record "
+                        "states, so every other header item is copied unchanged "
+                        "(report.md §2, G21, G35): %r" % (family_value(report, family),),
+                    )
+                else:
+                    self.assertEqual(
+                        family_value(report, family),
+                        record[family],
+                        "every other family is copied by value from the record and never "
+                        "invented, reshaped or sorted (report.md §2, §4, G21): %r"
+                        % (family_value(report, family),),
+                    )
+        self.assertNotIn(
+            "shape",
+            dict(record["header"]),
+            "the completion is written onto the report's own copy and never into the "
+            "record it was handed (report.md §4, shape.md §4, G35)",
+        )
         self.assertEqual(
             pool_member_ids(family_value(report, "pool")),
             BASELINES,
@@ -886,6 +970,100 @@ class GuardrailsTest(EvaluationCase):
             "confused (report.md §2, protocol.md §6, G21): %r"
             % (report.get("device"),),
         )
+
+    def test_evl_11_g31_an_absent_game_reads_as_the_default_shape_everywhere(self):
+        """EVL-11.G31 an absent `game` reads as `DEFAULT_SHAPE` in every record this module returns and every record it accepts -- a pool declaration, a member record, a cell, a matrix, a rating and a report's three records -- and none of them is refused for the absence; only a name that **is** declared and uncatalogued is refused, never mapped onto the default (`shape.md` §2, §4, `errors.md` §5, G31, D-29)."""
+        package = self.evaluation()
+        default = default_shape()
+        with self.subTest(carrier="a pool declaration"):
+            silent = declaration(members=(), m=5, frozen=True)
+            self.assertNotIn(
+                "game",
+                silent,
+                "the case drives the absence itself and never a named shape "
+                "(shape.md §2, G31)",
+            )
+            self.assertEqual(
+                package.pool_members(package.build_pool(silent))["game"],
+                default,
+                "a declaration that names no shape is a pool on the default one and is "
+                "not refused for the silence (pool.md §1, shape.md §2, G31): %r"
+                % (package.pool_members(package.build_pool(silent))["game"],),
+            )
+        with self.subTest(carrier="a member record"):
+            member = version_record(VERSION_IDS[0], START_LABEL, step=2)
+            self.assertNotIn("game", member, "the member record names no shape (records.md §7)")
+            pool = package.build_pool(declaration(members=[member], m=POOL_M, frozen=True))
+            self.assertIn(
+                VERSION_IDS[0],
+                self.members_of(pool),
+                "a version record that names no shape is a default-shape member and is "
+                "admitted, the default shape being the absence and not a defaulting "
+                "(records.md §7, shape.md §2, §4, G31): %r" % (self.members_of(pool),),
+            )
+        with self.subTest(carrier="a cell"):
+            cell = package.match("random", "always-call", 2, OPPONENT_SEEDS[2])
+            self.assertEqual(
+                cell["game"],
+                default,
+                "a cell whose two sides name no shape is played on the default shape "
+                "and says so (scheduler.md §1, §4, shape.md §4, G31): %r"
+                % (cell["game"],),
+            )
+        with self.subTest(carrier="a matrix"):
+            matrix = hand_matrix(balanced)
+            self.assertNotIn("game", matrix, "the hand-built table names no shape")
+            self.assertFalse(
+                [cell for cell in matrix_cells(matrix) if "game" in cell],
+                "no cell of it names a shape either, so the absence is the table's "
+                "and its cells' both (rating.md §6, shape.md §2, G31)",
+            )
+            rating = package.rating(matrix)
+            self.assertEqual(
+                rating["game"],
+                default,
+                "a matrix with no shape anywhere is rated as the default shape's, which "
+                "is what keeps every table already recorded ratable and every rating "
+                "already fitted readable (rating.md §1, §6, shape.md §2, G31): %r"
+                % (rating["game"],),
+            )
+        with self.subTest(carrier="a report's three records"):
+            rung, record, matrix, rating = report_inputs()
+            self.assertNotIn("game", record, "the run record names no shape")
+            self.assertNotIn(
+                "game",
+                record["pool"],
+                "the pool family names no shape either, and a report completes nothing "
+                "into it (report.md §2, shape.md §4, G35)",
+            )
+            report = package.report(rung, record, matrix, rating)
+            self.assertEqual(
+                family_value(report, "header")["shape"],
+                default,
+                "a run record, a pool family and a matrix that name no shape are one "
+                "shape -- the default -- and the report says so without refusing any of "
+                "the three (report.md §3 item 6, shape.md §2, §4, G31): %r"
+                % (family_value(report, "header"),),
+            )
+        with self.subTest(carrier="a version-1-to-3 container"):
+            saved = self.checkpoint(name="member")
+            self.assertEqual(
+                package.policy_from(saved["path"]).game,
+                default,
+                "a container that records no shape -- a version-1, 2 or 3 one, which is "
+                "what a default-shape save writes -- is a default-shape member, which is "
+                "what keeps the 18 shipped containers loadable (scheduler.md §5.1, "
+                "shape.md §2, docs/L1/shapes.md §3, §5, G31): %r" % (saved["path"],),
+            )
+        with self.subTest(carrier="only a declared but uncatalogued name is refused"):
+            self.assert_evaluation_refusal(
+                package.build_pool,
+                dict(declaration(members=(), m=5, frozen=True), game="fixed-limit-40"),
+                entry="build_pool",
+                groups=(("fixed-limit-40",), (default,), (other_shape(),)),
+                label="a declared shape the catalogue does not carry",
+                kind="UnknownShape",
+            )
 
 
 if __name__ == "__main__":
