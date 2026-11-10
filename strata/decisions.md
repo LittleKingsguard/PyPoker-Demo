@@ -754,3 +754,33 @@ this build, so the shipped 200,000-hand budget is currently **refused** by the p
 the `tie` flag is not returned by any exploration-off surface, so conjunct 7 records `T = 0` rather than
 verifying it; and a min-raise-versus-min-raise pair can exceed the 24-slot history block, which the
 shipped population never reaches but an uncapped shape can.
+
+---
+
+## D-32 — The no-limit pool contains no raiser, and cannot yet seat one
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "The alternate/previous models are already the aggressive raisers in the
+pool"
+
+**Finding:** they are, and they are not in it. Every shipped model is a fixed-limit container (two seats,
+203 slots, three-wide head) and a no-limit pool refuses it as a foreign shape, so the no-limit league
+started empty of version members: six baselines, of which `always-call` and the oracle raise 0 % of the
+time and the three folders fold. The learner's ~0 % fold rate was that pool's answer, not a learning
+failure.
+
+**Blocker:** seating one trained no-limit model in the pool trains until a hand reaches 25 decisions and
+then refuses by name — `encode(readout): 'history' must be at most 24 entries, got 25`. The 24-slot
+history is derived from the fixed-limit cap, and the design kept the 203-slot layout for both shapes, so
+the overflow was latent until a raiser was seated (V-F6, D-31).
+
+**Decision:** the no-limit shape is **not runnable against a raiser** until the history block's capacity
+is decided — widen it per shape (touching that shape's width, head, parameter count and containers),
+coarsen it for the uncapped shape (keeps the width, loses resolution where the price signal lives), or
+truncate (refused by the encoder today, and a silently shorter observation). That decision is the next
+design question; the overnight run stays blocked because the league it would enter has no opposition
+that makes folding correct.
+
+Rejected: seating a scripted raiser baseline instead — it would test folding without fixing the league,
+and D-21's baselines are meant to be fixed rules, not stand-ins for trained opponents.
