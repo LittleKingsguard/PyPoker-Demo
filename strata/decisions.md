@@ -874,3 +874,31 @@ learner rather than about the game.
 
 Rejected: reading the six-seat run as decisive on folding, which the missing street fact made impossible
 (D-34), and changing the game again before that test is run (D-6).
+
+---
+
+## D-36 — The RCA's blocking cause is mechanical: no run may exceed 2,000 hands
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "RCA how it learned to fold 0/15,127 of the time. This is not the
+consequence of the game being biased against folding, that is an algorithm failure."
+
+**Findings:** folding is not blocked by the reward (a tabular learner with the same terminal payoff folds
+100 %), not by the missing `hand_class` fact (the same learner folds 100 % without strength in its state),
+and not by the pool (a learner trained with a raiser in the pool folds 0 of 12,856 decisions). The one
+remaining difference is scale: 8 states and 20,000 hands against 14,766 parameters and ~3,000 decisions.
+
+**The blocker:** that hypothesis needs more hands, and **the build refuses any budget above 2,000** —
+`GreedyPassRefused`, because the greedy pass plays the whole budget and one pass is capped at 2,000 hands.
+So the deep run cannot start, and the zero-fold rate is not yet attributable.
+
+**Decision:** lift the pass's cap by **sampling the pass from the run** (a fixed number of hands drawn
+from the run's own distribution) rather than by refusing the run, then re-run the RCA at 20,000+ hands
+with a raiser in the pool. A learner that folds there makes budget the cause; one that still does not
+makes the max operator's overestimation the cause, and the already-implemented Double-Q rule is the
+untried candidate for it (D-19).
+
+Rejected: capping every run at 2,000 hands (it would make the deep run impossible and hide the
+attribution), and re-running the six-seat test at this budget to look for folding (it cannot distinguish
+the two causes, D-35).
