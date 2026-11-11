@@ -1085,3 +1085,45 @@ budget and the two-seat zeros were a configuration not to generalise from.
 
 Rejected: building the reveal-counterfactual rule (D-41: no carrier on either axis), and reading Double-Q's
 null as evidence that folding is not worth pursuing (it is a null about one remedy, not about the cause).
+
+---
+
+## D-43 — The counterfactual is authorised: episode resolution comes first
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Do the counterfactual anyway. Add the necessary resolution changes to
+determine the reveal and whether the caller/folder (would have) lost/won, all of the needed
+functionality is present in the package"
+
+**Decision:** this **overrides D-41's refusal** and authorises the surface change D-41 said was
+required: the transition record gains the **episode boundary** `rules.md` §5 previously declined, and the
+episode record gains the **reveal** — which seats were revealed, with what, and the outcome — so that a
+counterfactual can be resolved from declared artefacts and never from a privileged peek at decision time.
+The readout keeps its rule that no seat's hole cards are visible to another seat while a hand is live.
+
+The gate's findings are the build's requirement list, not obstacles to route around:
+
+1. **Resolution, not privilege.** The reveal is recorded *after* the hand and consumed by the training
+   step. A learner must never see another seat's cards through its observation (`readout.md` §4 stays
+   true); what changes is that the *record* can name what happened.
+2. **One quantity.** The counterfactual value of an action must be a whole-hand net-chip delta of the same
+   kind the utility consumes — no `to_call` on one branch and not the other, no omitted later-street
+   commitments. This was the gate's arithmetic objection (F5/C8) and it is a correctness requirement.
+3. **The budget must not move with the rule.** `rules.md` §2's promise — a rule swap moves no budget —
+   holds, or the step count is declared as part of the member's contract and the promise is corrected.
+4. **All actions means all of them** (the user's words): `fold`, `check-call` and **every raise band the
+   shape declares**, each with a **declared opponent-continuation assumption** where the reveal cannot
+   supply one (a counterfactual raise has no observed response).
+5. **Attributable**: the member is opt-in per variant so a paired arm differs only in it (D-3), on one
+   frozen pool, one seed set, one budget.
+6. **A pinned criterion before any run**: observable, seeds, sample size, threshold, and the verdict's
+   computer — the defect D-25, D-28 and D-41 each record.
+7. **Shapes declared**: which shapes the member supports, named, since the fixed-limit shape has showdowns
+   too and D-33 forbids reading one shape's result as evidence for another.
+
+**Method sanctioned by the user's last clause:** the package carries what resolution needs — the state
+machine can be copied and continued, hole cards are known to the engine, and the board is dealt — so the
+counterfactual may be resolved by replaying a hand with one action substituted rather than by assuming a
+runout. Whether that replay or the showdown-reveal form is adopted is L1's design decision, with its cost
+declared.
