@@ -1,6 +1,6 @@
 # training — the rung registry as data, the one loop, and the edges
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-11
 - **Owner of this file:** the registry as data (§1, §2), the one loop (§3), what a comparison holds constant and
   the R1/R2 parity rung (§4), budgets and devices (§5), the notebooks this module owns (§6), the checkpoints that
   ship (§7), the contracts at this edge (§8) and the battery invariants it carries (§9)
@@ -8,7 +8,7 @@
 - **Rev 3:** §1's step 1 and §2 refuse a declaration the run would not honour — `declarations.md` §1–§4 owns it (ASM-7). **Rev 5:** §1 step 9 and §9's FAM-12 row name the `rules`, and `checkpoints()`'s entries carry each artefact's `rule` (D-19). **Rev 6:** §1 step 2 forwards a `pool` entry's `baselines`, §3 reads the pinned set through `evaluation.league` and §9 gains a D-21 row (ASM-32, D-21). **Rev 7:** D-29 reaches §1's steps 2, 3, 5 and 8 (the shape through the pool, the encoder, the learner, the hand and the pass), §4's fairness list and shape refusal, §5's pass budget and §8–§9 — the pass itself is `docs/L3/training/greedy.md`'s, its bound `declarations.md` §2's (D-29, ASM-38, D-28)
   **Rev 8:** D-33's third shape reaches §3's steps 4–5 (the hand `episode._hand` deals, the seat `index % seats`, the
   distinct draw), §4's held constants, §5's shape-own record bound, and §9, a pointer to `invariants.md` (D-33,
-  `seats.md` §2–§5, `shapes.md` §8)
+  `seats.md` §2–§5, `shapes.md` §8). **Rev 9:** D-36 reaches §5 — the pass is a bounded **sample**, never a refusal (D-36)
 - **Ceiling:** 220 lines. At the ceiling, split by owner — never append
 
 ## 1. The registry is data (D-3)
@@ -155,13 +155,14 @@ a parity comparison, where a large skill difference is a defect and not a findin
 | Snapshots per run | 10 at equal intervals, `snapshot_every` = budget ÷ 10; the window retains the last M (ASM-18) | the same rule |
 | Table budget of the row | `live`, 120 hands per cell (ASM-14) | `full`, 1,500 (ASM-14) |
 | Parameter budget of a pair | 10,000 ±2%, as declared (ASM-10) | the same |
-| Greedy pass, per variant per seed | the run's own budget — 1,000 hands at the live budget — and at most 2,000 hands and 1,000 decision records per slot of the **run's own shape's** history capacity: 24,000 at the default shape, 66,000 and 98,000 on the uncapped ones, refused beyond and never truncated (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42) | the same shape-own bound: a 200,000-hand run would be **refused**, because its pass could not be recorded at all |
+| Greedy pass, per variant per seed | the run's own budget when it is at most 2,000 hands — 1,000 at the live budget — and **2,000 otherwise**: the sample is the run's own first `hands` hands, and the block stays inside 1,000 decision records per slot of the **run's own shape's** history capacity — 24,000 at the default shape, 66,000 and 98,000 on the uncapped ones — refused beyond and never truncated (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42, D-36) | the same sample bound: a 200,000-hand run **completes**, and its pass is a 2,000-hand sample of the hands it trained on |
 
 The comparison is matched in **samples, not wall clock**: every rung trains the same number of hands, so a slow engine
 costs the clock and never the fairness (ASM-8, ASM-15, C-C2). The live budget keeps a rung at a few minutes in a talk
 and the shipped checkpoints show that training time matters; one protocol and one membership serve both, so the sample
 count and the cell size separate them (D-8, `ladder.md` §6, D-6). The pass is **sample-matched** to the run's own
-budget, so a ten-hand case costs twenty and no case pays a fixed 1,000 (`sizing.md` §4, ASM-38, `greedy.md` §1).
+budget up to the bound — a ten-hand case costs twenty and no case pays a fixed 1,000 — and above it the pass is a
+2,000-hand sample of the run's own hands, which is what lets the 200,000-hand budget run (`sizing.md` §4, ASM-38, D-36).
 
 `devices()` reports what the platform offers and the device a run uses by default (`surface.md` §6, `devices.md` §1). A
 run started by this workflow is CPU-bound — the sandbox denies the read-write opens a driver performs, so no delegated

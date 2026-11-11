@@ -1,6 +1,6 @@
 # training — what a configuration declares, and what the run honours
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-10
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-11
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** every key of `ladder.md` §3's schema read against the one loop's own behaviour (§1, whose table
   is `audit.md`'s), the rule that keeps a discarded declaration out of a run (§2), the refusals it raises and what each
@@ -10,7 +10,7 @@
   with them (§2, `docs/L3/training/greedy.md` §4, ASM-38). **Rev 5:** D-33 makes the catalogue **three** rows and that
   shape declaration **three** tables — the names, the descriptor counts and each shape's history capacity — and the
   pass's record bound the run's own shape's, 1,000 records a slot; the seat count is none of them, being read from
-  `engine.game_config` (§1–§2, `shapes.md` §2, §8, ASM-42, ASM-44, `seats.md` §2–§5, D-33)
+  `engine.game_config` (§1–§2, `shapes.md` §2, §8, ASM-42, ASM-44, `seats.md` §2–§5, D-33). **Rev 6:** D-36 makes the hand bound the **sample's** (`min(budget, 2,000)`) and no run's, so a pass is refused for a request and never a run for its budget (§2, `greedy.md` §4, D-36)
 - **Reads:** `ladder.md` §3–§4, `records.md` §2, `loop.md` §2–§3, `surface.md` §4–§5, `agents/surface.md` §3–§4,
   `shapes.md` §2–§3, §8, `seats.md` §2–§5
 
@@ -52,10 +52,10 @@ honour rather than replacing it — four of them, before the first hand and befo
   uses one value for both arms and would silently keep the first (`ladder.md` §4, ASM-8, ASM-16).
 
 The one declaration the run does not read and does not refuse is the **pass's bound**, because it is not a caller's to
-declare: at most 2,000 hands and 1,000 decision records per slot of the run's **own** shape's history capacity — 24,000
-at the default shape, 66,000 and 98,000 on the uncapped ones — read through `declarations.greedy_decisions(shape)` and
-refused by `GreedyPassRefused` with both counts, the shape and its capacity, never truncated and never narrowed by a
-configuration (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42, `greedy.md` §4).
+declare: one pass plays `min(budget, 2,000)` of the run's own hands, so a budget above it is **sampled, never refused**;
+and the record bound is the run's own shape's — 1,000 records a slot, 24,000 / 66,000 / 98,000 — read through
+`declarations.greedy_decisions(shape)` and refused by `GreedyPassRefused` naming the count, the shape and its capacity,
+never truncated (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42, `greedy.md` §4, D-36).
 
 The one key honoured where it was dropped is `param_budget`: the `params` block is per variant, so it reports that
 variant's own declared budget, else the configuration's, else the declared 10,000 — an entry-first order, unlike

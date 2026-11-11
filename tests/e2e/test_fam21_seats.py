@@ -1332,9 +1332,9 @@ class FAM21Seats(S.SurfaceCase):
             hands = int(S.declared_field(block, "a greedy pass (records.md §15)", "hands"))
             self.assertEqual(
                 hands, samples,
-                "the pass plays the run's own sample, so a %d-hand run yields a %d-hand pass "
-                "(records.md §15, sizing.md §4, seats.md §5): %r"
-                % (samples, samples, block),
+                "the pass plays the run's own sample, so a run of %d hands at or below the "
+                "bound yields a %d-hand pass (records.md §15, sizing.md §4, seats.md §5, "
+                "D-36): %r" % (samples, samples, block),
             )
             self.assertLessEqual(
                 hands, PASS_HANDS_BOUND,

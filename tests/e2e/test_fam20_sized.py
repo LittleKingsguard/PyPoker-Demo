@@ -1,7 +1,8 @@
 """FAM-20 — the sized action: four bands, one amount each, and the exploration-off read.
 
 `docs/L1/battery.md` §3 FAM-20, `docs/L1/sizing.md` §2–§4 and §7, `docs/L1/records.md` §5
-and §15, `docs/L1/e2e-surface.md` §2 "Action vocabulary", D-29, D-13.
+and §15, `docs/L1/e2e-surface.md` §2 "Action vocabulary", `docs/L3/training/greedy.md` §1
+and §4, D-29, D-36, D-13.
 
 The no-cap shape declares four raise descriptors that partition the legal integer interval
 `[m, A]` between the minimum legal raise-to `m` and the all-in raise-to `A`, with
@@ -14,10 +15,13 @@ overlap D-28 recorded, made impossible by construction.
 
 What this family asserts is the machinery and never the verdict: that the bands are
 disjoint and total, that a recorded amount attributes to one descriptor, that a decision
-record carries the amount and both bounds, that the greedy mode decides without a draw and
-that the pass is bounded and refused beyond its bound.  Whether a trained learner's census
-meets `sizing.md` §7's criterion is a script's measurement over a run record and **never a
-case** (`battery.md` §5, D-11, ASM-38).
+record carries the amount and both bounds, that the greedy mode decides without a draw,
+that the pass's hand count is the **sample** `min(budget, 2,000)` and never the run's
+budget, and that a **run** above the bound completes with its pass bounded at the sample and
+never truncated — the pass-side refusal is measured in the unit battery, where private names
+are contract (`tests/training/test_greedy.py::TRN-14.5`, `battery.md` §2, D-36).  Whether a
+trained learner's census meets `sizing.md` §7's criterion is a script's measurement over a
+run record and **never a case** (`battery.md` §5, D-11, ASM-38).
 
 Every assertion is read from entry points and from the decision records they return.  The
 arithmetic of `sizing.md` §2 is the **expected** side and is computed from each decision's
@@ -50,8 +54,10 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
 PASS_HANDS_BOUND = 2000
 PASS_DECISIONS_BOUND = 24000
 
-# The battery's own invented budget for the pass it reads back, and the budget one above
-# the hand bound that must be refused (`battery.md` §4, sizing.md §4).
+# The battery's own invented budget for the pass it reads back, and the budget one hand above
+# the hand bound, which **completes**: the run trains it and its own pass covers the run's
+# first 2,000 hands, because the bound bounds the sample and never the run (`battery.md` §4,
+# sizing.md §4, greedy.md §1, D-36).
 PASS_HANDS = 10
 REFUSED_HANDS = PASS_HANDS_BOUND + 1
 
@@ -547,18 +553,49 @@ class FAM20Sized(S.SurfaceCase):
             )
 
     def test_fam20_7_the_greedy_pass_is_bounded_refused_and_never_truncated(self):
-        """FAM-20.7 the pass plays the run's own sample, and a pass beyond its bound is refused.
+        """FAM-20.7 the pass samples the run, and the run above the bound completes.
 
         `sizing.md` §4 and `records.md` §15: a run retains one decision stream — the
         exploration-off pass — at most 2,000 hands and, per variant per seed, 1,000 decision
         records **per slot of the shape's history capacity** — 24,000 at the default shape,
-        66,000 on `no-limit-100` and 98,000 on D-33's six-seat row — and a pass that would
-        exceed either bound is **refused, never truncated** (`shapes.md` §8, ASM-38,
-        D-33).  The case reads a run at a ten-hand budget on each shape declared beside the
-        default, so the pass's own hand count is ten (the sample is the run's), and it then
-        hands one configuration a budget one hand over the bound: the call must be refused,
-        naming the bound, and must return no record at all — a truncated log would silently
-        report a different sample.
+        66,000 on `no-limit-100` and 98,000 on D-33's six-seat row — and neither bound is
+        truncated (`shapes.md` §8, ASM-38, D-33).  **D-36 makes the hand bound bound the
+        sample and never the run**: one pass plays `min(budget, 2,000)` hands of the run's
+        own hands — the run's prefix — so a budget above the bound **completes**, its pass
+        carrying `hands == 2,000` and one net chip delta per hand of that sample, and a
+        **pass request** above the bound is still refused naming the count asked for and the
+        bound, because a truncated log would silently report a different sample (`greedy.md`
+        §1, §4, `sizing.md` §4, `records.md` §15, ASM-38, D-36).
+
+        The case reads a run at a ten-hand budget on each shape declared beside the default,
+        so the pass's own hand count is ten — below the bound the sample rule is the
+        identity — and it drives the half of D-36 a run can reach:
+
+        * the **sample a run retains at or below the bound**, on each shape declared beside
+          the default: a ten-hand run's pass is its own ten hands with `off`, its seed, one
+          net chip delta per hand, and indices that are their own mask's, their shape's and
+          the descriptor each of them decodes to;
+        * the **completing run** at a 2,001-hand budget, whose pass must be exactly 2,000
+          hands with `off`, the run's seed, a count that is the bound and not the budget,
+          every delta a real number, indices that are their own mask's and their shape's, and
+          a log inside `1,000 × the shape's history capacity`.
+
+        The hand-bound **refusal** is not driven here: it is measured by
+        `tests/training/test_greedy.py::TRN-14.5`, which calls `_check_hands(2001)` and
+        asserts both counts, because private names are contract only for `tests/training/`
+        and `battery.md` §2 forbids an e2e case reaching an internal call
+        (`docs/L3/training/README.md` §4, D-36).
+
+        That last run is a 2,001-hand pass over 2,000 hands on a **cheap** architecture,
+        because the claim is about the count and not about the model
+        (`self.seated_rung(..., width=8, depth=1)`).  It is driven on `no-limit-100` only:
+        measured on this machine a six-seat configuration of that size costs about 0.46 s a
+        hand trained (0.24 s on the two-seat uncapped shape), so the five runs this walk
+        already makes are cheap and a 2,001-hand six-seat one is a fifteen-minute run for a
+        claim `_sample`'s and `loop`'s that is shape-independent — the unit battery drives it
+        at `tests/training/test_greedy.py::TRN-14.5` and the prefix property at TRN-14.8,
+        and every shape's pass is read above at ten hands.  A twenty-minute case would buy
+        no assertion this one does not already make (`battery.md` §2, `sizing.md` §4, D-36).
         """
         for shape in self.other_shapes():
             configuration = self.seated_rung(shape=shape, seeds=(S.SEED_A,),
@@ -621,8 +658,9 @@ class FAM20Sized(S.SurfaceCase):
                 # record's length is bounded by the sample and is not the sample's hand count
                 # (`records.md` §5, §15).  What "never truncated" means here is that every
                 # hand of the pass is present with its own outcome and that the log stays
-                # inside its bound: a pass over the bound is refused below, and a shorter
-                # **sample** is caught by the hand count above.
+                # inside its bound: a shorter **sample** is caught by the hand count above,
+                # and the refusal a request beyond the bound earns is `TRN-14.5`'s, because
+                # no entry point here can ask for one (`battery.md` §2, D-36).
                 self.assertGreaterEqual(
                     len(decisions), 1,
                     "the pass retains the decisions it played — an empty log is no stream at "
@@ -669,30 +707,125 @@ class FAM20Sized(S.SurfaceCase):
                         "`tie` is a boolean flag on every retained decision (records.md §15, "
                         "sizing.md §3): %r" % (decision["tie"],),
                     )
-            # One hand over the bound: refused with both counts named, and no record written.
-            text = S.refusal_text(
-                lambda configuration=configuration: self.ep("training", "run")(
-                    configuration, [S.SEED_A], REFUSED_HANDS, "cpu"
+            # Nothing is refused at this budget: a run's budget is no longer the pass's hand
+            # count, so the pass above is read for the sample it played and the count it did
+            # not exceed (greedy.md §1, §4, sizing.md §4, D-36).
+
+        # The hand-bound **refusal** is not driven here, and the rule it would break is
+        # `battery.md` §2's: `_check_hands` is a private name contract for `tests/training/`
+        # (`docs/L3/training/README.md` §4), and an e2e case reaches no internal call.  It is
+        # measured there instead — `tests/training/test_greedy.py::TRN-14.5` calls
+        # `_check_hands(2001)` and asserts both counts (D-36).
+        #
+        # What is driven here is the other half, and it is a run's own record: a budget one
+        # hand over the bound **completes** (D-36): the per-pair step asks `_pass` for
+        # `greedy._sample(budget)`, so the run trains its 2,001 hands and the pass replays the
+        # run's first 2,000 — one net chip delta per hand of that sample, in the shape's own
+        # vocabulary and inside the shape's own record bound (greedy.md §1, §4, loop.md §1
+        # steps 1 and 8, sizing.md §4, records.md §15, ASM-38).
+        for shape in (self.second_shape(),):
+            configuration = self.seated_rung(shape=shape, seeds=(S.SEED_A,),
+                                             samples=REFUSED_HANDS, width=8, depth=1)
+            record = self.ep("training", "run")(
+                configuration, [S.SEED_A], REFUSED_HANDS, "cpu"
+            )
+            self.assertEqual(
+                int(S.declared_field(record, "a run record (records.md §12)", "budget")),
+                REFUSED_HANDS,
+                "a budget one hand above the pass's hand bound is a run this module accepts "
+                "and records — no bound is checked at resolve, so the run is neither refused "
+                "nor shortened (D-36, greedy.md §4, loop.md §1 step 1, sizing.md §4): %r on "
+                "%r" % (record.get("budget"), shape),
+            )
+            passes = self.greedy_passes(record)
+            for path, block in passes:
+                hands = int(S.declared_field(block, "a greedy pass (records.md §15)", "hands"))
+                self.assertEqual(
+                    hands, PASS_HANDS_BOUND,
+                    "the pass's hand count is the **sample** and not the budget: "
+                    "min(%d, %d) is %d, so a 2,001-hand run passes over its first 2,000 "
+                    "hands (greedy.md §1, §4, sizing.md §4, records.md §15, D-36): %r on %r"
+                    % (REFUSED_HANDS, PASS_HANDS_BOUND, PASS_HANDS_BOUND, block, shape),
                 )
-            )
-            self.assertIsNotNone(
-                text,
-                "a run whose budget would make the pass exceed its hand bound is refused, not "
-                "truncated (sizing.md §4, records.md §15, ASM-38): a %d-hand budget on %r"
-                % (REFUSED_HANDS, shape),
-            )
-            self.assertIn(
-                str(PASS_HANDS_BOUND),
-                text,
-                "the refusal names the bound the pass would cross (records.md §15, sizing.md "
-                "§4): %r" % (text,),
-            )
-            self.assertIn(
-                str(REFUSED_HANDS),
-                text,
-                "the refusal names the count that crossed it, so a reader knows the sample it "
-                "asked for and the sample the bound allows (sizing.md §4): %r" % (text,),
-            )
+                self.assertNotEqual(
+                    hands, REFUSED_HANDS,
+                    "and that count is **not** the budget: a pass is bounded at the hand "
+                    "bound, so a 2,001-hand run's block states 2,000 hands and never the whole "
+                    "sample it trained — a `hands` equal to the budget would be the unbounded "
+                    "pass D-36 removed (greedy.md §1, §4, sizing.md §4, records.md §15, "
+                    "D-36): %r on %r" % (hands, shape),
+                )
+                net_chips = S.declared_field(block, "a greedy pass (records.md §15)",
+                                             "net_chips")
+                deltas = list(net_chips)
+                self.assertEqual(
+                    len(deltas), PASS_HANDS_BOUND,
+                    "and it carries one net chip delta per hand of that sample and not per "
+                    "hand of the run, so `budget` beside `hands` states the share the block "
+                    "covers (records.md §15, ASM-23, greedy.md §4, D-36): %d deltas"
+                    % (len(deltas),),
+                )
+                for value in deltas:
+                    self.assertIsInstance(
+                        float(value), float,
+                        "every one of those deltas is a real number — the learner's seat's "
+                        "net chips for one hand of the sample — so the 2,000 entries are one "
+                        "delta per hand played and none invented (records.md §5, §15, "
+                        "ASM-23, D-36): %r" % (value,),
+                    )
+                self.assertEqual(
+                    str(S.declared_field(block, "a greedy pass (records.md §15)", "mode")),
+                    MODE_GREEDY,
+                    "the sampled pass is still the exploration-off one — the masked maximum "
+                    "and the tie-break alone, with no generator drawn from (records.md §15, "
+                    "sizing.md §4, ASM-38): %r on %r" % (block, shape),
+                )
+                self.assertEqual(
+                    int(S.declared_field(block, "a greedy pass (records.md §15)", "seed")),
+                    S.SEED_A,
+                    "played at the run's own seed, which is what makes the sample replayable "
+                    "from the record's own tuple (records.md §15, greedy.md §1, §5, ASM-2): "
+                    "%r" % (block.get("seed"),),
+                )
+                decisions = list(S.declared_field(block, "a greedy pass (records.md §15)",
+                                                  "decisions"))
+                self.assertGreaterEqual(
+                    len(decisions), 1,
+                    "the sampled pass retains the decisions it played — an empty log is no "
+                    "stream at all, so the reads below are not vacuous (sizing.md §4, "
+                    "records.md §15): %r on %r" % (block, shape),
+                )
+                self.assertLessEqual(
+                    len(decisions), 1000 * S.SHAPE_LAYOUTS[shape]["history"],
+                    "and it stays inside %r's record bound of 1,000 × its %d-slot history "
+                    "capacity, refused beyond and never truncated (records.md §15, "
+                    "shapes.md §8, ASM-38, D-33): %d records"
+                    % (shape, S.SHAPE_LAYOUTS[shape]["history"], len(decisions)),
+                )
+                vocabulary = set(self.vocabulary(shape))
+                for decision in decisions:
+                    self.assertIn(
+                        int(decision["index"]),
+                        set(int(member) for member in decision["legal"]),
+                        "a sampled decision's index is one of its own legal mask, as every "
+                        "retained decision's is (records.md §15, greedy.md §2): %r on %r"
+                        % (decision, shape),
+                    )
+                    self.assertIn(
+                        int(decision["index"]),
+                        vocabulary,
+                        "and one of the run's shape's declared indices, because the sample is "
+                        "replayed on the shape the run trained on (records.md §15, shapes.md "
+                        "§3, sizing.md §3, D-33): %r on %r" % (decision, shape),
+                    )
+                    self.assertEqual(
+                        str(decision["descriptor"]),
+                        self.decode_action(int(decision["index"]), shape),
+                        "and its descriptor is the one its index decodes to in the run's own "
+                        "vocabulary, so the sample is shown to be played in the shape's own "
+                        "vocabulary at this edge as it is at ten hands (records.md §15, "
+                        "sizing.md §3, D-33): %r on %r" % (decision, shape),
+                    )
 
     def test_fam20_8_exploration_off_decides_without_a_draw(self):
         """FAM-20.8 two `off` policies at two seeds decide identically; `schedule` does not.

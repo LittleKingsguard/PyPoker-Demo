@@ -5,18 +5,23 @@ discards it, so a log of the behaviour policy would be a log of the exploration 
 the defect D-28 recorded as fatal, because at the live budget almost the whole sample sits
 on the ε ramp and every class clears a floor by construction (`sizing.md` §4, ASM-38,
 D-29).  What a run retains instead is exactly one stream: after a variant's training at a
-seed ends, it plays that variant's **greedy pass** — the same number of hands as the run's
-own sample budget, against the same frozen pool, on the run's own seed — and records it
-under the run record's `greedy` block.
+seed ends, it plays that variant's **greedy pass** — the run's own sample, its first
+`min(budget, 2,000)` hands, against the same frozen pool, on the run's own seed — and
+records it under the run record's `greedy` block.
 
-**The sample is the run's own.**  Hand *i* of the pass is dealt at the seed training dealt
-hand *i* at, draws its opponent with the same derivation, and puts the learner in the same
-seat (`seeds.md` §2, `episode.md` §1): the pass is the training sample replayed against the
-model training finished with, so a live-budget run yields a 1,000-hand pass, a
-ten-hand battery run a ten-hand pass, and the run's hand count, seat split and opponent
-membership are the ones the record already states (`sizing.md` §4, `ladder.md` §6).  The
-pass is therefore cheap in exactly the proportion the run is, which is why the small
-budgets every battery uses stay small (`battery.md` §2).
+**The sample is the run's own prefix.**  Hand *j* of the pass is the run's own hand *j*:
+`episode._hand(pool, shape, seed, j, policy)` deals it at the seed training dealt hand *j*
+at, draws its opponent with the same derivation, and puts the learner in the same seat
+(`seeds.md` §2, `episode.md` §1), so the pass of length `min(budget, 2,000)` is the training
+sample's **prefix** replayed against the model training finished with.  At or below 2,000
+hands `S = budget`, so a live-budget run yields a 1,000-hand pass and a ten-hand battery run
+a ten-hand pass; above it the pass stops after the run's 2,000th hand and the seat split and
+opponent membership are still the ones the run's hands have (`sizing.md` §4, `ladder.md`
+§6).  Which hands the sample was is therefore stated exactly by the record's own `budget`,
+the block's `hands` and the block's `seed` together with `_sample`, and no field beyond the
+five the block carries is needed to say it (D-36).  The pass is therefore cheap in the
+proportion the run is up to the bound, which is why the small budgets every battery uses
+stay small (`battery.md` §2).
 
 **The mode is the policy's and it is `off`.**  The decision is `agents.as_policy`'s policy
 at `exploration="off"`: the masked maximum and `rule.md` §5's tie-break alone, with **no
@@ -24,16 +29,23 @@ generator drawn from**, so two passes over one model decide identically and the 
 function of the model and of the hands and not of a seed (`sizing.md` §4,
 `docs/L3/agents/rule.md` §4, §7, D-19).
 
-**The bound is refused and never truncated.**  A pass is at most 2,000 hands and at most
-1,000 decision records **per slot of the shape's history capacity**, per variant per seed —
-24,000 at the default shape, 66,000 and 98,000 on the uncapped ones — and a pass that would
-exceed either is refused naming both counts and the shape's capacity, because a truncated
-log silently reports a different sample (`sizing.md` §4, `records.md` §15, `shapes.md` §8,
-ASM-38, ASM-42, `docs/L3/features/flat-numeric.md` §5's rule for the history block).  The
-hand bound is checked before the first hand of the run is dealt — the pass's hand count
-*is* the budget, so it is known up front and nothing is written for a run that cannot
-produce its own record — while the record bound can only be known as the pass accumulates
-and is therefore refused the moment a decision record would cross it.
+**The hand bound bounds the sample, and no run is refused for its budget.**  A pass is at
+most 2,000 hands and at most 1,000 decision records **per slot of the shape's history
+capacity**, per variant per seed — 24,000 at the default shape, 66,000 and 98,000 on the
+uncapped ones — and a pass that would exceed either is refused naming both counts and the
+shape's capacity, because a truncated log silently reports a different sample (`sizing.md`
+§4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42,
+`docs/L3/features/flat-numeric.md` §5's rule for the history block).  The hand bound is
+refused on the **pass's request**: `_pass` calls `_check_hands` on the number of hands it is
+asked to play, so a request above 2,000 names the count asked for and the bound, while `run`
+asks only for `_sample(budget)` — at most the bound — and so trains and passes over the
+run's first 2,000 hands whatever the budget is (`sizing.md` §4, `records.md` §15, ASM-38,
+D-36).  A request that is **not a positive integer** — a `bool`, a float, a string, 0 or a
+negative — is refused by the same seam before the first hand is dealt, naming the request
+and the two ends of the contract, so no block is returned whose `hands` is not a positive
+whole number of hands it played (`errors.md` §4, D-36).  The record bound can only be known
+as the pass accumulates and is therefore refused the moment a decision record would cross
+it.
 """
 
 import features
@@ -53,21 +65,51 @@ DECISIONS_BOUND = declarations.GREEDY_DECISIONS
 MODE = "off"
 
 
-def _check_hands(hands, where):
-    """Refuse a pass whose hand count would exceed the bound, naming both counts.
+def _sample(budget):
+    """How many hands one pass plays: `min(int(budget), HANDS_BOUND)`, and no more.
 
-    Raised at the top of `training.run`, before the pool is built and before a hand is
-    dealt: the pass's hand count is the run's own sample budget (`sizing.md` §4), so a
-    budget over 2,000 could never produce a record this module is allowed to write, and a
-    refusal that arrived after 200,000 trained hands would have spent the run to learn it
-    (`e2e-surface.md` §2, ASM-38).
+    One pass plays `min(budget, HANDS_BOUND)` hands, so at or below the bound the rule is
+    the identity — the pass replays exactly the hands such a run always replayed — and above
+    it the pass is a 2,000-hand sample of the run's own hands, its first `HANDS_BOUND` ones
+    (`greedy.md` §1, §4).  The hand bound therefore bounds the **sample** and never the run:
+    a 200,000-hand budget trains and passes over its first 2,000 hands, so a run is never
+    refused for its budget (`sizing.md` §4, `records.md` §15, ASM-38, D-36).  Its argument is
+    the run's own budget, which `run` validates as a positive integer of at least ten hands
+    (`InvalidBudget`, `loop.md` §6), and its result is the pass request that `_check_hands`
+    bounds (`greedy.md` §4, D-36).
     """
+    return min(int(budget), HANDS_BOUND)
+
+
+def _check_hands(hands, where):
+    """Refuse a pass asked for more hands than the bound, naming both counts.
+
+    The bound is on the **pass's request**, raised by `_pass` on the number of hands it is
+    asked to play: a request above 2,000 could never produce a block this module is allowed
+    to write, so it is refused before the pass deals its first hand (`errors.md` §4,
+    ASM-38).  `run` never asks for the budget — it asks for `_sample(budget)`, which is at
+    most the bound — so an over-bound budget reaches this check only when a caller of `_pass`
+    asks for more hands than the bound, which the loop never does: the run trains and passes
+    over its first 2,000 hands (`D-36`).
+
+    The request must also be a **positive integer**: a `bool`, a float, a string, 0 or a
+    negative is refused naming the request and the contract — a pass plays at least one hand
+    and at most `HANDS_BOUND` — before the pass deals its first hand, which is what keeps
+    `int()` from truncating a float into an honest-looking count and keeps every returned
+    block's `hands` a positive integer equal to `len(net_chips)` (`errors.md` §4, D-36).
+    """
+    if isinstance(hands, bool) or not isinstance(hands, int) or hands < 1:
+        raise errors.GreedyPassRefused(
+            "%s refused the greedy pass: the pass was asked for %r hands, and a pass "
+            "plays at least 1 hand and at most %d (sizing.md §4, records.md §15, "
+            "ASM-38, D-36)"
+            % (where, hands, HANDS_BOUND)
+        )
     if int(hands) > HANDS_BOUND:
         raise errors.GreedyPassRefused(
-            "%s refused the greedy pass: the run's budget is %d hands per variant per "
-            "seed, so the pass would play %d hands, and one pass plays at most %d "
-            "(sizing.md §4, records.md §15, ASM-38)"
-            % (where, int(hands), int(hands), HANDS_BOUND)
+            "%s refused the greedy pass: the pass was asked for %d hands, and one pass "
+            "plays at most %d (sizing.md §4, records.md §15, ASM-38)"
+            % (where, int(hands), HANDS_BOUND)
         )
 
 
@@ -133,8 +175,17 @@ def _decision_record(decision, shape):
     }
 
 
-def _pass(pool, shape, seed, budget, policy, where):
+def _pass(pool, shape, seed, hands, policy, where):
     """One variant's greedy pass at one seed: `records.md` §15's block, bounded.
+
+    The fourth argument is the number of hands the pass is **asked** for: `loop` hands it
+    `_sample(budget)`, so it is the sample's count and not the run's budget.  It is a
+    **positive-integer request**: `_check_hands` refuses anything else by name before the
+    first hand is dealt, so `hands` is always a positive whole number and the block's
+    `hands` always equals `len(net_chips)` (`errors.md` §4, D-36).  The block is
+    therefore the run's **prefix** — hand *j* is the run's own hand *j*, dealt by
+    `episode._hand` below, so a pass of `S` hands is the first `S` hands training played and
+    `hands` reports that sample's count (`greedy.md` §1, §4, D-36).
 
     The learner's side is `policy` — `agents.as_policy` at `exploration="off"` — and the
     other side is the hand's opposition, drawn by `episode._hand` from
@@ -162,8 +213,8 @@ def _pass(pool, shape, seed, budget, policy, where):
     named here and returned to L1 as an `ADJUDICATION` rather than papered over
     (`modules.md` §3, D-13, `sizing.md` §7's tie artefact).
     """
-    hands = int(budget)
     _check_hands(hands, where)
+    hands = int(hands)
     net_chips = []
     decisions = []
     for index in range(hands):

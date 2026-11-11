@@ -1,11 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 11 · **Date:** 2026-11-10
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 12 · **Date:** 2026-11-11
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
 - **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path (`write-root.md`, split out
   because this file reached its ceiling). **Rev 4:** §6's probe rule is the sibling `devices.md`. **Rev 5:** §4's and §5's
-  refusals include the declarations a run would discard (`declarations.md` §1–§4). **Rev 7:** the rule reaches §4's `pool` row and §7 (D-19). **Rev 8:** D-20 reaches §4's `pool`, `variants` and `rules` rows, §5's seventh axis, §7's index entry and `declarations.md`'s utility check — `utility.md`. **Rev 9:** D-21 reaches §1's granted calls, §3.1's id, §4's `pool` row, refusals and `baselines` block — the pinned set read off the catalogue's flag, and one row per baseline the pool holds. **Rev 10:** D-29 reaches §1's granted calls (`agents.as_policy` at `exploration="off"`), §4's `game` and `greedy` rows with the `UnknownShape` and `GreedyPassRefused` refusals, §4.1's shape-aware header and §5's `shape` constant — the pass is `greedy.md`'s, the bound `declarations.md` §5's (D-29, ASM-38, D-28). **Rev 11:** D-33's third shape reaches §1's restated tables, §4's `game` row and §4.2 — three names, three descriptor counts and three history capacities, the seat rotation `index % seats`, the shape's own record bound, and no table row from a shape whose seat count is not two (`seats.md` §2–§5, `shapes.md` §8, ASM-42, ASM-43, D-33)
+  refusals include the declarations a run would discard (`declarations.md` §1–§4). **Rev 7:** the rule reaches §4's `pool` row and §7 (D-19). **Rev 8:** D-20 reaches §4's `pool`, `variants` and `rules` rows, §5's seventh axis, §7's index entry and `declarations.md`'s utility check — `utility.md`. **Rev 9:** D-21 reaches §1's granted calls, §3.1's id, §4's `pool` row, refusals and `baselines` block — the pinned set read off the catalogue's flag, and one row per baseline the pool holds. **Rev 10:** D-29 reaches §1's granted calls (`agents.as_policy` at `exploration="off"`), §4's `game` and `greedy` rows with the `UnknownShape` and `GreedyPassRefused` refusals, §4.1's shape-aware header and §5's `shape` constant — the pass is `greedy.md`'s, the bound `declarations.md` §5's (D-29, ASM-38, D-28). **Rev 11:** D-33's third shape reaches §1's restated tables, §4's `game` row and §4.2 — three names, three descriptor counts and three history capacities, the seat rotation `index % seats`, the shape's own record bound, and no table row from a shape whose seat count is not two (`seats.md` §2–§5, `shapes.md` §8, ASM-42, ASM-43, D-33). **Rev 12:** D-36 reaches §4's `greedy` row and §4's refusals — a **budget is never refused for the pass**: a run above the pass's 2,000-hand bound completes, and its pass plays a 2,000-hand **sample of the run's own hands**, the run's first `hands` hands at the run's seed, so `budget`, `hands` and `seed` state the sample exactly and a third party replays it; a **pass request** above the bound is still `GreedyPassRefused`, naming the count and the bound (`sizing.md` §4, `records.md` §15, `greedy.md` §1, §4, ASM-38)
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -70,16 +70,16 @@ and that the shape is not in the digest (`ladder.md` §2–§3, `records.md` §8
   produced from it, because the pairwise instrument refuses a shape whose seat count is not two (`seats.md` §5, D-33).
 - **Refusals:** an unknown rung name; a configuration missing a key the run reads from `ladder.md` §3; a variant
   count other than one or two (D-3, `ladder.md` §2); a `backend`, `encoding` or `architecture.kind` that
-  `agents.learners()` and `features.encodings()` do not declare (D-3, `agents/surface.md` §3,
-  `features/surface.md` §3); a seed set that is empty, repeats a seed or holds a non-integer (ASM-2); a budget
-  that is not a positive integer or is below ten hands (ASM-18, `ladder.md` §6); a device `devices()` does not
-  list (D-8); a `pool` declaration `evaluation.build_pool` refuses — an `m` above the league's M, a bad chain, a declared
-  baseline name the catalogue lacks (`UnknownBaseline`) — surfaced and never repaired (`e2e-surface.md` §2, ASM-32, D-21);
-  a `game` outside the declared shapes is `UnknownShape` naming it and both declared names at either level, and a budget
-  the pass could not be played at is `GreedyPassRefused` naming the budget and the bound, both before the first hand
-  (`shapes.md` §2, `greedy.md` §4, ASM-38, D-29); and — `declarations.md` §2–§4 — a `hyper`, `learning_rule` or
-  `snapshot_every` the run would discard, and a pair declaring two values for one held setting, naming the key and both
-  values (ASM-7).
+  `agents.learners()` and `features.encodings()` do not declare (D-3, `agents/surface.md` §3, `features/surface.md` §3);
+  a seed set that is empty, repeats a seed or holds a non-integer (ASM-2); a budget that is not a positive integer or
+  is below ten hands (ASM-18, `ladder.md` §6); a device `devices()` does not list (D-8); a `pool` declaration
+  `evaluation.build_pool` refuses (`m` above M, a bad chain, an uncatalogued baseline name) — surfaced, never repaired
+  (`e2e-surface.md` §2, ASM-32, D-21); a `game` outside the declared shapes is `UnknownShape` naming it and both names
+  at either level (`shapes.md` §2, D-29); **no run is refused for a budget** — one above 2,000 hands completes and its
+  pass samples the run's own first 2,000 — while the pass's own bounds are `greedy.md` §4's: a **pass request** that is
+  not a positive integer or exceeds 2,000 is `GreedyPassRefused` naming it and the bound, and the shape's record bound is
+  refused as the pass accumulates (`records.md` §15, ASM-38, ASM-42, D-36); and a `hyper`, `learning_rule` or
+  `snapshot_every` the run would discard, and a pair declaring two values for one held setting (ASM-7).
 - **Determinism:** one `(configuration, seed set, budget, pool membership)` gives one record twice — the same
   curves, the same pool id and the same checkpoint paths — because the deal seeds are a function of the run
   seed and the hand index, the learner's generator is seeded from the run seed, and the pool is frozen before
@@ -91,7 +91,7 @@ The run record's keys (`records.md` §12's **required** set, D-19's rule set inc
 |---|---|
 | `rung` | the rung name, or an unregistered configuration's own `name` (`records.md` §12, `ladder.md` §3) |
 | `game` | the **shape** the run played: the configuration's `game`, or the catalogue's first shape when it names none — so a record names a shape it measured and `evaluation.report` can hold a run, a pool and a matrix to one (`records.md` §12, `shapes.md` §3, `protocol.md` §1, D-29) — save that a shape whose **seat count is not two** is refused by `evaluation.match`, `matrix`, `rating` and `report`, and this module calls none of them, so only a two-seat shape's record becomes a table row (`seats.md` §5, D-22, D-33) |
-| `greedy` | `records.md` §15's pass, keyed per variant and per seed exactly as `curves` is: `mode` (`off`), `seed`, `hands`, `net_chips` and the ordered `decisions` — **the one decision stream a run retains**, since a log of the behaviour policy is the defect D-28 records as fatal (`sizing.md` §4, §7, ASM-38, `greedy.md` §1–§3) |
+| `greedy` | `records.md` §15's pass, keyed per variant and per seed exactly as `curves` is: `mode` (`off`), `seed`, `hands`, `net_chips` and the ordered `decisions` — **the one decision stream a run retains**, since a log of the behaviour policy is the defect D-28 records as fatal. `hands` is the **sample's** count and not the run's budget: the budget when it is at most 2,000 hands and 2,000 otherwise, the sample being the run's own **first `hands` hands** at the run's seed, so the record's own `budget`, `hands` and `seed` state it exactly and a third party replays it hand for hand (D-36, `sizing.md` §4, §7, ASM-38, `greedy.md` §1–§3) |
 | `curves` | per variant and per seed: the sample axis (the snapshot steps), at least one learning signal from `agents.learn` — its `td_error` — and the spread across seeds, zero when the set holds one seed (`protocol.md` §1, D-6, `loop.md` §3); the spread is one array per variant and point, repeated in each of that variant's seed entries and never a per-seed measurement (`curves.md` §4, `evidence.md` §4) |
 | `pool` | the frozen pool trained against: `id` (the configuration's declared id, so both arms of a pair carry one), `m`, `frozen`, `game` — the one shape the pool is on (`records.md` §8) — the ordered members with lineage and the pool's **pinned** baselines (the anchor three, then any folder the declaration named) — the `records.md` §8 record `pool_members` returned, under a nested key, beside the declared id — and `rules` and `utilities`, the distinct rules and utilities those version members declare (`records.md` §8, §12, `rules.md` §7, `utility.md` §3, D-16, ASM-16, ASM-32, D-19, D-20, D-21) |
 | `checkpoints` | per variant and per seed: the retained snapshots — the last M of the ten — and that pair's final model, as the paths `agents.save` wrote, each spelled **repository-relative** with POSIX separators when the artefact is inside the repository root and **unchanged** when it is outside, because a run may be pointed at another write root (`docs/L3/training/checkpoints.md` §2, `protocol.md` §5, `write-root.md` §1, §5); the five earlier snapshots are intra-run and are not named (ASM-18) |

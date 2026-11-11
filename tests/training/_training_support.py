@@ -237,6 +237,19 @@ EPISODE_SEED = 7721
 FOLD_SEED = 7722
 BASELINE_SEED = 7714
 
+#: The prefix case's one seed: the battery's own and in no design document (`battery.md` §4).
+PREFIX_SEED = 5531
+#: The shorter pass's hand count: the battery's own and in no design document (`battery.md` §4).
+PREFIX_HANDS = 4
+#: The longer pass's hand count, so the shorter pass is a prefix of it: the battery's own
+#: and in no design document (`battery.md` §4).
+PREFIX_LONGER_HANDS = 7
+#: The replayed pass's hand count, against the block a run recorded: the battery's own and in
+#: no design document (`battery.md` §4). Two hands are enough to pin a pass hand to the run's
+#: own hand — a differing delta names the hand the replay did not reproduce — and a replay of
+#: two hands costs two hands rather than a second run (`greedy.md` §1, D-36).
+REPLAY_HANDS = 2
+
 #: The declarations a run would refuse (`docs/L2/training/declarations.md` §2-§4,
 #: `docs/L3/training/errors.md` §4). Each is the battery's own and names a value in force
 #: nowhere: a `learning_rate` the declaration does not carry, a sentence where the
@@ -1394,6 +1407,32 @@ def greedy_blocks(record):
         for seed, seed_block in as_mapping(per_variant, "a greedy block").items():
             found.append((str(variant), int(seed), as_mapping(seed_block, "a block")))
     return found
+
+
+_POOLS = {}
+
+
+def greedy_pool(shape=None):
+    """A frozen pool of the pinned baselines on one shape, cached per shape.
+
+    `records.md` §8 makes a pool one shape's and `shapes.md` §3 makes the frozen window the
+    one a pass is played against, so the declaration here is the least one the design admits:
+    no version member, the retained window of M = 5, `frozen: True` and the shape itself —
+    and the three anchor baselines `evaluation.build_pool` pins unconditionally are what the
+    pass's hands draw their opposition from (`records.md` §8, `ASM-32`, D-21, D-29).
+
+    It is the **shape's own** pool, so a `_pass` call can be driven directly without a run:
+    a `_pass(pool, shape, seed, hands, policy, where)` is `greedy.md` §1's pass and this
+    hands it the membership and the shape together, as the two names its call reads.  Cached
+    per shape because building a pool probes the catalogue's baselines once and a case reads
+    one pool twice (`battery.md` §2, `greedy.md` §1, §4).
+    """
+    key = str(shape) if shape is not None else default_shape()
+    if key not in _POOLS:
+        _POOLS[key] = evaluation().build_pool(
+            {"members": [], "m": RETAINED, "frozen": True, "game": key}
+        )
+    return _POOLS[key]
 
 
 #: `records.md` §15's five block keys and its seven decision keys, declared here as data

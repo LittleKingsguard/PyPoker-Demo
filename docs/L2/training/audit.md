@@ -1,6 +1,6 @@
 # training — the audit: every configuration key against the one loop
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-11
 - **Owner of this file:** the per-key audit of `ladder.md` §3's schema — the four fates a declared key can have, key by
   key, and the four annotations that are deliberately not refusals — split out of `declarations.md` §1 at that file's
   ceiling, which keeps the numbering its readers cite (§1) (D-3, ASM-7, D-19, D-20, D-21, D-29)
@@ -36,9 +36,10 @@ in the ladder, no behaviour follows from them, and this module's own `rung()` wr
 refuse the registry (`ladder.md` §3, `surface.md` §3). `residual` is a setting whose reader is `agents`' kind table and
 not this module (`agents/surface.md` §3).
 
-The pass's two bounds are **not a configuration key at all** and are audited with the refusals: at most 2,000 hands and
-at most 1,000 decision records per slot of the **run's own shape's** history capacity — 24,000 at the default shape,
-66,000 and 98,000 on the uncapped ones — read once through `declarations.greedy_decisions(shape)` and refused by
-`GreedyPassRefused` with the count reached, the bound, the shape and its capacity, because a shorter pass would silently
-report a different sample than the one it names (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42,
-`seats.md` §2, `declarations.md` §2, `docs/L3/training/greedy.md` §4).
+The pass's two bounds are **not a configuration key at all** and are audited with the refusals, and neither refuses a
+**run**: the hand bound bounds the **sample** — one pass plays `min(budget, 2,000)` hands, the run's own first `hands`
+ones — so a budget above it is sampled and never refused, while a *pass* asked for more than 2,000 hands, or for no
+positive number of hands, is refused naming that request and the bound; the record bound is the **run's own shape's**,
+1,000 decision records per slot of its history capacity — 24,000 at the default shape, 66,000 and 98,000 on the
+uncapped ones — read once through `declarations.greedy_decisions(shape)` and refused with the count, the bound, the
+shape and its capacity, never truncated (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42, D-36).

@@ -368,11 +368,12 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, s
     branching on the shape: the shape is data all the way down.
 
     **The pass comes last, and it is the one decision stream the run retains.**  Once the
-    pair's final model is written, `greedy._pass` replays the pair's own sample against
-    `agents.as_policy`'s exploration-off policy and returns `records.md` §15's block
-    (`greedy.md` §1, `sizing.md` §4, ASM-38).  Running it after the save is what makes the
-    block reproducible from the record: the model it reads is the checkpoint the record
-    names.  The training decisions themselves are never retained (D-28).
+    pair's final model is written, `greedy._pass` replays the pair's own sample — its first
+    `greedy._sample(budget)` hands — against `agents.as_policy`'s exploration-off policy and
+    returns `records.md` §15's block (`greedy.md` §1, §4, `sizing.md` §4, ASM-38, D-36).
+    Running it after the save is what makes the block reproducible from the record: the
+    model it reads is the checkpoint the record names.  The training decisions themselves
+    are never retained (D-28).
 
     `agents.save` is handed `layout._write_path` of a declared path — the write root,
     which is the declared `<repo>/checkpoints` unless the ambient override names another
@@ -447,14 +448,14 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, s
         learner, layout._write_path(layout._final_path(name, variant, seed))
     )
     timing = _timings(start, budget)
-    # The one retained decision stream, played after the model is on disk: the block is a
-    # function of the checkpoint the record names, the run's own hands and the frozen
-    # pool (`greedy.md` §1–§3, `records.md` §15, ASM-38).
+    # The one retained decision stream, played after the model is on disk: the block covers
+    # the run's first `min(budget, 2,000)` hands and is a function of the checkpoint the
+    # record names, those hands and the frozen pool (`greedy.md` §1, §4, ASM-38, D-36).
     passed = greedy._pass(
         pool,
         shape,
         seed,
-        budget,
+        greedy._sample(budget),
         agents.as_policy(learner, encoder, int(seed), greedy.MODE),
         "training.run at the variant %r and seed %r" % (variant, int(seed)),
     )
@@ -704,11 +705,8 @@ def run(rung, seeds=None, budget=None, device=None):
     # named with the declared names here, and everything the loop derives from the game is
     # derived from this one name (`shapes.md` §2–§3, D-29).
     shape = _game(configuration)
-    # The pass's hand count is the run's own sample budget, so a budget the pass could not
-    # be played at is refused **before** the run spends itself training for a record this
-    # module could not write (`greedy.md` §1, `sizing.md` §4, ASM-38).
-    greedy._check_hands(hands, "training.run of the configuration %r"
-                        % (configuration.get("name"),))
+    # No bound of the pass's is checked here: the pass samples the run rather than
+    # replaying it whole, so a budget above 2,000 hands is a run this step accepts (D-36).
     pool, pool_id, pool_record = _pool(configuration)
     interval = max(1, hands // declarations.SNAPSHOTS)
 

@@ -902,3 +902,59 @@ untried candidate for it (D-19).
 Rejected: capping every run at 2,000 hands (it would make the deep run impossible and hide the
 attribution), and re-running the six-seat test at this budget to look for folding (it cannot distinguish
 the two causes, D-35).
+
+---
+
+## D-37 — The greedy pass samples its bound instead of refusing the run
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed with fix"
+
+**Fix:** one pass plays `min(budget, 2,000)` hands, drawn as **the run's own first that-many hands** —
+the same deal and opponent derivations, the same learner seat, the same frozen pool — with exploration
+off and no generator drawn. Below the bound the rule is the identity, so a 1,000-hand run's block is
+unchanged: the committed pre-change capture (`tests/integration/training/_greedy_sample_baseline.json`,
+sha256 `6394f22b…`) is replayed over 21 fields with no tolerance and matches. The cap still binds a
+**pass request**, never a run: a 20,000-hand run completes in 42 m 54 s and its block reports a 2,000-hand
+sample.
+
+**Rejected:** stride sampling (a 10-wide stride would land one seat of a two-seat shape and misreport the
+seat split); a fresh generator (not replayable from the record's tuple); the run's tail (a 10,000- and a
+20,000-hand run must pass over the *same* hands for a budget sweep to attribute to training); raising the
+cap (that was the defect); a sixth block key naming the rule (it would move the block that must stay
+byte-identical — the rule is a published function of budget and bound instead).
+
+**Verification:** twelve batteries green, 1,190 cases and 9,241 subtests; lint 144 checks; endpoints 50;
+the fixed-limit shape byte-identical for a 1,000-hand run; **e2e 316/316 confirmed separately by L0**.
+Corrections routed to L1, not written here: `records.md` §15's `hands` is now the sample's count,
+`sizing.md` §4's "refused, never truncated" and its "global stream" bullet, `assumptions.md` ASM-38's
+"refused beyond", and `battery.md`'s two clauses.
+
+---
+
+## D-38 — The RCA concludes: budget eliminated, the max operator is the cause, Double-Q is next
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "RCA how it learned to fold 0/15,127 of the time. This is not the consequence
+of the game being biased against folding, that is an algorithm failure."
+
+**Result:** with the budget unblocked, the answer is measured, not inferred — **0 folds in 17,181 greedy
+decisions at 20,000 hands per seed**, and 0 in the 8,725 where `fold` was legal, in a pool holding three
+folders and a trained raiser.
+
+**Conclusion:** the reward, the missing `hand_class` fact, the pool's composition and the budget are all
+eliminated. What remains is **the max operator's overestimation**: the calling arm is valued by a `max`
+taken over estimates from the same samples, so a certain small loss always looks worse than an
+optimistically valued call. This is the classical masked-Q failure, and it explains why an eight-state
+tabular learner does not suffer it while a 14,766-parameter one does.
+
+**Next:** **Double-Q** — catalogued since D-19, implemented, never trained against this question —
+decouples selection from evaluation and removes exactly that bias. It is the experiment, not a design
+change; no new shape or game is involved.
+
+**Corrections this row makes:** D-31's "sampled at `min(budget, 1,000)` … currently refused by its
+2,000-hand bound" is false on both counts (the sample is `min(budget, 2,000)` and no run is refused);
+D-36's blocking clause is resolved. And the RCA record's earlier "any budget above 2,000 hands is
+refused" is corrected to what was true — it was refused until D-37.
