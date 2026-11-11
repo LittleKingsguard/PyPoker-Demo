@@ -1,13 +1,13 @@
-"""ENG-12 and ENG-13 -- the two declared shapes, and the four raise bands.
+"""ENG-12 and ENG-13 -- the three declared shapes, and the four raise bands.
 
 ``docs/L2/engine/surface.md`` §2, §3, §6, §7, §10, §12;
 ``docs/L2/engine/environment.md`` §1, §3; ``docs/L3/engine/config.md`` §1-§6;
 ``docs/L3/engine/actions.md`` §1-§3; ``docs/L3/engine/episode.md`` §3;
 ``docs/L3/engine/hand.md`` §2, §4; ``docs/L1/shapes.md`` §2-§5;
-``docs/L1/sizing.md`` §2-§3 (D-29, D-30).
+``docs/L1/seats.md`` §2-§4; ``docs/L1/sizing.md`` §2-§3 (D-29, D-30, D-33).
 
 The game is no longer one declaration for the whole project.  ``game_shapes()``
-publishes two rows, default first, and every entry point that names a game takes the
+publishes three rows, default first, and every entry point that names a game takes the
 shape as an **optional argument whose absence is today's value**, so the fixed-limit
 path is unchanged card for card: the same stacks, the same three descriptors, the
 same ``raise`` resolving to the minimum legal completion.
@@ -18,6 +18,13 @@ band's maximum, so two descriptors never resolve to one amount and a band holdin
 legal amount is **masked out of ``legal_actions``, never collapsed onto its
 neighbour** (``sizing.md`` §2).  ENG-13 pins that arithmetic against each decision's
 own ``minimum``/``maximum``, including the decisions where a band is empty.
+
+What the third row adds is a **seat count**: the same uncapped game over six seats, so
+every fact keeps its derivation and two of them change what they are worth — the seat
+index runs over six seats and `stacks` carries one entry per seat (``seats.md`` §2-§3).
+The row is data like the other two, its history capacity is its own 98 rather than the
+default's 24, and its pot divides by the 600 chips in play (``shapes.md`` §8,
+``seats.md`` §2).
 """
 
 import os
@@ -70,13 +77,14 @@ LEGAL_RAISES_BY_SPAN = {
 
 
 class ENG12Catalogue(S.EngineCase):
-    """The catalogue, its two rows, and the shape argument every entry point takes."""
+    """The catalogue, its three rows, and the shape argument every entry point takes."""
 
     def test_eng12_1_the_catalogue_is_one_ordered_mapping_default_first(self):
         """ENG-12.1 game_shapes() takes no argument and returns an ordered mapping of
-        exactly two rows, `fixed-limit-20` then `no-limit-100`, each row naming the key
-        it is filed under and exactly one of them flagged `default`; the package exports
-        those ten names and no other (surface.md §1, §12, shapes.md §2, D-29)."""
+        exactly three rows, `fixed-limit-20` then `no-limit-100` then
+        `six-seat-no-limit-100`, each row naming the key it is filed under and exactly
+        one of them flagged `default`; the package exports those ten names and no other
+        (surface.md §1, §12, shapes.md §2, seats.md §2, D-29, D-33)."""
         catalogue = self.catalogue()
         self.assertTrue(
             S.is_mapping(catalogue),
@@ -84,9 +92,9 @@ class ENG12Catalogue(S.EngineCase):
         )
         self.assertEqual(
             list(catalogue), list(S.SHAPE_NAMES),
-            "the catalogue is ordered, default first: %r then %r, and nothing else "
-            "(surface.md §12, shapes.md §2): got %r"
-            % (S.DEFAULT_SHAPE, S.NO_LIMIT_SHAPE, list(catalogue)),
+            "the catalogue is ordered, default first: %r then %r then %r, and nothing "
+            "else (surface.md §12, shapes.md §2, seats.md §2): got %r"
+            % (S.DEFAULT_SHAPE, S.NO_LIMIT_SHAPE, S.SIX_SEAT_SHAPE, list(catalogue)),
         )
         for name, row in catalogue.items():
             with self.subTest(shape=name):
@@ -120,26 +128,31 @@ class ENG12Catalogue(S.EngineCase):
         )
 
     def test_eng12_2_each_row_declares_its_own_width_seats_and_chips_in_play(self):
-        """ENG-12.2 every row carries exactly the thirteen declared keys, two seats, the
-        same blinds 1 and 2, a head width equal to its descriptor count, and a chips-in-
-        play total equal to the seats' stacks (surface.md §12, config.md §2, §4)."""
+        """ENG-12.2 every row carries exactly the fourteen declared keys, the seats it
+        declares, the same blinds 1 and 2, a head width equal to its descriptor count, a
+        chips-in-play total equal to the seats' stacks and the history capacity its own
+        betting derives (surface.md §12, config.md §2, §4; shapes.md §8, seats.md §2-§3,
+        D-33)."""
         catalogue = self.catalogue()
         for name in S.SHAPE_NAMES:
             row = catalogue[name]
             with self.subTest(shape=name):
                 self.assertEqual(
                     set(row), set(S.ROW_KEYS),
-                    "a row carries exactly the thirteen declared keys and nothing else "
-                    "(surface.md §12): got %r for %r" % (sorted(row), name),
+                    "a row carries exactly the fourteen declared keys and nothing else "
+                    "(surface.md §12, shapes.md §8): got %r for %r"
+                    % (sorted(row), name),
                 )
                 self.assertEqual(
-                    row["seats"], 2,
-                    "both shapes declare two seats, so no row re-seats a hand "
-                    "(config.md §2, shapes.md §2)",
+                    row["seats"], S.SHAPE_SEATS[name],
+                    "each row declares its own seat count -- two on the default and the "
+                    "no-cap row, six on the six-seat one -- so the seat count is shape "
+                    "data and no entry point divides by two (seats.md §2-§3): %r said %r"
+                    % (name, row["seats"]),
                 )
                 self.assertEqual(
                     tuple(row["blinds"]), (1, 2),
-                    "both shapes declare blinds 1 and 2: %r" % (tuple(row["blinds"]),),
+                    "every shape declares blinds 1 and 2: %r" % (tuple(row["blinds"]),),
                 )
                 self.assertEqual(
                     tuple(row["actions"]), S.SHAPE_ACTIONS[name],
@@ -153,9 +166,16 @@ class ENG12Catalogue(S.EngineCase):
                     % (len(row["actions"]), name, row["head_width"]),
                 )
                 self.assertEqual(
+                    row["history"], S.SHAPE_HISTORY[name],
+                    "a row declares its own history-block capacity, derived from its own "
+                    "betting and never fixed by another row's cap: 24, 66 and 98 in the "
+                    "catalogue's order (shapes.md §8, ASM-42, ASM-44): %r said %r"
+                    % (name, row["history"]),
+                )
+                self.assertEqual(
                     row["chips_in_play"], row["seats"] * row["starting_stack"],
-                    "the chips in play are the row's own total, both seats' starting "
-                    "stacks (config.md §4, shapes.md §2): %r for %r"
+                    "the chips in play are the row's own total, every seat's starting "
+                    "stack (config.md §4, shapes.md §2): %r for %r"
                     % (row["chips_in_play"], name),
                 )
                 self.assertEqual(
@@ -168,26 +188,38 @@ class ENG12Catalogue(S.EngineCase):
                 )
         self.assertEqual(
             {name: catalogue[name]["bet_structure"] for name in S.SHAPE_NAMES},
-            {S.DEFAULT_SHAPE: "fixed-limit", S.NO_LIMIT_SHAPE: "no-limit"},
+            {S.DEFAULT_SHAPE: "fixed-limit", S.NO_LIMIT_SHAPE: "no-limit",
+             S.SIX_SEAT_SHAPE: "no-limit"},
             "each row states its bet structure, and it is what the state's class is "
-            "picked from (config.md §2, D-29)",
+            "picked from (config.md §2, D-29, D-33)",
         )
         self.assertEqual(
             {name: catalogue[name]["head_width"] for name in S.SHAPE_NAMES},
-            {S.DEFAULT_SHAPE: 3, S.NO_LIMIT_SHAPE: 6},
-            "the default row's head is three wide and the no-cap row's six (surface.md "
-            "§12, sizing.md §6)",
+            {S.DEFAULT_SHAPE: 3, S.NO_LIMIT_SHAPE: 6, S.SIX_SEAT_SHAPE: 6},
+            "the default row's head is three wide and both uncapped rows' six, because a "
+            "seat count adds no descriptor (surface.md §12, sizing.md §6, seats.md §2)",
+        )
+        self.assertEqual(
+            tuple(catalogue[S.SIX_SEAT_SHAPE]["actions"]),
+            tuple(catalogue[S.NO_LIMIT_SHAPE]["actions"]),
+            "the six-seat row declares the same six sized descriptors in the same index "
+            "order as the two-seat uncapped one: the vocabulary is the shape's and a seat "
+            "count does not add one (seats.md §2, sizing.md §2): got %r against %r"
+            % (catalogue[S.SIX_SEAT_SHAPE]["actions"],
+               catalogue[S.NO_LIMIT_SHAPE]["actions"]),
         )
 
     def test_eng12_3_the_divisors_are_five_numbers_and_the_no_cap_row_declares_none(self):
         """ENG-12.3 every row declares the five normalisers, with the exact numbers
         config.md §4 fixes for it; the default row states its small bet, big bet and cap
-        as numbers and the no-cap row declares `None` for all three (surface.md §12,
-        config.md §4, sizing.md §5)."""
+        as numbers and both uncapped rows declare `None` for all three (surface.md §12,
+        config.md §4, sizing.md §5, seats.md §2)."""
         catalogue = self.catalogue()
         declared = {
             S.DEFAULT_SHAPE: {"stack": 20, "pot": 40, "to_call": 20, "amount": 4, "count": 4},
             S.NO_LIMIT_SHAPE: {"stack": 100, "pot": 200, "to_call": 100, "amount": 100,
+                               "count": 50},
+            S.SIX_SEAT_SHAPE: {"stack": 100, "pot": 600, "to_call": 100, "amount": 100,
                                "count": 50},
         }
         for name in S.SHAPE_NAMES:
@@ -214,6 +246,7 @@ class ENG12Catalogue(S.EngineCase):
 
         default = catalogue[S.DEFAULT_SHAPE]
         no_limit = catalogue[S.NO_LIMIT_SHAPE]
+        six_seat = catalogue[S.SIX_SEAT_SHAPE]
         for key, number in (("small_bet", 2), ("big_bet", 4), ("raise_cap", 4)):
             with self.subTest(key=key):
                 self.assertEqual(
@@ -221,29 +254,57 @@ class ENG12Catalogue(S.EngineCase):
                     "the default row declares its %r as the number %d, because its bets "
                     "are fixed and its street is capped (config.md §2, ASM-6)" % (key, number),
                 )
-                self.assertIsNone(
-                    no_limit[key],
-                    "a shape with no fixed bet and no cap declares None for %r, never a "
-                    "number borrowed from the default row (surface.md §12, config.md §2, "
-                    "D-29)" % (key,),
-                )
+                for name, row in ((S.NO_LIMIT_SHAPE, no_limit),
+                                  (S.SIX_SEAT_SHAPE, six_seat)):
+                    self.assertIsNone(
+                        row[key],
+                        "a shape with no fixed bet and no cap declares None for %r, never "
+                        "a number borrowed from the default row (surface.md §12, config.md "
+                        "§2, D-29, seats.md §2): %r said %r"
+                        % (key, name, row[key]),
+                    )
         self.assertEqual(
             [default["normalisers"]["amount"], default["normalisers"]["count"]],
             [default["big_bet"], default["raise_cap"]],
             "the default row's amount divisor is its big bet and its count divisor its cap "
             "(config.md §4)",
         )
+        for name, row in ((S.NO_LIMIT_SHAPE, no_limit), (S.SIX_SEAT_SHAPE, six_seat)):
+            with self.subTest(shape=name):
+                self.assertEqual(
+                    [row["normalisers"]["amount"], row["normalisers"]["count"]],
+                    [row["starting_stack"], row["starting_stack"] // 2],
+                    "an uncapped row's amount divisor is a stack and its count divisor "
+                    "100 // 2, the most bet-or-raise actions its stack admits (config.md "
+                    "§4, sizing.md §5): %r said %r"
+                    % (name, [row["normalisers"]["amount"],
+                              row["normalisers"]["count"]]),
+                )
+                self.assertEqual(
+                    [row["normalisers"]["stack"], row["normalisers"]["to_call"]],
+                    [row["starting_stack"], row["starting_stack"]],
+                    "the stack and to_call divisors are the row's own 100-chip stack, "
+                    "because the game is the same over more seats (seats.md §2): %r said %r"
+                    % (name, [row["normalisers"]["stack"],
+                              row["normalisers"]["to_call"]]),
+                )
         self.assertEqual(
-            [no_limit["normalisers"]["amount"], no_limit["normalisers"]["count"]],
-            [no_limit["starting_stack"], no_limit["starting_stack"] // 2],
-            "the no-cap row's amount divisor is a stack and its count divisor 100 // 2, the "
-            "most bet-or-raise actions its stack admits (config.md §4, sizing.md §5)",
+            six_seat["normalisers"]["pot"], six_seat["chips_in_play"],
+            "the six-seat row divides the pot by its own 600 chips in play: a divisor of "
+            "200 on a six-seat pot is a clip and not a normalisation (sizing.md §5, "
+            "seats.md §2): got %r" % (six_seat["normalisers"],),
+        )
+        self.assertEqual(
+            six_seat["normalisers"]["pot"], 600,
+            "the six-seat row's pot divisor is the six-seat total, 600 (seats.md §2): %r"
+            % (six_seat["normalisers"]["pot"],),
         )
 
     def test_eng12_4_a_callers_edit_of_a_returned_row_cannot_reach_the_catalogue(self):
         """ENG-12.4 two calls return equal values, and a caller's edit of a returned row --
-        its normalisers, its actions, its name, a row it adds -- reaches neither the next
-        call nor the mapping another caller already holds (surface.md §12, D-2)."""
+        its normalisers, its actions, its name, its seats, its history capacity, a row it
+        adds -- reaches neither the next call nor the mapping another caller already holds
+        (surface.md §12, D-2, D-33)."""
         snapshot = self.catalogue()
         self.assertEqual(
             self.catalogue(), snapshot,
@@ -256,6 +317,9 @@ class ENG12Catalogue(S.EngineCase):
         edited[S.NO_LIMIT_SHAPE]["actions"] = ()
         edited[S.NO_LIMIT_SHAPE]["name"] = "invented"
         edited[S.NO_LIMIT_SHAPE]["head_width"] = 99
+        edited[S.SIX_SEAT_SHAPE]["seats"] = 2
+        edited[S.SIX_SEAT_SHAPE]["history"] = 1
+        edited[S.SIX_SEAT_SHAPE]["normalisers"]["pot"] = 1
         edited[S.DEFAULT_SHAPE]["default"] = False
         edited["no-limit-50"] = {}
         self.assertEqual(
@@ -266,7 +330,7 @@ class ENG12Catalogue(S.EngineCase):
         self.assertEqual(
             list(self.catalogue()), list(S.SHAPE_NAMES),
             "nor can an added key survive into the next call: the catalogue is fixed "
-            "(surface.md §12, shapes.md §2)",
+            "(surface.md §12, shapes.md §2, seats.md §2)",
         )
         self.assertEqual(
             self.catalogue()[S.NO_LIMIT_SHAPE]["normalisers"]["pot"],
@@ -274,17 +338,33 @@ class ENG12Catalogue(S.EngineCase):
             "the no-cap row's pot divisor is still its chips in play after that edit "
             "(config.md §4)",
         )
+        self.assertEqual(
+            [self.catalogue()[S.SIX_SEAT_SHAPE]["seats"],
+             self.catalogue()[S.SIX_SEAT_SHAPE]["history"],
+             self.catalogue()[S.SIX_SEAT_SHAPE]["normalisers"]["pot"]],
+            [S.SHAPE_SEATS[S.SIX_SEAT_SHAPE], S.SHAPE_HISTORY[S.SIX_SEAT_SHAPE],
+             S.SHAPE_CHIPS_IN_PLAY[S.SIX_SEAT_SHAPE]],
+            "the six-seat row still declares six seats, its 98-slot history block and its "
+            "600-chip pot divisor after a caller edited them (seats.md §2, shapes.md §8)",
+        )
 
     def test_eng12_5_game_config_returns_the_default_rows_fifteen_keys(self):
         """ENG-12.5 game_config() is equal to game_config('fixed-limit-20'), carries
-        exactly the fifteen declared keys in the declared order, and states the default
-        row's numbers: stacks 20, blinds 1 and 2, bets 2 and 4, cap 4, four streets
-        (surface.md §3, config.md §3, ASM-6)."""
+        exactly the fifteen declared keys in the declared order, states the default row's
+        numbers -- stacks 20, blinds 1 and 2, bets 2 and 4, cap 4, four streets -- and
+        carries no history capacity (surface.md §3, config.md §3, shapes.md §8, ASM-6,
+        ASM-44)."""
         config = self.config()
         self.assertEqual(
             tuple(config), S.CONFIG_KEYS,
             "game_config carries exactly the fifteen declared keys, in the declared order "
             "(config.md §3): got %r" % (list(config),),
+        )
+        self.assertNotIn(
+            "history", config,
+            "the history block's capacity is the catalogue row's and never one of "
+            "game_config's fifteen keys (shapes.md §8, ASM-42, ASM-44): got %r"
+            % (sorted(config),),
         )
         self.assertEqual(
             config, S.ep("game_config")(S.DEFAULT_SHAPE),
@@ -470,9 +550,10 @@ class ENG12Catalogue(S.EngineCase):
 
     def test_eng12_8_the_hand_conserves_the_chips_its_own_shape_declares(self):
         """ENG-12.8 at every decision of every played hand, `pot + sum(stacks)` is the
-        chips in play the hand's own shape declares -- 40 in the default shape and 200 in
-        the no-cap one -- because committed chips sit in the pot and never in a stack
-        (environment.md §1, config.md §4, surface.md §12)."""
+        chips in play the hand's own shape declares -- 40 in the default shape, 200 in the
+        two-seat uncapped one and 600 on the six-seat one -- because committed chips sit in
+        the pot and never in a stack (environment.md §1, config.md §4, surface.md §12,
+        seats.md §2)."""
         catalogue = self.catalogue()
         for shape in S.SHAPE_NAMES:
             declared = catalogue[shape]["chips_in_play"]
@@ -485,7 +566,14 @@ class ENG12Catalogue(S.EngineCase):
             for seed in (S.SHAPE_SEED_A, S.SHAPE_SEED_D):
                 for label, policy in (("calling", S.always_call), ("raising", raising)):
                     with self.subTest(shape=shape, seed=seed, policy=label):
-                        record = self.shaped_episode(seed, policy, policy, shape)
+                        if shape == S.SIX_SEAT_SHAPE:
+                            # The six-seat hand is seated through the optional `seats`
+                            # argument, one policy per seat in seat order (seats.md §4).
+                            record = self.seated_episode(
+                                seed, self.seating(shape, lambda: policy), shape
+                            )
+                        else:
+                            record = self.shaped_episode(seed, policy, policy, shape)
                         self.assertGreaterEqual(
                             len(record["decisions"]), 2,
                             "the walk takes more than one decision, so the invariant is "
@@ -494,6 +582,12 @@ class ENG12Catalogue(S.EngineCase):
                         )
                         for position, decision in enumerate(record["decisions"]):
                             facts = decision["readout"]
+                            self.assertEqual(
+                                len(facts["stacks"]), catalogue[shape]["seats"],
+                                "the readout's stacks fact holds one entry per seat of the "
+                                "hand's own shape, in seat order (seats.md §3): %r read %r"
+                                % (shape, facts["stacks"]),
+                            )
                             self.assertEqual(
                                 facts["pot"] + sum(facts["stacks"]), declared,
                                 "pot + sum(stacks) is the chips in play of the hand's own "
@@ -506,9 +600,9 @@ class ENG12Catalogue(S.EngineCase):
 
     def test_eng12_9_an_unknown_or_non_str_shape_is_refused_naming_it(self):
         """ENG-12.9 a shape name outside the catalogue is refused by game_config, new_hand
-        and play_hand alike, naming the value and both declared names, and a non-str value
-        is refused too -- both before the deal, so the global stream does not move
-        (surface.md §1, §3, §4, §10, config.md §1, shapes.md §3, D-13)."""
+        and play_hand alike, naming the value and all three declared names, and a non-str
+        value is refused too -- both before the deal, so the global stream does not move
+        (surface.md §1, §3, §4, §10, config.md §1, shapes.md §3, seats.md §2, D-13)."""
         rejected = "no-limit-50"
         for entry_point, arguments in (
             ("game_config", (rejected,)),
@@ -521,6 +615,7 @@ class ENG12Catalogue(S.EngineCase):
                 self.assert_mentions(exc, rejected)
                 self.assert_mentions(exc, S.DEFAULT_SHAPE)
                 self.assert_mentions(exc, S.NO_LIMIT_SHAPE)
+                self.assert_mentions(exc, S.SIX_SEAT_SHAPE)
                 self.assertEqual(
                     random.getstate(), saved,
                     "%s refused the name before the deal, so the global random stream is "
@@ -536,7 +631,8 @@ class ENG12Catalogue(S.EngineCase):
                 with self.subTest(entry_point=entry_point, value=repr(value)):
                     saved = random.getstate()
                     exc = self.refusal(S.ep(entry_point), *arguments)
-                    self.assert_mentions(exc, S.DEFAULT_SHAPE, S.NO_LIMIT_SHAPE)
+                    self.assert_mentions(exc, S.DEFAULT_SHAPE, S.NO_LIMIT_SHAPE,
+                                         S.SIX_SEAT_SHAPE)
                     self.assertEqual(
                         random.getstate(), saved,
                         "a non-str shape is refused before the deal and moves no stream: "
@@ -574,6 +670,400 @@ class ENG12Catalogue(S.EngineCase):
         self.assertEqual(
             third, first,
             "and naming it is the same episode, decision for decision (surface.md §10)",
+        )
+
+
+    def test_eng12_11_the_six_seat_row_declares_the_six_seat_no_limit_game(self):
+        """ENG-12.11 the catalogue's third row is the two-seat uncapped game over six
+        seats: six seats, blinds 1 and 2, stacks 100, 600 chips in play, no bet and no
+        cap, the same six descriptors in the same index order, a head of six, a history
+        capacity of 98 and a pot normaliser of 600 (surface.md §12, shapes.md §2, §8,
+        seats.md §2, D-33)."""
+        catalogue = self.catalogue()
+        row = catalogue[S.SIX_SEAT_SHAPE]
+        self.assertEqual(
+            row["name"], S.SIX_SEAT_SHAPE,
+            "the third row names the six-seat shape (surface.md §12, seats.md §2): %r"
+            % (row["name"],),
+        )
+        self.assertIs(
+            row["default"], False,
+            "the six-seat row is not the default: absence reads as the fixed-limit shape "
+            "and never as the six-seat one (surface.md §12, shapes.md §3): %r"
+            % (row["default"],),
+        )
+        self.assertEqual(
+            row["seats"], 6,
+            "the row seats six, and that is what makes stacks hold six entries and a hand "
+            "pay six numbers (seats.md §2-§3): %r" % (row["seats"],),
+        )
+        self.assertEqual(
+            tuple(row["blinds"]), (1, 2),
+            "the six-seat row keeps the same blinds, 1 and 2, posted by seats 1 and 2 "
+            "(surface.md §12, seats.md §2): %r" % (row["blinds"],),
+        )
+        self.assertEqual(
+            [row["starting_stack"], row["chips_in_play"]],
+            [100, 600],
+            "six seats of 100 chips put 600 in play, so pot + sum(stacks) is 600 at every "
+            "decision (surface.md §12, seats.md §2): %r"
+            % ([row["starting_stack"], row["chips_in_play"]],),
+        )
+        self.assertEqual(
+            row["chips_in_play"], row["seats"] * row["starting_stack"],
+            "the chips in play are the row's own total, six starting stacks (config.md §4, "
+            "seats.md §2): %r against %r seats of %r"
+            % (row["chips_in_play"], row["seats"], row["starting_stack"]),
+        )
+        self.assertEqual(
+            row["bet_structure"], "no-limit",
+            "the six-seat row is the uncapped game at six seats (surface.md §12, "
+            "seats.md §2): %r" % (row["bet_structure"],),
+        )
+        for key in ("small_bet", "big_bet", "raise_cap"):
+            with self.subTest(key=key):
+                self.assertIsNone(
+                    row[key],
+                    "a row with no fixed bet and no cap declares None for %r on six seats "
+                    "as on two (surface.md §3, §12, seats.md §2): %r" % (key, row[key]),
+                )
+        self.assertEqual(
+            tuple(row["actions"]), S.SIZED_ACTIONS,
+            "the six-seat row declares the two bases and the four raise bands, in the "
+            "same index order as the two-seat uncapped row, because a seat count adds no "
+            "descriptor (surface.md §12, sizing.md §2-§3, seats.md §2): %r"
+            % (row["actions"],),
+        )
+        self.assertEqual(
+            tuple(row["actions"]), tuple(catalogue[S.NO_LIMIT_SHAPE]["actions"]),
+            "the two uncapped rows' vocabularies are one sequence in one order, so an "
+            "index means one descriptor on both (sizing.md §3, seats.md §2): %r against %r"
+            % (row["actions"], catalogue[S.NO_LIMIT_SHAPE]["actions"]),
+        )
+        self.assertEqual(
+            row["head_width"], len(row["actions"]),
+            "the six-seat head is the vocabulary's width, six (sizing.md §6): %r against "
+            "%r descriptors" % (row["head_width"], len(row["actions"])),
+        )
+        self.assertEqual(
+            row["head_width"], 6,
+            "the six-seat row's head is six wide (sizing.md §6, shapes.md §2): %r"
+            % (row["head_width"],),
+        )
+        self.assertEqual(
+            [row["history"], catalogue[S.DEFAULT_SHAPE]["history"],
+             catalogue[S.NO_LIMIT_SHAPE]["history"]],
+            [98, 24, 66],
+            "the three rows' history capacities are the declared 24, 66 and 98, each "
+            "derived from its own betting rather than fixed by another row's cap "
+            "(shapes.md §8, ASM-42, ASM-44): got %r"
+            % ([catalogue[name]["history"] for name in S.SHAPE_NAMES],),
+        )
+        self.assertEqual(
+            dict(row["normalisers"]),
+            {"stack": 100, "pot": 600, "to_call": 100, "amount": 100, "count": 50},
+            "the six-seat row divides the stack by 100, the pot by its own 600, to_call "
+            "by 100, the amount by 100 and the count by 50 (sizing.md §5, seats.md §2): "
+            "%r" % (dict(row["normalisers"]),),
+        )
+        self.assertEqual(
+            [row["normalisers"]["pot"], row["normalisers"]["stack"],
+             row["normalisers"]["to_call"], row["normalisers"]["amount"]],
+            [row["chips_in_play"], row["starting_stack"], row["starting_stack"],
+             row["starting_stack"]],
+            "every divisor divides by the row's own total or stack, so the pot divisor is "
+            "600 and the others 100 (sizing.md §5): %r" % (dict(row["normalisers"]),),
+        )
+
+    def test_eng12_12_game_config_of_the_six_seat_row_differs_only_in_its_values(self):
+        """ENG-12.12 game_config('six-seat-no-limit-100') carries the same fifteen keys in
+        the same order as the default row and states the six-seat game's own values: six
+        seats and six starting stacks of 100, blinds 1 and 2, None for `small_bet`,
+        `big_bet`, `limit` and `raise_cap`, a game name naming the six-seat no-limit game,
+        and no history capacity (surface.md §3, config.md §3, shapes.md §8, seats.md §2,
+        D-33)."""
+        default = self.config()
+        six_seat = S.ep("game_config")(S.SIX_SEAT_SHAPE)
+        self.assertTrue(
+            S.is_mapping(six_seat),
+            "a named shape returns that shape's parameters as one mapping (surface.md §3)",
+        )
+        self.assertEqual(
+            tuple(six_seat), tuple(default),
+            "the six-seat config carries the same fifteen keys in the same order as the "
+            "default's, so one reader reads either row (surface.md §3, config.md §3): got "
+            "%r" % (list(six_seat),),
+        )
+        self.assertEqual(
+            tuple(six_seat), S.CONFIG_KEYS,
+            "and those fifteen keys are the declared ones (config.md §3)",
+        )
+        self.assertNotIn(
+            "history", six_seat,
+            "the history capacity is the catalogue row's and never a key of the config, on "
+            "any shape (shapes.md §8, ASM-44): got %r" % (sorted(six_seat),),
+        )
+        self.assertEqual(
+            [six_seat["seats"], six_seat["player_count"]],
+            [6, 6],
+            "the six-seat row states six seats, and player_count repeats the row's own "
+            "seat count (config.md §3, seats.md §2): %r"
+            % ([six_seat["seats"], six_seat["player_count"]],),
+        )
+        self.assertEqual(
+            six_seat["button_seat"], 0,
+            "seat 0 holds the button on every shape, the six-seat one included (seats.md "
+            "§3): %r" % (six_seat["button_seat"],),
+        )
+        self.assertEqual(
+            [tuple(six_seat["blinds"]), six_seat["small_blind"], six_seat["big_blind"]],
+            [(1, 2), 1, 2],
+            "the blinds are 1 and 2, stated as the pair and as the two numbers (config.md "
+            "§3, seats.md §2)",
+        )
+        self.assertEqual(
+            six_seat["blind_levels"], 1,
+            "one blind level, and it never rises (config.md §3, ASM-6)",
+        )
+        self.assertEqual(
+            [six_seat["starting_stack"], tuple(six_seat["starting_stacks"])],
+            [100, (100,) * 6],
+            "the seat count is what makes six starting stacks: one 100-chip stack per "
+            "seat, in seat order (config.md §3, seats.md §2): %r"
+            % (six_seat["starting_stacks"],),
+        )
+        for key in ("small_bet", "big_bet", "raise_cap"):
+            with self.subTest(key=key):
+                self.assertIsNone(
+                    six_seat[key],
+                    "the six-seat shape has no fixed bet and no cap, so it states None for "
+                    "%r (surface.md §3, config.md §3, seats.md §2): %r"
+                    % (key, six_seat[key]),
+                )
+                self.assertTrue(
+                    S.is_number(default[key]),
+                    "while the default row states %r as a number (surface.md §3): %r"
+                    % (key, default[key]),
+                )
+        self.assertIsNone(
+            six_seat["limit"],
+            "`limit` is the (small_bet, big_bet) pair, so a row without either declares "
+            "None and never a pair of Nones (config.md §3, D-29): %r"
+            % (six_seat["limit"],),
+        )
+        self.assertEqual(
+            tuple(six_seat["streets"]), S.STREETS,
+            "the four streets are the game's, in their declared order, on every shape "
+            "(config.md §3, readout.md §2): %r" % (six_seat["streets"],),
+        )
+        game = six_seat["game"]
+        self.assertIsInstance(
+            game, str,
+            "the six-seat row's `game` name says which game it is (surface.md §3): %r"
+            % (game,),
+        )
+        text = game.lower()
+        self.assertIn(
+            "six", text,
+            "the game name names the six-seat table (surface.md §3, seats.md §2): %r"
+            % (game,),
+        )
+        self.assertTrue(
+            "no-limit" in text or "no limit" in text,
+            "and it names the no-limit game the row declares (surface.md §3, seats.md "
+            "§2): %r" % (game,),
+        )
+        self.assertNotIn(
+            game, (default["game"], S.ep("game_config")(S.NO_LIMIT_SHAPE)["game"]),
+            "the six-seat game's name is its own, so no reader mistakes one shape's config "
+            "for another's (surface.md §3, shapes.md §2): %r" % (game,),
+        )
+        self.assertNotEqual(
+            six_seat, default,
+            "the two configs differ in the values each shape declares -- the game name and "
+            "the seat count among them (surface.md §3): both returned %r" % (default,),
+        )
+
+    def test_eng12_13_the_six_seat_first_decision_reads_its_own_numbers_at_every_seed(self):
+        """ENG-12.13 at any seed a six-seat-no-limit-100 deal's first decision reads
+        street `preflop`, pot 3, stacks (100, 99, 98, 100, 100, 100), to_call 2, seat
+        (3, False), limit (2, 0), an empty board and history, two hole cards, `hand_class`
+        None, and the same eleven facts -- and every fact but the hole is the same at
+        every seed (config.md §6, hand.md §4, readout.md §2, seats.md §2-§3,
+        environment.md §2)."""
+        readings = []
+        for seed in S.SIX_SEEDS:
+            with self.subTest(seed=seed):
+                facts = self.readout(self.shaped_hand(seed, S.SIX_SEAT_SHAPE))
+                readings.append(facts)
+                self.assertEqual(
+                    set(facts), set(S.FACTS),
+                    "the readout carries exactly the eleven facts on six seats too, so "
+                    "the third shape widens no information set (surface.md §5, "
+                    "environment.md §2, seats.md §3): got %r" % (sorted(facts),),
+                )
+                self.assertEqual(
+                    len(facts["stacks"]), 6,
+                    "the stacks fact holds one entry per seat in seat order -- six here -- "
+                    "because the seat count is the shape's (seats.md §3): %r"
+                    % (facts["stacks"],),
+                )
+                self.assertIn(
+                    facts["seat"][0], range(6),
+                    "the acting seat's index runs over 0 .. seats - 1, so 0 to 5 on the "
+                    "six-seat shape (seats.md §3): %r" % (facts["seat"],),
+                )
+                self.assertEqual(
+                    facts["seat"][1], facts["seat"][0] == 0,
+                    "the seat fact's flag says whether the seat holds the button, and seat "
+                    "0 holds it on every shape (readout.md §2, seats.md §3): %r"
+                    % (facts["seat"],),
+                )
+                self.assertEqual(
+                    facts["street"], "preflop",
+                    "the first decision is pre-flop (hand.md §4): %r" % (facts["street"],),
+                )
+                self.assertEqual(
+                    facts["pot"], 3,
+                    "the pot holds the two blinds, 1 and 2, posted by seats 1 and 2 "
+                    "(config.md §6, seats.md §2): %r" % (facts["pot"],),
+                )
+                self.assertEqual(
+                    facts["to_call"], 2,
+                    "seat 3 acts first pre-flop behind the blinds, and it owes the big "
+                    "blind two chips (hand.md §4, seats.md §2): %r" % (facts["to_call"],),
+                )
+                self.assertEqual(
+                    tuple(facts["stacks"]), (100, 99, 98, 100, 100, 100),
+                    "the stacks behind are 100, 99, 98, 100, 100 and 100 in seat order: "
+                    "seat 1 posted the small blind and seat 2 the big one, and the button "
+                    "posts nothing (hand.md §3, seats.md §2): got %r"
+                    % (tuple(facts["stacks"]),),
+                )
+                self.assertEqual(
+                    tuple(facts["seat"]), (3, False),
+                    "seat 3, the seat after the big blind, acts first pre-flop, and the "
+                    "button is seat 0 (hand.md §4, seats.md §2-§3): got %r"
+                    % (tuple(facts["seat"]),),
+                )
+                self.assertEqual(
+                    tuple(facts["limit"]), (2, 0),
+                    "the bet size in force is the big blind and no bet-or-raise action has "
+                    "been made on the street (config.md §6, environment.md §2): got %r"
+                    % (tuple(facts["limit"]),),
+                )
+                self.assertEqual(
+                    tuple(facts["board"]), (),
+                    "no public card is known at the first decision (environment.md §1)",
+                )
+                self.assertEqual(
+                    list(facts["history"]), [],
+                    "no action has been applied yet, so the public history is empty "
+                    "(environment.md §2)",
+                )
+                self.assertIsNone(
+                    facts["hand_class"],
+                    "fewer than five cards are known, so no five-card hand exists and the "
+                    "derived fact is None (readout.md §2, ASM-30): %r"
+                    % (facts["hand_class"],),
+                )
+                self.assertEqual(
+                    tuple(facts["legal"]), S.SIZED_ACTIONS,
+                    "the six-seat first decision offers the row's six descriptors in its "
+                    "declared index order -- the two bases, then the four bands -- because "
+                    "a seat count adds no descriptor (surface.md §6, config.md §6, "
+                    "seats.md §2): got %r" % (tuple(facts["legal"]),),
+                )
+                self.assertEqual(
+                    tuple(facts["legal"]),
+                    tuple(self.catalogue()[S.SIX_SEAT_SHAPE]["actions"]),
+                    "and that sequence is the row's own declared vocabulary, so one "
+                    "declaration serves the catalogue and legal_actions on six seats "
+                    "(surface.md §12, seats.md §2)",
+                )
+                self.assertEqual(
+                    len(facts["hole"]), 2,
+                    "the acting seat holds two cards from the first decision on "
+                    "(environment.md §2)",
+                )
+        self.assertEqual(
+            len(readings), len(S.SIX_SEEDS),
+            "the case reads the first decision at every one of its own six-seat seeds",
+        )
+        fixed = [{key: value for key, value in facts.items() if key != "hole"}
+                 for facts in readings]
+        for position, facts in enumerate(fixed[1:], start=1):
+            self.assertEqual(
+                facts, fixed[0],
+                "every fact but the dealt hole is the same at every seed: the seat order, "
+                "the blinds, the stacks, the interval and the empty history are the "
+                "shape's and not the deal's (seats.md §2-§3, shapes.md §5): seed %r read "
+                "%r against %r" % (S.SIX_SEEDS[position], facts, fixed[0]),
+            )
+
+    def test_eng12_14_a_six_seat_hand_is_dealt_stepped_ended_and_paid(self):
+        """ENG-12.14 a six-seat hand is dealt, stepped to its end and paid: it terminates
+        within 200 decisions, `pot + sum(stacks)` is 600 at every decision, every acting
+        seat's index is one of 0..5, and `payoffs` holds one net delta per seat keyed by
+        seats 0..5 and summing to zero (surface.md §8, §9, environment.md §1,
+        seats.md §2-§3, ASM-12)."""
+        walk, finished = self.drive(S.SIX_SEED_A, S.always_call, shape=S.SIX_SEAT_SHAPE)
+        self.assertGreaterEqual(len(walk), 2, "a six-seat hand takes at least two decisions")
+        self.assertLessEqual(
+            len(walk), S.MAX_DECISIONS,
+            "a hand ends within %d applied actions on six seats too (surface.md §8, "
+            "guardrails.md G5): this one took %d" % (S.MAX_DECISIONS, len(walk)),
+        )
+        self.assertTrue(
+            self.terminal(finished),
+            "the six-seat hand reached its end (surface.md §8, seats.md §2)",
+        )
+        seen = set()
+        for position, (facts, _legal, _action) in enumerate(walk):
+            with self.subTest(decision=position):
+                self.assertEqual(
+                    len(facts["stacks"]), 6,
+                    "one stack per seat at every decision (seats.md §3): %r"
+                    % (facts["stacks"],),
+                )
+                self.assertIn(
+                    facts["seat"][0], range(6),
+                    "the acting seat is one of the six (seats.md §3): %r" % (facts["seat"],),
+                )
+                seen.add(facts["seat"][0])
+                self.assertEqual(
+                    facts["pot"] + sum(facts["stacks"]), 600,
+                    "committed chips sit in the pot and never in a stack, so the facts "
+                    "partition the row's 600 chips at every decision (environment.md §1, "
+                    "config.md §4, seats.md §2): decision %d read pot %r and stacks %r"
+                    % (position, facts["pot"], facts["stacks"]),
+                )
+        self.assertEqual(
+            seen, set(range(6)),
+            "a check-call walk of six seats is a whole table, so every seat acts and the "
+            "seat map is read at all six indices (seats.md §2-§3): saw %r" % (sorted(seen),),
+        )
+        payoffs = self.payoffs(finished)
+        self.assertTrue(S.is_mapping(payoffs), "payoffs returns a per-seat mapping")
+        self.assertEqual(
+            set(payoffs), set(range(6)),
+            "the six-seat hand pays six seats, keyed by seats 0 to 5 (surface.md §9, "
+            "hand.md §5, seats.md §3): %r" % (payoffs,),
+        )
+        values = list(S.numbers(payoffs))
+        self.assertEqual(
+            len(values), 6,
+            "exactly one number per seat and nothing else numeric (surface.md §9): %r"
+            % (payoffs,),
+        )
+        self.assertEqual(
+            sum(values), 0,
+            "the six net chip deltas are zero-sum (surface.md §9, ASM-12, seats.md §3): %r"
+            % (payoffs,),
+        )
+        self.assertEqual(
+            self.payoffs(finished), payoffs,
+            "the payoffs are a function of the completed hand alone (surface.md §9)",
         )
 
 

@@ -1,21 +1,26 @@
-"""J-8 -- the second declared game shape, at the module join.
+"""J-8 -- the declared game shapes, at the module join.
 
-`docs/L2/features/shapes.md` §1-§6, `docs/L2/features/surface.md` §4 and §7-§9,
-`docs/L2/engine/surface.md` §12, `docs/L1/shapes.md` §2-§3 (D-29, D-13) and
-`docs/L1/e2e-surface.md` §3.2.
+`docs/L2/features/shapes.md` §1-§6, `docs/L2/features/capacity.md` §1-§5,
+`docs/L2/features/surface.md` §4 and §7-§9, `docs/L2/engine/surface.md` §12,
+`docs/L1/shapes.md` §2-§3 and §8 (D-29, D-33, D-13), `docs/L1/seats.md` §2-§3,
+`docs/L1/assumptions.md` ASM-42, ASM-44 and `docs/L1/e2e-surface.md` §3.2.
 
-The shape is declared twice -- once by `engine.game_shapes()` and once by this module's
+The shapes are declared twice -- once by `engine.game_shapes()` and once by this module's
 own row -- and the join battery is the whole of how the two statements stay equal
 (`shapes.md` §1, §6).  Every case here therefore reads the engine's catalogue and hands
 the module what the engine actually produces: a real hand of one shape, a real readout,
 the engine's own legal descriptors, and the handle `engine.apply_action` returns for a
 descriptor `features.decode_action` decoded.
 
-Nothing here writes down a shape's descriptors, its normalisers or a slot index of its
-own: they are read from `engine.game_shapes()`, from the observation the module returns,
-and from the row the catalogue publishes -- so a case asserts that the two statements
-agree and never that this battery's copy of one of them is the design
-(`docs/L1/battery.md` §2, §4, D-11, D-15).
+Nothing here writes down a shape's descriptors, its normalisers, its seat count, its
+history capacity or a slot index of its own: they are read from `engine.game_shapes()` --
+whose rows now publish `seats` and `history` as well as `actions`, `head_width` and
+`normalisers` -- from the observation the module returns, and from the row the catalogue
+publishes, so a case asserts that the two statements agree and never that this battery's
+copy of one of them is the design (`docs/L1/battery.md` §2, §4, D-11, D-15).  The three
+pairs of widths in `_join_support.SHAPES_BY_CATALOGUE` are the battery's second statement
+of the arithmetic `capacity.md` §2 fixes, and `_join_support.dense_width` /
+`token_width` compute the same widths out of the engine's own `seats` and `history`.
 """
 
 import os
@@ -132,9 +137,13 @@ class ShapesCase(S.JoinCase):
         Every other fact is the engine's own, so the encoding sees a real seat, a real
         board and a real history, and only the amounts are placed -- which is what
         `shapes.md` §2 makes the shape's: the divisors a value is written with.
+        ``stacks`` is one entry per seat, the engine's own count -- two on the two-seat
+        rows and six on the six-seat one -- because both per-seat blocks are the seat
+        count wide (`seats.md` §3, `capacity.md` §4, ASM-44).
         """
         record = dict(base)
-        record["stacks"] = (int(values["stack"]), int(values["stack"]))
+        seats = len(tuple(base["stacks"]))
+        record["stacks"] = tuple(int(values["stack"]) for _ in range(seats))
         record["pot"] = int(values["pot"])
         record["to_call"] = int(values["to_call"])
         record["limit"] = (int(values["amount"]), int(values["count"]))
@@ -221,7 +230,10 @@ class ShapesNormalisers(ShapesCase):
         """J-8.2 for every declared shape a readout whose stacks, pot, to_call and limit
         sit exactly at that row's five normalisers encodes to 1.0 in each of those slots,
         so the divisor the encoding applies and the normaliser the engine publishes are
-        the same table (shapes.md §1, §2, §6; flat-numeric.md §4, D-13)."""
+        the same table; the one normaliser that reaches several slots reaches one per
+        seat -- two on the two-seat rows and six on the six-seat one, whose observation is
+        433 slots against 203 and 329 (shapes.md §1, §2, §6; capacity.md §2, §4;
+        flat-numeric.md §4, seats.md §3, D-13)."""
         catalog = self.catalog()
         for name, row in catalog.items():
             with self.subTest(shape=name):
@@ -233,14 +245,32 @@ class ShapesNormalisers(ShapesCase):
                     % (sorted(normalisers),),
                 )
                 base = self.readout(self.new_shaped_hand(S.SEED_ENCODE, name))
+                seats = len(tuple(base["stacks"]))
+                self.assertEqual(
+                    seats, int(row["seats"]),
+                    "the real readout carries one stack per seat of the row it was dealt "
+                    "on, so the stacks block is that row's width (seats.md §3, ASM-44): "
+                    "%r against %r" % (seats, row["seats"]),
+                )
                 encoder = self.shaped_encoder(DENSE, name)
                 floor_facts = {key: 0 for key in NORMALISERS}
                 floor = S.canonical(self.encode(encoder, self.at_normalisers(base, floor_facts)))
                 self.assertEqual(
-                    len(floor), S.SHAPES[DENSE][0],
-                    "the dense observation is as long as the encoding declares on either "
-                    "shape: the slot count does not move (shapes.md §5, surface.md §5): "
-                    "%d slots against %r" % (len(floor), S.SHAPES[DENSE]),
+                    len(floor), S.SHAPES_BY_CATALOGUE[name][DENSE][0],
+                    "the dense observation is as long as the encoding declares on that "
+                    "shape -- 131 + 3 x 24 = 203 on the default, 131 + 3 x 66 = 329 on "
+                    "the two-seat no-cap shape and 139 + 3 x 98 = 433 on the six-seat one "
+                    "-- because the history block's capacity and the two per-seat blocks "
+                    "are the shape's (capacity.md §2, shapes.md §8, ASM-42, ASM-44; "
+                    "surface.md §5): %d slots against %r"
+                    % (len(floor), S.SHAPES_BY_CATALOGUE[name][DENSE]),
+                )
+                self.assertEqual(
+                    len(floor), S.dense_width(row),
+                    "and it is the width the engine's own `seats` and `history` imply, "
+                    "127 + 2 x seats + 3 x history, so the two statements are one "
+                    "arithmetic (capacity.md §2, §5, D-13): %d against %d"
+                    % (len(floor), S.dense_width(row)),
                 )
                 reached = {}
                 for fact in NORMALISERS:
@@ -285,16 +315,18 @@ class ShapesNormalisers(ShapesCase):
                 )
                 self.assertEqual(
                     [fact for fact in reached.values() if fact == "stack"],
-                    ["stack", "stack"],
-                    "the stack normaliser is the one that reaches two slots, because the "
-                    "block carries both seats' stacks (flat-numeric.md §2, §4): %r"
-                    % (sorted(reached),),
+                    ["stack"] * seats,
+                    "the stack normaliser is the one that reaches one slot per seat, "
+                    "because the block carries every seat's stack: two slots on a "
+                    "two-seat row and six on the six-seat one (flat-numeric.md §2, §4, "
+                    "seats.md §3, ASM-44): %r" % (sorted(reached),),
                 )
                 self.assertEqual(
-                    len(reached), 6,
-                    "the two stacks plus the pot, the amount to call and the bet size "
-                    "and count are six amount slots on either shape (surface.md §5, "
-                    "flat-numeric.md §2, §4): %r" % (sorted(reached),),
+                    len(reached), seats + 4,
+                    "the stacks' one slot per seat plus the pot, the amount to call and "
+                    "the bet size and count are %d amount slots on this row (surface.md "
+                    "§5, flat-numeric.md §2, §4, ASM-44): %r"
+                    % (seats + 4, sorted(reached)),
                 )
 
 
@@ -405,13 +437,15 @@ class ShapesSecondVocabulary(ShapesCase):
 
 
 class ShapesEncodings(ShapesCase):
-    """Both encodings keep the declared shape, and the default's values do not move."""
+    """Both encodings declare the shape's own width, and the default's values do not move."""
 
-    def test_join_shapes_04_both_encodings_keep_their_declared_shape_and_dtype(self):
-        """J-8.4 both encodings encode a no-limit-100 readout to their declared shape and
-        dtype, and both encode a default-shape readout to the very values
-        build_encoder(name) with no shape produces, so the default shape's observations
-        are unchanged (surface.md §4-§6, shapes.md §5, e2e-surface.md §3.2, D-29)."""
+    def test_join_shapes_04_both_encodings_declare_the_shapes_width_and_dtype(self):
+        """J-8.4 both encodings encode a no-limit-100 readout to that shape's declared
+        width -- 329 dense and 82 tokens, the 131 and 16 slots before the history plus
+        3 x 66 and 66 -- and to their own dtype, while both encode a default-shape readout
+        to the very values build_encoder(name) with no shape produces, at 203 and 40, so
+        the default shape's observations are unchanged (surface.md §4-§6, shapes.md §5,
+        §8, ASM-42, ASM-44, e2e-surface.md §3.2, D-29)."""
         shaped = self.readout(self.new_shaped_hand(S.SEED_ENCODE, SECOND))
         for name in (DENSE, TOKENS):
             with self.subTest(encoding=name, readout=SECOND):
@@ -420,21 +454,25 @@ class ShapesEncodings(ShapesCase):
                 observation = self.encode(encoder, shaped)
                 self.assert_observation(name, spec, observation)
                 self.assertEqual(
-                    self.declared_shape(spec), S.SHAPES[name],
-                    "an encoder built for the second shape still declares %r: the slot "
-                    "count is the encoding's and not the shape's (shapes.md §5, "
-                    "surface.md §5): %r" % (S.SHAPES[name], self.declared_shape(spec)),
+                    self.declared_shape(spec),
+                    S.SHAPES_BY_CATALOGUE[SECOND][name],
+                    "an encoder built for the second shape declares that shape's own "
+                    "width, because one observation's shape follows the history block's "
+                    "capacity (shapes.md §8, ASM-42, ASM-44; surface.md §5): %r against %r"
+                    % (S.SHAPES_BY_CATALOGUE[SECOND][name], self.declared_shape(spec)),
                 )
                 self.assertEqual(
                     str(spec["dtype"]), S.DTYPES[name],
-                    "and still declares the encoding's dtype (shapes.md §5, surface.md "
-                    "§5): %r" % (spec["dtype"],),
+                    "and still declares the encoding's dtype, which the shape does not "
+                    "move (shapes.md §5, surface.md §5): %r" % (spec["dtype"],),
                 )
                 self.assertEqual(
-                    self.observation_spec(self.build_encoder(name)), spec,
-                    "the spec record of an encoder built for the second shape is the "
-                    "record of one built with no shape, value for value: the shape names "
-                    "no key (shapes.md §5, surface.md §5): %r"
+                    self.observation_spec(self.build_encoder(name)),
+                    dict(spec, shape=S.SHAPES[name]),
+                    "the spec of an encoder built with no shape is the second shape's "
+                    "record with the default shape's width in place of its own, value for "
+                    "value elsewhere: the capacity is the one fact the shape adds to a "
+                    "record (shapes.md §5, §8, surface.md §5): %r"
                     % (self.observation_spec(self.build_encoder(name)),),
                 )
         plain = self.readout(self.new_hand(S.SEED_ENCODE))
@@ -449,6 +487,12 @@ class ShapesEncodings(ShapesCase):
                     "(shapes.md §2, §5, D-29): %r against %r"
                     % (S.canonical(named), S.canonical(unnamed)),
                 )
+                self.assertEqual(
+                    tuple(unnamed.shape), S.SHAPES[name],
+                    "and that observation is still the declared %r: the fixed-limit width "
+                    "does not move (shapes.md §5, §8): %r"
+                    % (S.SHAPES[name], tuple(unnamed.shape)),
+                )
                 self.assert_observation(name, self.spec(name), named)
 
 
@@ -458,14 +502,22 @@ class ShapesRefusals(ShapesCase):
     def test_join_shapes_05_an_undeclared_shape_is_refused_and_the_shape_stays_a_keyword(self):
         """J-8.5 features.action_space(shape=...) and features.build_encoder(..., shape=...)
         -- and features.decode_action(index, shape=...) -- refuse a name that is no
-        declared shape by a message naming the rejected value and both declared names,
+        declared shape by a message naming the rejected value and every declared name,
         and a positional shape argument is still Python's TypeError, so no pre-existing
-        arity moved (shapes.md §1, §6, surface.md §4, §7, §9, D-11, D-29)."""
+        arity moved; the declared names are the three the engine's catalogue publishes,
+        default first, the six-seat row included (shapes.md §1, §6, surface.md §4, §7, §9,
+        seats.md §2, capacity.md §5, D-11, D-29, D-33)."""
         declared = self.shape_names()
         self.assertEqual(
-            set(declared), {DEFAULT, SECOND},
-            "the two declared names this case reads out of the engine's catalogue are the "
-            "two the module declares (shapes.md §1, §6): %r" % (list(declared),),
+            set(declared), {DEFAULT, SECOND, S.THIRD_SHAPE},
+            "the three declared names this case reads out of the engine's catalogue are "
+            "the three the module declares, the six-seat row included (shapes.md §1, §6, "
+            "seats.md §2, D-33): %r" % (list(declared),),
+        )
+        self.assertEqual(
+            len(set(declared)), 3,
+            "three declared shapes and no fourth: the catalogue is the whole set "
+            "(shapes.md §2, seats.md §2, D-13): %r" % (list(declared),),
         )
         calls = (
             ("action_space", lambda: self.ep("action_space")(shape=UNDECLARED_SHAPE)),
@@ -578,5 +630,494 @@ class ShapesDefault(ShapesCase):
         )
 
 
+class ShapesHistoryCapacity(ShapesCase):
+    """A real no-cap hand's history runs past 24 entries -- and the shape carries it."""
+
+    def test_join_shapes_07_a_real_no_limit_history_past_24_encodes_and_the_next_is_refused(self):
+        """J-8.7 a real no-limit-100 hand driven to the minimum raise every decision applies
+        more than the fixed-limit capacity's 24 actions while staying inside the no-cap
+        shape's 66, every readout of that hand encodes in both encodings at that shape's own
+        width (329 and 82), and a history one entry past the 66 is refused naming the field,
+        the capacity and the count -- the overflow D-32 recorded is closed by the shape's own
+        capacity and never by a truncation (shapes.md §8, ASM-42, ASM-44; flat-numeric.md §5,
+        card-tokens.md §5, surface.md §6)."""
+        steps = self.walk_shaped(S.SEED_MASK, SECOND, LAST)
+        longest = max(len(step.readout["history"]) for step in steps)
+        longest_step = max(steps, key=lambda step: len(step.readout["history"]))
+        self.assertGreater(
+            longest, S.CAPACITY[S.DEFAULT_SHAPE],
+            "the raise war on the uncapped shape applies more than the fixed-limit "
+            "capacity's 24 actions, which is the hand the 24-slot block refused "
+            "(shapes.md §8, ASM-42): %d entries" % (longest,),
+        )
+        self.assertLessEqual(
+            longest, S.CAPACITY[SECOND],
+            "and it stays inside the no-cap shape's own capacity of 66, so the block the "
+            "shape declares carries a legal hand whole (shapes.md §8, ASM-42): %d entries"
+            % (longest,),
+        )
+        for position, step in enumerate(steps):
+            for name in (DENSE, TOKENS):
+                with self.subTest(encoding=name, decision=position,
+                                  entries=len(step.readout["history"])):
+                    observation = self.encode(self.shaped_encoder(name, SECOND),
+                                              step.readout)
+                    self.assertEqual(
+                        tuple(observation.shape),
+                        S.SHAPES_BY_CATALOGUE[SECOND][name],
+                        "every real decision of the hand encodes at the shape's declared "
+                        "width, whatever the history's length (surface.md §6, shapes.md "
+                        "§8): %r at %d entries"
+                        % (tuple(observation.shape), len(step.readout["history"])),
+                    )
+        real = list(longest_step.readout["history"])
+        room = (real * 2)[:S.CAPACITY[SECOND]]
+        self.assertEqual(
+            len(room), S.CAPACITY[SECOND],
+            "the battery holds a history of exactly the capacity, built from the entries "
+            "this real hand really applied (shapes.md §8, ASM-42): %d" % (len(room),),
+        )
+        for name in (DENSE, TOKENS):
+            with self.subTest(encoding=name, entries=S.CAPACITY[SECOND]):
+                encoder = self.shaped_encoder(name, SECOND)
+                self.assertEqual(
+                    tuple(self.encode(encoder, dict(longest_step.readout,
+                                                    history=room)).shape),
+                    S.SHAPES_BY_CATALOGUE[SECOND][name],
+                    "a history of exactly the capacity encodes: the threshold is the "
+                    "capacity and not one less (shapes.md §8, ASM-42): %r"
+                    % (S.SHAPES_BY_CATALOGUE[SECOND][name],),
+                )
+                self.assert_named_refusal(
+                    lambda encoder=encoder, room=room: self.encode(
+                        encoder, dict(longest_step.readout,
+                                      history=room + [real[0]])),
+                    "encode",
+                    "one entry past the shape's capacity must be refused, never "
+                    "truncated, on both encodings (shapes.md §8, ASM-42)",
+                    words=("history", str(S.CAPACITY[SECOND]),
+                           str(S.CAPACITY[SECOND] + 1)),
+                )
+
+
+class ShapesSeatsAndCapacity(ShapesCase):
+    """The engine's `seats` and `history` and this module's rows are one statement."""
+
+    def test_join_shapes_08_the_rows_seats_and_history_are_the_engines(self):
+        """J-8.8 for every declared shape the row engine.game_shapes() publishes and the
+        row this module encodes to agree about the two numbers the widths are built from:
+        the dense encoder declares 127 + 2 x seats + 3 x history slots and the token
+        encoder 12 + 2 x seats + history tokens, a real readout of the shape carries one
+        stack per seat, the last seat index is accepted while the seat count is refused
+        naming seat, one more stack than seats is refused naming stacks, and a history of
+        exactly the row's capacity encodes while one entry more is refused naming the
+        field, the capacity and the count -- so 139/24 and 433/122 on the six-seat row
+        are its own arithmetic and 131/16 and 203/329 stay the two-seat rows'
+        (capacity.md §2-§5, shapes.md §1-§2, §8, seats.md §2-§3, surface.md §5-§6,
+        ASM-42, ASM-44, D-13)."""
+        catalog = self.catalog()
+        self.assertEqual(
+            tuple(catalog), (DEFAULT, SECOND, S.THIRD_SHAPE),
+            "the catalogue declares the three shapes default first, the six-seat row "
+            "third (shapes.md §2, seats.md §2, D-33): %r" % (tuple(catalog),),
+        )
+        for name, row in catalog.items():
+            seats, history = int(row["seats"]), int(row["history"])
+            with self.subTest(shape=name):
+                self.assertEqual(
+                    (seats, history), (S.SEATS[name], S.CAPACITY[name]),
+                    "the row's seat count and history capacity are the two this module "
+                    "restates and the widths are built from (capacity.md §2, §5, "
+                    "shapes.md §8, seats.md §3, ASM-42, ASM-44): %r against %r"
+                    % ((seats, history), (S.SEATS[name], S.CAPACITY[name])),
+                )
+                self.assertIn(
+                    seats, (2, 6),
+                    "a declared row seats two or six: the third row is the six-seat "
+                    "table and no other count exists (seats.md §2, D-33): %r" % (seats,),
+                )
+                base = self.readout(self.new_shaped_hand(S.SEED_ENCODE, name))
+                self.assertEqual(
+                    len(tuple(base["stacks"])), seats,
+                    "a real readout of %r carries one stack per seat -- six here, two "
+                    "on the two-seat rows -- because `stacks` is in seat order "
+                    "(seats.md §3, ASM-44): %r" % (name, base["stacks"]),
+                )
+                for encoding, width in (
+                    (DENSE, S.dense_width(row)), (TOKENS, S.token_width(row)),
+                ):
+                    with self.subTest(shape=name, encoding=encoding):
+                        spec = self.observation_spec(
+                            self.shaped_encoder(encoding, name))
+                        self.assertEqual(
+                            self.declared_shape(spec), (width,),
+                            "the encoder declares the width the engine's own seats and "
+                            "history imply -- 127 + 2 x %d + 3 x %d = %d dense, "
+                            "12 + 2 x %d + %d = %d tokens (capacity.md §2, §5, D-13): "
+                            "%r"
+                            % (seats, history, S.dense_width(row), seats, history,
+                               S.token_width(row), self.declared_shape(spec)),
+                        )
+                        self.assertEqual(
+                            (width,), S.SHAPES_BY_CATALOGUE[name][encoding],
+                            "and that width is the battery's second statement of the "
+                            "same arithmetic (capacity.md §2): %r against %r"
+                            % ((width,), S.SHAPES_BY_CATALOGUE[name][encoding]),
+                        )
+                        observation = self.encode(self.shaped_encoder(encoding, name),
+                                                   base)
+                        self.assert_observation(encoding, spec, observation)
+                token_spec = self.observation_spec(
+                    self.shaped_encoder(TOKENS, name))
+                self.assertEqual(
+                    int(token_spec["vocabulary"]), S.TOKEN_VOCABULARY[name],
+                    "the token vocabulary is the row's own: 96 on the two-seat rows, "
+                    "102 on the six-seat one, whose seat ids are 96-101 (card-tokens.md "
+                    "§6, seats.md §3, capacity.md §4, ASM-44): %r against %r"
+                    % (token_spec["vocabulary"], S.TOKEN_VOCABULARY[name]),
+                )
+                dense = self.shaped_encoder(DENSE, name)
+                last_seat = dict(base, seat=(seats - 1, True))
+                self.encode(dense, last_seat)
+                self.assert_named_refusal(
+                    lambda dense=dense, base=base, seats=seats: self.encode(
+                        dense, dict(base, seat=(seats, True))),
+                    "encode",
+                    "a seat index equal to the shape's seat count must be refused, "
+                    "naming seat (seats.md §3, ASM-44)",
+                    words=("seat",),
+                )
+                self.encode(dense, dict(base, stacks=tuple([0] * seats)))
+                self.assert_named_refusal(
+                    lambda dense=dense, base=base, seats=seats: self.encode(
+                        dense, dict(base, stacks=tuple([0] * (seats + 1)))),
+                    "encode",
+                    "one stack more than the shape seats must be refused, naming "
+                    "stacks (seats.md §3, ASM-44)",
+                    words=("stacks",),
+                )
+                steps = self.walk_shaped(S.SEED_MASK, name, LAST)
+                longest = max(steps, key=lambda step: len(step.readout["history"]))
+                real = list(longest.readout["history"])
+                self.assertTrue(
+                    real,
+                    "the walk really applied actions, so a real entry exists to build "
+                    "the capacity's history from (capacity.md §1, §3): %r" % (real,),
+                )
+                room = (real * (history // len(real) + 1))[:history]
+                self.assertEqual(
+                    len(room), history,
+                    "the battery holds a history of exactly the row's capacity, built "
+                    "from the entries this real hand really applied (capacity.md §3, "
+                    "ASM-42): %d entries" % (len(room),),
+                )
+                for encoding in (DENSE, TOKENS):
+                    with self.subTest(shape=name, encoding=encoding,
+                                      entries=history):
+                        encoder = self.shaped_encoder(encoding, name)
+                        spec = self.observation_spec(encoder)
+                        self.assert_observation(
+                            encoding, spec,
+                            self.encode(encoder, dict(base, history=room)))
+                        self.assert_named_refusal(
+                            lambda encoder=encoder, base=base, room=room, real=real:
+                            self.encode(encoder, dict(base, history=room + [real[0]])),
+                            "encode",
+                            "one entry past the shape's capacity must be refused, never "
+                            "truncated (capacity.md §3, ASM-42)",
+                            words=("history", str(history), str(history + 1)),
+                        )
+
+
+class ShapesSixSeatHand(ShapesCase):
+    """A real six-seat hand's every decision encodes at 433 and 122."""
+
+    def test_join_shapes_09_a_real_six_seat_hand_encodes_at_every_decision(self):
+        """J-8.9 a real six-seat-no-limit-100 hand, driven through engine.new_hand,
+        engine.legal_actions and engine.apply_action, has every one of its decisions
+        encoded at that row's 433 dense slots and 122 tokens, at the declared dtypes; its
+        stacks carry six entries, its legal set is the row's six descriptors in the row's
+        order, features.legal_indices gives those positions, and every descriptor
+        features.decode_action returns at a legal index is one engine.apply_action
+        accepts, so the shape's widths are the widths a real hand produces (surface.md
+        §4-§9, shapes.md §2-§4, §8, capacity.md §1-§2, seats.md §2-§4, engine/surface.md
+        §6-§7, e2e-surface.md §3.2, D-13, D-33)."""
+        catalog = self.catalog()
+        self.assertIn(
+            S.THIRD_SHAPE, catalog,
+            "the six-seat row is a declared row of the engine's catalogue, so a hand "
+            "can be dealt on it (shapes.md §2, seats.md §2, D-33): %r" % (list(catalog),),
+        )
+        row = catalog[S.THIRD_SHAPE]
+        vocabulary = tuple(row["actions"])
+        self.assertEqual(
+            len(vocabulary), int(row["head_width"]),
+            "the row's six descriptors are its head width's count (shapes.md §3, "
+            "sizing.md §6): %r" % (list(vocabulary),),
+        )
+        steps = self.walk_shaped(S.SEED_MASK, S.THIRD_SHAPE, LAST)
+        self.assertGreater(
+            len(steps), len(vocabulary),
+            "the walk reaches more decisions than the six descriptors, so every one of "
+            "the shape's widths is asserted over a real hand's course (seats.md §4): %d "
+            "decisions" % (len(steps),),
+        )
+        self.assertEqual(
+            (S.dense_width(row), S.token_width(row)), (433, 122),
+            "the six-seat row's two widths are 139 + 3 x 98 = 433 dense and 24 + 98 = "
+            "122 tokens (capacity.md §2, seats.md §3): %r"
+            % ((S.dense_width(row), S.token_width(row)),),
+        )
+        encoders = {encoding: self.shaped_encoder(encoding, S.THIRD_SHAPE)
+                    for encoding in (DENSE, TOKENS)}
+        specs = {encoding: self.observation_spec(encoders[encoding])
+                 for encoding in encoders}
+        for encoding, width in (
+            (DENSE, S.SHAPES_BY_CATALOGUE[S.THIRD_SHAPE][DENSE]),
+            (TOKENS, S.SHAPES_BY_CATALOGUE[S.THIRD_SHAPE][TOKENS]),
+        ):
+            with self.subTest(encoding=encoding, declared=width):
+                self.assertEqual(
+                    self.declared_shape(specs[encoding]), width,
+                    "an encoder built for the six-seat row declares that row's width "
+                    "(surface.md §5, capacity.md §2): %r against %r"
+                    % (self.declared_shape(specs[encoding]), width),
+                )
+        longest = 0
+        for position, step in enumerate(steps):
+            with self.subTest(decision=position,
+                              entries=len(step.readout["history"])):
+                self.assertEqual(
+                    len(tuple(step.readout["stacks"])), S.SEATS[S.THIRD_SHAPE],
+                    "every decision's readout carries six stacks in seat order, so the "
+                    "six-wide blocks are what the engine really produces (seats.md §3, "
+                    "ASM-28, ASM-44): %r" % (step.readout["stacks"],),
+                )
+                self.assertLessEqual(
+                    len(step.readout["history"]), int(row["history"]),
+                    "no decision of the hand overflows the row's own capacity: the "
+                    "history the engine applies is inside the 98 the block declares "
+                    "(capacity.md §1, §3, ASM-42): %d entries"
+                    % (len(step.readout["history"]),),
+                )
+                longest = max(longest, len(step.readout["history"]))
+                for encoding in (DENSE, TOKENS):
+                    with self.subTest(decision=position, encoding=encoding):
+                        observation = self.encode(encoders[encoding], step.readout)
+                        self.assert_observation(encoding, specs[encoding], observation)
+                        if encoding == DENSE:
+                            self.assertTrue(
+                                S.all_finite(observation),
+                                "the dense observation of a real six-seat decision is "
+                                "all finite numbers, so a dense layer can multiply it "
+                                "(encodings.md §3, capacity.md §2): %r"
+                                % (S.canonical(observation)[:8],),
+                            )
+                legal = S.descriptors(step.legal, "a decision's legal descriptors")
+                self.assertEqual(
+                    legal,
+                    [descriptor for descriptor in vocabulary if descriptor in legal],
+                    "the six-seat legal set is the row's whole vocabulary in the row's "
+                    "own order, with the bands its price masks out simply absent "
+                    "(shapes.md §3-§4, engine/surface.md §6): %r against %r"
+                    % (legal, list(vocabulary)),
+                )
+                indices = self.legal_indices(legal)
+                self.assertEqual(
+                    tuple(indices),
+                    tuple(vocabulary.index(descriptor) for descriptor in legal),
+                    "features.legal_indices gives the positions of the descriptors the "
+                    "engine returned, position for position (surface.md §8, "
+                    "vocabulary.md §3): %r against %r" % (tuple(indices), legal),
+                )
+                for slot, index in enumerate(indices):
+                    with self.subTest(decision=position, index=index):
+                        descriptor = self.shaped_decode(index, S.THIRD_SHAPE)
+                        self.assertEqual(
+                            descriptor, legal[slot],
+                            "decode_action(index, shape=%r) returns the descriptor at "
+                            "that position, which is legal_indices' reverse step "
+                            "(surface.md §9, FAM-2.10): %r -> %r, expected %r"
+                            % (S.THIRD_SHAPE, index, descriptor, legal[slot]),
+                        )
+                        advanced = self.apply_action(step.hand, descriptor)
+                        self.assertIsNotNone(
+                            advanced,
+                            "engine.apply_action accepts every descriptor features "
+                            "decoded at the decision whose mask holds its index "
+                            "(engine/surface.md §7, shapes.md §6): %r was refused at %r"
+                            % (descriptor, legal),
+                        )
+        self.assertGreaterEqual(
+            longest, 1,
+            "the walk's longest history is at least one applied action, so the history "
+            "block is exercised by a real hand (capacity.md §1): %d entries" % (longest,),
+        )
+
+
+class ShapesSixSeatSeatTokens(ShapesCase):
+    """A real six-seat decision's acting seat is one of 96-101, and nowhere else."""
+
+    def test_join_shapes_10_the_six_seat_token_seat_ids_are_96_to_101_for_the_acting_seat(self):
+        """J-8.10 on every decision of a real six-seat hand the token observation carries
+        exactly one id from 96-101 and it is `96 + the acting seat's index`, so the six
+        seat ids appear only for the seat that acts and every other seat slot holds the
+        pad; across the walk all six ids appear, and every id of every observation stays
+        inside the row's vocabulary of 102 (seats.md §3, card-tokens.md §3, §6,
+        capacity.md §4, ASM-44)."""
+        row = self.catalog()[S.THIRD_SHAPE]
+        encoder = self.shaped_encoder(TOKENS, S.THIRD_SHAPE)
+        spec = self.observation_spec(encoder)
+        vocabulary = int(spec["vocabulary"])
+        self.assertEqual(
+            vocabulary, S.TOKEN_VOCABULARY[S.THIRD_SHAPE],
+            "the six-seat row's token vocabulary is the 102 its encoder declares "
+            "(card-tokens.md §6, capacity.md §4, ASM-44): %r" % (vocabulary,),
+        )
+        self.assertEqual(
+            vocabulary, max(S.SIX_SEAT_SEAT_IDS) + 1,
+            "and its top seat id 101 is the last id inside it (seats.md §3, ASM-44): "
+            "%r" % (vocabulary,),
+        )
+        steps = self.walk_shaped(S.SEED_MASK, S.THIRD_SHAPE, LAST)
+        reached = set()
+        for position, step in enumerate(steps):
+            index, flag = S.seat_fact(step.readout["seat"])
+            with self.subTest(decision=position, seat=(index, flag)):
+                self.assertTrue(
+                    0 <= index < S.SEATS[S.THIRD_SHAPE],
+                    "the readout's seat index is inside the row's 0-5 (seats.md §3, "
+                    "ASM-44): %r" % (index,),
+                )
+                values = [int(value) for value in
+                          self.encode(encoder, step.readout).tolist()]
+                self.assertEqual(
+                    len(values), S.token_width(row),
+                    "one real six-seat decision is the row's 122 tokens (capacity.md §2, "
+                    "surface.md §6): %d" % (len(values),),
+                )
+                seat_ids = [ident for ident in values
+                            if ident in S.SIX_SEAT_SEAT_IDS]
+                self.assertEqual(
+                    seat_ids, [S.SEAT_TOKEN_BASE + index],
+                    "exactly one id from 96-101, and it is 96 + the acting seat's "
+                    "index: the five other seat slots hold the pad and no other block "
+                    "reaches the row's own seat ids (seats.md §3, card-tokens.md §3, "
+                    "§6, ASM-44): %r for seat %r" % (seat_ids, index),
+                )
+                self.assertIn(
+                    S.SEAT_TOKEN_BASE + index, S.SIX_SEAT_SEAT_IDS,
+                    "the id is one of the six the row declares (seats.md §3, ASM-44): "
+                    "%r" % (S.SEAT_TOKEN_BASE + index,),
+                )
+                self.assertLess(
+                    max(values), vocabulary,
+                    "every id of the observation stays inside the vocabulary of 102, so "
+                    "an embedding table of that size holds the whole row (card-tokens.md "
+                    "§6, capacity.md §4): %r" % (max(values),),
+                )
+                self.assertGreaterEqual(
+                    min(values), 0,
+                    "and no id is negative (card-tokens.md §6, guardrails.md G10): %r"
+                    % (min(values),),
+                )
+                reached.add(S.SEAT_TOKEN_BASE + index)
+        self.assertEqual(
+            sorted(reached), list(S.SIX_SEAT_SEAT_IDS),
+            "the walk rotates the acting seat through all six, so every id 96-101 is "
+            "produced by a real decision (seats.md §3, §4, D-33): %r"
+            % (sorted(reached),),
+        )
+
+
+class ShapesSixSeatHistory(ShapesCase):
+    """A real six-seat readout carries a history of 98 entries, and refuses a 99th."""
+
+    def test_join_shapes_11_a_real_six_seat_history_of_98_encodes_and_99_is_refused(self):
+        """J-8.11 a history of exactly 98 entries, built from the entries a real
+        six-seat hand really applied, encodes on that row in both encodings -- the dense
+        history block's last 294 slots all live, the token history block's last 98 tokens
+        all non-pad -- and a 99th entry is refused naming the field, the capacity and the
+        count, never truncated, so the row's derived bound is what carries a real hand
+        whole (capacity.md §1-§3, shapes.md §8, flat-numeric.md §5, card-tokens.md §5,
+        ASM-42, ASM-44)."""
+        row = self.catalog()[S.THIRD_SHAPE]
+        capacity = int(row["history"])
+        self.assertEqual(
+            capacity, S.CAPACITY[S.THIRD_SHAPE],
+            "the six-seat row's capacity is the 98 the battery reads out of the engine's "
+            "catalogue (capacity.md §1, §5, D-13): %r" % (capacity,),
+        )
+        steps = self.walk_shaped(S.SEED_MASK, S.THIRD_SHAPE, LAST)
+        longest = max(steps, key=lambda step: len(step.readout["history"]))
+        real = list(longest.readout["history"])
+        self.assertTrue(
+            real,
+            "the walk applied at least one real action, so the capacity's entries are "
+            "the engine's own and not this battery's (capacity.md §3, D-13): %r"
+            % (real,),
+        )
+        self.assertLessEqual(
+            len(real), capacity,
+            "a real six-seat hand's longest history is inside the row's own capacity, so "
+            "no real decision is ever truncated (capacity.md §1, §3, ASM-42): %d entries"
+            % (len(real),),
+        )
+        room = (real * (capacity // len(real) + 1))[:capacity]
+        self.assertEqual(
+            len(room), 98,
+            "the battery holds 98 real entries, one per history slot (capacity.md §3, "
+            "ASM-42): %d" % (len(room),),
+        )
+        readout = dict(longest.readout, history=room)
+        for encoding in (DENSE, TOKENS):
+            with self.subTest(encoding=encoding, entries=capacity):
+                encoder = self.shaped_encoder(encoding, S.THIRD_SHAPE)
+                spec = self.observation_spec(encoder)
+                observation = self.encode(encoder, readout)
+                self.assert_observation(encoding, spec, observation)
+                values = [int(value) if encoding == TOKENS else float(value)
+                          for value in observation.tolist()]
+                if encoding == DENSE:
+                    start = (S.SEAT_INVARIANT_DENSE_SLOTS
+                             + 2 * S.SEATS[S.THIRD_SHAPE])
+                    block = values[start:]
+                    self.assertEqual(
+                        len(block), 3 * capacity,
+                        "the dense history block is the last 3 x 98 = 294 slots, from "
+                        "slot 139 to 432 (flat-numeric.md §5, capacity.md §2): %d"
+                        % (len(block),),
+                    )
+                    self.assertEqual(
+                        sum(1 for value in block if value == 1.0), capacity,
+                        "98 applied actions are 98 one-hots, so the last slot is live and "
+                        "the block was not truncated (flat-numeric.md §5, ASM-42)",
+                    )
+                else:
+                    start = (S.SEAT_INVARIANT_TOKEN_SLOTS
+                             + 2 * S.SEATS[S.THIRD_SHAPE])
+                    block = values[start:]
+                    self.assertEqual(
+                        len(block), capacity,
+                        "the token history block is the last 98 tokens, from token 24 to "
+                        "121 (card-tokens.md §5, capacity.md §2): %d" % (len(block),),
+                    )
+                    self.assertNotIn(
+                        0, block,
+                        "a full 98-entry history leaves no pad token: the block's width "
+                        "and its capacity are one number (card-tokens.md §5, ASM-42): %r"
+                        % (block[:6],),
+                    )
+                self.assert_named_refusal(
+                    lambda encoder=encoder, readout=readout, real=real: self.encode(
+                        encoder, dict(readout, history=room + [real[0]])),
+                    "encode",
+                    "one entry past the six-seat row's 98 must be refused, never "
+                    "truncated (capacity.md §3, ASM-42)",
+                    words=("history", str(capacity), str(capacity + 1)),
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
+

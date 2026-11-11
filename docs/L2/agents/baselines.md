@@ -10,9 +10,11 @@
 
 Split out of `surface.md`, which keeps one-line pointers, when the second game shape's seven rows filled that
 document's budget (D-12, D-13); §3 came here from `learner.md` §5 at the same time, so the six baselines have one owner.
-**The shape moves nothing here**: the six rules, the `anchor` set, the oracle's sample count and each baseline's
-`params` of `0` are what they were, because a baseline is a function of the decision it is handed and not of the game
-(`protocol.md` §3, `folders.md` §2, D-6, D-21).
+**The shape moves two things here and no rule**: the six rules, the `anchor` set, the oracle's sample count and each
+baseline's `params` of `0` are what they were, because a baseline is a function of the decision it is handed
+(`protocol.md` §3, `folders.md` §2, D-6, D-21). What D-33's seat count adds is the optional `shape` §2 takes — which
+`fold-large-bet` reads its own starting stack from and which admits a six-seat readout to the oracle's inequality at
+all (`seats.md` §2, §6, ASM-31, ASM-44, D-33).
 
 ## 1. `baselines` — the six fixed baselines (`fixed` row)
 
@@ -32,22 +34,29 @@ document's budget (D-12, D-13); §3 came here from `learner.md` §5 at the same 
 
 ## 2. `build_baseline` — one baseline as a policy (`fixed` row)
 
-- **Signature:** `build_baseline(name, seed)`.
-- **Arguments:** one of the six names §1 declares, and a seed for that baseline's own generator
-  (`e2e-surface.md` §3.3, ASM-4).
+- **Signature:** `build_baseline(name, seed, shape=None)`.
+- **Arguments:** one of the six names §1 declares; a seed for that baseline's own generator; and the **declared shape
+  the policy decides in**, optional, absent meaning the default — the third argument D-33 adds and the only signature
+  change at this surface (`e2e-surface.md` §3.3, `seats.md` §6, ASM-4, D-33). A name outside the catalogue of shapes is
+  refused naming it and the declared names, never defaulted (`shapes.md` §2, §6, D-13).
 - **Returns:** a policy in the sense of `e2e-surface.md` §2 (ASM-4, `protocol.md` §3). Its rule is
   `learner.md` §5's; it receives only the readout and the legal descriptors, which is why the oracle asks
   `engine.equity` with the readout it was handed rather than with a hand, and why `fold-large-bet` reads the declared
   starting stack through `engine.game_config` rather than holding a copy of it (`e2e-surface.md` §2,
-  `engine/surface.md` §11, `folders.md` §2, ASM-31). A baseline's policy carries no `learning_rule` and no `utility`, and
-  no shape: it is handed a decision of whichever shape the table plays (`surface.md` §1, `shapes.md` §7).
+  `engine/surface.md` §11, `folders.md` §2, ASM-31). A baseline's policy carries **no** `learning_rule` and **no**
+  `utility` on any shape — a baseline learns nothing and is trained on no reward — and it carries the **name** of the
+  shape it was built for, because `fold-large-bet` reads that shape's stack (`surface.md` §1, §10, `seats.md` §3,
+  `rules.md` §7, `utilities.md` §7, D-19, D-20).
 - **Refusals:** a name the six do not include, with that name in the error (`e2e-surface.md` §2,
-  `protocol.md` §3); a seed that is not an integer (ASM-2).
+  `protocol.md` §3); a seed that is not an integer (ASM-2); a `shape` the module's catalogue does not carry, naming that
+  value and the declared names (`shapes.md` §2, `seats.md` §6).
 - **Determinism:** one decision gives one descriptor, because no baseline advances any state; for `random` one seed
   repeats its choices and two seeds differ (`protocol.md` §3), while `always-call`, `oracle` and the three folders are
   functions of the decision alone — a folder decides identically at one seed twice and at two different seeds. The draw
   is keyed by the decision as a learner's exploration is, since a uniform draw over a decision's legal indices cannot
-  come from a stream position (`surface.md` §1, `protocol.md` §3, §4, ASM-4). A baseline never learns (D-6, D-19, D-20).
+  come from a stream position (`surface.md` §1, `protocol.md` §3, §4, ASM-4). That keying is unchanged at six seats,
+  where the decision's canonical spelling carries six `stacks` entries and six legal indices instead of two and three
+  (`seats.md` §2, D-33). A baseline never learns (D-6, D-19, D-20).
 
 ## 3. The six rules, and the `anchor` flag
 
@@ -66,15 +75,23 @@ The three folders carry one fold predicate each — `fold-no-pair-or-face` pre-f
 K or A, `fold-no-pair-or-better` from the flop on a `hand_class` of `0`, and `fold-large-bet` on any street where the
 call exceeds half the declared starting stack — and otherwise check/call; each folds only where folding is legal and
 never raises while check/call is legal, and consumes no randomness (`protocol.md` §3, `folders.md` §2, ASM-31, D-21).
+**`fold-large-bet`'s half is the shape's own**: the stack it compares against is the one `engine.game_config` returns
+for the shape the policy was built for, so it folds at 11 of the default shape's 20 and at 51 of the six-seat row's 100
+(`baselines.md` §2, `folders.md` §2, ASM-31, `seats.md` §2, §6, D-33). The readout's `stacks` and `seat` facts carry the
+shape's seat count — six entries and an index in `0..5` on the third row — while every other fact and every rule over
+them is the one this section states for two seats (`seats.md` §2, ASM-30, ASM-44).
 
 - **The `anchor` flag keeps the rating's scale.** Every record carries it: true for D-6's three, false for the folders,
   and `evaluation` zeros the fit on the mean of the flagged three, so a rating recorded before D-21 and one recorded
   after it are read on one scale (ASM-32, `league.md` §5, D-16).
 - **The oracle is a rule, and a blind one.** Its equity comes from `engine.equity`, queried with the readout it was
   handed, **the seed the baseline was built with** and the sample count §1's catalogue declares — so a caller holding
-  that seed and that count re-issues the query and checks the inequality itself (`surface.md` §11, ASM-4). It never
-  raises, a raise being no pot-odds question: strong on the pot-odds axis `protocol.md` §3 names and blind on every
-  other — no history, no opponent, no adaptation — which is what makes it a baseline and not a competitor (D-6).
+  that seed and that count re-issues the query and checks the inequality itself (`surface.md` §11, ASM-4). That query is
+  **two-way on a two-seat shape and N-way on one with more seats**, because `engine.equity` reads the seat count off the
+  readout's `stacks` fact: on `six-seat-no-limit-100` the question is the acting seat's share against five random hands,
+  which is what makes a `shape`-aware oracle usable at that table at all (`e2e-surface.md` §3.1, `seats.md` §2, §3, D-33).
+  It never raises, a raise being no pot-odds question: strong on the pot-odds axis `protocol.md` §3 names and blind on
+  every other — no history, no opponent, no adaptation — which is what makes it a baseline and not a competitor (D-6).
 - **A baseline never learns, and its state advances nowhere.** `learn` refuses a value that is not a learner, and
   nothing here retains anything from a hand a baseline played, so a baseline's column is the same rule at every hand
   count and every call order (`surface.md` §1, §7, §12, D-6, `protocol.md` §3). Because no state advances, its random

@@ -4,8 +4,8 @@
   grammar and its order (§3), the membership rule (§3), and what a report never does (§4) (`surface.md` §13,
   `records.md` §13, `protocol.md` §1)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — the run, the pool family and the matrix must name one shape (refused naming all three), and the header family names the resolved shape as a tenth key on the report's own copy while `HEADER_ITEMS` stays nine (§1–§4, `shape.md` §4)
-- **Read with:** `shape.md` §2–§4, `declarations.md` §2–§3, `matrix.md` §1, §5, `utility.md` §3, `rating.md` §6, `errors.md` §2–§4
+- **Rev 6:** D-29's second shape — the run, the pool family and the matrix must name one shape (refused naming all three), and the header family names the resolved shape as a tenth key on the report's own copy while `HEADER_ITEMS` stays nine (§1–§4, `shape.md` §4) · **Rev 7:** D-33's third shape — a report is a report of a table, so the six-seat refusal reaches it through the table checks, before a family is assembled, and a six-seat run has no report at all (§1, §3, `seats.md` §5, D-22, D-33)
+- **Read with:** `shape.md` §2–§4, `declarations.md` §2–§3, `matrix.md` §1, §5, `utility.md` §3, `rating.md` §6, `errors.md` §2–§4, `seats.md` §1, §5
 
 ## 1. The seven families, in this order
 
@@ -17,7 +17,7 @@ attached (`records.md` §12–§13) — against `protocol()`'s declaration, and 
 |---|---|---|---|
 | 1 | `curves` | per variant, per seed: the sample axis and at least one learning signal from `agents.learn`, with the spread across seeds | `curves` |
 | 2 | `pool` | `records.md` §8's pool record — id, M, the ordered members with lineage, and `rules` **and** `utilities`: the two **populations the report's table was measured over** — i.e. the shape `pool_members` returns, completed where it must be (`rules.md` §4, `utility.md` §3, D-19, D-20) | `pool` |
-| 3 | `matrix` | the matrix record the report is about (§2) | `matrix` |
+| 3 | `matrix` | the matrix record the report is about (§2) — and it must be a table a pair can express: a matrix on a shape with more than two seats is refused by §3's table checks, so no report exists for such a shape (`seats.md` §5, D-22, D-33) | `matrix` |
 | 4 | `rating` | the rating record fitted to it | `rating` |
 | 5 | `baselines` | every baseline row of the catalogue the configuration declares inside that matrix — always the three anchor baselines, and the three folders of D-21 when the declaration names them — each at the table's one hand count (`protocol.md` §3, ASM-32, D-21) | `baselines` |
 | 6 | `axis row` | R4–R6's own pair's cell beside its matched budgets; R1–R3's explicit value `n/a, single variant` | `axis row` |
@@ -62,9 +62,7 @@ report copies and never merges, so no family is reshaped into a second spelling 
 the twelve**: these five facts and the seven families, with **no top-level `game`** — the shape rides inside the header
 family, which is where a reader looks for what a table was measured on (`shape.md` §4).
 
-Two completions are therefore written onto the report's own copies, and never onto an argument: the pool family's `rules`
-and its `utilities` (below), and the header family's tenth key **`shape`** — the one shape the run, the pool and the matrix
-agree on (§1, §3), written beside the nine items that family already carries, `n/a` and a hand-built header alike (§4).
+Two completions are therefore written onto the report's own copies, and never onto an argument: the pool family's `rules` and its `utilities` (below), and the header family's tenth key **`shape`** — the one shape the run, the pool and the matrix agree on (§1, §3), written beside the nine items that family already carries, `n/a` and a hand-built header alike (§4).
 
 **The facts a report completes are the pool family's `rules` and its `utilities`** (`rules.md` §4, `utility.md` §3,
 D-19, D-20). The population the report's table was measured over is the pool's own version members' rules plus the rung's
@@ -88,10 +86,12 @@ is absent cannot be judged (`records.md` §13, D-6):
    `axis_row` and `axisrow` are one name, `_surface.has_family`'s tolerance) **and** that key's value is not `None`:
    an explicit `n/a` value — a `str`, an empty container, a record of `n/a` rows — satisfies a family, while a
    missing key or a `None` value is refused (`records.md` §13, D-6);
-2. **a matrix that is not a table** — `rating.md` §6's eight checks, reused verbatim: the same rules and the same
-   messages, so a refusal names the violated rule (`cells`, `hands`, `pair`, the missing baseline) and not this entry
-   point, because the check is the rating's own (`errors.md` §3, `surface.md` §13, `league.md` §4). The report never
-   repairs a table and never rates one itself;
+2. **a matrix that is not a table** — `rating.md` §6's nine checks, reused verbatim: the same rules and the same
+   messages, so a refusal names the violated rule (`cells`, `hands`, `pair`, the missing baseline, the seat count) and
+   not this entry point, because the check is the rating's own (`errors.md` §3, `surface.md` §13, `league.md` §4); a shape
+   with more than two seats is refused there, naming the shape and its seat count, before a family is assembled into a
+   report, so a run on that shape has no report at all (`seats.md` §5, D-22, D-33). The report never repairs a table and
+   never rates one itself;
 3. **the membership rule** — `MembershipMismatch`, naming what it found:
    - the pool family's members are read from the report's `pool` family as a pool record (§1 item 2), and **every one
      of them must be in the matrix's membership** (`league.md` §3) — a missing pool member is named, and a folding baseline a
@@ -147,4 +147,4 @@ raising the same way rather than returning a partial report.
   its `member_records`: the report takes what the record states, in that order, and infers nothing a record does not say
   (`matrix.md` §5, `errors.md` §5);
 - the wording of a `MembershipMismatch` message beyond naming the member or the baseline at fault, and whether the three baseline checks report the first missing one or the first *in `agents.baselines()`'s order* — both are conforming (`errors.md` §3 fixes the grammar, not that order);
-- where the tenth header key is placed among the nine, and whether it is written before or after the pool family is completed: only that it is on the report's copy and never in the argument (`shape.md` §4).
+- where the tenth header key is placed among the nine, and whether it is written before or after the pool family is completed: only that it is on the report's copy, never in the argument (`shape.md` §4).

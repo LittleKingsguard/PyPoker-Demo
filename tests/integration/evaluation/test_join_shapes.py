@@ -1,15 +1,20 @@
-"""JOIN-EVL-15 — the second declared game shape at the join (D-29).
+"""JOIN-EVL-15 — the declared game shapes at the join (D-29, D-33).
 
-`docs/L2/evaluation/surface.md` §2 and §5-§13, `docs/L3/evaluation/shape.md` §1-§5,
-`docs/L3/evaluation/scheduler.md` §1, §5-§5.1 and `docs/L3/evaluation/pool.md` §1-§2,
-with `docs/L1/shapes.md` §2-§6, `docs/L1/sizing.md` §4, §6 and `docs/L1/records.md` §7,
-§8 — D-29, ASM-27, ASM-40.
+`docs/L2/evaluation/surface.md` §2 and §5-§13, `docs/L2/evaluation/seats.md` §1-§4,
+`docs/L3/evaluation/shape.md` §1-§5, `docs/L3/evaluation/scheduler.md` §1, §5-§5.1 and
+`docs/L3/evaluation/pool.md` §1-§2, with `docs/L1/shapes.md` §2-§6, `docs/L1/seats.md`
+§2, §4-§5, `docs/L1/league.md` §2, §4, `docs/L1/sizing.md` §4, §6 and
+`docs/L1/records.md` §7, §8 — D-29, D-33, ASM-27, ASM-40, ASM-43.
 
 The shape is declared in one place and **restated** in another. `engine.game_shapes()`
-publishes the two rows, default first; `evaluation` holds no arrow to that catalogue
-(`module-map.md` §2, D-13) and restates the two **names** in `declarations.py`, which is
+publishes the three rows, default first; `evaluation` holds no arrow to that catalogue
+(`module-map.md` §2, D-13) and restates the three **names** in `declarations.py`, which is
 why `shape.md` §1 makes holding that restatement equal the **join** battery's duty —
-nothing the unit battery can see. In the other direction the shape is a fact about a
+nothing the unit battery can see.  The seat count is on the same terms and in the other
+direction: `seat_count` reads it off `engine.game_config` and `PAIRWISE_SEATS` is the
+instrument's arity, which `JOIN-EVL-15.5` holds to the engine's own numbers and to the
+boundary the folder's rule makes on each shape's declared stack (`seats.md` §1, §3, §4,
+`docs/L1/seats.md` §5, D-13, D-33). In the other direction the shape is a fact about a
 file: a learner of a non-default shape writes a **version-4** container carrying
 `game`, and `evaluation.policy_from` reads it with the encoder built **for that shape**
 and decodes its descriptor in that shape's vocabulary (`shape.md` §2, §4-§5,
@@ -38,6 +43,7 @@ D-29).
 """
 
 import importlib.util
+import itertools
 import os
 import sys
 import unittest
@@ -56,11 +62,13 @@ else:
     sys.modules["evaluation_join_support"] = J
     _spec.loader.exec_module(J)
 
-#: The second declared shape, by the name the engine's catalogue publishes second
-#: (`docs/L1/shapes.md` §2, D-29).  The battery reads the catalogue and never copies it:
-#: the name below is only what the cases spell when they must hand a shape to a call.
-NO_LIMIT = "no-limit-100"
+#: The three declared shapes, by the names the engine's catalogue publishes, default
+#: first (`docs/L1/shapes.md` §2, `docs/L1/seats.md` §2, D-29, D-33).  The battery reads the
+#: catalogue and never copies it: the names below are only what the cases spell when they
+#: must hand a shape to a call.
 FIXED_LIMIT = "fixed-limit-20"
+NO_LIMIT = "no-limit-100"
+SIX_SEAT = "six-seat-no-limit-100"
 
 #: The invented facts of this file's second-shape checkpoint: its learner seed, the hand
 #: seeds its decisions are read off, and the seed an `off` policy is built at beside the
@@ -154,14 +162,15 @@ class RestatedCatalogue(J.JoinCase):
     """The two constants `declarations.py` restates, held equal to the modules that own them."""
 
     def test_join_evl_15_1_the_restated_catalogue_is_the_engine_s(self):
-        """JOIN-EVL-15.1 `evaluation`'s `SHAPE_NAMES` is `tuple(engine.game_shapes())`, in that order and default first, its `DEFAULT_SHAPE` is that catalogue's first row's name, and its `EXPLORATION_MODES` are exactly the modes `agents.as_policy` accepts — both named in the refusal of a third (`shape.md` §1, §5, `docs/L1/shapes.md` §2-§3, `sizing.md` §4, D-29)."""
+        """JOIN-EVL-15.1 `evaluation`'s `SHAPE_NAMES` is `tuple(engine.game_shapes())` -- the catalogue's three rows -- in that order and default first, its `DEFAULT_SHAPE` is that catalogue's first row's name, and its `EXPLORATION_MODES` are exactly the modes `agents.as_policy` accepts — both named in the refusal of a third (`shape.md` §1, §5, `docs/L1/shapes.md` §2-§3, `sizing.md` §4, D-29)."""
         catalogue = J.game_shapes()
         names = tuple(str(name) for name in catalogue)
         self.assertEqual(
             names,
-            (FIXED_LIMIT, NO_LIMIT),
-            "engine.game_shapes() publishes the two declared shapes, default first "
-            "(docs/L1/shapes.md §2, engine/surface.md §12): %r" % (names,),
+            (FIXED_LIMIT, NO_LIMIT, SIX_SEAT),
+            "engine.game_shapes() publishes the three declared shapes, default first "
+            "(docs/L1/shapes.md §2, docs/L1/seats.md §2, engine/surface.md §12, D-33): %r"
+            % (names,),
         )
         self.assertTrue(
             bool(catalogue[names[0]].get("default")),
@@ -640,6 +649,334 @@ class CellOfAShape(J.JoinCase):
             "for: `engine` reads that name exactly as an absent one, which is why only a "
             "second-shape cell can tell the two apart (shape.md §2, scheduler.md §5, "
             "ASM-6, D-29): %r against %r" % (on_default.get("game"), default),
+        )
+
+
+class SeatCountInstrument(J.JoinCase):
+    """The seat count and the instrument's arity, held to the engine and to a real draw."""
+
+    def class_refusal(self, kind, entry, groups, call, note=""):
+        """Require the refusal class `kind`, naming the entry point and every group.
+
+        `docs/L2/evaluation/seats.md` §3 declares **one** class for the one contract -- a
+        cell is a pair and a placement is not -- and §2 one for a draw above the membership,
+        so this join asserts each class by name as well as the message, where
+        `assert_refusal` tolerates the class (`errors.md` §2's closing rule, `seats.md`
+        §2-§3, §5, D-33).
+        """
+        try:
+            result = call()
+        except Exception as exc:  # noqa: BLE001 - the class is the contract here
+            self.assertEqual(
+                type(exc).__name__,
+                kind,
+                "%s: the refusal of this contract is %s, and it arrived as %s: %r "
+                "(errors.md §2, seats.md §2-§3, §5, D-33)"
+                % (note or entry, kind, type(exc).__name__, exc),
+            )
+            message = str(exc)
+        else:
+            self.fail(
+                "%s: %s must refuse this call, but it returned %r"
+                % (note or entry, entry, result)
+            )
+        lowered = message.lower()
+        self.assertIn(
+            entry.lower(),
+            lowered,
+            "%s: the refusal must name the entry point %r; the message was %r "
+            "(errors.md §3, seats.md §3)" % (note or entry, entry, message),
+        )
+        for group in groups:
+            alternatives = (group,) if isinstance(group, str) else tuple(group)
+            if not any(str(alternative).lower() in lowered for alternative in alternatives):
+                self.fail(
+                    "%s: the refusal must name one of %r; the message was %r "
+                    "(errors.md §3, seats.md §3, §5)" % (note or entry, alternatives, message)
+                )
+        return message
+
+    def seat_refusal(self, entry, groups, call, note=""):
+        """Require `SeatCountExceeded` -- the one class a shape above the arity meets."""
+        return self.class_refusal("SeatCountExceeded", entry, groups, call, note)
+
+    def folders(self):
+        """The catalogue's three folders, in `agents.baselines()`'s order (`D-21`).
+
+        The names beyond the pinned anchors: with them a six-seat pool holds the six
+        members `docs/L1/seats.md` §2, §4 declares (`records.md` §8, ASM-32, D-21).
+        """
+        anchors = tuple(str(name) for name in J.protocol()["baselines"])
+        return tuple(str(name) for name in J.baselines() if name not in anchors)
+
+    def six_seat_pool(self):
+        """One real frozen six-seat pool, built through `evaluation.build_pool` and cached.
+
+        Its declaration names the shape -- so the pool's baselines are constructed for it
+        and never for the default -- and admits the three folders beside the three pinned
+        anchors, which is the six-member composition a six-seat hand seats
+        (`docs/L2/evaluation/seats.md` §4, `docs/L1/seats.md` §2, §4, ASM-31, D-33).
+        """
+        if "six_seat_pool" not in _CACHE:
+            declaration = {
+                "members": [],
+                "m": J.league()["m"],
+                "frozen": True,
+                "game": SIX_SEAT,
+                "baselines": list(self.folders()),
+            }
+            _CACHE["six_seat_pool"] = J.build_pool(declaration)
+        return _CACHE["six_seat_pool"]
+
+    def six_seat_table(self):
+        """``(matrix, rating, record)``: a hand-built six-seat table and its report inputs.
+
+        The cells are `records.md` §9's, the record `records.md` §10's, and the shape is
+        named on the record **and** on every cell, so the table's one shape resolves to the
+        six-seat row before the seat count is read (`rating.md` §1, §6, `report.md` §2,
+        `seats.md` §3, §5).  The rating is data: `report` refuses this table in its own
+        table checks, before it compares a rating with anything (`report.md` §3, D-33).
+        """
+        if "six_seat_table" not in _CACHE:
+            members = [str(name) for name in J.protocol()["baselines"]] + list(
+                self.folders()
+            )
+            pairs = list(itertools.combinations(range(len(members)), 2))
+            table = J.hand_matrix(
+                members,
+                [(3, 2, J.HANDS_SEVEN - 5)] * len(pairs),
+                J.HANDS_SEVEN,
+                J.HAND_BUILT_TABLE_SEED,
+            )
+            table = dict(
+                table,
+                game=SIX_SEAT,
+                cells=[dict(cell, game=SIX_SEAT) for cell in table["cells"]],
+            )
+            rating = {
+                "values": {
+                    name: {
+                        "value": 0.0,
+                        "interval": (-0.5, 0.5),
+                        "hands": J.HANDS_SEVEN * (len(members) - 1),
+                        "bounded": False,
+                    }
+                    for name in members
+                },
+                "method": "Bradley-Terry",
+                "anchor": "the three baselines' mean fixed at 0",
+                "bound_applied": False,
+                "bootstrap_seed": J.bootstrap_seed(table["table_seed"]),
+                "converged": True,
+                "hands_per_cell": J.HANDS_SEVEN,
+                "members": members,
+                "table_seed": J.HAND_BUILT_TABLE_SEED,
+                "table": "live",
+            }
+            _CACHE["six_seat_table"] = (
+                table,
+                rating,
+                J.run_record(table, rating),
+            )
+        return _CACHE["six_seat_table"]
+
+    def test_join_evl_15_5_the_seat_count_is_the_engine_s_and_the_pairwise_instrument_is_two(self):
+        """JOIN-EVL-15.5 for every name `engine.game_shapes()` publishes, `declarations.seat_count(name)` is `engine.game_config(name)["seats"]` and `PAIRWISE_SEATS` is the default shape's own seat count; a six-seat pool's drawn `fold-large-bet` answers the boundary **that** shape's declared stack makes while the default-shape build answers the default's; and `match`, `matrix`, `rating` and `report` refuse the six-seat shape as `SeatCountExceeded` naming it and its seats (`seats.md` §1, §3, §4, `docs/L1/seats.md` §2-§5, `league.md` §4, D-13, D-22, D-33)."""
+        catalogue = J.game_shapes()
+        names = tuple(str(name) for name in catalogue)
+        self.assertEqual(
+            names,
+            (FIXED_LIMIT, NO_LIMIT, SIX_SEAT),
+            "the engine publishes the three rows this join holds the restatement to, "
+            "default first (docs/L1/shapes.md §2, docs/L1/seats.md §2, engine/surface.md "
+            "§12, D-33): %r" % (names,),
+        )
+        read_seats = J.declared_constant("evaluation.declarations", "seat_count")
+        for name in names:
+            with self.subTest(shape=name):
+                self.assertEqual(
+                    int(read_seats(name)),
+                    int(J.game_config(name)["seats"]),
+                    "seat_count(%r) is engine.game_config(%r)['seats'], the module's one "
+                    "source of a seat count (seats.md §1, §3, docs/L1/module-map.md §2, "
+                    "D-13, D-33): %r vs %r"
+                    % (name, name, read_seats(name), int(J.game_config(name)["seats"])),
+                )
+        pairwise = int(
+            J.declared_constant("evaluation.declarations", "PAIRWISE_SEATS")
+        )
+        self.assertEqual(
+            pairwise,
+            int(J.game_config()["seats"]),
+            "PAIRWISE_SEATS is the instrument's arity, and the default shape's own seat "
+            "count is what a pair is -- read off an absent shape, which is the default "
+            "(seats.md §1, §3, docs/L1/seats.md §2, D-13, D-33): %r vs %r"
+            % (pairwise, int(J.game_config()["seats"])),
+        )
+        self.assertLess(
+            int(J.game_config(FIXED_LIMIT)["seats"]),
+            int(J.game_config(SIX_SEAT)["seats"]),
+            "the third row is the one above the instrument's arity, so a cell is no longer "
+            "a hand's whole seating (seats.md §1, §3, docs/L1/seats.md §5, D-33): %r vs %r"
+            % (
+                int(J.game_config(FIXED_LIMIT)["seats"]),
+                int(J.game_config(SIX_SEAT)["seats"]),
+            ),
+        )
+
+        # The pool's baselines on the pool's own shape: a real six-seat readout, its
+        # declared stack, and the one boundary the folder's rule makes (`seats.md` §4,
+        # `folders.md` §2, ASM-31, D-33).
+        pool = self.six_seat_pool()
+        record = J.pool_members(pool)
+        ids = [str(member["id"]) for member in record["members"]]
+        self.assertEqual(
+            str(record["game"]),
+            SIX_SEAT,
+            "the pool reads back on the shape it was declared on (pool.md §5, shape.md §4, "
+            "seats.md §4, D-33): %r" % (record["game"],),
+        )
+        self.assertEqual(
+            len(ids),
+            len(names) + len(self.folders()),
+            "the six-seat pool holds the three anchors and the three folders "
+            "(records.md §8, docs/L1/seats.md §2, §4, ASM-32, D-21): %r" % (ids,),
+        )
+        folder_position = ids.index(self.folders()[-1])
+        seed = folder_position
+        self.assertEqual(
+            seed % len(ids),
+            folder_position,
+            "a seed congruent to the folder's position draws it, because the draw is "
+            "seed %% n (scheduler.md §3, pool.md §7, ASM-43): %r" % (seed,),
+        )
+        hand = J.new_hand(J.MATCH_SEED, SIX_SEAT)
+        readout = J.readout(hand)
+        legal = tuple(J.legal_actions(hand))
+        drawn = J.mod("evaluation").opponent(pool, seed)
+        default_build = J.mod("agents").build_baseline(self.folders()[-1], seed)
+        six_stack = int(J.game_config(SIX_SEAT)["starting_stack"])
+        default_stack = int(J.game_config()["starting_stack"])
+        self.assertGreater(
+            six_stack,
+            default_stack,
+            "the six-seat row's declared stack is the deeper one, which is what moves the "
+            "folder's boundary (docs/L1/seats.md §2, folders.md §2, ASM-31, D-33): %r vs %r"
+            % (six_stack, default_stack),
+        )
+        for to_call in (10, 11, 50, 51):
+            copy = dict(readout, to_call=to_call)
+            with self.subTest(to_call=to_call):
+                self.assertEqual(
+                    drawn(copy, legal),
+                    "fold" if 2 * to_call > six_stack else "check-call",
+                    "the drawn folder folds exactly where 2 x to_call exceeds the "
+                    "six-seat row's declared stack of %d and calls where it does not, so "
+                    "its boundary is 51 and not 11 (seats.md §4, docs/L1/seats.md §2, §4, "
+                    "folders.md §2, ASM-31, D-33): to_call %d" % (six_stack, to_call),
+                )
+                self.assertEqual(
+                    default_build(copy, legal),
+                    "fold" if 2 * to_call > default_stack else "check-call",
+                    "while the default-shape build answers the default row's boundary on "
+                    "its %d chips -- one rule, each shape's own stack (seats.md §4, "
+                    "folders.md §2, ASM-31, D-33): to_call %d"
+                    % (default_stack, to_call),
+                )
+        self.assertNotEqual(
+            drawn(dict(readout, to_call=11), legal),
+            default_build(dict(readout, to_call=11), legal),
+            "11 is a call on a hundred chips and a fold on twenty, so a pool whose "
+            "baselines were built for the wrong shape is red here (seats.md §4, "
+            "docs/L1/seats.md §2, ASM-31, D-33)",
+        )
+
+        # The four refusals: one contract, one class, the shape and its seat count named
+        # (seats.md §3, §5, docs/L1/seats.md §5, league.md §4, D-22, D-33).
+        seats = str(int(J.game_config(SIX_SEAT)["seats"]))
+        groups = ((SIX_SEAT,), (seats,))
+
+        def six_seat_side(readout_record, legal_actions):
+            """An opaque callable whose own `game` names the six-seat shape (`shape.md` §4)."""
+            return legal_actions[0]
+
+        six_seat_side.game = SIX_SEAT
+        self.seat_refusal(
+            "match",
+            groups,
+            lambda: J.mod("evaluation").match(
+                six_seat_side, J.caller, J.HANDS_TWO, J.MATCH_SEED
+            ),
+            "a two-hand cell of a six-seat side beside a plain one",
+        )
+        self.seat_refusal(
+            "matrix",
+            groups,
+            lambda: J.mod("evaluation").matrix(pool, [J.caller], "live"),
+            "a table over the six-seat pool",
+        )
+        table, fitted, run = self.six_seat_table()
+        self.seat_refusal(
+            "rating",
+            groups,
+            lambda: J.rating(table),
+            "a complete hand-built six-seat table",
+        )
+        self.seat_refusal(
+            "report",
+            groups,
+            lambda: J.report(J.RUNG, run, table, fitted),
+            "a report of that table",
+        )
+
+        # ... and the counted draw over that same real frozen pool: five distinct members
+        # of the six it holds, two calls at one seed agreeing answer for answer, and a draw
+        # above the membership refused naming **both** counts (`seats.md` §2, §4,
+        # `docs/L1/seats.md` §4, `league.md` §2, ASM-2, ASM-43).
+        order = J.draw_order(seed, len(ids))
+        self.assertEqual(
+            sorted(order),
+            list(range(len(ids))),
+            "the draw's order is a permutation of the pool's six positions, so no member "
+            "is seated twice (seats.md §2, league.md §2, ASM-43): %r" % (order,),
+        )
+        counted = J.mod("evaluation").opponent(pool, seed, len(ids) - 1)
+        again = J.mod("evaluation").opponent(pool, seed, len(ids) - 1)
+        self.assertEqual(
+            len(counted),
+            len(ids) - 1,
+            "a six-seat pool seats five opponents, which is a draw of five of its six "
+            "members (docs/L1/seats.md §4, seats.md §2, ASM-43): %r" % (counted,),
+        )
+        batch = (
+            (readout, legal),
+            (dict(readout, to_call=six_stack), legal),
+        )
+        for position, (facts, actions) in enumerate(batch):
+            with self.subTest(decision=position):
+                self.assertEqual(
+                    tuple(str(again[seat](facts, actions)) for seat in range(len(counted))),
+                    tuple(str(counted[seat](facts, actions)) for seat in range(len(counted))),
+                    "two calls at one seed over one pool draw one tuple, answer for answer, "
+                    "and every answer is one of the decision's own legal descriptors "
+                    "(seats.md §2, §4, ASM-2, ASM-43)",
+                )
+                self.assertEqual(
+                    tuple(
+                        str(counted[seat](facts, actions)) in tuple(str(a) for a in actions)
+                        for seat in range(len(counted))
+                    ),
+                    (True,) * len(counted),
+                    "each drawn seat answers inside legal_actions on a real six-seat "
+                    "decision, so the five seats are policies of that shape "
+                    "(surface.md §2, seats.md §4, D-2): %r" % (actions,),
+                )
+        self.class_refusal(
+            "DrawExceedsMembership",
+            "opponent",
+            ((str(len(ids) + 1),), (str(len(ids)),)),
+            lambda: J.mod("evaluation").opponent(pool, seed, len(ids) + 1),
+            "a draw of seven from a six-member pool",
         )
 
 

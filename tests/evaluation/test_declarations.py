@@ -32,6 +32,10 @@ from _evaluation_support import (
     default_shape,
     no_file_reads,
     other_shape,
+    pairwise_seats,
+    seats_of,
+    shape_names,
+    six_seat_shape,
 )
 
 #: The seven families' declared content items (`declarations.md` §3, `protocol.md` §1).
@@ -493,20 +497,29 @@ class DeclarationsTest(EvaluationCase):
                     cell_count, *args, entry="cell_count", groups=groups, label="cell_count(%s)" % label
                 )
 
-    def test_evl_1_15_the_edge_restates_the_two_shapes_and_the_two_modes(self):
-        """EVL-1.15 `declarations.py` restates the catalogue's two shape names, default first, with `DEFAULT_SHAPE` the first, the two exploration modes with `EXPLORATION_DEFAULT` the first, and the probe seed a pinned baseline is constructed at -- the five constants `shape.md` §1 places at this edge (`shape.md` §1-§2, §5, `surface.md` §2, D-29)."""
+    def test_evl_1_15_the_edge_restates_the_three_shapes_and_the_two_modes(self):
+        """EVL-1.15 `declarations.py` restates the catalogue's three shape names, default first, with `DEFAULT_SHAPE` the first, the two exploration modes with `EXPLORATION_DEFAULT` the first, and the probe seed a pinned baseline is constructed at -- the five constants `shape.md` §1 places at this edge (`shape.md` §1-§2, §5, `seats.md` §1-§2, `surface.md` §2, D-29, D-33)."""
         names = declared_internal("declarations", "SHAPE_NAMES")
         self.assertEqual(
             tuple(names),
-            ("fixed-limit-20", "no-limit-100"),
-            "the edge restates the catalogue's two names in its order, default first "
-            "(shape.md §1, docs/L1/shapes.md §2, D-29): %r" % (tuple(names),),
+            tuple(str(name) for name in self.engine().game_shapes()),
+            "the edge restates the catalogue's three names in its order, default first, "
+            "and the engine publishes them in that order (shape.md §1, seats.md §1-§2, "
+            "docs/L1/shapes.md §2, docs/L1/seats.md §2, D-29, D-33): %r vs %r"
+            % (tuple(names), tuple(str(name) for name in self.engine().game_shapes())),
+        )
+        self.assertEqual(
+            tuple(names),
+            ("fixed-limit-20", "no-limit-100", "six-seat-no-limit-100"),
+            "the restated catalogue is the three declared names, the two-seat default "
+            "first and the six-seat row third (shape.md §1, docs/L1/shapes.md §2, "
+            "docs/L1/seats.md §2, D-29, D-33): %r" % (tuple(names),),
         )
         self.assertEqual(
             len(set(names)),
             len(tuple(names)),
-            "the two declared names are distinct, so a shape is one row and never an "
-            "alias of another (shape.md §1): %r" % (tuple(names),),
+            "the three declared names are distinct, so a shape is one row and never an "
+            "alias of another (shape.md §1, seats.md §1): %r" % (tuple(names),),
         )
         for name in names:
             with self.subTest(shape=name):
@@ -530,11 +543,12 @@ class DeclarationsTest(EvaluationCase):
             % (declared_internal("declarations", "DEFAULT_SHAPE"),),
         )
         self.assertEqual(
-            (default_shape(), other_shape()),
+            (default_shape(), other_shape(), six_seat_shape()),
             tuple(names),
-            "this battery's two readers name the same two shapes in the same order, so a "
-            "case that declares the second shape declares the catalogue's (shape.md §1, "
-            "§6)",
+            "this battery's three readers name the same three shapes in the same order -- "
+            "the default, the off-default two-seat one and the one above the instrument's "
+            "arity -- so a case that declares a shape declares the catalogue's (shape.md "
+            "§1, §6, seats.md §1-§3, D-33)",
         )
         modes = declared_internal("declarations", "EXPLORATION_MODES")
         self.assertEqual(
@@ -562,6 +576,67 @@ class DeclarationsTest(EvaluationCase):
             "the probe seed is 0 as shape.md §1 declares it, so the construction is "
             "reproducible and reads as no seed a caller chose (shape.md §1, pool.md §2): "
             "%r" % (probe,),
+        )
+
+    def test_evl_1_16_the_seat_count_is_read_from_the_engine_and_never_written_down(self):
+        """EVL-1.16 `PAIRWISE_SEATS` is the default shape's own seat count and `seat_count(shape)` is `engine.game_config(shape)["seats"]` for every declared name, so no game's seats are written down at this edge; `require_pairwise` returns a two-seat name untouched and refuses a shape above the instrument's arity as `SeatCountExceeded` naming the shape and its seat count (`seats.md` §1-§3, §5, `docs/L1/seats.md` §2-§3, §5, `league.md` §4, D-13, D-22, D-33)."""
+        pairwise = pairwise_seats()
+        default = default_shape()
+        self.assertEqual(
+            pairwise,
+            int(self.engine().game_config(default)["seats"]),
+            "PAIRWISE_SEATS is the instrument's arity, and the default shape's own seat "
+            "count is what a pair is: the constant is that game's row read once, never a "
+            "literal about a game (seats.md §1, §3, docs/L1/seats.md §2, D-13, D-33): %r"
+            " vs %r" % (pairwise, int(self.engine().game_config(default)["seats"])),
+        )
+        read_seats = declared_internal("declarations", "seat_count")
+        for name in shape_names():
+            with self.subTest(shape=name):
+                self.assertEqual(
+                    int(read_seats(name)),
+                    int(self.engine().game_config(name)["seats"]),
+                    "seat_count(%r) is engine.game_config(%r)['seats'] and never a number "
+                    "this module carries (seats.md §2-§3, docs/L1/seats.md §2, "
+                    "module-map.md §2, D-13, D-33): %r vs %r"
+                    % (
+                        name,
+                        name,
+                        read_seats(name),
+                        int(self.engine().game_config(name)["seats"]),
+                    ),
+                )
+                self.assertEqual(
+                    int(read_seats(name)),
+                    seats_of(name),
+                    "this battery's reader and the edge's agree on every declared row, so "
+                    "a case that compares a shape's seats with the instrument's is "
+                    "comparing the engine's own numbers (seats.md §1-§3, D-13, D-33)",
+                )
+        self.assertEqual(
+            int(read_seats(None)),
+            int(self.engine().game_config()["seats"]),
+            "an absent shape reads as the default, exactly as require_shape reads one, so "
+            "seat_count() is seat_count(DEFAULT_SHAPE) (seats.md §3, shape.md §2, D-29)",
+        )
+        require_pairwise = declared_internal("declarations", "require_pairwise")
+        self.assertEqual(
+            require_pairwise(default, "probe"),
+            default,
+            "require_pairwise returns a shape whose seat count **is** the instrument's "
+            "untouched, which is what keeps every cell, matrix, rating and report the two "
+            "two-seat shapes produce today exactly what it was (seats.md §5, D-33): %r"
+            % (require_pairwise(default, "probe"),),
+        )
+        six = six_seat_shape()
+        self.assert_evaluation_refusal(
+            require_pairwise,
+            six,
+            "probe",
+            entry="probe",
+            groups=((six,), (str(seats_of(six)),)),
+            label="require_pairwise(%r, 'probe')" % (six,),
+            kind="SeatCountExceeded",
         )
 
 

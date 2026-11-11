@@ -27,9 +27,22 @@ Every member carries its rule, its utility and its shape, so the record carries 
 -- and `population` and `utility_population`, the distinct rules and the distinct utilities
 those members declared, sorted: the two populations this table measured (`matrix.md` §5,
 `records.md` §10, D-19, D-20).
+
+**A matrix is two seats'.**  A cell is a pair and the rating is fitted over pairs, so
+`matrix` refuses a pool on a shape whose seat count is above the instrument's, naming the
+shape and its seat count, before a variant is looked at and before a checkpoint is touched
+(`docs/L1/seats.md` §5, `league.md` §4, D-22, D-33).  The seat count is `engine.game_config`'s
+and never a literal, and the two-seat shapes pass untouched, so no cell, matrix, rating or
+report they produce today moves (`seats.md` §5, D-33).
 """
 
-from .declarations import TABLE_SEED, TABLES, TABLE_BUDGETS, require_shape
+from .declarations import (
+    TABLE_SEED,
+    TABLES,
+    TABLE_BUDGETS,
+    require_pairwise,
+    require_shape,
+)
 from .errors import (
     InvalidPool,
     MemberDuplicate,
@@ -203,12 +216,14 @@ def matrix(pool, variants, table):
     """One `records.md` §10 matrix at one budget over one frozen pool (`surface.md` §10).
 
     Every refusal is raised before the first cell is played -- an unfrozen pool is
-    reported before a single checkpoint is touched, a variant of another shape before a row
+    reported before a single checkpoint is touched, a pool on a shape with more seats than
+    a pair has before a variant is looked at, a variant of another shape before a row
     exists, a membership naming one id twice before a member policy is built, and a table
     over a version whose recorded facts are missing before a hand is dealt (`matrix.md`
-    §1, §7).  The matrix is reported raw: both directions of every cell, its counts, its
-    chip deltas and its seat split, and it is never reduced to a ranking (`league.md` §3).
-    Its shape is the **pool's** and it takes no shape argument (`matrix.md` §1, §3).
+    §1, §7, `docs/L1/seats.md` §5, D-33).  The matrix is reported raw: both directions of
+    every cell, its counts, its chip deltas and its seat split, and it is never reduced to
+    a ranking (`league.md` §3).  Its shape is the **pool's** and it takes no shape argument
+    (`matrix.md` §1, §3).
     """
     if not isinstance(pool, Pool):
         raise InvalidPool(
@@ -224,6 +239,14 @@ def matrix(pool, variants, table):
         raise UnknownTable(
             "matrix(table): the table label must be 'live' or 'full', got %r" % (table,)
         )
+    # The table's shape is the pool's: the one shape every member of it plays, which the
+    # pool record states (`matrix.md` §1, §5, `pool.md` §5, `shape.md` §4).  A shape whose
+    # seat count is not the instrument's is refused **here**, before a variant is looked
+    # at and before a single checkpoint is touched, because a cell is a pair and a
+    # six-way hand is a placement for which no permutation model is designed
+    # (`docs/L1/seats.md` §5, `league.md` §4, D-22, D-33).
+    shape = pool_members(pool)["game"]
+    require_pairwise(shape, "matrix", "pool")
     policies = _variant_list(variants)
     for offset, variant in enumerate(policies):
         if not callable(variant):
@@ -232,9 +255,8 @@ def matrix(pool, variants, table):
                 "surface.md §2, got %r" % (offset + 1, variant)
             )
 
-    # The table's shape is the pool's: the one shape every member of it plays, which the
-    # pool record states (`matrix.md` §1, §5, `pool.md` §5, `shape.md` §4).
-    shape = pool_members(pool)["game"]
+    # The table's shape is the pool's, and it was resolved and held to the instrument's
+    # seat count above: `_membership` builds the rows on it (`matrix.md` §1, §5).
     hands = int(TABLES[table]["hands_per_cell"])
     ids, member_records, sides = _membership(pool, policies, shape)
     cells = []

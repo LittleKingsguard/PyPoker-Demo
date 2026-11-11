@@ -18,7 +18,7 @@ first stays the declared default, so a spec naming no rule is unchanged (`rules.
 name outside either catalogue is refused **by name** — `UnknownRule` or `UnknownUtility` (`utility.md` §3, D-20).
 
 Both members answer **one contract** (`rules.md` §3): a learner is a function from an observation and a legal mask to `A`
-values — the shape's descriptor count, three on the default shape and six on the other (`shapes.md` §2–§3) — and an index
+values — the shape's descriptor count, three on the default shape and six on the two others (`shapes.md` §2–§3) — and an index
 outside the mask is never read, never a target and never updated (D-2). A rule changes a target's arithmetic and nothing
 else — not the state layout, the parameter count, the exploration or the vocabulary — so no caller branches on the rule
 or the utility, and what a rung changes, the input block and the trunk's shape, is outside every rule (D-3, D-19, D-20).

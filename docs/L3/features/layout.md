@@ -2,7 +2,7 @@
 
 - **Owner:** what lives where under `src/features/`, which names the package exports, and which imports
   are allowed
-- **Rev:** 2 · **Date:** 2026-11-09
+- **Rev:** 3 · **Date:** 2026-11-10
 - **Ceiling:** 95 lines. At the ceiling, split by owner — never append
 
 ## 1. The files
@@ -11,9 +11,9 @@
     src/features/errors.py          FeaturesError and its seven subclasses (errors.md §2)
     src/features/cards.py           RANKS, SUITS, parse_card(), card_slot(), card_id() — the one
                                     reading of ASM-E1's spelling (README.md §4, flat-numeric.md §3)
-    src/features/declarations.py    SHAPE_ROWS — one row per declared shape, default first — the two
-                                    encodings' block tables, and the constants those tables are written
-                                    from (encoder.md §4)
+    src/features/declarations.py    SHAPE_ROWS — one row per declared shape, default first: its seat count,
+                                    its two per-seat blocks' modes, its vocabulary, normalisers and ladders —
+                                    the block tables, and the constants they are written from (encoder.md §4)
     src/features/encoder.py         Encoder, build_encoder(), observation_spec(), encodings()
     src/features/encode.py          encode(), the one writer loop, and WRITERS — the closed set of
                                     block writers the block tables name (encoder.md §5)
@@ -22,9 +22,9 @@
 
 Eight files, one concern each. A ninth file is allowed only if a document in this directory says what
 it owns; a file that exists to hold one helper is a sign the owner is missing, not a sign the layout is
-wrong. The second declared shape adds **no file** — a shape is a row of `SHAPE_ROWS`, not a module —
+wrong. The other two declared shapes add **no file** — a shape is a row of `SHAPE_ROWS`, not a module —
 and `src/features/` holds no test file, no fixture and no data file: the declaration table is code, and the
-encodings and shapes are declared in it, not in JSON.
+encodings and shapes are declared in it, not in JSON (`docs/L1/seats.md` §3, ASM-44).
 
 ## 2. What the package exports
 
@@ -55,7 +55,7 @@ seven entry points of `README.md` §3, and declares them in `__all__`, in this o
     def decode_action(index, *, shape=None) -> str:  return _vocabulary.decode_action(index, shape)
 
 The three `shape` arguments are **keyword-only in the wrapper**, which is what keeps each name's positional
-arity exactly what it was before the second shape existed (`vocabulary.md` §4, D-11); the owner module's
+arity exactly what it was before the other declared shapes existed (`vocabulary.md` §4, D-11); the owner module's
 private function may take the same value positionally, because it is not surface.
 
 No eighth public name: not `Encoder`, not `FeaturesError`, not `SHAPE_ROWS`, not `DESCRIPTOR_INDEX`, not
@@ -87,8 +87,7 @@ it the same way through its own support module, creating no conftest of its own.
 Function bodies are L4's. This directory fixes: the seven names and their arguments and returns; the
 value types (an opaque `Encoder`, a `dict` spec whose shape is a `tuple` and whose dtype is a plain
 `str`, a `dict` action space, a `tuple` of indices, one `str` descriptor per index, a `numpy.ndarray`
-observation); the shape rows and the declaration and block tables, with every offset, width, id, bucket
-edge and normaliser; the card map; the error grammar; and the file/import layout. Anything else — helper
-names, private constants, docstring style, the order of two independent statements, whether a check sits
-in the wrapper or the owner module — is L4's, and is not a finding against this design unless it breaks
-one of the rules above (`guardrails.md`).
+observation); the shape rows — seats, both per-seat modes, vocabulary — and the declaration and block
+tables, with every offset, width, id, bucket edge and normaliser; the card map; the error grammar; and the
+file/import layout. Anything else — helper names, docstring style, the order of two independent statements,
+a check's home in wrapper or owner module — is L4's, never a finding here (`guardrails.md`, ASM-44).

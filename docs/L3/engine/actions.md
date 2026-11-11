@@ -1,7 +1,7 @@
 # engine — the action vocabulary
 
 - **Owner:** the shape's descriptions of an action — their type, value equality, stable text, and the one place an amount is resolved — and nothing else. The two entry points that carry them are `stepping.md`'s
-- **Ceiling:** 62 lines — raised from 60 to hold the second vocabulary. At the ceiling, split by owner — never append
+- **Ceiling:** 72 lines — raised from 62 for the third shape: the vocabulary and the bands stated as seat-count-independent. At the ceiling, split by owner — never append
 
 ## 1. The descriptor is a plain string
 
@@ -9,10 +9,17 @@
     SIZED = ("raise-quarter", "raise-half", "raise-all-in", "raise-minimum")   # indices 2 to 5
 
 A descriptor is a plain `str` and nothing else: not a class, not an enum, not a pair carrying an
-amount. The **vocabulary is the shape's** — three descriptors in `fixed-limit-20`, six in
-`no-limit-100`, each returned by `vocabulary(hand)` in that row's own index order (`config.md` §2, §6).
-`legal_actions` returns a `tuple[str, ...]`, a readout's `legal` fact is that same tuple, and a record
-holds the member itself (`stepping.md` §1).
+amount. The **vocabulary is the shape's** — three descriptors in `fixed-limit-20`, and the same six in
+both no-cap rows, `no-limit-100` and `six-seat-no-limit-100`, each returned by `vocabulary(hand)` in that
+row's own index order (`config.md` §2, §6). `legal_actions` returns a `tuple[str, ...]`, a readout's
+`legal` fact is that same tuple, and a record holds the member itself (`stepping.md` §1).
+
+**A seat count adds no descriptor.** The vocabulary and the bands are functions of the row's bet
+structure and of the decision's own interval, not of how many seats are dealt in: the six-seat row
+declares the two-seat uncapped row's `actions` tuple unchanged, so a six-seat decision offers the same
+names in the same order and the engine resolves a raise by the same arithmetic (`config.md` §2, §5,
+`seats.md` §2). What six seats change is what a raise must buy — five folds rather than one — which is a
+fact about the game and not about this module's action space (D-33 §2, ASM-44).
 
 Four consequences, each of which a contract at the edge needs (`e2e-surface.md` §2):
 

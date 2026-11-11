@@ -1,7 +1,7 @@
 # engine — the hand
 
 - **Owner:** the hand’s data structure and its wrapper over a `pokerkit` state: the handle, `new_hand` (the project’s single seeding point), the **seat mapping**, and the two entry points that are a pure function of a finished or running hand (`is_terminal`, `payoffs`)
-- **Ceiling:** 118 lines — raised from 110 for the second declared shape: the handle’s third field, the second `create_state` call and the no-cap row’s first-decision check. At the ceiling, split by owner — never append
+- **Ceiling:** 178 lines — raised from 118 for the third seat count: the general seat map and the three derived sources it rests on, the six-seat instance's table, the six-seat first-decision check beside the two existing ones, and `payoffs` as one entry per seat. At the ceiling, split by owner — never append
 
 ## 1. The value
 
@@ -27,22 +27,40 @@ The **shape lives in the handle** and nowhere else: `readout`, `legal_actions`, 
 because a second argument could name a different game from the deal that was made (`surface.md` §1,
 `shapes.md` §3). The third field is that canonical name, and a step copies it forward (`advance.md` §1).
 
+The third field is also what fixes the hand’s **seat count**, because the count is shape data: it is
+that row’s `seats`, read through `seat_count(hand._shape)`, so one handle names its game, its
+vocabulary and how many entries its `stacks`, its `payoffs` and its seating have (`seats.md` §2–§4,
+ASM-44). Nothing below this module divides by two, and no entry point takes a seat count beside a hand
+(`config.md` §1, `shapes.md` §2).
+
 ## 2. `new_hand(seed, shape=None)`
 
     def new_hand(seed: int, shape=None) -> Hand
 
     validate_seed(seed)                      # not an int, or a bool — errors.md, InvalidSeed
     name = require_shape(shape, "new_hand")  # a name outside the catalogue — config.md §1, UnknownShape
-    random.seed(seed)                        # THE single seeding point of the project (ASM-2)
-    return Hand(create_state(shape_row(name)), (), name)
+    row = shape_row(name)                    # the row is read BEFORE the seed (guardrails.md G14)
+    random.seed(seed)                       # THE single seeding point of the project (ASM-2)
+    return Hand(create_state(row), (), name)
 
 Both refusals happen **before** `random.seed`, so a refused call cannot move the stream and neither
-depends on the other. `create_state(row)` picks the library class from the row's `bet_structure`
-(`config.md` §2): the fixed row's call is the one this module has always made, and the no-cap row hands
-`pokerkit` the big blind as its minimum bet:
+depends on the other. `create_state(row)` picks the library class from the row’s `bet_structure`
+(`config.md` §2), hands it the row’s seat count as `player_count` and the row’s `blind_vector` as
+`raw_blinds_or_straddles`, and builds both arguments from the row alone:
 
-    "fixed-limit" -> FixedLimitTexasHoldem.create_state(AUTOMATIONS, True, 0, blinds, 2, 4, 20, 2)
-    "no-limit"    -> NoLimitTexasHoldem.create_state(AUTOMATIONS, True, 0, blinds, min_bet, 100, 2)
+    blind_vector(row) = tuple(row["blinds"]) + (0,) * (row["seats"] - 2)   # §3
+
+    "fixed-limit" -> FixedLimitTexasHoldem.create_state(
+                         AUTOMATIONS, True, 0, blind_vector(row),
+                         row["small_bet"], row["big_bet"], row["starting_stack"], row["seats"])
+    "no-limit"    -> NoLimitTexasHoldem.create_state(
+                         AUTOMATIONS, True, 0, blind_vector(row),
+                         row["blinds"][1], row["starting_stack"], row["seats"])
+
+For a two-seat row `blind_vector` is `(1, 2)` with no padding, which is the argument this module has
+always handed `pokerkit`, so the fixed row’s call and the two-seat no-cap row’s call are the ones they
+always were (`shapes.md` §5). A six-seat row hands the library six entries of which two are non-zero,
+which is what seats six players rather than two (`seats.md` §2).
 
 Why this is enough: `pokerkit` shuffles the deck inside `create_state` (`state.py:1241`,
 `shuffle(self.deck_cards)`, `from random import shuffle`), so seeding the global stream immediately
@@ -60,59 +78,97 @@ CHIPS_PUSHING, CHIPS_PULLING`. It is what makes the *betting decisions* the only
 hole cards exist from the first decision on, and each street’s board cards are dealt automatically as
 the previous street’s betting closes (`strata/platform.md`).
 
-## 3. The seat mapping — the single most dangerous detail
+## 3. The seat map — the single most dangerous detail
 
-`pokerkit` reverses the blinds for `player_count == 2` (`state.py:3336-3339`, the effective blind is
-`abs(self.blinds_or_straddles[not player_index])`) and `_begin_betting` reverses them again when it
-computes the pre-flop opener (`state.py:4203-4212`). With `raw_blinds_or_straddles=(1, 2)` and two
-players the consequence is fixed, and it is the opposite of this project’s contract:
+The map is no longer heads-up’s own: it is the seat count’s, derived from `pokerkit` 0.7.7’s own
+arithmetic (`.venv/lib/python3.12/site-packages/pokerkit/state.py`) and not from a table of two.
 
-| | `pokerkit` index 1 | `pokerkit` index 0 |
-|---|---|---|
-| posts | the small blind 1 | the big blind 2 |
-| acts first | pre-flop | flop, turn, river |
-| chips behind at the first decision, stack 20 | 19 | 18 |
+- `get_effective_blind_or_straddle` (`state.py:3325-3345`) reads `abs(self.blinds_or_straddles[not
+  player_index])` **only** when `player_count == 2`, and `abs(self.blinds_or_straddles[player_index])`
+  otherwise. For more than two players the vector is therefore one blind per player index, and the
+  pair `(1, 2)` padded with zeros gives player 0 the small blind 1 and player 1 the big blind 2 —
+  engine seats 1 and 2 under the map below (`seats.md` §2).
+- `_begin_betting` (`state.py:4190-4212`) sets `max_bet_index` to the player maximising
+  `(self.bets[i] * sign(blinds_or_straddles[i]), i)` — with the vector reversed first when
+  `player_count == 2` (`state.py:4203-4204`) — and then `opener_index = (max_bet_index + 1) %
+  player_count`.
+- `collect_bets` zeroes every bet when a street’s bets are collected (`state.py:3266-3267`), and the
+  next street opens after that collection (`_end_dealing` → `_begin_betting`, `state.py:3621-3627`).
+- So on every street after the pre-flop every `bets[i]` is 0, the key reduces to `(0, i)`, the maximum
+  is the **last** player index, and the opener is player 0 — for **every** player count.
 
-`docs/L2/engine/environment.md` §1 requires **seat 0 to be the button**: it posts the small blind of
-1, it acts first pre-flop, and seat 1 acts first on every later street. Therefore
+The seat that acts **last** post-flop is the button, and it is player `player_count - 1`. Engine seat 0
+holds the button on every shape (`L2 environment.md` §1), so engine seat `s` is player
+`(s - 1) mod seats`:
 
-    SEAT_TO_PLAYER = (1, 0)          # engine seat -> pokerkit player index
-    player_index(seat) = 1 - seat    # helper, not surface
-    seat_of(player_index) = 1 - player_index
+    SEAT_TO_PLAYER = (1, 0)                  # the two-seat instance, = seat_map(2)
+    seat_map(seats)          = ((s - 1) % seats for s in range(seats))
+    player_index(seat, seats) = (seat - 1) % seats        # helpers, not surface
+    seat_of(index, seats)     = (index + 1) % seats
+
+Measured on the six-seat row (blinds `(1, 2, 0, 0, 0, 0)`, stacks 100, minimum bet 2): `actor_index`
+is 2 at the first decision, the pre-flop order of acting players is `[2, 3, 4, 5, 0, 1]`, and the flop,
+turn and river order is `[0, 1, 2, 3, 4, 5]` — `seat_map(6)` is therefore `(5, 0, 1, 2, 3, 4)`:
+
+| Engine seat | `pokerkit` player | Posts | Acts |
+|---|---|---|---|
+| 0 | 5 | — | last post-flop, fourth of six pre-flop — **the button** |
+| 1 | 0 | 1 | first post-flop, fifth pre-flop — the small blind |
+| 2 | 1 | 2 | last pre-flop — the big blind |
+| 3 | 2 | — | first pre-flop, second post-flop — under the gun |
+| 4 | 3 | — | second pre-flop — the hijack |
+| 5 | 4 | — | third pre-flop — the cutoff |
+
+The **two-seat instance** is that same formula at `seats = 2`, which is the map this module already
+had: `seat_map(2) = (1, 0)`, `player_index(seat) = 1 - seat`, `seat_of(index) = 1 - index`, and
+`blind_vector` is `(1, 2)` with no padding. The library then reverses the pair itself
+(`state.py:3336-3339`, `:4203-4204`), so player 1 posts the 1, player 0 posts the 2 and acts first on
+the flop, turn and river — and **the two-seat deal is unchanged, card for card**, because the same
+seed creates the same state with the same arguments (`shapes.md` §5, `seats.md` §3).
 
 **Every** per-seat fact is translated exactly once, where it is read: `stacks`, `payoffs`, `hole`, the
-readout’s `seat` fact, the acting seat of a decision, and the policy `play_hand` calls. No `pokerkit`
-index ever reaches a caller. Do not "simplify" this by passing `(2, 1)` to `create_state`: the library
-reverses an already-reversed pair again and the button lands back on the wrong seat
-(`guardrails.md` G2). Both rows have two seats and the same blinds, so this map is the shape's too: no
-row re-seats a hand (`shapes.md` §2).
+readout’s `seat` fact, the acting seat of a decision, the seat a history entry names, and the policy
+`play_hand` calls. No `pokerkit` index ever reaches a caller. Do not "simplify" this by passing
+`(2, 1)` to `create_state`: the library reverses an already-reversed pair again and the button lands
+back on the wrong seat (`guardrails.md` G2).
 
 ## 4. The first decision, as a check on the whole mapping
 
-At any seed the **default shape's** first decision must read: `street == "preflop"`, `pot == 3`,
+At any seed the **default shape’s** first decision must read: `street == "preflop"`, `pot == 3`,
 `stacks == (19, 18)`, `to_call == 1`, `seat == (0, True)`, `len(hole) == 2`, `board == ()`,
 `history == []`. If a build reads `stacks == (18, 19)` or `seat == (1, False)`, the seat map is
 inverted and nothing else in the module can be trusted (`readout.md` §2).
 
-The **no-cap row's** own first decision carries the same seating and its own numbers: `pot == 3`,
-`stacks == (99, 98)`, `to_call == 1`, `seat == (0, True)`, `limit == (2, 0)`, `board == ()` — differing
-only where the row differs (`config.md` §6, `shapes.md` §2).
+The **two-seat no-cap row’s** own first decision carries the same seating and its own numbers:
+`pot == 3`, `stacks == (99, 98)`, `to_call == 1`, `seat == (0, True)`, `limit == (2, 0)`, `board == ()`
+— differing only where the row differs (`config.md` §6, `shapes.md` §2).
 
-Conservation, asserted at every decision: `pot + sum(stacks)` is the row's chips in play, 40 in the
-default shape and 200 in the no-cap one, because committed chips sit in the pot and never in a stack
-(`L2 environment.md` §1, `config.md` §4) — and `state.total_pot_amount` includes the current street’s
-outstanding bets (`state.py:2601-2606`).
+The **six-seat row’s** first decision is the check on the general map, and it is the same at every
+seed because the blinds are posted before the deal matters: `street == "preflop"`, `pot == 3`,
+`stacks == (100, 99, 98, 100, 100, 100)` in seat order, `to_call == 2`, `seat == (3, False)`,
+`limit == (2, 0)`, `board == ()`, `history == []`, `hand_class is None` — the small blind of 1 sits in
+seat 1’s stack and the big blind of 2 in seat 2’s, and the first seat to act is under the gun, not the
+button (`seats.md` §2–§3, ASM-44).
+
+Conservation, asserted at every decision: `pot + sum(stacks)` is the row’s chips in play — 40 in the
+default shape, 200 in the two-seat no-cap one and 600 on the six-seat one (6 × 100) — because
+committed chips sit in the pot and never in a stack (`L2 environment.md` §1, `config.md` §4), and
+`state.total_pot_amount` includes the current street’s outstanding bets (`state.py:2601-2606`).
+Measured through a whole six-seat hand of 24 decisions: no violation.
 
 ## 5. `is_terminal` and `payoffs`
 
     def is_terminal(hand: Hand) -> bool          # bool(), never a truthy object
-    def payoffs(hand: Hand) -> dict[int, int]    # {0: p0, 1: p1} — engine seat order
+    def payoffs(hand: Hand) -> dict[int, int]    # one entry per seat — engine seat order
 
 `is_terminal` is `bool(not state.status)` and refuses only a value that is not a `Hand`: every handle
 states whether it is over, a freshly dealt one included (`L2 surface.md` §8). The e2e edge asserts
 `assertIsInstance(..., bool)`.
 
 `payoffs` refuses a handle that is still running (`L2 surface.md` §9) and maps
-`{seat: state.payoffs[player_index(seat)]}` — the net chip delta `stack - starting_stack`
-(`state.py:1095-1103`) — so exactly two numbers, summing to zero, keyed by seat and carrying no
-total. A split is a zero payoff and is legal (ASM-12).
+`{seat: state.payoffs[player_index(seat, seats)]}` over the hand’s **own** seat count — the net chip
+delta `stack - starting_stack` (`state.py:1095-1103`) — so it holds exactly one number per seat of the
+shape it was dealt from, six on `six-seat-no-limit-100` and two elsewhere, summing to zero, keyed by
+seat and carrying no total (`seats.md` §3, `e2e-surface.md` §3.1). A split is a zero payoff and is
+legal (ASM-12). Measured: `{0: -2, 1: -2, 2: -2, 3: 10, 4: -2, 5: -2}` for one six-seat
+always-check-call hand, six entries summing to zero.

@@ -660,33 +660,40 @@ def build_pool(declaration):
 def _baseline_member(name):
     """One pinned baseline member: its id is its name (`pool.md` §2 step 6, G3).
 
-    Its `game` is `None` because a baseline carries **no** shape: `agents.build_baseline`
-    takes a name and a seed and no shape, so a baseline policy is shape-silent and plays
-    whatever shape the hands are dealt on (`shape.md` §4, `scheduler.md` §5).
+    Its `game` is `None` and it **stays** `None`, which is what a baseline's member record
+    has always carried: a baseline is a policy factory and not a trained estimator, so it
+    records no shape of its own, and the shape it is built for is the pool's, passed to
+    `agents.build_baseline` by the probe, by `opponent` and by the cell that seats it
+    (`shape.md` §4, `scheduler.md` §5, `seats.md` §6).  A default-shape pool's member
+    records are therefore byte-identical to the ones it held before the third shape
+    existed -- the pool's shape lives in the record's own `game` key and never in a
+    baseline's (`records.md` §8, `pool.md` §5, `seats.md` §6, D-33).
     """
     return {"id": name, "baseline": True, "pinned": True, "params": 0, "game": None}
 
 
 def _probe_baseline(name, shape):
-    """One pinned baseline constructed once at `PROBE_SEED` -- and nothing else (§2 step 6).
+    """One pinned baseline constructed once at `PROBE_SEED` **for the pool's shape** (§2 step 6).
 
-    `agents.build_baseline(name, PROBE_SEED)` is a **construction**: no hand is played, no
-    file is read and no stream moves, which is what keeps `build_pool`'s "plays nothing,
-    moves no stream" true (ASM-2).  A baseline the catalogue cannot construct is refused
-    naming the member and both shapes -- the pool's and the `None` the baseline names --
-    rather than silently held unplayable.  Under today's catalogue the probe's firing set
-    is **empty**: `agents` declares one catalogue of six for both declared shapes and
-    `build_baseline` takes no shape, so every one of them constructs and every one plays
-    both shapes (`shape.md` §4); the probe guards the day a catalogue carries a
-    shape-dependent baseline (`pool.md` §2, D-29).
+    `agents.build_baseline(name, PROBE_SEED, shape)` is a **construction**: no hand is
+    played, no file is read and no stream moves, which is what keeps `build_pool`'s "plays
+    nothing, moves no stream" true (ASM-2).  The pool's one shape is passed on because a
+    baseline the catalogue can build for it is a baseline the pool can field: `fold-large-bet`
+    reads that shape's declared starting stack -- 100 on the six-seat row, 20 on the default
+    -- and the oracle prices a readout of that shape's seats (`seats.md` §2, §4, §6,
+    ASM-31, D-33).  A baseline the catalogue cannot construct for that shape is refused
+    naming the member, the shape and the catalogue's own refusal, rather than silently held
+    unplayable (`pool.md` §2, D-29).  On the default shape the named shape and the absent
+    one are one construction, so a default-shape pool's membership, records and behaviour
+    do not move (`shape.md` §2, `seats.md` §6).
     """
     try:
-        agents.build_baseline(name, PROBE_SEED)
+        agents.build_baseline(name, PROBE_SEED, shape)
     except Exception as exc:
         raise ShapeMismatch(
             "build_pool(baseline %r): the catalogue cannot construct the baseline for the "
-            "shape %r, and the baseline names no shape of its own, and a pool is one "
-            "shape's (%s)" % (name, shape, exc)
+            "shape %r, and a pool is one shape's and fields only the baselines its shape "
+            "can play (%s)" % (name, shape, exc)
         ) from exc
 
 

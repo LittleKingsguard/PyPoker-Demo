@@ -5,9 +5,9 @@
   `offer`'s eviction are `families.md`'s (§3, §4, §6), the utility a member declares is `utility.md`'s and the
   shape it declares is `shape.md`'s (`surface.md` §5–§8, `league.md` §1–§2, `shape.md` §2–§4)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — a `Pool` carries the one shape it is on, the declaration's `game` key and each member's `game` are held to it, each pinned baseline is probed once, and the read-back's `game` is required (`shape.md` §2–§4)
+- **Rev 6:** D-29's second shape — a `Pool` carries the one shape it is on, the declaration's `game` key and each member's `game` are held to it, each pinned baseline is probed once, and the read-back's `game` is required (`shape.md` §2–§4) · **Rev 7:** D-33's third shape — the probe and every drawn baseline are built for **the pool's own shape** (§2, §7), and `opponent` gains the counted arm `count`, whose two refusals name both counts (§7–§8, `seats.md` §2–§4, ASM-43, D-33)
 - **Read with:** `shape.md` §1–§4, `families.md` §1–§6, `utility.md` §1–§4, `declarations.md` §4, `scheduler.md` §5,
-  `matrix.md` §1, `errors.md` §2–§4
+  `matrix.md` §1, `errors.md` §2–§4, `seats.md` §2–§4
 
 D-19 gave the window more than one estimator, so the three sections that followed from it — the lineage order, the id digest and `offer`'s eviction — moved to `families.md` under their own owner; their **numbers stay here as redirects**, because other layers cite `pool.md` §3, §4 and §6 by number (`README.md` §2, D-12, ASM-26, ASM-27).
 
@@ -39,7 +39,7 @@ caches, registers or mutates (`surface.md` §7), and no pool is ever a window of
 6. The **pinned** baselines are added **first**, in `agents.baselines()`'s order: the catalogue's `anchor: True` three, then each folding baseline the declaration's `baselines` names, both in the catalogue's order and never the declaration's, each as `{"id": <name>, "baseline": True, "pinned": True, "params": 0, "game": None}` — a baseline's id is its name, and its `game` is `None` because a baseline carries no shape (§2, §7, D-16, ASM-32, D-21, `shape.md` §4); naming an anchor is accepted and adds nothing, and a name outside the catalogue is `UnknownBaseline`, naming it.
 7. The id is computed from the ordered member lines (`families.md` §4) and the pool returned, carrying step 1's shape.
 
-**The baseline probe, and why its firing set is empty.** Each pinned baseline is probed **once** with `agents.build_baseline(name, PROBE_SEED)` — a **construction** only: no hand is played, no file is read and no stream moves, which is what keeps `build_pool`'s "plays nothing, moves no stream" true (ASM-2). A baseline the catalogue cannot construct is refused naming the member and both shapes rather than silently held unplayable. **Under today's catalogue the probe's firing set is empty**, and honestly so: `agents` declares **one** catalogue of six for both declared shapes and `build_baseline(name, seed)` takes no shape, so every one of the six constructs and every one of them plays both shapes (`shape.md` §4, README §6) — the probe is the guard for the day a catalogue carries a shape-dependent baseline. Rejected: probing by **playing a hand** at the pool's shape, the only other way to learn whether a baseline can play it — that seeds the global `random` stream and breaks the one promise `build_pool` makes (ASM-2, `surface.md` §1).
+**The baseline probe, and why its firing set is empty.** Each pinned baseline is probed **once** with `agents.build_baseline(name, PROBE_SEED, shape)` — with **the pool's own shape**, the one every hand of it will be dealt on, so the question asked here is the question `opponent` asks at every draw (§7, `seats.md` §4) — a **construction** only: no hand is played, no file is read and no stream moves, which is what keeps `build_pool`'s "plays nothing, moves no stream" true (ASM-2). A baseline the catalogue cannot construct for that shape is refused naming the member and both shapes rather than silently held unplayable. **Under today's catalogue the probe's firing set is empty**, and honestly so: `agents` declares **one** catalogue of six whose baselines all construct for every declared shape — `fold-large-bet` reading its shape's declared `starting_stack` and the `oracle` a readout's `stacks` — so the probe is the guard for the day a catalogue carries a shape-dependent baseline (`folders.md` §2, ASM-31, `shape.md` §4, README §6, `seats.md` §2). Rejected: probing by **playing a hand** at the pool's shape, the only other way to learn whether a baseline can play it — that seeds the global `random` stream and breaks the one promise `build_pool` makes (ASM-2, `surface.md` §1).
 
 A member's other keys — `path`, `rung`, `variant`, `seed`, `step`, `samples` — are **carried, not required**; `id`,
 `lineage` and `rule` are the three that are refused when absent, because the first two declare a version and order the
@@ -88,31 +88,22 @@ exactly as §2 step 2 checks a declared member's (`league.md` §2, `surface.md` 
 whose absent `game`, read as the default — is **not the pool's** is `ShapeMismatch`, naming the member and both shapes,
 because a pool is one shape's and no window mixes two (`shape.md` §3, §4).
 
-## 7. `opponent` — the training loop's draw
+## 7. `opponent` — the training loop's draw, uncounted and counted
 
-`opponent(pool, seed)` draws exactly one member from the pool's ordered membership and returns it as a policy
-(`surface.md` §8, D-16):
+`opponent(pool, seed, count=None)` draws from the pool's ordered membership, and **the absent `count` is today's call**: one
+member, returned as one policy (`surface.md` §8, D-16):
 
     index  = seeds._draw_index(seed, len(pool.members))       # seed % the size; scheduler.md §3
     member = pool.members[index]
-    policy = agents.build_baseline(member["id"], seed)        if member is a baseline
-             policy._member_policy(member)                     otherwise (scheduler.md §5)
+    policy = agents.build_baseline(member["id"], seed, pool.game)   if member is a baseline
+             policy._member_policy(member)                          otherwise (scheduler.md §5)
+    # counted: a tuple over seeds._draw_order(seed, n)[:count], each position built the same way (seats.md §2)
 
-A baseline is drawn at the caller's seed and a version at the seed its checkpoint records, read from the container
-(`scheduler.md` §5.1, `records.md` §7), so a drawn opponent is one policy that answers one decision one way
-(`agents/surface.md` §10, ASM-2). A drawn version's policy carries the **shape its container records**, and the
-record's own `game` is held to it: a disagreement is `ShapeMismatch` naming the member and both shapes, after the load
-and before a hand — and a `rule` or a `utility` disagreement is `RuleMismatch` or `UtilityMismatch` on the same terms
-(`scheduler.md` §5–§6, `shape.md` §3). A **baseline** is shape-silent and plays whatever shape the hands are dealt on, so
-a pool on the second shape draws opponents for that shape and none for the default (`shape.md` §4). It refuses a seed
-that is not an integer (`InvalidSeed`), a value that is not a pool (`InvalidPool`), and a drawn version carrying no
-`path` (`MemberUnloadable`, naming the member) — a version that cannot be loaded cannot be an opponent (`records.md` §7,
-`protocol.md` §5). Nothing else: the draw is the seed's position in the ordering (`league.md` §3, FAM-7.9).
+**Without a count** it is unchanged — the member at `seed % n`, a baseline at the caller's seed and a version at the seed its checkpoint records, read from the container (`scheduler.md` §5.1, `records.md` §7) — so a drawn opponent is one policy that answers one decision one way (`agents/surface.md` §10, ASM-2). **With a count** it returns a **tuple of `count` policies**, the members at `seeds._draw_order(seed, n)[:count]`: **distinct, without replacement, in the draw's order**, the first being the member the uncounted draw names, so a six-seat hand seats five opponents and never one member twice, `count=1` names the member the uncounted draw names, and two calls at one seed over one pool agree (`seats.md` §2, §4, `league.md` §2, ASM-43). A count that is not a positive integer is `InvalidDrawCount`, and one above the membership is `DrawExceedsMembership`, **naming both counts**, because a substitute seat would be an opponent the membership does not carry (§8, `seats.md` §3, ASM-43).
 
-**What `seed % n` promises.** One seed draws one member every time, and it does **not** make distinct seeds distinct
-members — only `n` residues exist, so two seeds congruent modulo `n` draw one member. It promises a spread: `n`
-consecutive seeds visit each member once, so sampling many seeds samples the whole pool — the satisfiable reading
-`surface.md` §8 asserts (FAM-7.9).
+**Every baseline the pool builds is the pool's shape's.** A drawn baseline is `agents.build_baseline(name, seed, pool.game)` and a pinned one is probed as `agents.build_baseline(name, PROBE_SEED, shape)` (§2) — the pool's own shape, so a six-seat pool's `fold-large-bet` reads that row's `starting_stack` of 100 and its `oracle` is asked the six-way question the readout's six-entry `stacks` carries — while a baseline's **member record keeps `game: None`**, because a baseline is a policy factory and not a trained estimator, and that is what keeps a default-shape pool's members, order, id and behaviour exactly what they were (`seats.md` §4, §6, ASM-31, `shape.md` §4). A drawn **version** is §5's member policy, its record held to the shape, the rule and the utility its container records — `ShapeMismatch`, `RuleMismatch` or `UtilityMismatch` naming the member and both values, after the load and before a hand (`scheduler.md` §5–§6, `shape.md` §3). It refuses a seed that is not an integer (`InvalidSeed`), a value that is not a pool (`InvalidPool`), and a drawn version carrying no `path` (`MemberUnloadable`, naming the member) — a version that cannot be loaded cannot be an opponent (`records.md` §7, `protocol.md` §5).
+
+**What `seed % n` promises.** One seed draws one member every time, and it does **not** make distinct seeds distinct members — only `n` residues exist, so two seeds congruent modulo `n` draw one member; what it promises is a spread, `n` consecutive seeds visiting each member once, so sampling many seeds samples the whole pool (`surface.md` §8, FAM-7.9).
 
 ## 8. Refusals
 
@@ -135,12 +126,15 @@ consecutive seeds visit each member once, so sampling many seeds samples the who
 | `offer` | `LineageNotExtended` | the lineage is not its family's newest member (`families.md` §5) |
 | `offer` | `RuleMismatch`, `UtilityMismatch` | the version's rule or utility differs from the family it extends — the version and both values (`families.md` §5) |
 | `opponent` | `InvalidSeed` | the seed is not an integer |
+| `opponent` | `InvalidDrawCount` | a `count` that is not a positive integer — a `bool` included — naming the count (`seats.md` §3, ASM-43) |
+| `opponent` | `DrawExceedsMembership` | the count is above the membership — **naming both counts**, because a draw is without replacement and a substitute seat would be an opponent the membership does not carry (`records.md` §8, `seats.md` §3, ASM-43) |
 | `opponent` | `MemberUnloadable`, `CheckpointRecordMissing`, `RuleMismatch`, `UtilityMismatch` | the drawn version carries no `path`, its container records no seed or no encoding name, or records either in a form this module does not read, or its policy contradicts the record's `rule`, `utility` or `game` — `scheduler.md` §5–§6's classes |
 
 The order is §2's: the declaration's shape, then a member's `path`, `rule`, `utility` and `game`, then the families and the
 window — so an uncatalogued shape is reported before a single member is windowed and no pool is built for a window that
-will be refused. Each message follows `errors.md` §3's grammar and is raised before anything is built; `errors.md` §4 has
-the strings.
+will be refused. In `opponent` the order is the pool, the seed, then the count's two refusals, so a pool that is not this
+module's is reported before a draw is attempted (`§8`, `seats.md` §3). Each message follows `errors.md` §3's grammar and is
+raised before anything is built; `errors.md` §4 has the strings.
 
 ## 9. What is deliberately free
 

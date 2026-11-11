@@ -1,9 +1,9 @@
 # engine — L2 integration interface
 
-- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-09
-- **Covers:** the ten entry points of `docs/L1/e2e-surface.md` §3.1 and the environments they expose, on both declared game shapes (D-2, ASM-2, D-29)
-- **Reads:** `docs/L1/module-map.md` §2–§3, `e2e-surface.md` §1, §2, §3.1 and §5, `shapes.md` §2–§5, `sizing.md` §2–§3 and §5, `records.md` §1, §5 and §15, `ladder.md` §4, `protocol.md` §2–§4, `league.md` §3, `battery.md` §3–§4, `assumptions.md` (ASM-6, ASM-12), `strata/platform.md`
-- **Ceiling:** 62 lines. At the ceiling, split by owner — never append
+- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-10
+- **Covers:** the ten entry points of `docs/L1/e2e-surface.md` §3.1 and the environments they expose, on all three declared game shapes (D-2, ASM-2, D-29, D-33)
+- **Reads:** `docs/L1/module-map.md` §2–§3, `e2e-surface.md` §1, §2, §3.1 and §5, `shapes.md` §2–§5 and §8, `seats.md` §2–§4 and §6, `sizing.md` §2–§3 and §5, `records.md` §1, §5 and §15, `ladder.md` §4, `protocol.md` §2–§4, `league.md` §3, `battery.md` §3–§4, `assumptions.md` (ASM-6, ASM-12, ASM-42, ASM-43, ASM-44), `strata/platform.md`
+- **Ceiling:** 66 lines — raised from 62 for D-33's third shape: a seat count that is the shape's data, so the catalogue carries `history` and `play_hand` carries a seating. At the ceiling, split by owner — never append
 
 ## 1. The one job
 
@@ -12,8 +12,14 @@ hand, says who acts and what that seat knows, says what that seat may do, advanc
 chosen action, says when it is over, pays it, and answers the equity question the oracle baseline
 asks (ASM-4, `module-map.md` §1). The game's own parameters are the module's — nine of them are a
 shape's row and the tenth, `game_shapes`, publishes the rows (`shapes.md` §2, §4). No entry point
-takes a rung or an encoding, and `play_hand`'s only arguments beside a seed are the two policies and
-the shape, so a rung-to-rung difference can never be the game's (D-2, D-3).
+takes a rung or an encoding, and `play_hand`'s only arguments beside a seed are the policies, the
+shape and the shape's seating, so a rung-to-rung difference can never be the game's (D-2, D-3,
+`seats.md` §4).
+
+The **seat count is shape data** and not a second game: the third row seats six where the others seat
+two, so `stacks` is six entries, `payoffs` six numbers, the chips in play 600 and the policies a
+`play_hand` call seats six — and the eleven readout facts, the ten entry points and the fifty
+endpoints do not move (ASM-44, `seats.md` §2–§3, §6).
 
 ## 2. The two documents
 
@@ -39,13 +45,15 @@ the shape, so a rung-to-rung difference can never be the game's (D-2, D-3).
 Ten entry points, and L2 adds, removes and renames none of them: the one new name is `game_shapes`,
 and the second shape reaches the rest by an optional argument whose absence is today's value — so the
 count moves 9 → 10 and no caller in the tree changes (`shapes.md` §4, `e2e-surface.md` §3.1, §4).
-Needing an eleventh is a defect that returns as an adjudication to L1 and is never invented here
-(D-12, `e2e-surface.md` §1). The harness files that drive this module are capped at
-`50 + 10 × 10 = 150` lines, computed by `strata-lint` and never asserted by a harness author
-(brief §5, `module-map.md` §4). Eight of the ten rows are `general`, so the battery carries eight
-instances invented from the surface alone; `game_shapes` and `game_config` are the `fixed` rows,
-because the catalogue is the declaration itself and no caller can invent a shape through this
-surface (D-15, `battery.md` §4, `e2e-surface.md` §5).
+**D-33 adds no name either**: the third shape is one more row of the same catalogue, and the six-seat
+hand reaches the surface as `play_hand`'s optional `seats`, so the map stays at **50** endpoints,
+`engine` at **10** and its ceiling at 150 (`seats.md` §6, ASM-43). Needing an eleventh is a defect
+that returns as an adjudication to L1 and is never invented here (D-12, `e2e-surface.md` §1). The
+harness files that drive this module are capped at `50 + 10 × 10 = 150` lines, computed by
+`strata-lint` and never asserted by a harness author (brief §5, `module-map.md` §4). Eight of the ten
+rows are `general`, so the battery carries eight instances invented from the surface alone;
+`game_shapes` and `game_config` are the `fixed` rows, because the catalogue is the declaration itself
+and no caller can invent a shape through this surface (D-15, `battery.md` §4, `e2e-surface.md` §5).
 
 ## 5. What is left to L3
 

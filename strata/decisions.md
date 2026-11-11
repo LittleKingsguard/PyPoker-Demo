@@ -818,3 +818,32 @@ league that must supply it (D-32).
 **Gate (D-10):** a second and third declared shape plus an N-seat game is a major expansion. The
 findings of D-24's and D-28's gates on multi-seat and sized actions are cited as the requirement list;
 any departure from them needs its own review. The overnight run stays gated on the test's result.
+
+---
+
+## D-34 — Six seats makes folding less correct; the test's answer is zero folds
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Widen and then run test with six-seat game containing both folders and
+raisers in pool" — executed as D-33.
+
+**Result:** the build succeeded on every gate — 1,145 cases and 8,141 subtests, e2e 316/316, lint 132
+checks, endpoints still 50, the fixed-limit shape proven byte-identical after each stage (4,238 of
+4,238 leaf paths) — and the **test failed its question**: **zero folds in 15,127 decisions** with folding
+legal in 11,212 of them, in a pool holding three folders and a trained raiser.
+
+**Finding:** six seats makes folding *less* correct, not more. A six-way pot is ~6× the blinds before any
+raise, so the price of continuing is generous and the raisers enlarge the pot being offered rather than
+narrowing it. Folding is learnable where it is correct — heads-up against a raiser a learner folds 100 %
+and profits (`fold-when-correct.md`) — so the conditions that make it correct are **few opponents, deep
+stacks and large relative bets**, which six seats contradicts.
+
+**Decision:** the six-seat shape stays declared and green, and is **not** the vehicle for a
+fold-behaviour demo nor for the overnight run. The next test of folding belongs in the **two-seat
+no-limit shape with a raiser in the pool**, where the earlier probe already showed the behaviour appears.
+
+**Also recorded, and needed before any further run:** the divergence guard catches only non-finite
+values, so a learner whose curve reaches 4e79 passes it (two of five seeds did); the retained record
+carries no seat, so the rotation cannot be verified; and `engine.equity` is process-dependent through a
+set-ordered sampling deck, contradicting `docs/L3/engine/stream.md` (D-6).

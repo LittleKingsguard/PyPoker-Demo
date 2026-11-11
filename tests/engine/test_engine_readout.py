@@ -269,13 +269,18 @@ class ENG4Readout(S.EngineCase):
                          "blind's two are four different cards (readout.md §4)")
 
     def test_eng4_6_the_seat_fact_is_the_index_then_the_button_flag(self):
-        """ENG-4.6 seat[0] is the acting index 0 or 1 and seat[1] is True exactly when
-        it is 0; the first decision is seat 0 and the flop's first decision is seat 1
-        (environment.md §2, readout.md §2, FAM-16)."""
+        """ENG-4.6 on the default shape, seat[0] is the acting index 0 or 1 and seat[1] is
+        True exactly when it is 0; the first decision is seat 0 and the flop's first
+        decision is seat 1 (environment.md §2, readout.md §2, FAM-16).
+
+        The two-seat reading of these facts is this case's; the six-seat one is ENG-4.13's,
+        which reads the same two parts of the fact over six seats (seats.md §3)."""
         for facts in self.walks():
             seat = facts["seat"]
             self.assertEqual(len(seat), 2, "the seat fact is an index and a flag (readout.md §2)")
-            self.assertIn(seat[0], (0, 1), "the acting seat is seat 0 or seat 1: %r" % (seat,))
+            self.assertIn(seat[0], (0, 1),
+                          "on the default shape the acting seat is seat 0 or seat 1: %r"
+                          % (seat,))
             self.assertIsInstance(seat[0], int, "the seat index is a number")
             self.assertIsInstance(seat[1], bool, "the button flag is a boolean: %r" % (seat,))
             self.assertEqual(
@@ -381,6 +386,98 @@ class ENG4Readout(S.EngineCase):
         self.assertEqual(len(fresh["hole"]), 2, "a caller's edit of the hole cannot reach the hand")
         self.assertEqual(list(fresh["legal"]), list(S.ACTIONS),
                          "a caller's edit of legal cannot reach the hand")
+
+
+    def test_eng4_13_the_seat_map_is_the_shapes_and_seat_zero_is_the_button(self):
+        """ENG-4.13 seat 0 holds the button on all three shapes: it acts pre-flop on every
+        shape, the seat that acts first on the flop, the turn and the river is seat 1 on
+        the two-seat shapes and on the six-seat one -- the small blind -- and the button
+        (seat 0) acts last post-flop on every shape; the seat fact's index runs over the
+        hand's own seats and its flag is `index == 0` (environment.md §1-§2, readout.md §2,
+        hand.md §3, seats.md §2-§3).
+
+        The order is read from the readout's own `seat` fact while a real hand is walked at
+        each shape, so a seat map that inverted the button, or one that stopped at two
+        seats, fails here at the seat the fact names and not at a state the battery cannot
+        see (D-3, guardrails.md G2)."""
+        for shape in S.SHAPE_NAMES:
+            walk, _finished = self.drive(S.SHAPE_SEED_A, S.always_call, shape=shape)
+            with self.subTest(shape=shape):
+                seats = S.SHAPE_SEATS[shape]
+                by_street = {}
+                for facts, _legal, _action in walk:
+                    index, button = facts["seat"][0], facts["seat"][1]
+                    self.assertIn(
+                        index, range(seats),
+                        "the acting seat's index runs over 0 .. seats - 1 -- 0 to %d on "
+                        "%r -- because the seat count is the shape's (seats.md §3): %r"
+                        % (seats - 1, shape, facts["seat"]),
+                    )
+                    self.assertEqual(
+                        button, index == 0,
+                        "the seat fact's flag is True exactly for seat 0, which holds the "
+                        "button on every shape (readout.md §2, seats.md §3): %r"
+                        % (facts["seat"],),
+                    )
+                    by_street.setdefault(facts["street"], []).append(index)
+
+                self.assertIn(
+                    "preflop", by_street,
+                    "a hand is dealt pre-flop on every shape (environment.md §1): %r"
+                    % (sorted(by_street),),
+                )
+                self.assertIn(
+                    0, by_street["preflop"],
+                    "the button acts pre-flop on every shape -- first on the two-seat "
+                    "shapes and behind the blinds on the six-seat one (environment.md §1, "
+                    "seats.md §2): the pre-flop seats were %r"
+                    % (by_street["preflop"],),
+                )
+
+                order = list(range(1, seats)) + [0]
+                postflop = [street for street in S.STREETS[1:] if street in by_street]
+                self.assertTrue(
+                    postflop,
+                    "the check-call walk reaches a post-flop street, so the order below is "
+                    "asserted and not skipped (environment.md §1): reached %r"
+                    % (sorted(by_street),),
+                )
+                for street in postflop:
+                    seats_in_street = by_street[street]
+                    self.assertEqual(
+                        len(seats_in_street), seats,
+                        "every seat acts on a post-flop street a check-call walk opens, "
+                        "so the order is the shape's whole seating (seats.md §2-§3): the "
+                        "%s of %r read %r" % (street, shape, seats_in_street),
+                    )
+                    self.assertEqual(
+                        seats_in_street[0], 1,
+                        "the seat that acts first on the %s is seat 1, the small blind, on "
+                        "the two-seat shapes and on the six-seat one alike (environment.md "
+                        "§1, seats.md §2): read %r" % (street, seats_in_street),
+                    )
+                    self.assertEqual(
+                        seats_in_street[-1], 0,
+                        "the button, seat 0, acts last on the %s of every shape "
+                        "(environment.md §1, seats.md §3): read %r"
+                        % (street, seats_in_street),
+                    )
+                    self.assertEqual(
+                        seats_in_street, order,
+                        "the post-flop order is the shape's seating: seat 1, then the "
+                        "seats in order, then the button -- %r on %r -- so no seat map "
+                        "inverts the button or stops at two seats (hand.md §3, seats.md "
+                        "§2-§3): the %s read %r"
+                        % (order, shape, street, seats_in_street),
+                    )
+
+                self.assertEqual(
+                    by_street["preflop"][-1], (2 if seats == 6 else 1),
+                    "the big blind, seat 2 on the six-seat shape and seat 1 on a two-seat "
+                    "one, acts last pre-flop, so the button is not the last seat there "
+                    "(environment.md §1, seats.md §2): the pre-flop seats were %r"
+                    % (by_street["preflop"],),
+                )
 
 
 if __name__ == "__main__":

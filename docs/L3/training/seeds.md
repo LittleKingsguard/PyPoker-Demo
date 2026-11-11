@@ -1,6 +1,6 @@
 # training — the seeds
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-05
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-10 · **Rev 2** states the opponent derivation as the seed of the whole draw: one member on a two-seat shape, and on a shape with more seats the `seats − 1` distinct members of one `evaluation.opponent` call, whose first is that same member (`seats.md` §4, `e2e-surface.md` §3.4, ASM-43, D-33)
 - **Owner:** the deal-seed and opponent-seed derivation (§2), why both arms of a pair get the same deals and opponents (§3), the
   learner's seed (§4), the determinism claims and what `sha256` is computed over (§5)
 - **Ceiling:** 90 lines. At the ceiling, split by owner — never append
@@ -12,8 +12,8 @@ A run at seed `s` needs three things seeded, and none of them is drawn from a st
 
 1. **the deal of hand *i*** — `_deal_seed(s, i)`, handed to `engine.play_hand` as its seed, which deals through
    `engine.new_hand`, the project's single seeding point (`engine/surface.md` §4);
-2. **the opponent of hand *i*** — `_opponent_seed(s, i)`, handed to `evaluation.opponent(pool, seed)`, which reduces it modulo
-   the membership's size (`evaluation/surface.md` §8);
+2. **the opponents of hand *i*** — `_opponent_seed(s, i)`, handed to `evaluation.opponent`: reduced modulo the membership's size for the
+   one opponent a two-seat hand faces, and the seed of a whole `seats − 1`-member draw on a shape with more seats, without replacement (`evaluation/surface.md` §8, `seats.md` §4, ASM-43);
 3. **the learner's own generator** — the run seed `s` itself, handed to `agents.build_learner` as the spec's `seed` (§4).
 
 The global `random` stream is therefore moved by dealing and nothing else: `training` never seeds it, never reads it and never
@@ -34,7 +34,7 @@ with `domain` one of `b"deal"` and `b"opponent"`. The three private names are co
 |---|---|---|
 | `seeds._derive` | `_derive(domain, seed, index)` | §2's payload for that domain, seed and index, `sha256`'d, the first eight bytes big-endian, reduced modulo `2**63` |
 | `seeds._deal_seed` | `_deal_seed(seed, index)` | `_derive(b"deal", seed, index)` — the seed `engine.play_hand` is called with |
-| `seeds._opponent_seed` | `_opponent_seed(seed, index)` | `_derive(b"opponent", seed, index)` — the seed `evaluation.opponent` is called with |
+| `seeds._opponent_seed` | `_opponent_seed(seed, index)` | `_derive(b"opponent", seed, index)` — the seed `evaluation.opponent` is called with, once per hand on a two-seat shape and once per counted draw on a shape with more (`seats.md` §4, ASM-43) |
 
 **Why a derivation and not a draw.** A draw is a position in a stream, so it would carry the *order* of the calls into the
 record: a snapshot, a timing, a different variant count or a resumed run would move the stream and change the hands. A

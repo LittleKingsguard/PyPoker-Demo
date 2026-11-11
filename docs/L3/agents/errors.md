@@ -22,7 +22,7 @@ lets a caller catch "this module refused me" without catching a `TypeError` from
     class UnknownArchitecture(AgentsError)   # build_learner: not one of learners()['architectures']
     class UnknownRule(AgentsError)           # build_learner, load: not one of learners()['learning_rules']
     class UnknownUtility(AgentsError)        # build_learner, load: not one of learners()['utilities']
-    class UnknownShape(AgentsError)          # build_learner, load: not one of declarations.SHAPE_NAMES (shapes.md §6)
+    class UnknownShape(AgentsError)          # build_learner, build_baseline, load: not one of declarations.SHAPE_NAMES (shapes.md §6)
     class UnknownExploration(AgentsError)    # as_policy: a mode outside {"schedule", "off"} (shapes.md §4, §6)
     class InvalidSetting(AgentsError)        # build_learner: width/depth not positive integers, sparsity outside [0,1]
     class InvalidSeed(AgentsError)           # build_learner, as_policy, build_baseline: not an integer
@@ -41,8 +41,7 @@ lets a caller catch "this module refused me" without catching a `TypeError` from
 
 Twenty-one subclasses, one per refusal family of `surface.md` §4–§12, `shapes.md` §6 and `divergence.md` §1. They are
 **not** module-level names of the `agents` package — below an entry point is not surface (`README.md` §3,
-`e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class, which is this module's freedom
-(`docs/L3/features/errors.md` §2).
+`e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class (`docs/L3/features/errors.md` §2).
 
 ## 3. The message grammar
 
@@ -60,14 +59,15 @@ and the unit battery matches them tolerantly (the raising site's name, the key's
 | `build_learner` kind | `build_learner(spec): the kind must be one of ('naive-stack', 'token-embedding', 'wide', 'deep', 'sparse', 'residual', 'plain'), got 'naivestack'` |
 | `build_learner` learning rule | `build_learner(spec): 'learning_rule' must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'` |
 | `build_learner` utility | `build_learner(spec): 'utility' must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'` |
-| `build_learner` game (shape) | `build_learner('game'): 'no-limit-6' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100'), and a shape name is never defaulted` |
+| `build_learner` game (shape) | `build_learner('game'): 'no-limit-6' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), and a shape name is never defaulted` (`seats.md` §6) |
 | `as_policy` exploration | `as_policy(exploration): the mode must be one of ('schedule', 'off'), got 'greedy'` |
 | `build_learner` seed | `build_learner(spec): the seed must be an integer, got '6174'` |
 | `build_learner` width or depth | `build_learner(spec): 'width' must be a positive integer, got 0` |
 | `build_learner` sparsity | `build_learner(spec): 'sparsity' must be in [0, 1], got 1.5` |
 | `build_learner` encoder | `build_learner(spec): 'encoder' must be an encoder from features.build_encoder, got dict` |
-| `build_learner` encoder kind | `build_learner(spec): the encoder is 'card-tokens' (token-sequence, vocabulary 96) and the kind 'naive-stack' is dense-numeric at 203` |
-| `build_learner` encoder size | `build_learner(spec): the encoder declares width 200 and the kind 'naive-stack' declares 203` |
+| `build_learner` encoder kind | `build_learner(spec): the encoder is 'card-tokens' (token-sequence, vocabulary 96) and the kind 'naive-stack' is dense-numeric at 203` — the family is the kind's on every shape (`encodings.md` §1, D-3) |
+| `build_learner` encoder size | `build_learner(spec): the encoder is 'flat-numeric' (dense-numeric, width 200) and the kind 'naive-stack' is dense-numeric at 203` — only on the **default** shape, where that 203 is in force; on another shape the encoder's width is authoritative and the kind's 203 is not an equality (`shapes.md` §8, ASM-44) |
+| `build_learner` no encoder | `build_learner(spec): the spec names the shape 'no-limit-100' and carries no 'encoder'; the kind 'naive-stack' is dense-numeric at 203, which is the size of the default shape 'fixed-limit-20' and not of that shape, so a learner on another shape takes its input width from that shape's encoder` (`shapes.md` §8, ASM-44) |
 | any, not a learner | `act(learner): the argument must be a learner from build_learner, got dict` |
 | `act`/`learn` observation | `act(observation): the observation is (40,) int32 token-sequence and the learner is (203,) float32 dense-numeric` |
 | `act`/`learn` mask | `act(legal_mask): the mask names the index 3, which is outside the index range 0..2 of the shape 'fixed-limit-20' the learner decides in, got (0, 1, 3)`; and `act(legal_mask): the mask must be non-empty, distinct indices of 0..2 on the shape 'fixed-limit-20', got (0, 1, 1)` |
@@ -79,14 +79,14 @@ and the unit battery matches them tolerantly (the raising site's name, the key's
 | `load` path | `load(path): '/ckpt/x.pt' cannot be read: No such file or directory` |
 | `load` form | `load(path): '/ckpt/x.pt' is not a pypoker-agents-checkpoint of format version 1, 2, 3 or 4` |
 | `load` version | `load(path): '/ckpt/x.pt' records the field 'format_version', which must be 1, 2, 3 or 4, got 4242` |
-| `load` rule, utility and game | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'`; and for the utility: `… has a metadata.json without the field 'utility'`, `… which must be absent from a format version 2 container, got 'net-chips'`, and `… which must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'`; and for the shape: `… has a metadata.json without the field 'game'`, `… records the field 'game', which must be one of ('fixed-limit-20', 'no-limit-100'), got 'no-limit-6'`, and `… which must be absent from a format version 3 container, got 'no-limit-100'` |
+| `load` rule, utility and game | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'`; and for the utility: `… has a metadata.json without the field 'utility'`, `… which must be absent from a format version 2 container, got 'net-chips'`, and `… which must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'`; and for the shape: `… has a metadata.json without the field 'game'`, `… records the field 'game', which must be one of ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), got 'no-limit-6'`, and `… which must be absent from a format version 3 container, got 'no-limit-100'` |
 | `load` field value | `load(path): '/ckpt/x.pt' records the field 'backend', which must be one of ('numpy', 'torch'), got 'jax'` |
 | `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174`; a rule: `load(spec): the spec's learning_rule 'masked-q-learning' is not the checkpoint's learning_rule 'double-q-learning'`; a utility: `load(spec): the spec's utility 'net-chips' is not the checkpoint's utility 'stack-shortfall'`; a shape: `load(spec): the spec's game 'no-limit-100' is not the shape 'fixed-limit-20' the checkpoint is read as` |
 | `as_policy` seed | `as_policy(seed): the seed must be an integer, got None` |
 | `as_policy` encoder | `as_policy(encoder): the encoder declares vocabulary 96 and the learner is dense-numeric at 203` |
 | a policy's readout | `policy(readout): the readout is missing 'to_call', which the rule needs` |
-| a malformed readout | `policy(readout): the readout's 'stacks' must be one number per seat, got (1, 2, 3)`; and `'hole'` must be two cards, got 1; and `'hand_class'` must be None or an integer 0-8, got 9 |
-| `build_baseline` name | `build_baseline(name): the name must be one of ('random', 'always-call', 'oracle', 'fold-no-pair-or-face', 'fold-no-pair-or-better', 'fold-large-bet'), got 'gto'` |
+| a malformed readout | `policy(readout): the readout's 'stacks' must be one number per seat: the 2 or 6 entries the declared shapes carry, got (1, 2, 3)`; and `the readout's 'seat' must be a seat index in 0..5, one per entry of 'stacks', got (6, False)`; and `'hole'` must be two cards, got 1; and `'hand_class'` must be None or an integer 0-8, got 9 (`seats.md` §2–§3, D-33) |
+| `build_baseline` name and shape | `build_baseline(name): the name must be one of ('random', 'always-call', 'oracle', 'fold-no-pair-or-face', 'fold-no-pair-or-better', 'fold-large-bet'), got 'gto'`; and `build_baseline(game): 'no-limit-6' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), and a shape name is never defaulted` (`seats.md` §6, D-33) |
 | `learn`, a non-finite td_error, and a step that left a parameter non-finite (`divergence.md` §2–§3) | `learn(transitions): transition index 41 computed a non-finite td_error and the learner has diverged, got nan`; `learn(transitions): transition index 41 drove parameter index 118 out of finite range and the learner has diverged, got nan` |
 | the decision: `act`, every policy, and `learn`'s bootstrap — one raise per site (`divergence.md` §2–§3) | `decide(values): the masked value at index 2 is not finite and the learner has diverged, got nan`; `decide_greedy(values): …` on an `off` policy's path; `_tie_break(values): …` for `double-q-learning`'s bootstrap |
 

@@ -296,6 +296,15 @@ SHAPE_BUDGET = 12
 #: §4): the refusal's instance, named with both declared names when it is refused.
 INVENTED_SHAPE = "holdem-invented-5528"
 
+#: The third declared shape's invented instances: a configuration, its one variant and its
+#: pool, one seed and a twelve-hand budget, none of which a design document carries and none
+#: of which collides with a shipped seed (`battery.md` §4, `seats.md` §2, D-33).
+INVENTED_SIX_RUNG = "rung-invented-5529"
+INVENTED_SIX_VARIANT = "variant-invented-5529"
+INVENTED_SIX_POOL = "pool-invented-5529"
+SIX_SEED = 5529
+SIX_BUDGET = 12
+
 #: A budget one hand above the greedy pass's bound, so the pass is refused rather than
 #: truncated (2,000 hands per variant per seed, `sizing.md` §4, ASM-38).
 OVER_BOUND_BUDGET = 2001
@@ -1186,7 +1195,7 @@ def fallback_run():
 
 
 # --------------------------------------------------------------------------
-# The two declared game shapes, and the one decision stream a run retains (D-29)
+# The three declared game shapes, and the one decision stream a run retains (D-29, D-33)
 # --------------------------------------------------------------------------
 #: The catalogue's declared shape names, in `engine.game_shapes()`'s order -- default
 #: first (`shapes.md` §2).  Read through the granted call and never restated: the battery
@@ -1203,6 +1212,59 @@ def default_shape():
 def second_shape():
     """The second declared shape: six descriptors and 200 chips in play (D-29)."""
     return shape_names()[1]
+
+
+def third_shape():
+    """The third declared shape: six seats, six descriptors and 600 chips in play (D-33).
+
+    The catalogue's last row, reached the way any configuration outside the registry is
+    reached -- as a value through `training.run` -- because no rung declares it and the
+    ladder is still one game (`shapes.md` §2, `seats.md` §2, `battery.md` §3 FAM-15, D-3).
+    """
+    return shape_names()[2]
+
+
+def shape_history(shape):
+    """The published `history` capacity of one declared shape (`shapes.md` §8, ASM-42).
+
+    The catalogue row carries it -- 24 slots on the default shape, 66 on the two-seat
+    uncapped one and 98 on the six-seat one -- and `engine.game_config`'s fifteen keys carry
+    none, so a case reads it off `engine.game_shapes()` and never off a literal of its own.
+    The module restates the same number as `declarations.SHAPE_HISTORY`, and the join that
+    holds the restatement to the catalogue is `tests/integration/training/`'s (`shapes.md`
+    §4, §8, D-13).
+    """
+    row = as_mapping(engine().game_shapes().get(str(shape)), "one shape's catalogue row")
+    return as_int(row["history"], "a shape's declared history capacity")
+
+
+def declared_greedy_bound(shape=None):
+    """`declarations.greedy_decisions(shape)`: one shape's greedy record bound.
+
+    One thousand decision records per slot of the shape's history capacity -- 24,000 on the
+    default shape, 66,000 and 98,000 on the uncapped ones -- read off the module's
+    restatement through `internal_module("declarations")`, because `records.md` §15 makes
+    the bound the shape's and `sizing.md` §4 refuses a pass that would exceed it rather than
+    truncating it (`shapes.md` §8, ASM-38, ASM-42).
+    """
+    return as_int(
+        internal_module("declarations").greedy_decisions(shape),
+        "a shape's greedy record bound",
+    )
+
+
+def seat_of_hand(index, shape=None):
+    """`episode._seat`: the seat the learner plays in hand `index` (`seats.md` §4, ASM-43).
+
+    `_seat` is contract for this battery (`docs/L3/training/README.md` §4, `episode.md` §1)
+    and reads the seat count off `engine.game_config`, so the rotation a case reads here is
+    the run's own shape's and no `2` or `6` is written down as the game's (`seats.md` §2-§3,
+    ASM-44, D-29).
+    """
+    return as_int(
+        internal("episode", "_seat")(int(index), shape),
+        "the seat the learner plays in one hand",
+    )
 
 
 def shaped_game_config(shape=None):
@@ -1265,6 +1327,55 @@ def no_limit_run():
         return training().run(configuration)
 
     return run_once(("no-limit", INVENTED_SHAPE_RUNG), thunk)
+
+
+def six_seat_configuration_with_folders(count):
+    """The invented configuration on the third shape, with `count` folders declared.
+
+    A configuration in no design document (`battery.md` §4, D-15): the invented entry
+    unchanged, declared on the catalogue's third shape, whose pool declaration names
+    `count` of D-21's folding baselines -- so the frozen pool holds `3 + count` members:
+    **five** when two folders are named, which is the least a six-seat hand's draw of
+    `seats - 1` distinct opponents can be satisfied from, and **four** when one is, which
+    is a draw the membership cannot supply (`records.md` §8, `seats.md` §4, ASM-32,
+    ASM-43, D-21, D-33).
+    """
+    configuration = custom_configuration(
+        name=INVENTED_SIX_RUNG,
+        variant=INVENTED_SIX_VARIANT,
+        pool_id=INVENTED_SIX_POOL,
+        seeds=(SIX_SEED,),
+        samples=SIX_BUDGET,
+    )
+    configuration = with_game(configuration, third_shape())
+    return with_pool_baselines(configuration, folder_baselines()[: int(count)])
+
+
+def six_seat_configuration():
+    """The same configuration with two folders declared: a pool of five members.
+
+    `custom_configuration`'s `snapshot_every` is `samples // 10`, so a twelve-hand budget is
+    ten one-hand intervals and the retained window of five is observable beside the final
+    model (`curves.md` §2, `checkpoints.md` §3, ASM-18).
+    """
+    return six_seat_configuration_with_folders(2)
+
+
+def six_seat_run():
+    """`run` of that configuration: a six-seat learner trains end to end.
+
+    Built once per session and shared, exactly as `no_limit_run()` is, because a run is this
+    battery's expensive observable (`battery.md` §2).  One variant, one invented seed and
+    twelve hands, so every curve closes with ten points at a one-hand interval and the
+    record retains five snapshots plus a final model (`curves.md` §2, `checkpoints.md` §3,
+    `shapes.md` §5, D-33).
+    """
+    configuration = six_seat_configuration()
+
+    def thunk():
+        return training().run(configuration)
+
+    return run_once(("six-seat", INVENTED_SIX_RUNG), thunk)
 
 
 def greedy_block(record, variant, seed):

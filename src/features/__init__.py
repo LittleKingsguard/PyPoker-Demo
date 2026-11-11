@@ -10,8 +10,9 @@ Three of the seven name a game shape as an **optional keyword** whose absence is
 default shape, and one rule is why it is a keyword and not a positional: the pre-existing
 arity cases pin each name's positional argument to the one it had, and a keyword-only
 optional adds the shape without moving any of them (surface.md §1, D-29).  No other name
-takes a shape, and none needs one -- the shape is the encoder's once it is built, and a
-spec record does not depend on it (sizing.md §5).
+takes a shape, and none needs one -- the shape is the encoder's once it is built, and the
+spec record it yields reads that shape's own width and nothing else of it, because the
+history block's capacity is the shape's (`docs/L1/shapes.md` §8, ASM-42, ASM-44).
 """
 
 from . import encode as _encode

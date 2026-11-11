@@ -1,22 +1,25 @@
-"""FEA-8 -- the second declared game shape, and the three names that take it.
+"""FEA-8 -- the declared game shapes, and the three names that take one.
 
 ``docs/L2/features/surface.md`` §4, §7-§9; ``docs/L2/features/shapes.md`` §1-§6;
 ``docs/L3/features/vocabulary.md`` §1-§4; ``docs/L3/features/flat-numeric.md`` §4;
-``docs/L3/features/card-tokens.md`` §4; ``docs/L1/shapes.md`` (D-29).
+``docs/L3/features/card-tokens.md`` §4; ``docs/L1/shapes.md`` (D-29), §8 (the history
+block's capacity is the shape's); ``docs/L1/seats.md`` §3; ``docs/L1/assumptions.md``
+ASM-42, ASM-44.
 
 The shape is this module's data and one table is its whole statement: three of the
 seven names take it as an optional **keyword**, absence is the **default** shape
 (``fixed-limit-20``) and a name the catalogue does not carry is refused rather than
-substituted.  The shape moves two things and nothing else -- the divisor table and the
-bucket ladders -- so the default's observations are unmoved to the last slot while the
-second shape's are its own.
+substituted.  The shape moves the divisor table, the bucket ladders, the history block's
+capacity, the **seat count** with both per-seat blocks' widths and modes, and the **token
+vocabulary** those blocks need -- from which one observation's width follows -- so the
+default's observations are unmoved to the last slot while each other row's are its own.
 
 This battery asserts the shape as the design states it: the default record key for key
-and value for value, the second shape's six indices in their declared (deliberately
-non-monotone) order, the two tables, and the mask over the six-descriptor vocabulary.
-Every number below is the design's, not a re-derivation: ``declarations.py`` is the
-authority and ``shapes.md`` §2-§5, ``flat-numeric.md`` §4 and ``card-tokens.md`` §4 are
-where it is written down.
+and value for value, the six indices of each uncapped row in their declared (deliberately
+non-monotone) order, the three rows' tables, widths and vocabularies, and the mask over
+the six-descriptor vocabulary.  Every number below is the design's, not a re-derivation:
+``declarations.py`` is the authority and ``shapes.md`` §2-§5, §8, ``flat-numeric.md`` §4,
+``card-tokens.md`` §4 and ``capacity.md`` §2-§4 are where it is written down.
 
 The case ids continue the FEA-8 series after the refusals' FEA-8.21, so the battery that
 already holds those ids is not renumbered (``battery.md`` §5, D-11).  No case asserts an
@@ -445,18 +448,20 @@ class FEA8ShapeRefusals(S.FeaturesCase):
 
 
 class FEA8ShapedEncoder(S.FeaturesCase):
-    """An encoder's divisor and bucket tables are its shape's; its spec is not."""
+    """An encoder's divisor and bucket tables are its shape's, and so is its width."""
 
     def spec_on(self, name, shape):
         """The six-key spec of one encoding built on one shape, read through two names."""
         return self.ep("observation_spec")(self.ep("build_encoder")(name, shape=shape))
 
-    def test_fea8_28_the_second_shapes_spec_is_the_same_six_values(self):
+    def test_fea8_28_the_second_shapes_spec_is_the_same_five_values_and_its_own_width(self):
         """FEA-8.28 build_encoder(name, shape="no-limit-100") yields an encoder whose
-        observation_spec carries the same six keys and the same six values as the
-        default's -- slot counts, widths, dtype and token vocabulary do not move -- and
-        whose encode returns the declared shape and dtype (surface.md §4, §5, §6;
-        shapes.md §5, D-29)."""
+        observation_spec carries the same six keys and five of the same six values as the
+        default's -- representation, kind, fields, dtype and vocabulary do not move --
+        and its own `shape`, because one observation's width follows the history block's
+        capacity and the capacity is the shape's: (329,) dense and (82,) tokens against
+        the default's (203,) and (40,), which is the record it always was (surface.md §4,
+        §5, §6; shapes.md §5, §8, ASM-42, ASM-44)."""
         record = S.readout(stacks=(96, 5), pot=151, to_call=11, limit=(26, 6))
         for name in S.ENCODINGS:
             with self.subTest(encoding=name):
@@ -475,42 +480,68 @@ class FEA8ShapedEncoder(S.FeaturesCase):
                     "six keys, not seven (surface.md §5, shapes.md §5): %r"
                     % (sorted(second),),
                 )
-                for other, where in ((plain, "the no-shape encoder"),
-                                     (default, "the default shape's encoder")):
-                    with self.subTest(encoding=name, against=where):
-                        self.assertEqual(
-                            second, other,
-                            "the spec's six values are shape-invariant: the second "
-                            "shape's record is %s's value for value (shapes.md §5, "
-                            "surface.md §5): %r != %r" % (where, second, other),
-                        )
-                expected = {
-                    "representation": name,
-                    "kind": declared["kind"],
-                    "fields": S.FIELDS,
-                    "shape": declared["shape"],
-                    "dtype": declared["dtype"],
-                    "vocabulary": declared["vocabulary"],
-                }
-                for key, wanted in expected.items():
+                self.assertEqual(
+                    second, dict(default, shape=S.DECLARED_BY_SHAPE[SECOND][name]),
+                    "the second shape's record is the default's with its own width and "
+                    "nothing else changed: the capacity is the one fact the shape adds to "
+                    "a spec (shapes.md §8, ASM-42, ASM-44): %r against %r"
+                    % (second, default),
+                )
+                self.assertEqual(
+                    plain,
+                    {
+                        "representation": name,
+                        "kind": declared["kind"],
+                        "fields": S.FIELDS,
+                        "shape": declared["shape"],
+                        "dtype": declared["dtype"],
+                        "vocabulary": declared["vocabulary"],
+                    },
+                    "the no-shape encoder's record is what it always was: %r's kind, the "
+                    "nine fields, (203,)/(40,), its dtype and 96 ids (surface.md §5, "
+                    "shapes.md §5): %r" % (name, plain),
+                )
+                self.assertEqual(
+                    default, plain,
+                    "naming the default shape is the no-shape record value for value "
+                    "(shapes.md §3, D-29): %r != %r" % (default, plain),
+                )
+                for key in ("representation", "kind", "fields", "dtype", "vocabulary"):
                     with self.subTest(encoding=name, key=key):
                         self.assertEqual(
-                            second[key], wanted,
-                            "the second shape's %r is %r, exactly as the default's is "
-                            "(surface.md §5, shapes.md §5): %r"
-                            % (key, wanted, second[key]),
+                            second[key], default[key],
+                            "the second shape's %r is the default's: only `shape` follows "
+                            "the shape, because only the history block's capacity does "
+                            "(shapes.md §8, ASM-44): %r against %r"
+                            % (key, second[key], default[key]),
                         )
+                self.assertEqual(
+                    tuple(second["shape"]), S.DECLARED_BY_SHAPE[SECOND][name],
+                    "the second shape declares its own width -- %r dense and %r tokens -- "
+                    "and this record is where a learner reads it (surface.md §5, shapes.md "
+                    "§8, ASM-44): %r"
+                    % (S.DECLARED_BY_SHAPE[SECOND][S.FLAT],
+                       S.DECLARED_BY_SHAPE[SECOND][S.TOKENS], second["shape"]),
+                )
                 observation = observation_of(self, name, SECOND, record)
                 self.assertEqual(
-                    self.shape_of(observation), declared["shape"],
-                    "an encoder built for the second shape still returns the declared "
-                    "shape (surface.md §6, shapes.md §5): %r"
+                    self.shape_of(observation), tuple(second["shape"]),
+                    "an encoder built for the second shape returns the shape its own spec "
+                    "declares (surface.md §6, shapes.md §8): %r"
                     % (self.shape_of(observation),),
                 )
                 self.assertEqual(
                     observation.dtype, numpy.dtype(declared["dtype"]),
-                    "and the declared dtype (surface.md §5, §6): %r"
-                    % (observation.dtype,),
+                    "and the declared dtype, which the shape does not move (surface.md §5, "
+                    "§6): %r" % (observation.dtype,),
+                )
+                self.assertEqual(
+                    self.shape_of(observation_of(self, name, DEFAULT, record)),
+                    declared["shape"],
+                    "while the default shape's observation is still the declared %r: the "
+                    "fixed-limit path does not move (shapes.md §5, §8): %r"
+                    % (declared["shape"],
+                       self.shape_of(observation_of(self, name, DEFAULT, record))),
                 )
 
 
@@ -521,17 +552,27 @@ class FEA8DenseDivisors(S.FeaturesCase):
         """FEA-8.29 one readout with stacks=(100,100), pot=200, to_call=100 and
         limit=(100,50) encodes to exactly 1.0 in the stacks, pot, to_call and both limit
         slots on no-limit-100, and to 5.0, 5.0, 5.0, 25.0 and 12.5 on the default shape
-        -- a divisor of 20, 40, 20, 4 and 4 (surface.md §6, shapes.md §2, flat-numeric.md
-        §4, FAM-2.9)."""
+        -- a divisor of 20, 40, 20, 4 and 4 while the second shape divides by 100, 200,
+        100, 100 and 50; the two observations are their shapes' own widths, 329 against
+        203, and every slot before the history is the same number of slots on both
+        (surface.md §6, shapes.md §2, §8, flat-numeric.md §4, §5, FAM-2.9, ASM-42)."""
         record = S.readout(stacks=(100, 100), pot=200, to_call=100, limit=(100, 50))
         block = {field: (offset, width) for field, offset, width in S.FLAT_BLOCKS}
         on_second = S.floats(observation_of(self, S.FLAT, SECOND, record))
         on_default = S.floats(observation_of(self, S.FLAT, DEFAULT, record))
         unnamed = S.floats(self.flat(record))
         self.assertEqual(
-            len(on_second), len(on_default),
-            "the two shapes' dense observations are one width: the shape moves no slot "
-            "count (shapes.md §5): %d against %d" % (len(on_second), len(on_default)),
+            len(on_default), S.DECLARED[S.FLAT]["shape"][0],
+            "the default shape's dense observation is the 203 slots it always was "
+            "(shapes.md §5, §8): %d" % (len(on_default),),
+        )
+        self.assertEqual(
+            (len(on_second), len(on_default)),
+            (S.DECLARED_BY_SHAPE[SECOND][S.FLAT][0], S.DECLARED[S.FLAT]["shape"][0]),
+            "the two shapes' dense observations are their own widths -- 131 + 3 x 66 = "
+            "329 and 131 + 3 x 24 = 203 -- because the history block's capacity is the "
+            "shape's, and the 131 slots before it are one table (shapes.md §8, ASM-42, "
+            "ASM-44): %d against %d" % (len(on_second), len(on_default)),
         )
         expectations = (
             ("stacks", [1.0, 1.0], [5.0, 5.0], "÷100 against ÷20"),
@@ -544,7 +585,7 @@ class FEA8DenseDivisors(S.FeaturesCase):
             with self.subTest(field=field):
                 self.assertEqual(
                     width, len(second),
-                    "the %r block is %d slots on both shapes (shapes.md §5)"
+                    "the %r block is %d slots on both shapes (shapes.md §2, §8)"
                     % (field, len(second)),
                 )
                 self.assert_floats(
@@ -563,9 +604,16 @@ class FEA8DenseDivisors(S.FeaturesCase):
             "observation is unmoved, byte for byte (shapes.md §2, §5, D-29)",
         )
         self.assertNotEqual(
-            on_second, on_default,
+            on_second[:len(on_default)], on_default,
             "and the second shape's observation is its own: one readout at both shapes' "
             "normalisers cannot encode the same (shapes.md §2): %r" % (on_second[:8],),
+        )
+        self.assert_floats(
+            on_second[S.FIXED_FLAT_SLOTS:], [0.0] * (3 * S.CAPACITY[SECOND]),
+            "the extra slots the second shape declares are its history block and nothing "
+            "else -- 3 x 66 = 198 of them, all zero for an empty history -- so the shape "
+            "widens the block and adds no other (shapes.md §8, ASM-42): %r"
+            % (on_second[S.FIXED_FLAT_SLOTS:][:6],),
         )
 
 
@@ -577,15 +625,20 @@ class FEA8TokenLadders(S.FeaturesCase):
         to_call 11 to 67 and limit=(26, 6) to (88, 92); the same amounts on the default
         shape bucket by the default tables -- (84, 79), 76, 68 and (88, 92) -- and every
         id either shape emits stays inside its own block's id range, which does not move
-        between shapes (surface.md §6, shapes.md §2, §5, card-tokens.md §4)."""
+        between shapes; the two observations are their own token counts, 82 against 40,
+        while the sixteen tokens of the laddered blocks and the vocabulary of 96 are the
+        same on both (surface.md §6, shapes.md §2, §8, card-tokens.md §4, ASM-42)."""
         block = {field: (offset, width) for field, offset, width in S.TOKEN_BLOCKS}
         record = S.readout(stacks=(96, 5), pot=151, to_call=11, limit=(26, 6))
         on_second = S.ints(observation_of(self, S.TOKENS, SECOND, record))
         on_default = S.ints(observation_of(self, S.TOKENS, DEFAULT, record))
         self.assertEqual(
-            len(on_second), len(on_default),
-            "the two shapes' token observations are one width: the shape moves no token "
-            "count (shapes.md §5): %d against %d" % (len(on_second), len(on_default)),
+            (len(on_second), len(on_default)),
+            (S.DECLARED_BY_SHAPE[SECOND][S.TOKENS][0], S.DECLARED[S.TOKENS]["shape"][0]),
+            "the two shapes' token observations are their own counts -- 16 + 66 = 82 and "
+            "16 + 24 = 40 -- because the history block's capacity is the shape's, and the "
+            "16 tokens before it are one table (shapes.md §8, ASM-42, ASM-44): %d against %d"
+            % (len(on_second), len(on_default)),
         )
         worked = (
             ("stacks", [84, 77], [84, 79], "0-5 6-10 11-20 ... 96+ against 0-1 2-3 ... 18+"),
@@ -598,7 +651,7 @@ class FEA8TokenLadders(S.FeaturesCase):
             with self.subTest(field=field):
                 self.assertEqual(
                     width, len(second),
-                    "the %r block is %d tokens on both shapes (shapes.md §5)"
+                    "the %r block is %d tokens on both shapes (shapes.md §2, §8)"
                     % (field, len(second)),
                 )
                 self.assert_ints(
@@ -612,10 +665,18 @@ class FEA8TokenLadders(S.FeaturesCase):
                     "edges are unchanged (card-tokens.md §4)" % (field,),
                 )
         self.assertNotEqual(
-            on_second, on_default,
+            on_second[:len(on_default)], on_default,
             "the two shapes' token observations are their own bucket tables: one amount "
             "set cannot encode the same (shapes.md §2): %r" % (on_second[10:16],),
         )
+        self.assert_ints(
+            on_second[S.FIXED_TOKEN_SLOTS:], [S.PAD] * S.CAPACITY[SECOND],
+            "the extra tokens the second shape declares are its history block and nothing "
+            "else -- 66 pads for an empty history -- so the shape widens the block and "
+            "moves no ladder (shapes.md §8, card-tokens.md §5): %r"
+            % (on_second[S.FIXED_TOKEN_SLOTS:][:6],),
+        )
+
         for ladder in S.LADDERS:
             field, facts, position = LADDER_BLOCKS[ladder]
             offset, width = block[field]
@@ -845,17 +906,18 @@ class FEA8ShapesAgree(S.FeaturesCase):
                 dense = self.ep("encode")(dense_encoder, record)
                 tokens = self.ep("encode")(token_encoder, record)
                 self.assertEqual(
-                    self.shape_of(dense), S.DECLARED[S.FLAT]["shape"],
-                    "the dense observation of the second shape is the declared (203,) "
-                    "(surface.md §5, §6, shapes.md §5): %r"
+                    self.shape_of(dense), S.DECLARED_BY_SHAPE[SECOND][S.FLAT],
+                    "the dense observation of the second shape is its own width, 131 + 3 "
+                    "x 66 = 329 (surface.md §5, §6, shapes.md §8, ASM-42): %r"
                     % (self.shape_of(dense),),
                 )
                 self.assertEqual(
-                    self.shape_of(tokens), S.DECLARED[S.TOKENS]["shape"],
-                    "the token observation of the second shape is the declared (40,) "
-                    "(surface.md §5, §6, shapes.md §5): %r"
+                    self.shape_of(tokens), S.DECLARED_BY_SHAPE[SECOND][S.TOKENS],
+                    "the token observation of the second shape is its own count, 16 + 66 "
+                    "= 82 (surface.md §5, §6, shapes.md §8, ASM-42): %r"
                     % (self.shape_of(tokens),),
                 )
+
                 self.assertEqual(
                     dense.dtype, numpy.dtype(S.DECLARED[S.FLAT]["dtype"]),
                     "and its dtype is unchanged by the shape (shapes.md §5): %r"
@@ -902,6 +964,579 @@ class FEA8ShapesAgree(S.FeaturesCase):
                             "chips are %r (shapes.md §2, flat-numeric.md §4): %r"
                             % (to_call, to_call / 100.0, slot),
                     )
+
+
+class FEA8ThirdShapeNumbers(S.FeaturesCase):
+    """All three declared rows, and the five numbers each one declares."""
+
+    #: The three rows' five numbers, as the design states them (capacity.md §2, §4,
+    #: shapes.md §2-§3, §5, seats.md §2-§3, ASM-42, ASM-44).
+    WANTED = {
+        S.DEFAULT_SHAPE: {
+            "seats": 2, "capacity": 24, "flat": 203, "tokens": 40,
+            "vocabulary": 96, "indices": 3,
+        },
+        S.SECOND_SHAPE: {
+            "seats": 2, "capacity": 66, "flat": 329, "tokens": 82,
+            "vocabulary": 96, "indices": 6,
+        },
+        S.THIRD_SHAPE: {
+            "seats": 6, "capacity": 98, "flat": 433, "tokens": 122,
+            "vocabulary": 102, "indices": 6,
+        },
+    }
+
+    def test_fea8_36_all_three_rows_declare_their_widths_vocabulary_seats_and_capacity(self):
+        """FEA-8.36 for each declared row the two encoders declare that row's widths --
+        203/329/433 dense and 40/82/122 tokens -- the token encoder declares that row's
+        vocabulary (96 on the two-seat rows, 102 on the six-seat one), the row's seat
+        count and capacity are the 2/2/6 and 24/66/98 the widths are built from, the
+        block arithmetic is `127 + 2 x seats + 3 x capacity` and `12 + 2 x seats +
+        capacity`, its action_space publishes the row's 3 or 6 indices, a readout of the
+        row's own seat count encodes at that width, and a history of exactly the capacity
+        encodes while one entry more is refused naming the field, the capacity and the
+        count, on both encodings (capacity.md §2-§3, shapes.md §2, §3, §5, §8,
+        seats.md §2-§3, flat-numeric.md §5, card-tokens.md §5-§6, ASM-42, ASM-44)."""
+        F = self.surface()
+        for shape, wanted in self.WANTED.items():
+            seats, capacity = wanted["seats"], wanted["capacity"]
+            with self.subTest(shape=shape):
+                self.assertEqual(
+                    (S.SEATS[shape], S.CAPACITY[shape]), (seats, capacity),
+                    "the row's seat count and capacity are its own: %d seats and %d "
+                    "history slots (seats.md §2-§3, capacity.md §2, ASM-42, ASM-44)"
+                    % (seats, capacity),
+                )
+                self.assertEqual(
+                    (wanted["flat"], wanted["tokens"]),
+                    (S.SEAT_INVARIANT_FLAT_SLOTS + 2 * seats + 3 * capacity,
+                     S.SEAT_INVARIANT_TOKEN_SLOTS + 2 * seats + capacity),
+                    "127 + 2 x %d + 3 x %d = %d dense and 12 + 2 x %d + %d = %d tokens: "
+                    "the 127 dense and 12 token slots no seat count touches, the two "
+                    "per-seat blocks one slot per seat, and the history block 3 x "
+                    "capacity / capacity (capacity.md §2, ASM-44)"
+                    % (seats, capacity, wanted["flat"], seats, capacity,
+                       wanted["tokens"]),
+                )
+                self.assertEqual(
+                    (S.flat_width(shape), S.token_width(shape)),
+                    (wanted["flat"], wanted["tokens"]),
+                    "the width arithmetic and the declared widths are one statement "
+                    "(capacity.md §2): %r"
+                    % ((S.flat_width(shape), S.token_width(shape)),),
+                )
+                record = S.shaped_readout(shape)
+                self.assertEqual(
+                    len(record["stacks"]), seats,
+                    "the battery's readout of %r holds one stack per seat, so the "
+                    "per-seat blocks are that row's width (seats.md §3, ASM-44): %r"
+                    % (shape, record["stacks"]),
+                )
+                for name in S.ENCODINGS:
+                    with self.subTest(shape=shape, encoding=name):
+                        encoder = self.ep("build_encoder")(name, shape=shape)
+                        spec = self.ep("observation_spec")(encoder)
+                        width = wanted["flat"] if name == S.FLAT else wanted["tokens"]
+                        self.assertEqual(
+                            tuple(spec["shape"]), (width,),
+                            "the %r encoder on %r declares that row's one-dimension width "
+                            "of %d (capacity.md §2, surface.md §5): %r"
+                            % (name, shape, width, spec["shape"]),
+                        )
+                        self.assertEqual(
+                            tuple(spec["shape"]), S.DECLARED_BY_SHAPE[shape][name],
+                            "and it is the width the battery's table carries: %r against "
+                            "%r" % (tuple(spec["shape"]),
+                                    S.DECLARED_BY_SHAPE[shape][name]),
+                        )
+                        if name == S.TOKENS:
+                            self.assertEqual(
+                                int(spec["vocabulary"]), wanted["vocabulary"],
+                                "the token vocabulary is the shape's: %d ids on %r, six "
+                                "seat ids above every id the two-seat rows use "
+                                "(card-tokens.md §6, seats.md §3, ASM-44): %r"
+                                % (wanted["vocabulary"], shape, spec["vocabulary"]),
+                            )
+                        else:
+                            self.assertIsNone(
+                                spec["vocabulary"],
+                                "the dense encoding declares no vocabulary on any row "
+                                "(encodings.md §4, surface.md §5): %r"
+                                % (spec["vocabulary"],),
+                            )
+                        observation = self.ep("encode")(encoder, record)
+                        self.assertEqual(
+                            self.shape_of(observation), (width,),
+                            "a readout of the row's own seat count encodes to the row's "
+                            "declared width (surface.md §6, capacity.md §2): %r"
+                            % (self.shape_of(observation),),
+                        )
+                self.assertEqual(
+                    list(self.ep("action_space")(shape=shape)),
+                    list(range(wanted["indices"])),
+                    "the row's vocabulary is %d indices, its head width's own count "
+                    "(shapes.md §3, vocabulary.md §1): %r"
+                    % (wanted["indices"], list(self.ep("action_space")(shape=shape))),
+                )
+                history = S.history_entries(capacity)
+                self.assertEqual(
+                    len(history), capacity,
+                    "the battery builds a history of exactly the row's capacity "
+                    "(capacity.md §1, §3): %d entries" % (len(history),),
+                )
+                for name in S.ENCODINGS:
+                    with self.subTest(shape=shape, encoding=name, entries=capacity):
+                        encoder = self.ep("build_encoder")(name, shape=shape)
+                        observation = self.ep("encode")(
+                            encoder, S.shaped_readout(shape, history=history))
+                        self.assertEqual(
+                            len(observation),
+                            wanted["flat"] if name == S.FLAT else wanted["tokens"],
+                            "a history of exactly the capacity encodes, and the "
+                            "observation is still the declared width (capacity.md §3, "
+                            "ASM-42): %d" % (len(observation),),
+                        )
+                        exc = self.refuses(
+                            self.ep("encode"), encoder,
+                            S.shaped_readout(shape,
+                                             history=S.history_entries(capacity + 1)),
+                            words=("encode", "history", str(capacity),
+                                   str(capacity + 1)),
+                        )
+                        self.assertIn(
+                            str(capacity), str(exc),
+                            "the refusal names the capacity it was measured against, so "
+                            "a caller learns how long this row's history may be "
+                            "(capacity.md §3, errors.md §3): %r" % (str(exc),),
+                        )
+                last = S.shaped_readout(
+                    shape, seat=(seats - 1, True),
+                    stacks=tuple(range(seats)))
+                for name in S.ENCODINGS:
+                    with self.subTest(shape=shape, encoding=name, seat=seats - 1):
+                        self.ep("encode")(
+                            self.ep("build_encoder")(name, shape=shape), last)
+        self.assertEqual(
+            [record["name"] for record in
+             self.ep("action_space")(shape=S.THIRD_SHAPE).values()],
+            list(SECOND_VOCABULARY),
+            "the six-seat row declares the uncapped row's six descriptors, index for "
+            "index: a seat count adds no descriptor, it changes the price of aggression "
+            "(shapes.md §3, seats.md §2, D-33)",
+        )
+
+
+class FEA8SixSeatSeatBlocks(S.FeaturesCase):
+    """The six-seat row's two seat blocks: a one-hot dense, six own ids in the tokens."""
+
+    def test_fea8_37_the_six_seat_dense_seat_block_is_a_one_hot_and_its_token_block_six_ids(self):
+        """FEA-8.37 on `six-seat-no-limit-100` the dense seat block is the acting seat's
+        one-hot over the six seats -- seat index i sets slot `4 + i` to 1.0 and the other
+        five to 0.0 -- and the token seat block is six tokens, the acting seat's slot
+        holding `96 + i` and the other five the pad 0, so the row emits ids 96-101 above
+        every id the two-seat rows use and its vocabulary of 102 covers all six (seats.md
+        §3, flat-numeric.md §4, card-tokens.md §3, §6, capacity.md §4, ASM-44)."""
+        F = self.surface()
+        dense_blocks = S.THIRD_FLAT_BLOCKS
+        token_blocks = S.THIRD_TOKEN_BLOCKS
+        dense_offset = {field: offset for field, offset, _width in dense_blocks}
+        token_offset = {field: offset for field, offset, _width in token_blocks}
+        dense_width = dense_blocks[1][2]
+        token_count = token_blocks[1][2]
+        self.assertEqual(
+            (dense_width, token_count, dense_offset["seat"], token_offset["seat"]),
+            (6, 6, 4, 1),
+            "the row's two seat blocks are six slots wide, at dense slot 4 and token 1 "
+            "(capacity.md §2, seats.md §3): %r"
+            % ((dense_width, token_count, dense_offset["seat"], token_offset["seat"]),),
+        )
+        seen = set()
+        for index in range(S.SEATS[S.THIRD_SHAPE]):
+            for flag in (True, False):
+                record = S.six_seat_readout(seat=(index, flag))
+                with self.subTest(seat=(index, flag)):
+                    dense = S.floats(observation_of(self, S.FLAT, S.THIRD_SHAPE, record))
+                    block = dense[dense_offset["seat"]:
+                                  dense_offset["seat"] + dense_width]
+                    self.assert_floats(
+                        block,
+                        [1.0 if position == index else 0.0
+                         for position in range(dense_width)],
+                        "the dense seat block of seat index %d: its one-hot over six "
+                        "seats, the flag carried nowhere in this block (seats.md §3, "
+                        "flat-numeric.md §4)" % (index,),
+                    )
+                    self.assertEqual(
+                        sum(1 for value in block if value != 0.0), 1,
+                        "exactly one seat slot is live, so the block is a one-hot "
+                        "(flat-numeric.md §4): %r" % (block,),
+                    )
+                    tokens = S.ints(observation_of(self, S.TOKENS, S.THIRD_SHAPE, record))
+                    ids = tokens[token_offset["seat"]:
+                                 token_offset["seat"] + token_count]
+                    expected = [S.SEAT_TOKEN_BASE + index
+                                if position == index else S.PAD
+                                for position in range(token_count)]
+                    self.assert_ints(
+                        ids, expected,
+                        "the token seat block of seat index %d: 96 + the seat slot, the "
+                        "pad in the other five (card-tokens.md §3, seats.md §3)"
+                        % (index,),
+                    )
+                    self.assertEqual(
+                        [ident for ident in ids if ident != S.PAD], [96 + index],
+                        "the acting seat's own id and no other: the row's six ids are "
+                        "96-101, one per seat slot (card-tokens.md §3, ASM-44): %r"
+                        % (ids,),
+                    )
+                    seen.add(ids[index])
+        self.assertEqual(
+            tuple(sorted(seen)), S.SIX_SEAT_SEAT_IDS,
+            "all six of the row's seat ids 96-101 are reachable, one per seat slot "
+            "(seats.md §3, ASM-44): %r" % (tuple(sorted(seen)),),
+        )
+        self.assertEqual(
+            S.VOCABULARY_BY_SHAPE[S.THIRD_SHAPE], 102,
+            "the vocabulary of 102 covers ids 0-101, so the six seat ids are inside it "
+            "(card-tokens.md §6, capacity.md §4): %r"
+            % (S.VOCABULARY_BY_SHAPE[S.THIRD_SHAPE],),
+        )
+        self.assertEqual(
+            max(S.SIX_SEAT_SEAT_IDS), S.VOCABULARY_BY_SHAPE[S.THIRD_SHAPE] - 1,
+            "the row's top id is 101, the last id its vocabulary of 102 carries "
+            "(card-tokens.md §6, ASM-44): %r"
+            % (max(S.SIX_SEAT_SEAT_IDS),),
+        )
+        for shape in S.SHAPES:
+            with self.subTest(shape=shape, ids="57-60"):
+                record = S.readout(seat=(1, False))
+                tokens = S.ints(observation_of(self, S.TOKENS, shape, record))
+                offset = {field: position for field, position, _width
+                          in S.TOKEN_BLOCKS_BY_SHAPE[shape]}["seat"]
+                self.assert_ints(
+                    tokens[offset:offset + 2], [58, 59],
+                    "a two-seat row still writes 57 + index then 59 + flag: the six "
+                    "seat ids are the third row's own and rename nothing (card-tokens.md "
+                    "§3, seats.md §3, ASM-44): %r" % (tokens[offset:offset + 2],),
+                )
+
+
+class FEA8SixSeatStacksBlocks(S.FeaturesCase):
+    """The six-seat row's stacks blocks are one slot per seat, in seat order."""
+
+    def test_fea8_38_the_six_seat_stacks_block_is_one_slot_per_seat_in_seat_order(self):
+        """FEA-8.38 on `six-seat-no-limit-100` the dense stacks block is six slots, one
+        per seat in seat order, each divided by the row's 100, and the token stacks block
+        is six buckets in the same seat order over the row's own ladder -- neither block
+        follows the acting seat, so the same stacks read the same on any seat (seats.md
+        §3, flat-numeric.md §4, card-tokens.md §4, capacity.md §4, ASM-44)."""
+        F = self.surface()
+        stacks = (100, 96, 80, 60, 40, 5)
+        dense_offset = {field: offset for field, offset, _width
+                        in S.THIRD_FLAT_BLOCKS}["stacks"]
+        token_offset = {field: offset for field, offset, _count
+                        in S.THIRD_TOKEN_BLOCKS}["stacks"]
+        self.assertEqual(
+            (dense_offset, token_offset), (129, 14),
+            "the six-seat stacks blocks start at dense slot 129 and token 14, after the "
+            "six-wide seat block and the 34/85 or 2/5 card blocks (capacity.md §2, "
+            "seats.md §3): %r" % ((dense_offset, token_offset),),
+        )
+        for index in range(S.SEATS[S.THIRD_SHAPE]):
+            record = S.six_seat_readout(seat=(index, index != 0), stacks=stacks)
+            with self.subTest(seat=index):
+                dense = S.floats(observation_of(self, S.FLAT, S.THIRD_SHAPE, record))
+                self.assert_floats(
+                    dense[dense_offset:dense_offset + S.SEATS[S.THIRD_SHAPE]],
+                    [amount / 100.0 for amount in stacks],
+                    "the dense stacks block of seat %d is the six stacks in seat order, "
+                    "each over the row's 100: the acting seat does not move them "
+                    "(flat-numeric.md §4, seats.md §3)" % (index,),
+                )
+                tokens = S.ints(observation_of(self, S.TOKENS, S.THIRD_SHAPE, record))
+                self.assert_ints(
+                    tokens[token_offset:token_offset + S.SEATS[S.THIRD_SHAPE]],
+                    [S.bucket_on(S.THIRD_SHAPE, "stacks", amount) for amount in stacks],
+                    "the token stacks block of seat %d is the six buckets in seat order "
+                    "over the six-seat row's ladder -- 5, 10, 20, 40, 60, 80, 95, 100+ -- "
+                    "and never the acting seat's first (card-tokens.md §4, seats.md §3)"
+                    % (index,),
+                )
+        with self.subTest(seat="moved", case="same stacks"):
+            first = S.six_seat_readout(seat=(0, True), stacks=stacks)
+            last = S.six_seat_readout(seat=(5, False), stacks=stacks)
+            self.assert_floats(
+                S.floats(observation_of(self, S.FLAT, S.THIRD_SHAPE, first))[
+                    dense_offset:dense_offset + 6],
+                S.floats(observation_of(self, S.FLAT, S.THIRD_SHAPE, last))[
+                    dense_offset:dense_offset + 6],
+                "one stacks tuple reads the same on seat 0 and seat 5: the six-seat "
+                "block is the readout's seat order and not the acting seat's "
+                "(flat-numeric.md §4, card-tokens.md §4, ASM-44)",
+            )
+        for shape in S.SHAPES:
+            with self.subTest(shape=shape, order="actor-first"):
+                record = S.readout(seat=(1, False), stacks=(3, 10))
+                dense = S.floats(observation_of(self, S.FLAT, shape, record))
+                offset = {field: position for field, position, _width
+                          in S.FLAT_BLOCKS_BY_SHAPE[shape]}["stacks"]
+                divisor = 20.0 if shape == S.DEFAULT_SHAPE else 100.0
+                self.assert_floats(
+                    dense[offset:offset + 2], [10 / divisor, 3 / divisor],
+                    "a two-seat row still writes the acting seat's stack then the "
+                    "other's -- seat 1's 10 then seat 0's 3, over that row's divisor: the "
+                    "third row's seat-order mode is its own (flat-numeric.md §4, "
+                    "seats.md §3, ASM-44): %r" % (dense[offset:offset + 2],),
+                )
+
+
+class FEA8SixSeatPotLadder(S.FeaturesCase):
+    """The six-seat pot ladder, at every edge and the value either side of it."""
+
+    def test_fea8_39_the_six_seat_pot_ladder_is_re_edged_for_600_chips(self):
+        """FEA-8.39 the six-seat pot ladder's edges are 12, 24, 48, 96, 192, 300 and 450
+        -- exactly three times `no-limit-100`'s -- so a pot at an edge takes that
+        bucket's id, the value one past it takes the next, and the seven ids 69-76 are
+        the ones every row emits: the pot is re-edged because 600 chips in play make a
+        divisor of 200 a clip, and no id is renamed (card-tokens.md §4, capacity.md §2,
+        §4, seats.md §2, sizing.md §5, ASM-39, ASM-44)."""
+        F = self.surface()
+        ladder = (
+            (12, 69), (24, 70), (48, 71), (96, 72), (192, 73), (300, 74), (450, 75),
+            (None, 76),
+        )
+        self.assertEqual(
+            ladder, S.SIX_SEAT_LADDERS["pot"],
+            "the six-seat pot ladder is 12, 24, 48, 96, 192, 300, 450 and then "
+            "unbounded (card-tokens.md §4, capacity.md §2): %r"
+            % (S.SIX_SEAT_LADDERS["pot"],),
+        )
+        self.assertEqual(
+            [bound for bound, _ident in ladder[:-1]],
+            [3 * bound for bound, _ident in S.SECOND_LADDERS["pot"][:-1]],
+            "each edge is exactly three times the two-seat uncapped row's, the ratio of "
+            "the two games' chips in play -- 200 against 600 (capacity.md §2, "
+            "sizing.md §5): %r" % ([bound for bound, _ident in ladder[:-1]],),
+        )
+        self.assertEqual(
+            sorted({ident for _bound, ident in ladder}),
+            S.ladder_ids("pot"),
+            "the seven pot ids 69-76 are the same ids on every row: only the edges move "
+            "(card-tokens.md §4, shapes.md §5): %r against %r"
+            % (sorted({ident for _bound, ident in ladder}), S.ladder_ids("pot")),
+        )
+        offset = {field: position for field, position, _count
+                  in S.THIRD_TOKEN_BLOCKS}["pot"]
+        probes = (0, 11, 12, 13, 23, 24, 25, 47, 48, 49, 95, 96, 97, 191, 192, 193,
+                  299, 300, 301, 449, 450, 451, 600)
+        for pot in probes:
+            with self.subTest(pot=pot):
+                record = S.six_seat_readout(pot=pot)
+                values = S.ints(observation_of(self, S.TOKENS, S.THIRD_SHAPE, record))
+                expected = S.bucket_on(S.THIRD_SHAPE, "pot", pot)
+                self.assertEqual(
+                    values[offset], expected,
+                    "a pot of %r takes the id the six-seat row's ladder fixes "
+                    "(card-tokens.md §4, capacity.md §2): %r, expected %r"
+                    % (pot, values[offset], expected),
+                )
+                self.assertIn(
+                    values[offset], S.ladder_ids("pot"),
+                    "and that id is one of the seven 69-76 every row emits "
+                    "(card-tokens.md §4, ASM-44): %r" % (values[offset],),
+                )
+        for edge, ident in ladder[:-1]:
+            with self.subTest(edge=edge, at="edge"):
+                self.assertEqual(
+                    S.bucket_on(S.THIRD_SHAPE, "pot", edge), ident,
+                    "the pot at the edge %r is inside that bucket (card-tokens.md §4, "
+                    "capacity.md §2): %r" % (edge, S.bucket_on(S.THIRD_SHAPE, "pot", edge)),
+                )
+            with self.subTest(edge=edge, at="edge+1"):
+                self.assertNotEqual(
+                    S.bucket_on(S.THIRD_SHAPE, "pot", edge + 1), ident,
+                    "one chip past the edge %r is the next bucket, so each edge is a real "
+                    "boundary and not a coincidence (card-tokens.md §4): %r"
+                    % (edge, S.bucket_on(S.THIRD_SHAPE, "pot", edge + 1)),
+                )
+                self.assertNotEqual(
+                    S.bucket_on(S.SECOND_SHAPE, "pot", edge),
+                    S.bucket_on(S.THIRD_SHAPE, "pot", edge),
+                    "the same pot of %r buckets differently on the two uncapped rows, "
+                    "because the pot ladder is the shape's (card-tokens.md §4, "
+                    "capacity.md §2): %r against %r"
+                    % (edge, S.bucket_on(S.SECOND_SHAPE, "pot", edge),
+                       S.bucket_on(S.THIRD_SHAPE, "pot", edge)),
+                )
+
+
+class FEA8TwoSeatRowsUnmoved(S.FeaturesCase):
+    """The two two-seat rows are unchanged: records, offsets and values."""
+
+    def test_fea8_40_the_two_two_seat_rows_are_unmoved_value_for_value(self):
+        """FEA-8.40 the two two-seat rows keep today's observations and block offsets:
+        the dense offsets are `0, 4, 6, 40, 125, 127, 128, 129, 131` on both, the token
+        offsets `0, 1, 3, 5, 10, 12, 13, 14, 16`, the widths 203/329 dense and 40/82
+        tokens over 96 ids, the dense seat block `[index, flag]`, the dense stacks block
+        `[stacks[i] / d, stacks[1 - i] / d]` and the token seat block `[57 + index,
+        59 + flag]` with two stack buckets in seat order -- so the third row adds a shape
+        and moves neither of the other two (shapes.md §5, §8, seats.md §3, capacity.md
+        §4, flat-numeric.md §4, §5, card-tokens.md §3, §5, ASM-44, D-29)."""
+        dense_offsets = (0, 4, 6, 40, 125, 127, 128, 129, 131)
+        token_offsets = (0, 1, 3, 5, 10, 12, 13, 14, 16)
+        rows = {
+            S.DEFAULT_SHAPE: {
+                "flat": (203, [0, 4, 6, 40, 125, 127, 128, 129, 131],
+                         [("street", 0, 4), ("seat", 4, 2), ("hole", 6, 34),
+                          ("board", 40, 85), ("stacks", 125, 2), ("pot", 127, 1),
+                          ("to_call", 128, 1), ("limit", 129, 2),
+                          ("history", 131, 72)]),
+                "tokens": (40, [0, 1, 3, 5, 10, 12, 13, 14, 16],
+                           [("street", 0, 1), ("seat", 1, 2), ("hole", 3, 2),
+                            ("board", 5, 5), ("stacks", 10, 2), ("pot", 12, 1),
+                            ("to_call", 13, 1), ("limit", 14, 2),
+                            ("history", 16, 24)]),
+                "divisor": 20.0, "pot": 40.0, "to_call": 20.0,
+                "amount": 4.0, "count": 4.0,
+            },
+            S.SECOND_SHAPE: {
+                "flat": (329, [0, 4, 6, 40, 125, 127, 128, 129, 131],
+                         [("street", 0, 4), ("seat", 4, 2), ("hole", 6, 34),
+                          ("board", 40, 85), ("stacks", 125, 2), ("pot", 127, 1),
+                          ("to_call", 128, 1), ("limit", 129, 2),
+                          ("history", 131, 198)]),
+                "tokens": (82, [0, 1, 3, 5, 10, 12, 13, 14, 16],
+                           [("street", 0, 1), ("seat", 1, 2), ("hole", 3, 2),
+                            ("board", 5, 5), ("stacks", 10, 2), ("pot", 12, 1),
+                            ("to_call", 13, 1), ("limit", 14, 2),
+                            ("history", 16, 66)]),
+                "divisor": 100.0, "pot": 200.0, "to_call": 100.0,
+                "amount": 100.0, "count": 50.0,
+            },
+        }
+        record = S.readout(street="flop", seat=(1, False), hole=("2c", "Td"),
+                           board=("Jh", "7c", "2d"), stacks=(17, 5), pot=6,
+                           to_call=0, limit=(2, 0), history=S.history_entries(2))
+        for shape, row in rows.items():
+            with self.subTest(shape=shape):
+                for key, name in (("flat", S.FLAT), ("tokens", S.TOKENS)):
+                    with self.subTest(shape=shape, encoding=name):
+                        width, offsets, table = row[key]
+                        actual = S.FLAT_BLOCKS_BY_SHAPE[shape] if name == S.FLAT \
+                            else S.TOKEN_BLOCKS_BY_SHAPE[shape]
+                        self.assertEqual(
+                            actual, tuple(table),
+                            "the %r block table of %r is the one it always was, field "
+                            "for field, offset for offset and width for width (shapes.md "
+                            "§8, ASM-44): %r" % (name, shape, actual),
+                        )
+                        self.assertEqual(
+                            tuple(offset for _field, offset, _width in actual),
+                            tuple(offsets),
+                            "its offsets are %r (flat-numeric.md §2, card-tokens.md §2): "
+                            "%r" % (offsets,
+                                    tuple(offset for _field, offset, _width in actual)),
+                        )
+                        self.assertEqual(
+                            sum(width for _field, _offset, width in actual), width,
+                            "and its widths sum to the declared %d (encoder.md §4): %d"
+                            % (width, sum(width for _f, _o, width in actual)),
+                        )
+                        self.assertEqual(
+                            tuple(self.ep("observation_spec")(
+                                self.ep("build_encoder")(name, shape=shape))["shape"]),
+                            (width,),
+                            "the record is the declared %d, unmoved (surface.md §5, "
+                            "shapes.md §5): %r"
+                            % (width, self.ep("observation_spec")(
+                                self.ep("build_encoder")(name, shape=shape))["shape"]),
+                        )
+                        if name == S.TOKENS:
+                            self.assertEqual(
+                                int(self.ep("observation_spec")(
+                                    self.ep("build_encoder")(name, shape=shape))[
+                                        "vocabulary"]), 96,
+                                "the two-seat rows still declare 96 ids: the six seat ids "
+                                "96-101 are the third row's and rename nothing "
+                                "(card-tokens.md §6, seats.md §3, ASM-44)",
+                            )
+                        observation = observation_of(self, name, shape, record)
+                        self.assertEqual(
+                            len(observation), width,
+                            "and one observation of %r is %d wide (surface.md §6): %d"
+                            % (shape, width, len(observation)),
+                        )
+                dense = S.floats(observation_of(self, S.FLAT, shape, record))
+                self.assert_floats(
+                    dense[4:6], [1.0, 0.0],
+                    "the dense seat block of seat 1 without the button is still "
+                    "[index, flag] = [1.0, 0.0], not a six-wide one-hot (flat-numeric.md "
+                    "§4, seats.md §3): %r" % (dense[4:6],),
+                )
+                self.assert_floats(
+                    dense[125:127], [5 / row["divisor"], 17 / row["divisor"]],
+                    "the dense stacks block is still the acting seat's stack then the "
+                    "other's: seat 1's 5 then seat 0's 17 (flat-numeric.md §4, "
+                    "ASM-44): %r" % (dense[125:127],),
+                )
+                self.assert_floats(
+                    dense[127:128], [6 / row["pot"]],
+                    "the pot is still divided by %r (flat-numeric.md §4, shapes.md §2): "
+                    "%r" % (row["pot"], dense[127:128]),
+                )
+                self.assert_floats(
+                    dense[128:129], [0 / row["to_call"]],
+                    "and to_call by %r (flat-numeric.md §4, shapes.md §2): %r"
+                    % (row["to_call"], dense[128:129]),
+                )
+                self.assert_floats(
+                    dense[129:131], [2 / row["amount"], 0 / row["count"]],
+                    "and the limit pair by %r and %r (flat-numeric.md §4, shapes.md §2): "
+                    "%r" % (row["amount"], row["count"], dense[129:131]),
+                )
+                self.assert_floats(
+                    dense[131:],
+                    S.history_block(record["history"], S.CAPACITY[shape]),
+                    "the history block stays at 131 and is 3 x the row's capacity "
+                    "(flat-numeric.md §5, capacity.md §2)",
+                )
+                tokens = S.ints(observation_of(self, S.TOKENS, shape, record))
+                self.assert_ints(
+                    tokens[1:3], [58, 59],
+                    "the token seat block is still 57 + index then 59 + flag "
+                    "(card-tokens.md §3, seats.md §3): %r" % (tokens[1:3],),
+                )
+                self.assert_ints(
+                    tokens[10:12],
+                    [S.bucket_on(shape, "stacks", 17),
+                     S.bucket_on(shape, "stacks", 5)],
+                    "and the two stack tokens are still stacks[0] then stacks[1] in seat "
+                    "order, over that row's ladder (card-tokens.md §4): %r"
+                    % (tokens[10:12],),
+                )
+                self.assert_ints(
+                    tokens[16:], S.history_tokens(record["history"], S.CAPACITY[shape]),
+                    "with the history block still the last `capacity` tokens "
+                    "(card-tokens.md §5, capacity.md §2)",
+                )
+        self.assertEqual(
+            (S.SEATS[S.DEFAULT_SHAPE], S.SEATS[S.SECOND_SHAPE]), (2, 2),
+            "the two two-seat rows keep two seats, so their per-seat blocks keep today's "
+            "two slots and today's modes (seats.md §3, ASM-44): %r"
+            % ((S.SEATS[S.DEFAULT_SHAPE], S.SEATS[S.SECOND_SHAPE]),),
+        )
+        self.assertEqual(
+            tuple(dense_offsets), tuple(offset for _field, offset, _width in S.FLAT_BLOCKS),
+            "the default row's dense offsets are today's %r (flat-numeric.md §2, "
+            "shapes.md §5): %r" % (dense_offsets,
+                                  tuple(offset for _f, offset, _w in S.FLAT_BLOCKS)),
+        )
+        self.assertEqual(
+            tuple(token_offsets), tuple(offset for _field, offset, _width in S.TOKEN_BLOCKS),
+            "and its token offsets today's %r (card-tokens.md §2, shapes.md §5): %r"
+            % (token_offsets,
+               tuple(offset for _f, offset, _w in S.TOKEN_BLOCKS)),
+        )
 
 
 if __name__ == "__main__":

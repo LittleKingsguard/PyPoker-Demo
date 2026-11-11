@@ -1,25 +1,28 @@
 # training — what a configuration declares, and what the run honours
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-10
+- **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** every key of `ladder.md` §3's schema read against the one loop's own behaviour (§1, whose table
   is `audit.md`'s), the rule that keeps a discarded declaration out of a run (§2), the refusals it raises and what each
   message names (§3), the declarations a matched pair must share (§4), and why this module forwards a rule, a utility and
   a shape and refuses a `hyper` block (§5) — D-3, ASM-7, ASM-8, ASM-18, ASM-38, D-19, D-20, D-29. **Rev 4:** D-29 reaches
   §1's `game` row, §2's shape refusal, §4's eighth held setting and §5; the pass's two bounds are declared and refused
-  with them (§2, `docs/L3/training/greedy.md` §4, ASM-38)
+  with them (§2, `docs/L3/training/greedy.md` §4, ASM-38). **Rev 5:** D-33 makes the catalogue **three** rows and that
+  shape declaration **three** tables — the names, the descriptor counts and each shape's history capacity — and the
+  pass's record bound the run's own shape's, 1,000 records a slot; the seat count is none of them, being read from
+  `engine.game_config` (§1–§2, `shapes.md` §2, §8, ASM-42, ASM-44, `seats.md` §2–§5, D-33)
 - **Reads:** `ladder.md` §3–§4, `records.md` §2, `loop.md` §2–§3, `surface.md` §4–§5, `agents/surface.md` §3–§4,
-  `shapes.md` §2–§3
-- **Ceiling:** 110 lines. At the ceiling, split by owner — never append
+  `shapes.md` §2–§3, §8, `seats.md` §2–§5
 
 ## 1. The audit: each key against the one loop
 
 A configuration is data for one loop (`loop.md` §3), so every key it may declare has exactly one of four fates: the run
-**reads** it, the run **records** it, another entry point of this module **quotes** it, or the run would **discard** it.
-The fourth fate is the defect this file exists to close: a key a run neither uses nor refuses is a caller's intent
-dropped in silence, and a sweep written that way measures one model N times (D-3, ASM-7). **The table is
-`audit.md` §1's**, split out at this file's ceiling with the numbering kept: it carries the row for
-every key `ladder.md` §3 lets a configuration declare — `game` among them, read at either level and recorded, and
-refused when it names a shape the catalogue does not carry (§2, §5) — and the discarded ones are named as refused below.
+**reads** it, **records** it, another entry point **quotes** it, or the run would **discard** it. The fourth fate is the
+defect this file exists to close: a key a run neither uses nor refuses is a caller's intent dropped in silence, and a
+sweep written that way measures one model N times (D-3, ASM-7). **The table is `audit.md` §1's**, split out at this
+file's ceiling with the numbering kept: it carries every key `ladder.md` §3 lets a configuration declare — `game` among
+them, read at either level and recorded, refused when it names a shape the catalogue does not carry (§2, §5) — and the
+discarded ones are named as refused below.
 
 ## 2. The rule: a declaration the run would discard is refused
 
@@ -40,7 +43,7 @@ honour rather than replacing it — four of them, before the first hand and befo
   ten snapshots and leave ASM-18's retained window unobservable (`loop.md` §3 step 7, guardrails G4). The declared budget
   is resolved as the run resolves the budget itself — the configuration's, else its first entry's — so the number the
   refusal quotes is the interval a run of this configuration would actually use (`surface.md` §4, `loop.md` §3 step 1).
-- **a `game` the declared shapes do not carry**, at either level: the shape a run trains and is evaluated on is a
+- **a `game` the three declared shapes do not carry**, at either level: the shape a run trains and is evaluated on is a
   **named** declaration (`records.md` §2), so a name outside the catalogue is refused naming it and every declared name
   rather than forwarded or defaulted — while a level declaring none is no claim and reads as the catalogue's first
   shape (`shapes.md` §2–§3, D-13, D-29). A pair of two shapes is refused too: two arms of one comparison are one
@@ -49,10 +52,10 @@ honour rather than replacing it — four of them, before the first hand and befo
   uses one value for both arms and would silently keep the first (`ladder.md` §4, ASM-8, ASM-16).
 
 The one declaration the run does not read and does not refuse is the **pass's bound**, because it is not a caller's to
-declare: at most 2,000 hands and 24,000 decision records per variant per seed, read off `src/training/declarations.py`
-(`GREEDY_HANDS`, `GREEDY_DECISIONS`) and refused by `GreedyPassRefused` with both counts — never truncated, and never
-narrowed by a configuration, since a shorter pass would silently report a different sample than the one it names
-(`sizing.md` §4, `records.md` §15, ASM-38, `greedy.md` §4).
+declare: at most 2,000 hands and 1,000 decision records per slot of the run's **own** shape's history capacity — 24,000
+at the default shape, 66,000 and 98,000 on the uncapped ones — read through `declarations.greedy_decisions(shape)` and
+refused by `GreedyPassRefused` with both counts, the shape and its capacity, never truncated and never narrowed by a
+configuration (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42, `greedy.md` §4).
 
 The one key honoured where it was dropped is `param_budget`: the `params` block is per variant, so it reports that
 variant's own declared budget, else the configuration's, else the declared 10,000 — an entry-first order, unlike
@@ -61,18 +64,16 @@ variant's own declared budget, else the configuration's, else the declared 10,00
 
 ## 3. The refusals, and what each message names
 
-Two classes, so a caller routes on the class and never on a message (`surface.md` §1). The names, the message grammar
-and the canonical sentence are L3's (`docs/L3/training/errors.md` §2–§4); what this file fixes is that each refusal
-names, in its message:
+Two classes, so a caller routes on the class and never on a message (`surface.md` §1). The name, the grammar and the
+canonical text are L3's (`docs/L3/training/errors.md` §2–§4); what this file fixes is what each message names:
 
 - **`IgnoredDeclaration`** — the entry and the configuration it belongs to, the key, **the value the caller declared**,
   **the value the run uses**, and that varying it means changing the module's declaration (ASM-7). A message that says
   only "ignored" leaves the caller without the number that was in force.
 - **`PairDeclarationsDiffer`** — the key, and **both** arms' declared values, the same way `PoolIdsDiffer` names both
-  pool ids (`surface.md` §5, ASM-16). `fairness` raises it too, for the one key it quotes as a held constant: a pair
-  that declares two `hyper` blocks holds no constant there, and reporting one of them as held would be the same defect
-  in a report instead of a run (`surface.md` §5, `ladder.md` §4). A differing `learning_rule` is not this refusal —
-  it is the pair's axis (`rules.md` §8, §4).
+  pool ids (`surface.md` §5, ASM-16). `fairness` raises it too, for the one key it quotes as a held constant: two
+  `hyper` blocks hold no constant there, and reporting one as held would be the same defect in a report instead of a
+  run (`surface.md` §5, `ladder.md` §4); a differing `learning_rule` is the pair's axis instead (`rules.md` §8, §4).
 
 A refusal here is a refusal of the run, so it deals no hand, builds no learner and writes no file (`e2e-surface.md` §2).
 No declared value is replaced by the run's own in silence: a run uses what the configuration declares or refuses it (§2).
@@ -93,18 +94,17 @@ The three answers differ because the register does. D-19 makes the estimator a p
 objective one and D-29 the game one, so the run reads `learning_rule`, `utility` and `game` and hands each on: the first
 two to `agents.build_learner`, which builds them and refuses an uncatalogued name itself (`rules.md` §2, §4,
 `utilities.md` §5, D-20), and the shape to the encoder, the learner's head, the hand and the pool — because a shape
-names no behaviour of this module's and changing it changes what every downstream call is built from (`shapes.md` §2–§3,
-`sizing.md` §5–§6, D-29). The hyper declaration is not per rule
-— both rules consume the same six values — so honouring a
-per-configuration `hyper` would make "every hyperparameter held fixed across the ladder" a convention nothing enforces,
-and a rung-to-rung difference no longer attributable to the representation it is named for (`rules.md` §2, D-3, ASM-7);
-it would also mean another module's learner reading it, designed there and not here (D-13, `module-map.md` §2). The
-caller's sweep is not lost by refusing it: it moves to the one auditable place — the module's declared hyper
-(`src/training/declarations.py`), changed once, visibly, and true for every rung after it (ASM-7, `r2-plateau-diagnosis.md`).
+names no behaviour of this module's and changing it changes what every downstream call is built from (`shapes.md`
+§2–§3, `sizing.md` §5–§6, D-29). The hyper declaration is not per rule — both rules consume the same six values — so
+honouring a per-configuration `hyper` would make "every hyperparameter held fixed across the ladder" a convention
+nothing enforces, and a rung-to-rung difference no longer attributable to the representation it is named for
+(`rules.md` §2, D-3, ASM-7); it would also mean another module's learner reading it, designed there and not here
+(D-13, `module-map.md` §2). The caller's sweep moves to the one auditable place, the module's declared hyper
+(`src/training/declarations.py`), changed once and visibly for every rung after it (ASM-7, `r2-plateau-diagnosis.md`).
 
 ## 6. What is left to L3
 
 The class names' definitions and their docstrings, the message texts and their order, where each check sits inside the
-resolve step, and the shape of the comparison (`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not L3's: that these declarations are refused, that a
-`hyper` key the block omits is no claim, that a message names both values, the pair's eight settings, the two axis
+resolve step, and the shape of the comparison (`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not
+L3's: that these declarations are refused, that a message names both values, the pair's eight settings, the two axis
 exceptions and the pass's two bounds (§1–§5, G16, D-20, ASM-38).

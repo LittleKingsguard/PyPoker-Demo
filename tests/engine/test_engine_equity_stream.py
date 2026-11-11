@@ -199,6 +199,163 @@ class ENG9Equity(S.EngineCase):
         )
 
 
+    def test_eng9_7_the_two_seat_answer_is_the_pre_change_enumeration(self):
+        """ENG-9.7 on both two-seat shapes the answer is exactly the one this module has
+        always given: the unseen deck's every two-card combination, enumerated in
+        `Deck.STANDARD` order as the opponent range, through
+        `pokerkit.analysis.calculate_equities` -- compared bit for bit at several
+        decisions of both two-seat shapes (surface.md §11, equity.md §3, shapes.md §5)."""
+        import itertools
+
+        from pokerkit.analysis import calculate_equities
+        from pokerkit.hands import StandardHighHand
+        from pokerkit.utilities import Card, Deck
+
+        def card(spelling):
+            """The library's card a readout spelling names (readout.md §3)."""
+            return Card(spelling[0], spelling[1])
+
+        def pre_change_answer(hole, board, seed, samples):
+            """The two-seat estimate computed the way this module computed it before D-33.
+
+            The sample universe is the unseen deck's every two-card combination in
+            `Deck.STANDARD` order -- never a set iteration -- so the estimate is the old
+            algorithm's and not a second implementation of the new one (equity.md §3).
+            """
+            hole = [card(spelling) for spelling in hole]
+            board = [card(spelling) for spelling in board]
+            unseen = [value for value in Deck.STANDARD
+                      if value not in set(hole + board)]
+            ranges = (
+                [list(hole)],
+                [[first, second] for first, second in itertools.combinations(unseen, 2)],
+            )
+            saved = random.getstate()
+            try:
+                random.seed(seed)
+                values = calculate_equities(
+                    ranges,
+                    list(board),
+                    2,
+                    5,
+                    Deck.STANDARD,
+                    (StandardHighHand,),
+                    sample_count=samples,
+                )
+            finally:
+                random.setstate(saved)
+            return float(values[0])
+
+        checked = 0
+        for shape in (S.DEFAULT_SHAPE, S.NO_LIMIT_SHAPE):
+            for seed in (S.SEED_A, S.SEED_F):
+                hand = self.shaped_hand(seed, shape)
+                for decision in range(3):
+                    if self.terminal(hand):
+                        break
+                    facts = self.readout(hand)
+                    expected = pre_change_answer(
+                        facts["hole"], facts["board"], S.SEED_C, S.SAMPLES_MID
+                    )
+                    with self.subTest(shape=shape, seed=seed, decision=decision):
+                        self.assertEqual(
+                            self.equity(hand, S.SEED_C, S.SAMPLES_MID), expected,
+                            "a two-seat hand's estimate is exactly the old enumeration's: "
+                            "the unseen two-card combinations in Deck.STANDARD order as the "
+                            "opponent range (equity.md §3, shapes.md §5): %r on %r at seed "
+                            "%r, decision %d, against the reimplementation's %r"
+                            % (self.equity(hand, S.SEED_C, S.SAMPLES_MID), shape, seed,
+                               decision, expected),
+                        )
+                        self.assertEqual(
+                            self.equity(facts, S.SEED_C, S.SAMPLES_MID), expected,
+                            "and the readout form of that decision answers the same old "
+                            "number, because both carry the same two cards and board "
+                            "(surface.md §11, equity.md §3): %r against %r"
+                            % (self.equity(facts, S.SEED_C, S.SAMPLES_MID), expected),
+                        )
+                    checked += 1
+                    hand = self.step(hand, "check-call")
+        self.assertGreaterEqual(
+            checked, 6,
+            "the cross-check reads several decisions of both two-seat shapes, or it says "
+            "nothing about the unchanged path (shapes.md §5): it read %d" % (checked,),
+        )
+
+    def test_eng9_8_the_six_seat_question_is_six_way(self):
+        """ENG-9.8 a decision whose readout carries six stacks is asked against the other
+        five seats' uniformly random hands: the answer is a probability in [0, 1], 1.0 for
+        the nuts the opponents cannot tie, near zero for a known-weak hand, the same number
+        twice for one readout, and the global stream is handed back as it was found
+        (surface.md §11, environment.md §4, seats.md §2, D-33)."""
+        six_stacks = [100, 99, 98, 100, 100, 100]
+        nuts = {"hole": ("As", "Ks"), "board": ("Qs", "Js", "Ts"), "stacks": six_stacks}
+        weak = {"hole": ("2c", "7d"), "board": ("As", "Ks", "Qs"), "stacks": six_stacks}
+        seed = S.SEED_C
+        samples = S.SAMPLES_MID
+
+        value = self.equity(nuts, seed, samples)
+        self.assertTrue(S.is_number(value), "equity returns a number (surface.md §11)")
+        self.assertGreaterEqual(value, 0.0, "a share of the pot is never negative")
+        self.assertLessEqual(value, 1.0, "a share of the pot never exceeds one")
+        self.assertEqual(
+            value, 1.0,
+            "As Ks over Qs Js Ts is a royal flush, and the opponents cannot tie it because "
+            "As and Ks are the acting seat's own cards, so a six-way query answers 1.0 "
+            "(surface.md §11, seats.md §2): got %r" % (value,),
+        )
+
+        weak_value = self.equity(weak, seed, samples)
+        self.assertGreaterEqual(
+            weak_value, 0.0,
+            "a share of the pot is never negative (surface.md §11): got %r" % (weak_value,),
+        )
+        self.assertLessEqual(
+            weak_value, 1.0,
+            "a share of the pot never exceeds one (surface.md §11): got %r" % (weak_value,),
+        )
+        self.assertLess(
+            weak_value, 0.1,
+            "2c 7d over As Ks Qs is a known-weak hand against five random ones, so its "
+            "six-way share is near zero (surface.md §11, seats.md §2): measured %r"
+            % (weak_value,),
+        )
+
+        stream = random.getstate()
+        self.assertEqual(
+            self.equity(nuts, seed, samples), value,
+            "one readout, one seed and one sample count give one estimate, so the six-way "
+            "question repeats (surface.md §11): %r against %r"
+            % (self.equity(nuts, seed, samples), value),
+        )
+        self.assertEqual(
+            self.equity(weak, seed, samples), weak_value,
+            "and a second query of the weak hand reads the same number (surface.md §11): "
+            "%r against %r" % (self.equity(weak, seed, samples), weak_value),
+        )
+        self.assertEqual(
+            random.getstate(), stream,
+            "a six-way query saves and restores the global stream like a two-way one "
+            "(surface.md §11, equity.md §4, stream.md §1)",
+        )
+
+        # The opponents are the other seats', so the same two cards are worth less six-way
+        # than heads-up: the seat count is read from the readout's stacks fact (seats.md §2).
+        middle = ("As", "Kd")
+        six_way = self.equity(
+            {"hole": middle, "board": (), "stacks": six_stacks}, seed, S.SAMPLES_COARSE
+        )
+        heads_up = self.equity(
+            {"hole": middle, "board": (), "stacks": [100, 100]}, seed, S.SAMPLES_COARSE
+        )
+        self.assertLess(
+            six_way, heads_up,
+            "the same hole cards are worth less against five random hands than against one, "
+            "so the seat count decides how many opponents the question holds (seats.md §2, "
+            "surface.md §11): six-way %r against heads-up %r" % (six_way, heads_up),
+        )
+
+
 class ENG10Stream(S.EngineCase):
     """Only `new_hand` seeds; every other entry point hands the stream back."""
 

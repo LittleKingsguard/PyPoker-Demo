@@ -1,11 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 11 · **Date:** 2026-11-10
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
 - **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path (`write-root.md`, split out
   because this file reached its ceiling). **Rev 4:** §6's probe rule is the sibling `devices.md`. **Rev 5:** §4's and §5's
-  refusals include the declarations a run would discard (`declarations.md` §1–§4). **Rev 7:** the rule reaches §4's `pool` row and §7 (D-19). **Rev 8:** D-20 reaches §4's `pool`, `variants` and `rules` rows, §5's seventh axis, §7's index entry and `declarations.md`'s utility check — `utility.md`. **Rev 9:** D-21 reaches §1's granted calls, §3.1's id, §4's `pool` row, refusals and `baselines` block — the pinned set read off the catalogue's flag, and one row per baseline the pool holds. **Rev 10:** D-29 reaches §1's granted calls (`agents.as_policy` at `exploration="off"`), §4's `game` and `greedy` rows with the `UnknownShape` and `GreedyPassRefused` refusals, §4.1's shape-aware header and §5's `shape` constant — the pass is `greedy.md`'s, the bound `declarations.md` §5's (D-29, ASM-38, D-28)
+  refusals include the declarations a run would discard (`declarations.md` §1–§4). **Rev 7:** the rule reaches §4's `pool` row and §7 (D-19). **Rev 8:** D-20 reaches §4's `pool`, `variants` and `rules` rows, §5's seventh axis, §7's index entry and `declarations.md`'s utility check — `utility.md`. **Rev 9:** D-21 reaches §1's granted calls, §3.1's id, §4's `pool` row, refusals and `baselines` block — the pinned set read off the catalogue's flag, and one row per baseline the pool holds. **Rev 10:** D-29 reaches §1's granted calls (`agents.as_policy` at `exploration="off"`), §4's `game` and `greedy` rows with the `UnknownShape` and `GreedyPassRefused` refusals, §4.1's shape-aware header and §5's `shape` constant — the pass is `greedy.md`'s, the bound `declarations.md` §5's (D-29, ASM-38, D-28). **Rev 11:** D-33's third shape reaches §1's restated tables, §4's `game` row and §4.2 — three names, three descriptor counts and three history capacities, the seat rotation `index % seats`, the shape's own record bound, and no table row from a shape whose seat count is not two (`seats.md` §2–§5, `shapes.md` §8, ASM-42, ASM-43, D-33)
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -28,8 +28,9 @@ contract (`e2e-surface.md` §1, brief §5). Six rules are shared and are stated 
   pinned baselines are `evaluation.league()`'s `baselines` — the catalogue's `anchor: True` members — read through a
   granted call, so this module copies no literal set of three and builds no baseline policy (`folders.md` §4, ASM-32, D-21).
   `engine.game_config` and `features.decode_action` take the **run's own shape**, and `game_shapes` and
-  `features.action_space` are granted to nobody: the two declared shapes' names, order and descriptor counts are
-  restated in `src/training/declarations.py` and joined to the catalogues by `tests/integration/training/` (§4.2).
+  `features.action_space` are granted to nobody: the three declared shapes' names, order, descriptor counts and history
+  capacities are restated in `src/training/declarations.py` and joined to the catalogues by `tests/integration/training/`
+  (§4.2, `shapes.md` §2, §8, ASM-42, D-33).
 - The global `random` stream is moved by dealing and nothing else: every deal goes through `engine.new_hand`, the
   project's single seeding point, and no call here seeds or advances it (ASM-2, `protocol.md` §4).
 - Every returned value is plain data — a mapping, a sequence of names or a path — so no record returned here
@@ -64,7 +65,9 @@ and that the shape is not in the digest (`ladder.md` §2–§3, `records.md` §8
 - **Returns:** `records.md` §12's run record, read under the keys below.
 - **Behaviour:** it runs the one loop of `loop.md` §3 — freeze the pool, then per variant and per seed train,
   snapshot and save — and returns what happened; it measures no cell, fits no rating and states no table
-  position (D-3, D-16, `module-map.md` §3).
+  position (D-3, D-16, `module-map.md` §3). A run on the six-seat shape is complete and is **not** reportable: its
+  curves, pool, ten snapshots, final model and `greedy` block are written, and no matrix, rating or report can be
+  produced from it, because the pairwise instrument refuses a shape whose seat count is not two (`seats.md` §5, D-33).
 - **Refusals:** an unknown rung name; a configuration missing a key the run reads from `ladder.md` §3; a variant
   count other than one or two (D-3, `ladder.md` §2); a `backend`, `encoding` or `architecture.kind` that
   `agents.learners()` and `features.encodings()` do not declare (D-3, `agents/surface.md` §3,
@@ -87,7 +90,7 @@ The run record's keys (`records.md` §12's **required** set, D-19's rule set inc
 | Key | Content |
 |---|---|
 | `rung` | the rung name, or an unregistered configuration's own `name` (`records.md` §12, `ladder.md` §3) |
-| `game` | the **shape** the run played: the configuration's `game`, or the catalogue's first shape when it names none — so a record names a shape it measured and `evaluation.report` can hold a run, a pool and a matrix to one (`records.md` §12, `shapes.md` §3, `protocol.md` §1, D-29) |
+| `game` | the **shape** the run played: the configuration's `game`, or the catalogue's first shape when it names none — so a record names a shape it measured and `evaluation.report` can hold a run, a pool and a matrix to one (`records.md` §12, `shapes.md` §3, `protocol.md` §1, D-29) — save that a shape whose **seat count is not two** is refused by `evaluation.match`, `matrix`, `rating` and `report`, and this module calls none of them, so only a two-seat shape's record becomes a table row (`seats.md` §5, D-22, D-33) |
 | `greedy` | `records.md` §15's pass, keyed per variant and per seed exactly as `curves` is: `mode` (`off`), `seed`, `hands`, `net_chips` and the ordered `decisions` — **the one decision stream a run retains**, since a log of the behaviour policy is the defect D-28 records as fatal (`sizing.md` §4, §7, ASM-38, `greedy.md` §1–§3) |
 | `curves` | per variant and per seed: the sample axis (the snapshot steps), at least one learning signal from `agents.learn` — its `td_error` — and the spread across seeds, zero when the set holds one seed (`protocol.md` §1, D-6, `loop.md` §3); the spread is one array per variant and point, repeated in each of that variant's seed entries and never a per-seed measurement (`curves.md` §4, `evidence.md` §4) |
 | `pool` | the frozen pool trained against: `id` (the configuration's declared id, so both arms of a pair carry one), `m`, `frozen`, `game` — the one shape the pool is on (`records.md` §8) — the ordered members with lineage and the pool's **pinned** baselines (the anchor three, then any folder the declaration named) — the `records.md` §8 record `pool_members` returned, under a nested key, beside the declared id — and `rules` and `utilities`, the distinct rules and utilities those version members declare (`records.md` §8, §12, `rules.md` §7, `utility.md` §3, D-16, ASM-16, ASM-32, D-19, D-20, D-21) |
@@ -128,10 +131,12 @@ exceptions: `agents.learners()` **is** granted, so the catalogue either is refus
 
 A `game` is refused against a **third restated table**, for the same reason: `engine.game_shapes()` is granted to
 nobody and `features.action_space` is not this module's (`module-map.md` §2), so `src/training/declarations.py`
-declares the two shapes' names in the catalogue's order, the first as the default, and each one's descriptor count —
-and `tests/integration/training/` holds that table equal, name by name and count by count, to `engine.game_shapes()`
-and `features.action_space`. Every descriptor a run reports comes back from `features.decode_action(index, shape=...)`,
-so the table carries a count and never a spelling (`shapes.md` §2, §4, `sizing.md` §3, `declarations.md` §1, D-13, D-29).
+declares the **three** shapes' names in the catalogue's order, the first as the default, each one's descriptor count and
+each one's history capacity — a capacity being the catalogue row's — and `tests/integration/training/` holds those
+tables equal, name by name, count by count and capacity by capacity, to `engine.game_shapes()` and
+`features.action_space`. Every descriptor a run reports comes back from `features.decode_action(index, shape=...)`, so
+the table carries a count and never a spelling, and a seat count is in none of them (`shapes.md` §2, §4, §8, `seats.md`
+§2–§3, `sizing.md` §3, ASM-42, ASM-44, D-13, D-29, D-33).
 
 ## 5. `fairness` — what a pair holds constant (`general` row)
 

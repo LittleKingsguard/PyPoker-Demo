@@ -443,6 +443,14 @@ def build_learner(spec):
     catalogue's **first** member of each, the declared defaults of `rules.md` §4 and
     `utilities.md` §5.  A named member the catalogue does not carry is refused before
     anything is built (`errors.md` §4, D-19, D-20).
+
+    **Which size the learner is built at is the shape's question.**  `encoder` is
+    optional too: with one, the learner is sized from its `observation_spec` -- a dense
+    spec's width or a token spec's vocabulary -- and on a non-default shape that width is
+    the shape's own, 329 on `no-limit-100` (`shapes.md` §8, ASM-44).  With none, it is
+    sized from the kind's declared `observation_size`, which is the **default** shape's
+    size, so a spec naming another shape with no encoder is refused by name and never
+    built at 203 (`docs/L2/features/capacity.md` §2, §5).
     """
     if not isinstance(spec, Mapping):
         raise InvalidSpec(
@@ -519,6 +527,13 @@ def build_learner(spec):
     row = declarations.kind_row(kind)
     family = row["observation"]
     encoding = row["encoding"]
+    # The size an encoder-less build is sized from: the kind's declared
+    # `observation_size`, which is the **default** shape's size and not a per-shape
+    # table's (`shapes.md` §8, ASM-44).  A learner on any other shape takes its input
+    # width from that shape's own encoder -- 329 dense, a vocabulary of 96 on
+    # `no-limit-100` -- and a spec naming one with no encoder is refused below rather
+    # than sized from a number that is not that shape's (`docs/L2/features/capacity.md`
+    # §2, §5).
     size = row["observation_size"]
     shape = None
     dtype = None
@@ -526,7 +541,15 @@ def build_learner(spec):
         encoded = encoder_spec(spec["encoder"], "build_learner", "spec", "encoder")
         declared_family = encoded["kind"]
         declared_size = encoder_size(encoded)
-        if declared_family != family or declared_size != size:
+        # The **family** is the kind's on every shape: a token encoder for a dense kind
+        # and the reverse is refused naming both, and a token learner is sized by its
+        # vocabulary and never by its sequence length (`encodings.md` §1, §4, D-3).  The
+        # **size** is the kind's only on the default shape -- where the two are 203 and
+        # 96 anyway -- so on any other shape the shape's encoder is authoritative and
+        # the kind's 203 is not consulted as an equality (`shapes.md` §8, ASM-44).
+        if declared_family != family or (
+            declarations.sized_by_kind(game) and declared_size != size
+        ):
             raise EncoderMismatch(
                 "build_learner(spec): the encoder is %s and the kind %s"
                 % (encoder_side(encoded), kind_side(kind))
@@ -536,6 +559,19 @@ def build_learner(spec):
         size = declared_size
         shape = tuple(encoded["shape"])
         dtype = encoded["dtype"]
+    elif not declarations.sized_by_kind(game):
+        # An encoder-less build is sized from the kind's declared `observation_size`,
+        # and that number is the **default** shape's: on any other shape there is no
+        # size to build at, so the spec is refused by name rather than silently sized
+        # at 203, which would be an observation of one shape fed to a head of another
+        # (`shapes.md` §8, ASM-44, `docs/L2/features/capacity.md` §5).
+        raise EncoderMismatch(
+            "build_learner(spec): the spec names the shape %r and carries no 'encoder'; "
+            "the kind %s, which is the size of the default shape %r and not of that "
+            "shape, so a learner on another shape takes its input width from that "
+            "shape's encoder"
+            % (game, kind_side(kind), declarations.DEFAULT_SHAPE)
+        )
 
     layout, parameters, masks, _kept = model.initial_draw(
         kind, width, depth, sparsity, seed, size, family, actions=actions

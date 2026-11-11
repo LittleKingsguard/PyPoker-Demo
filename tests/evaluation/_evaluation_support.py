@@ -16,10 +16,15 @@ declared entry points and never reads their source (`docs/L2/agents/surface.md`,
 `docs/L2/features/surface.md`, `docs/L2/engine/surface.md`).
 
 The game **shape** arrives as one optional key or argument everywhere (D-29), so this
-module reads it off the module's own restatement -- `shape_names()`, `default_shape()`
-and `other_shape()` -- and every record builder writes a `game` key **only when a case
-names one**, which is what keeps an absent key an absence and not a defaulted value
-(`shape.md` §1-§2). The restatement is held equal to `engine.game_shapes()` by the
+module reads it off the module's own restatement -- `shape_names()`, `default_shape()`,
+`other_shape()` and `six_seat_shape()` -- and every record builder writes a `game` key
+**only when a case names one**, which is what keeps an absent key an absence and not a
+defaulted value (`shape.md` §1-§2). The restatement holds **three** names now, default
+first (`seats.md` §1-§2, D-33): this battery's two readers of an off-default shape are
+`other_shape()` for the **two-seat** one and `six_seat_shape()` for the one whose seat
+count is above the pairwise instrument's (`docs/L1/seats.md` §4-§5, D-33), and neither is
+copied from a document -- each is looked up through `seats_of`, which reads the count off
+`engine.game_config`. The restatement is held equal to `engine.game_shapes()` by the
 **join** battery, not by this one (`shape.md` §1, D-13).
 
 Three conventions keep this battery honest:
@@ -36,7 +41,7 @@ Three conventions keep this battery honest:
   tolerantly (`matrix_member_ids`, `matrix_cells`, `cell_directions`,
   `rating_entries`, `rating_interval`). Where the design pins a name or a number --
   the eleven entry points, the seven family names (`axis row` included), the nine
-  header items, the pool digest, the five seed derivations, `BOUND`, `TOLERANCE`,
+  header items, the pool digest, the six seed derivations, `BOUND`, `TOLERANCE`,
   `RESAMPLES`, the two budgets -- a case asserts it exactly.
 * **Cost discipline.** `matrix` plays `K(K-1)/2 x 120` hands, and the pinned `oracle`
   baseline asks `engine.equity` at every decision, so one real `live` matrix costs
@@ -124,11 +129,13 @@ BUDGETS = ("live", "full")
 #: The fixed seed set (`protocol.md` §2).
 SEED_SET = (0, 1, 2)
 
-#: The five seed derivations' tags, exactly as `scheduler.md` §3 spells them.
+#: The **six** seed derivations' tags, exactly as `scheduler.md` §3 spells them, with the
+#: counted draw's own tag beside them (`seats.md` §2, `docs/L1/seats.md` §4, ASM-43).
 HAND_TAG = b"pypoker-evaluation/hand/v1"
 CELL_TAG = b"pypoker-evaluation/cell/v1"
 MEMBER_TAG = b"pypoker-evaluation/member/v1"
 BOOTSTRAP_TAG = b"pypoker-evaluation/bootstrap/v1"
+DRAW_TAG = b"pypoker-evaluation/draw/v1"
 
 #: The rating's anchor sentence (`declarations.md` §2.2, `rating.md` §5).
 ANCHOR = "the three baselines' mean fixed at 0"
@@ -274,7 +281,7 @@ def declared_internal(module_name, attribute):
     """One private name `README.md` §4 declares contract for `tests/evaluation/`.
 
     `README.md` §4 lists the module layout and names the private spellings this
-    battery imports -- `seeds.py`'s five derivations, `rating.py`'s four constants,
+    battery imports -- `seeds.py`'s six derivations, `rating.py`'s four constants,
     `tables.py`'s two -- so those are contract here and nothing else below an entry
     point is (`e2e-surface.md` §1). A missing one is a missing surface.
     """
@@ -297,8 +304,8 @@ def declared_internal(module_name, attribute):
 
 
 # ---------------------------------------------------------------------------
-# The two declared game shapes, read off this module's own restatement
-# (`shape.md` §1-§2)
+# The three declared game shapes, read off this module's own restatement
+# (`shape.md` §1-§2, `seats.md` §1-§2)
 # ---------------------------------------------------------------------------
 def shape_names():
     """The declared shape names, default first, as `declarations.SHAPE_NAMES` holds them.
@@ -307,7 +314,8 @@ def shape_names():
     battery the arrow that holds the restatement equal to `engine.game_shapes()`; this
     battery holds no such arrow (`module-map.md` §2, D-13) and `README.md` §4 declares
     `declarations.py`'s constants contract for it, so every shape name a case asserts
-    against is read here and never copied from a document.
+    against is read here and never copied from a document.  The catalogue holds **three**
+    names now, default first (`seats.md` §1, `docs/L1/seats.md` §2, D-33).
     """
     return tuple(declared_internal("declarations", "SHAPE_NAMES"))
 
@@ -317,26 +325,85 @@ def default_shape():
     return declared_internal("declarations", "DEFAULT_SHAPE")
 
 
-def other_shape():
-    """The one declared shape that is not the default -- the name a record uses to be off-default.
+def pairwise_seats():
+    """The **instrument's** arity: the seats a cell's one pair has (`seats.md` §1, §3).
 
-    `shape.md` §1 declares exactly two rows, default first, so this is the catalogue's
-    second name and the only shape a record of this battery can declare to be on
-    something other than the default (`shape.md` §2-§3, D-29).
+    `declarations.PAIRWISE_SEATS` is `README.md` §4's contract for this battery like the
+    six seed derivations and the rating's four constants are; it is the instrument's
+    arity and never a game's, so a case that compares it with a shape's own seat count is
+    the arrow `docs/L1/seats.md` §5 draws between a pair and a placement (`league.md` §4,
+    D-22, D-33).
+    """
+    return declared_internal("declarations", "PAIRWISE_SEATS")
+
+
+def seats_of(name):
+    """One declared shape's seat count, read off `engine.game_config` and never written down.
+
+    `module-map.md` §2 grants this battery `engine.game_config`, and it is the one source
+    of a seat count: a case that needs to know how many seats a shape has reads it here,
+    so no `2` and no `6` stands in this battery as a fact about a game (`docs/L1/seats.md`
+    §2-§3, D-13, D-33).
+    """
+    return int(engine().game_config(name)["seats"])
+
+
+def other_shape():
+    """The declared **two-seat** shape that is not the default -- the off-default name a record uses.
+
+    `seats.md` §1-§2 declare three rows, default first, and two of them are the pairwise
+    instrument's own arity: this is the non-default one of those, the only shape a record
+    of this battery can declare to be on something other than the default while a cell,
+    a matrix, a rating and a report are still the thing they measure
+    (`docs/L1/seats.md` §5, `shape.md` §2-§3, D-29).  The count is read through `seats_of`
+    and never assumed, so a catalogue whose third row were the only other two-seat one
+    would hand it back here (`docs/L1/seats.md` §2, D-13).
     """
     names = shape_names()
     remaining = [name for name in names if name != default_shape()]
-    if len(remaining) != 1:
+    pairwise = pairwise_seats()
+    qualifying = [name for name in remaining if seats_of(name) == pairwise]
+    if len(qualifying) != 1:
         raise SurfaceAbsent(
-            "shape.md §1 declares two shapes, the default first, and declarations.py's "
-            "SHAPE_NAMES holds %r; this battery needs exactly one non-default name"
-            % (names,)
+            "docs/L1/seats.md §5: among the declared names that are not the default, "
+            "exactly one must have the pairwise instrument's %r seats, and "
+            "declarations.py's SHAPE_NAMES holds %r with %r of them qualifying; this "
+            "battery needs exactly one two-seat off-default name (seats.md §1-§3, D-29, "
+            "D-33)" % (pairwise, names, tuple(qualifying))
         )
-    return remaining[0]
+    return qualifying[0]
+
+
+def six_seat_shape():
+    """The declared shape whose seat count is **above** the pairwise instrument's.
+
+    `seats.md` §1, §3 and `docs/L1/seats.md` §5 declare one such row: a shape a hand, a
+    readout, an encoder, a learner, a pool and a greedy pass work at, and which the
+    pairwise instrument refuses (`match`, `matrix`, `rating` and `report` -- `SeatCountExceeded`).
+    The name is looked up by its seat count and never copied, so a battery case cannot
+    outlive the catalogue it was written against (`docs/L1/seats.md` §2, D-13, D-33).
+    """
+    names = shape_names()
+    pairwise = pairwise_seats()
+    qualifying = [name for name in names if seats_of(name) > pairwise]
+    if len(qualifying) != 1:
+        raise SurfaceAbsent(
+            "docs/L1/seats.md §5: exactly one declared shape must have more seats than "
+            "the pairwise instrument's %r, and declarations.py's SHAPE_NAMES holds %r "
+            "with %r of them qualifying; this battery needs exactly one shape above the "
+            "instrument's arity (seats.md §1, §3, D-33)"
+            % (pairwise, names, tuple(qualifying))
+        )
+    return qualifying[0]
 
 
 def shapes():
-    """Both declared shape names, default first (`shape.md` §1)."""
+    """The **two two-seat** declared shape names, default first (`shape.md` §1, `seats.md` §1).
+
+    The instrument's own arity and nothing above it: every cell, matrix, rating and report
+    this battery builds is over one of these, because a shape with more seats is a
+    placement and the pairwise instrument refuses it (`docs/L1/seats.md` §5, D-33).
+    """
     return (default_shape(), other_shape())
 
 
@@ -374,10 +441,11 @@ def refusal_class():
     root's name, and `README.md` §4 declares the class hierarchy contract for this
     battery: a caller catches `EvaluationError` to know that *this* module refused it,
     so a refusal that arrives as a `TypeError`, a `KeyError` or an `engine` error
-    escapes that catch (`errors.md` §1-§2). The forty-two subclasses are asserted as a
+    escapes that catch (`errors.md` §1-§2). The forty-five subclasses are asserted as a
     hierarchy in `test_errors.py` alone (`errors.md` §2's closing rule), while the newer
     cases name the one class the contract they drive declares -- D-20's two in
-    `test_utility.py`, D-29's three here (`shape.md` §3, §5) -- through
+    `test_utility.py`, D-29's three in the shape cases (`shape.md` §3, §5) and D-33's
+    three in `test_seats.py` (`seats.md` §2-§3, §5, D-33) -- through
     `assert_evaluation_refusal`'s `kind`.
     """
     global _ERROR_ROOT
@@ -394,7 +462,7 @@ def refusal_class():
 
 
 # ---------------------------------------------------------------------------
-# The five seed derivations, recomputed from scheduler.md §3
+# The six seed derivations, recomputed from scheduler.md §3 and seats.md §2
 # ---------------------------------------------------------------------------
 def expected_seed(tag, *parts):
     """`scheduler.md` §3's one digest: the tag and the parts joined by ``\\x1f``.
@@ -430,6 +498,24 @@ def bootstrap_seed(table_seed):
 def draw_index(seed, size):
     """`seeds._draw_index(seed, size) = seed % size` (`scheduler.md` §3, `pool.md` §7)."""
     return seed % size
+
+
+def draw_order(seed, size):
+    """`seeds._draw_order(seed, size)`: the counted draw's `size` positions, in its order.
+
+    Recomputed here from `seats.md` §2's derivation and never imported from
+    `evaluation.seeds`, so the rule is asserted rather than restated: the **first**
+    position is `seed % size` -- which is what makes a draw of one the uncounted draw's
+    opponent -- and the remaining positions follow it in the ascending order of
+    ``expected_seed(DRAW_TAG, seed, position)``, ties broken by position.  The result is a
+    permutation of ``0 .. size-1``, so a draw is without replacement and a six-seat hand
+    never seats one member twice (`docs/L1/seats.md` §4, `league.md` §2, ASM-43).
+    """
+    count = int(size)
+    first = draw_index(seed, count)
+    rest = [position for position in range(count) if position != first]
+    rest.sort(key=lambda position: (expected_seed(DRAW_TAG, seed, position), position))
+    return (first,) + tuple(rest)
 
 
 def pool_digest(members):
@@ -819,16 +905,22 @@ def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
     return records
 
 
-def declaration(members=(), m=POOL_M, frozen=True, game=None):
+def declaration(members=(), m=POOL_M, frozen=True, game=None, baselines=None):
     """One `records.md` §8 declaration: the three required keys and nothing else.
 
     `game` is the declaration's optional shape key and is written only when a case names
     one, so a declaration built with no `game` is the shape-silent one every case before
     D-29 built, and reads back as the default (`pool.md` §1, `shape.md` §2, D-29).
+    `baselines` is the declaration's other optional key -- the catalogue names it admits
+    beyond the flagged three -- and is written only when a case names one, so a
+    declaration built without it pins the three anchors alone and digests as it did before
+    D-21 (`records.md` §8, `pool.md` §2, ASM-32, D-21).
     """
     declared = {"members": list(members), "m": m, "frozen": frozen}
     if game is not None:
         declared["game"] = game
+    if baselines is not None:
+        declared["baselines"] = list(baselines)
     return declared
 
 

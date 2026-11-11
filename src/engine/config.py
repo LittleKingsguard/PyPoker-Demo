@@ -4,7 +4,17 @@ The game is not one declaration for the whole project any more: `game_shapes()`
 publishes the declared shapes **default first**, and the default's row is the fixed
 game of ASM-6 — two seats, blinds 1 and 2, one blind level that never rises, starting
 stacks of 20 chips, a small bet of 2, a big bet of 4 and a raise cap of 4 on a street
-(docs/L2/engine/surface.md §3, ASM-6, D-29).
+(docs/L2/engine/surface.md §3, ASM-6, D-29).  The third row is D-33's six-seat
+no-limit shape, and a row's **seat count** is shape data like its stack or its blinds:
+it sets how many seats the readout's `stacks` fact carries, how many payoffs a hand
+pays, and how many policies `play_hand` seats (seats.md §2–§4, shapes.md §2).
+
+Each row also carries its **history block's capacity**, which is the shape's own and
+derived from its own betting rather than fixed by the fixed-limit cap: 24 slots at the
+default shape, 66 on the two-seat uncapped one and 98 on the six-seat one
+(shapes.md §8, ASM-42, ASM-44).  That key is the catalogue row's and **not**
+`game_config`'s: `game_config()`'s fifteen keys are a contract and carry no capacity
+(shapes.md §2, D-29).
 
 Nothing here is per-call state: every entry point of this module builds its mapping
 fresh, so two calls are equal and a caller's edit of one cannot reach the next
@@ -22,7 +32,9 @@ from .errors import UnknownShape
 STREETS = ("preflop", "flop", "turn", "river")
 
 # The default shape's own numbers, kept as names because `readout` reads the seat
-# count and every caller reads the streets (readout.md §2).
+# count and every caller reads the streets (readout.md §2).  `SEAT_COUNT` is the
+# **default** shape's seat count, which is what an absent shape reads as; a hand's own
+# seat count is its row's `seats`, reached through `seat_count` (seats.md §3).
 SEAT_COUNT = 2
 BUTTON_SEAT = 0
 STARTING_STACK = 20
@@ -38,8 +50,9 @@ DEFAULT_SHAPE = "fixed-limit-20"
 
 #: The declared shapes, in the catalogue's own order — default first (shapes.md §2).
 #: A row is data: the seats, blinds, stack, chips in play, bet structure, bet sizes and
-#: cap, the vocabulary in the shape's index order, the head width and the amount
-#: normalisers of one game (shapes.md §2, sizing.md §3, §5, §6).
+#: cap, the vocabulary in the shape's index order, the head width, the history block's
+#: capacity and the amount normalisers of one game (shapes.md §2, §8, sizing.md §3, §5,
+#: §6).  The seat count is the row's, so nothing below divides by two (seats.md §2).
 _SHAPE_ROWS = (
     {
         "name": "fixed-limit-20",
@@ -54,6 +67,7 @@ _SHAPE_ROWS = (
         "raise_cap": 4,
         "actions": ("fold", "check-call", "raise"),
         "head_width": 3,
+        "history": 24,
         "normalisers": {
             "stack": 20,
             "pot": 40,
@@ -82,9 +96,43 @@ _SHAPE_ROWS = (
             "raise-minimum",
         ),
         "head_width": 6,
+        "history": 66,
         "normalisers": {
             "stack": 100,
             "pot": 200,
+            "to_call": 100,
+            "amount": 100,
+            "count": 50,
+        },
+    },
+    {
+        # D-33's shape: the two-seat uncapped row's stack, blinds and divisors, over six
+        # seats — the same game with more seats, so the seat count adds no descriptor and
+        # no key, and only the pot's divisor and the history capacity are the total's
+        # (seats.md §2, §3, shapes.md §8).
+        "name": "six-seat-no-limit-100",
+        "default": False,
+        "seats": 6,
+        "blinds": (1, 2),
+        "starting_stack": 100,
+        "chips_in_play": 600,
+        "bet_structure": "no-limit",
+        "small_bet": None,
+        "big_bet": None,
+        "raise_cap": None,
+        "actions": (
+            "fold",
+            "check-call",
+            "raise-quarter",
+            "raise-half",
+            "raise-all-in",
+            "raise-minimum",
+        ),
+        "head_width": 6,
+        "history": 98,
+        "normalisers": {
+            "stack": 100,
+            "pot": 600,
             "to_call": 100,
             "amount": 100,
             "count": 50,
@@ -96,6 +144,7 @@ _SHAPE_ROWS = (
 _GAME_OF = {
     "fixed-limit-20": "fixed-limit texas hold'em",
     "no-limit-100": "no-limit texas hold'em",
+    "six-seat-no-limit-100": "six-seat no-limit texas hold'em",
 }
 
 
@@ -122,6 +171,17 @@ def require_shape(shape, entry_point: str, argument: str = "shape") -> str:
     )
 
 
+def seat_count(shape=None) -> int:
+    """The named shape's number of seats — the default shape's when none is named.
+
+    This is the one place a caller learns how many seats a hand has, so no entry point
+    below this one divides by two: `readout`'s `stacks` holds this many entries,
+    `payoffs` this many numbers, and `play_hand` seats this many policies
+    (seats.md §3–§4, shapes.md §2).
+    """
+    return shape_row(shape)["seats"]
+
+
 def shape_row(shape=None) -> dict:
     """One declared row, as a fresh mapping (shapes.md §2).
 
@@ -144,6 +204,7 @@ def shape_row(shape=None) -> dict:
                 "raise_cap": row["raise_cap"],
                 "actions": tuple(row["actions"]),
                 "head_width": row["head_width"],
+                "history": row["history"],
                 "normalisers": dict(row["normalisers"]),
             }
     raise AssertionError("the catalogue carries no row for %r" % (name,))
@@ -165,7 +226,12 @@ def game_config(shape=None) -> dict:
     this entry point has always returned, byte for byte (ASM-6, shapes.md §2).  A named
     shape returns the same fifteen keys with the same value shapes, differing only in the
     values that shape declares: the no-cap shape has no fixed bet and no cap, so its
-    `small_bet`, `big_bet`, `limit` and `raise_cap` are `None` (shapes.md §2, D-29).
+    `small_bet`, `big_bet`, `limit` and `raise_cap` are `None` (shapes.md §2, D-29), and
+    the six-seat row states six seats, six starting stacks of 100 and no cap, its
+    `starting_stacks` being the six-tuple that row's seat count makes (seats.md §2).
+
+    The history block's capacity is **not** a key here: it is the catalogue row's and
+    never this mapping's, whose fifteen keys are a contract (shapes.md §2, §8, ASM-44).
     """
     name = require_shape(shape, "game_config")
     row = shape_row(name)

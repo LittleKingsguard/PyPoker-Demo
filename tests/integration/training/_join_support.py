@@ -41,14 +41,24 @@ does four things and nothing else:
   a header item's spelling -- plus the module-level fixtures the battery shares:
   one small R1 run, one R2 run whose pool carries a version window, one R4 run
   with a variant pair, a repeat of the R1 tuple and one run at another seed, one
+  run of the catalogue's third shape whose pool holds five members, one
   real episode with its transitions, the two backends' learners, and the hand-built
   matrix with its fitted rating.  A run is this battery's expensive observable, so
   each is built once per process and shared (`docs/L2/training/loop.md` §3,
   `docs/L1/battery.md` §2); every run stays at ten to twelve hands per variant per
   seed.
 
-Two private `training` names are re-imported here and used as contract, exactly as
-`docs/L3/training/seeds.md` §2 and `docs/L3/training/episode.md` §3 mark them
+Three more of `training`'s declared names are read as contract beside
+``seeds._deal_seed`` and ``episode._transitions`` below: ``declarations.SHAPE_HISTORY``
+and ``declarations.greedy_decisions(shape)`` -- the restated per-shape history capacity
+and the pass bound that is 1,000 x it, which `module-map.md` §2 leaves the module to
+restate because it is granted no `engine.game_shapes` (`shapes.md` §8, ASM-42) -- and
+``episode._seat``, the `index mod seats` rotation `docs/L3/training/episode.md` §1 and
+`seats.md` §4 fix and `docs/L3/training/README.md` §4 makes contract
+(`docs/L1/battery.md` §5, ASM-43, D-13, D-33).
+
+The first two private `training` names are re-imported here and used as contract, exactly
+as `docs/L3/training/seeds.md` §2 and `docs/L3/training/episode.md` §3 mark them
 ("contract for `tests/training/`"): ``seeds._deal_seed``/``_opponent_seed``, the
 derivation that makes hand *i* of a run a function of its seed and its index, and
 ``episode._transitions``, the one place an episode becomes a batch.  A join that
@@ -144,6 +154,8 @@ UTILITY_RUNG = "rung-invented-utility-9"        # its rung label, invented
 UTILITY_LEFT = "chips-arm-invented-9"           # its two arms' names, invented
 UTILITY_RIGHT = "shortfall-arm-invented-9"
 UTILITY_POOL = "pool-invented-utility-9"        # the pool id it declares, invented
+SIX_SEAT_RUNG = "rung-invented-shape-12"        # the third shape's invented labels
+SIX_SEAT_POOL = "pool-invented-shape-12"
 
 
 # --------------------------------------------------------------------------
@@ -212,6 +224,16 @@ def opponent(pool, seed):
     return mod("evaluation").opponent(pool, seed)
 
 
+def draw(pool, seed, count):
+    """`evaluation.opponent(pool, seed, count)`: `count` distinct members, in draw order.
+
+    Drawn **without replacement** from the frozen pool and reproducible from
+    `(seed, membership)`, so a hand's opponents are distinct policies and two calls at one
+    seed over one pool agree (`seats.md` §4, `league.md` §2, ASM-43, D-33).
+    """
+    return tuple(mod("evaluation").opponent(pool, seed, count))
+
+
 def match(left, right, hands, seed):
     return mod("evaluation").match(left, right, hands, seed)
 
@@ -260,8 +282,14 @@ def build_baseline(name, seed):
     return mod("agents").build_baseline(name, seed)
 
 
-def build_encoder(name):
-    return mod("features").build_encoder(name)
+def build_encoder(name, shape=None):
+    """`features.build_encoder(name, shape=...)`: one shape's encoder (`features/surface.md` §4).
+
+    The shape is an optional keyword-only argument whose absence is the default shape, so a
+    caller that names none gets the encoder it always got and a six-seat learner takes its
+    input width from the third row's encoder (`shapes.md` §8, ASM-44, D-29, D-33).
+    """
+    return mod("features").build_encoder(name, shape=shape)
 
 
 def observation_spec(encoder):
@@ -322,6 +350,78 @@ def declared_shapes():
     return declarations.SHAPE_NAMES, declarations.SHAPE_ACTIONS
 
 
+def declared_history():
+    """`training.declarations`' restated per-shape history capacities: `SHAPE_HISTORY`.
+
+    The counterpart of :func:`declared_shapes` for the number `shapes.md` §8 derives from
+    each shape's own betting: `module-map.md` §2 grants this module no `engine.game_shapes`,
+    so each capacity is restated as `SHAPE_ACTIONS` is, and this join is what holds the
+    restatement to the catalogue row's own `history` (`shapes.md` §8, ASM-42, D-13, D-33).
+    """
+    declarations = importlib.import_module("training.declarations")
+    return declarations.SHAPE_HISTORY
+
+
+def declared_greedy_bound(shape=None):
+    """`declarations.greedy_decisions(shape)`: one shape's greedy record bound.
+
+    One thousand decision records per slot of the shape's history capacity — 24,000 at the
+    default shape, 66,000 and 98,000 on the uncapped ones — so the pass's bound follows the
+    run's own shape rather than a constant, and the default shape's 24,000 did not widen
+    (`records.md` §15, `shapes.md` §8, ASM-38, ASM-42, D-33).
+    """
+    declarations = importlib.import_module("training.declarations")
+    return int(declarations.greedy_decisions(shape))
+
+
+def retained():
+    """`declarations.RETAINED`: ASM-18's five snapshots one pair retains (`checkpoints.md` §3)."""
+    declarations = importlib.import_module("training.declarations")
+    return int(declarations.RETAINED)
+
+
+def third_shape():
+    """The catalogue's third declared shape: the six-seat row (`seats.md` §2, D-33)."""
+    return shape_names()[2]
+
+
+def shape_history(name):
+    """One shape's published `history` capacity, read off `engine.game_shapes()`.
+
+    The catalogue row carries it and `engine.game_config`'s fifteen keys do not, so this is
+    the published value a restatement is held to (`shapes.md` §8, ASM-42, engine/surface.md
+    §3).
+    """
+    return int(game_shapes()[str(name)]["history"])
+
+
+def folders():
+    """The catalogue's **folding** baselines — its `anchor: False` members — in its order.
+
+    The counterpart of :func:`baseline_names` for D-21's folders: a folder is a pool member
+    only when a membership declaration names it, so a pool holds the three anchors of D-6
+    plus the folders declared and nothing else (`records.md` §8, `fairness.md` §5, ASM-32,
+    D-21, D-33).
+    """
+    declared = baselines()
+    return [
+        str(name)
+        for name, record in declared.items()
+        if isinstance(record, dict) and not record.get("anchor")
+    ]
+
+
+def seat_of_hand(index, shape=None):
+    """`episode._seat`: the seat the learner plays in hand `index` (`seats.md` §4, ASM-43).
+
+    `_seat` is contract for this module's battery (`docs/L3/training/README.md` §4,
+    `docs/L3/training/episode.md` §1) and takes its modulus from
+    `engine.game_config(shape)["seats"]`, so the rotation a case reads here is the run's own
+    shape's and no literal `2` or `6` is written down as the game's (ASM-44, D-33).
+    """
+    return int(mod("training.episode")._seat(int(index), shape))
+
+
 def no_limit_configuration():
     """The registry's R1 entry, declared on the catalogue's second shape.
 
@@ -365,6 +465,65 @@ def no_limit_run():
             "record": run(no_limit_configuration(), seeds=[RUN_SEED], budget=RUN_BUDGET)
         }
     return _SHARED["no-limit"]["record"]
+
+
+def six_seat_configuration_with(members):
+    """The third shape's invented configuration, its pool declaring `members` folders.
+
+    A configuration in no design document (`docs/L1/battery.md` §4, D-15): R1's own variant
+    entry, unchanged, under a label of this battery's and with `records.md` §2's `game`
+    naming the catalogue's third shape — so the run is the same loop on a six-seat game and
+    the record is the same record (`shapes.md` §1, §3, `seats.md` §2, D-33).  The pool
+    declaration names the folders it is handed, so the frozen pool holds D-6's three
+    anchors plus them: five members for two folders, which is the least a six-seat hand's
+    draw of `seats - 1` opponents can be satisfied from, and four for one, which is a draw
+    the membership cannot supply (`records.md` §8, `seats.md` §4, ASM-32, ASM-43, D-21).
+    """
+    template = clone(variant_entry(rung("R1"), "naive-numeric"))
+    template["samples"] = RUN_BUDGET
+    template["seeds"] = [RUN_SEED]
+    template["snapshot_every"] = max(1, RUN_BUDGET // 10)
+    return {
+        "name": SIX_SEAT_RUNG,
+        "axis": "the game shape, which is never a rung's axis",
+        "carried_from": None,
+        "primary": "naive-numeric",
+        "game": third_shape(),
+        "variants": [template],
+        "pool": {
+            "id": SIX_SEAT_POOL,
+            "lineage": None,
+            "m": 5,
+            "frozen": True,
+            "members": [],
+            "baselines": [str(name) for name in members],
+        },
+        "seeds": [RUN_SEED],
+        "samples": RUN_BUDGET,
+        "device": "cpu",
+        "snapshot_every": max(1, RUN_BUDGET // 10),
+    }
+
+
+def six_seat_configuration():
+    """The same configuration with two folders declared: a pool of exactly five members."""
+    return six_seat_configuration_with(folders()[:2])
+
+
+def six_seat_run():
+    """One run of it, built once per process: the third shape, trained end to end.
+
+    Twelve hands per variant at one invented seed, so the curve closes with ten points at a
+    one-hand interval, the record retains ASM-18's five snapshots plus the final model, and
+    the pass is the same twelve hands replayed — the run is this battery's expensive
+    observable, so it is shared (`curves.md` §2, `checkpoints.md` §3, `sizing.md` §4,
+    `docs/L1/battery.md` §2, D-33).
+    """
+    if "six-seat" not in _SHARED:
+        _SHARED["six-seat"] = {
+            "record": run(six_seat_configuration(), seeds=[RUN_SEED], budget=RUN_BUDGET)
+        }
+    return _SHARED["six-seat"]["record"]
 
 
 def greedy_block(record, variant, seed):

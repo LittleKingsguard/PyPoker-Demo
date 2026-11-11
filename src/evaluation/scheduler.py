@@ -20,11 +20,18 @@ move (ASM-6, `shape.md` §2).
 
 Two cells are never interleaved and none runs concurrently -- one global `random` stream
 deals every hand and `engine.new_hand` is its single seeding point (ASM-2, D-16).
+
+**`match` refuses a shape with more than two seats**, naming the shape and its seat count:
+a cell is a pair and a six-way hand is a placement, so no cell is played on the six-seat
+row at all and the seat count comes from `engine.game_config` and never from a literal
+(`docs/L1/seats.md` §5, `league.md` §4, D-22, D-33).  The default shape and the two-seat
+no-limit shape pass this check untouched, so every cell they produced before it is the
+cell they produce after it (`seats.md` §5, D-33).
 """
 
 import engine
 
-from .declarations import DEFAULT_SHAPE
+from .declarations import DEFAULT_SHAPE, require_pairwise
 from .errors import InvalidHandCount, InvalidSeed, SameMemberPair, ShapeMismatch
 from .policy import _is_int, _side
 from .seeds import _hand_seed
@@ -81,8 +88,12 @@ def match(left, right, hands, seed):
             "distinct members" % (left_side[0],)
         )
     # The cell's shape is fixed before a hand is dealt: a pair naming two shapes is
-    # refused here and never played (`scheduler.md` §5-§6, `shape.md` §3).
+    # refused here and never played (`scheduler.md` §5-§6, `shape.md` §3), and a shape
+    # whose seat count is not the instrument's is refused here too -- a cell is a pair, a
+    # six-way hand is a placement, and the count is read off `engine.game_config`
+    # (`docs/L1/seats.md` §5, `league.md` §4, D-22, D-33).
     game = _cell_shape(left_side, right_side, "match")
+    require_pairwise(game, "match", "left, right")
     return _play_cell(left_side, right_side, int(hands), int(seed), game)
 
 

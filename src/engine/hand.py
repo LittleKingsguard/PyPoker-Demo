@@ -5,6 +5,10 @@ A `Hand` is an opaque handle over a `pokerkit` state, this project's public hist
 the name of the shape it is dealt from, and nothing in it is surface (hand.md §1,
 guardrails.md G11).  The module keeps no state of its own, so two handles are
 independent (ASM-2).
+
+The **seat map is the shape's**: a hand's seat count is its row's, so engine seat 0 is
+the button on every shape and every per-seat fact is translated once, here and nowhere
+else (hand.md §3, seats.md §3).
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ import random
 
 from pokerkit import Automation, FixedLimitTexasHoldem, NoLimitTexasHoldem
 
-from .config import SEAT_COUNT, STREETS, require_shape, shape_row
+from .config import SEAT_COUNT, STREETS, require_shape, seat_count, shape_row
 from .errors import InvalidHand, InvalidSeed
 
 # The automations make the betting decisions the only manual operations: hole cards
@@ -33,20 +37,50 @@ AUTOMATIONS = (
     Automation.CHIPS_PULLING,
 )
 
-# engine seat -> pokerkit player index.  pokerkit's heads-up blinds are reversed
-# twice, so engine seat 0 (the button, posts 1, acts first pre-flop) is pokerkit
-# player 1 (hand.md §3, guardrails.md G2).
+# engine seat -> pokerkit player index for the two-seat shapes, which is `seat_map(2)`.
+# pokerkit's heads-up blinds are reversed twice, so engine seat 0 (the button, posts 1,
+# acts first pre-flop) is pokerkit player 1 (hand.md §3, guardrails.md G2).
 SEAT_TO_PLAYER = (1, 0)
 
 
-def player_index(seat: int) -> int:
+def blind_vector(row: dict) -> tuple[int, ...]:
+    """The `raw_blinds_or_straddles` one row declares, in `pokerkit` player order.
+
+    For `player_count > 2` the library reads `blinds_or_straddles[i]` as the blind of
+    player `i` (`state.py:3336-3339`), so the small blind's 1 belongs to player 0 and the
+    big blind's 2 to player 1 — engine seats 1 and 2 under `seat_map`, one seat behind the
+    button — and every other seat posts nothing: the declared pair, padded with one zero
+    per seat that posts none (hand.md §3, seats.md §2).
+
+    A two-seat row's vector is that same pair with no padding, which is the argument this
+    module has always handed `pokerkit`: the library then reverses it itself
+    (`state.py:3336-3339`, `:4203-4204`), so player 1 posts 1 and player 0 posts 2 and the
+    default shape's deal is unchanged card for card (shapes.md §5).
+    """
+    return tuple(row["blinds"]) + (0,) * (row["seats"] - 2)
+
+
+def seat_map(seats: int) -> tuple[int, ...]:
+    """The engine<->player map one seat count declares, in engine seat order.
+
+    `pokerkit` opens every street after the pre-flop at player 0, whatever the player
+    count — it picks the highest index and adds one modulo the count, and every bet is
+    zero when a street opens (`state.py:4206-4212`, `:3266-3267`) — so the seat that acts
+    **last** post-flop, and is therefore the button, is always player `seats - 1`.  Seat 0
+    is the button on every shape, so engine seat `s` is player `(s - 1) mod seats`
+    (hand.md §3, seats.md §3).
+    """
+    return tuple((seat - 1) % seats for seat in range(seats))
+
+
+def player_index(seat: int, seats: int = SEAT_COUNT) -> int:
     """The `pokerkit` player index of an engine seat (hand.md §3)."""
-    return SEAT_TO_PLAYER[seat]
+    return (seat - 1) % seats
 
 
-def seat_of(index: int) -> int:
+def seat_of(index: int, seats: int = SEAT_COUNT) -> int:
     """The engine seat of a `pokerkit` player index (hand.md §3)."""
-    return 1 - index
+    return (index + 1) % seats
 
 
 class Hand:
@@ -85,8 +119,13 @@ def create_state(row: dict):
     unchanged card for card (shapes.md §5).  A row with no fixed bet hands `pokerkit` the
     big blind as its minimum bet and carries no cap, which is what makes a legal amount
     anything up to the acting seat's stack (shapes.md §2, sizing.md §2).
+
+    The **seat count** is the row's, and so is the blind vector: a row with more seats
+    hands the library one entry per player, which is what seats six players rather than
+    two (seats.md §2, hand.md §3).
     """
-    blinds = tuple(row["blinds"])
+    blinds = blind_vector(row)
+    seats = row["seats"]
     if row["bet_structure"] == "fixed-limit":
         return FixedLimitTexasHoldem.create_state(
             AUTOMATIONS,
@@ -96,16 +135,16 @@ def create_state(row: dict):
             row["small_bet"],
             row["big_bet"],
             row["starting_stack"],  # raw_starting_stacks
-            SEAT_COUNT,  # player_count
+            seats,  # player_count
         )
     return NoLimitTexasHoldem.create_state(
         AUTOMATIONS,
         True,  # ante_trimming_status
         0,  # raw_antes
         blinds,  # raw_blinds_or_straddles
-        blinds[1],  # min_bet: the big blind, as the no-cap shape declares it
+        row["blinds"][1],  # min_bet: the big blind, as the no-cap shape declares it
         row["starting_stack"],  # raw_starting_stacks
-        SEAT_COUNT,  # player_count
+        seats,  # player_count
     )
 
 
@@ -144,7 +183,7 @@ def advance(hand: Hand, action: str, amount=None) -> Hand:
         operation = _apply_one(state, action, amount)
     finally:
         random.setstate(saved)
-    entry = _history_entry(hand._state, action, operation)
+    entry = _history_entry(hand._state, action, operation, seat_count(hand._shape))
     return Hand(state, hand._history + (entry,), hand._shape)
 
 
@@ -166,7 +205,7 @@ def _apply_one(state, action: str, amount=None):
     return state.complete_bet_or_raise_to(amount)
 
 
-def _history_entry(state, action: str, operation) -> str:
+def _history_entry(state, action: str, operation, seats: int) -> str:
     """One entry per applied action, built from the pre-step state (advance.md §2).
 
     `<amount>` is the value `pokerkit` reports on the operation it returns: the chips
@@ -174,7 +213,7 @@ def _history_entry(state, action: str, operation) -> str:
     engine seat, never a `pokerkit` index.  A card never appears here.
     """
     street = STREETS[state.street_index]
-    seat = seat_of(state.actor_index)
+    seat = seat_of(state.actor_index, seats)
     if action == "fold":
         return "%s seat %d folds" % (street, seat)
     if action == "check-call":
@@ -215,9 +254,14 @@ def payoffs(hand: Hand) -> dict[int, int]:
     """The net chip delta per engine seat of a completed hand (hand.md §5).
 
     A running hand has paid nothing and is refused (surface.md §9).  A split is a
-    zero payoff and is legal (ASM-12).
+    zero payoff and is legal (ASM-12).  The mapping holds one number per seat of the
+    hand's own shape — six on the six-seat shape, two elsewhere — and sums to zero
+    (seats.md §3, e2e-surface.md §3.1).
     """
     require_hand(hand, "payoffs")
     if hand._state.status:
         raise InvalidHand("payoffs(hand): the hand is still running, so it has paid nothing")
-    return {seat: hand._state.payoffs[player_index(seat)] for seat in range(SEAT_COUNT)}
+    seats = seat_count(hand._shape)
+    return {
+        seat: hand._state.payoffs[player_index(seat, seats)] for seat in range(seats)
+    }

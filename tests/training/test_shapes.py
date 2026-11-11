@@ -1,10 +1,13 @@
-"""The second declared game shape at `training`'s edge -- TRN-13.
+"""The declared game shapes at `training`'s edge -- TRN-13.
 
-D-29 declares a second game shape and `shapes.md` §3 names the four carriers that must
-report it; this module is one of them.  What these cases assert is therefore the edge and
-not a game's arithmetic: the record names the shape it played, an uncatalogued name is
-refused naming it and the declared names, everything the loop derives from the game is
-derived from the **run's own** shape, and a pair of two shapes is not a comparison.
+D-29 declares a second game shape and D-33 a third, and `shapes.md` §3 names the four
+carriers that must report it; this module is one of them.  What these cases assert is
+therefore the edge and not a game's arithmetic: the record names the shape it played, an
+uncatalogued name is refused naming it and the declared names, everything the loop derives
+from the game is derived from the **run's own** shape, a pair of two shapes is not a
+comparison, the six-seat shape's catalogue row is the restated one, and a six-seat run
+rotates the learner through six seats against five distinct drawn opponents
+(`seats.md` §2–§4, ASM-42–ASM-44, D-33).
 
 | Case | What it reads |
 |---|---|
@@ -15,39 +18,63 @@ derived from the **run's own** shape, and a pair of two shapes is not a comparis
 | TRN-13.5 | the learner's head is the shape's, so a six-index mask is that learner's |
 | TRN-13.6 | `fairness` names the shape as a held constant and refuses a pair of two |
 | TRN-13.7 | `game` reads at either level, and absence is the default and never a name |
+| TRN-13.8 | two sides naming no shape are one shape, so their pair is reportable |
+| TRN-13.9 | the restated catalogue's third row, and the two rows that did not move |
+| TRN-13.10 | a six-seat run trains end to end: ten points, a window, six-index decisions |
+| TRN-13.11 | `_seat`: each of the six seats once, and the default shape's alternation |
+| TRN-13.12 | five opponents from five members, and a pool of four refused naming both |
 
 Every case states the design section whose claim it reads (`docs/L1/battery.md` §5); none
 asserts a value a document leaves to the run (`D-6`).
 """
 
+import os
+import random
+
 from _training_support import (  # noqa: E402  - the battery's own support module
     INVENTED_SHAPE,
     PARAM_BUDGET,
+    RETAINED,
     SHAPE_BUDGET,
     SHAPE_SEED,
+    SIX_BUDGET,
+    SIX_SEED,
     SNAPSHOTS,
+    SurfaceAbsent,
     TrainingCase,
     agents,
     as_int,
     as_mapping,
     as_sequence,
     as_text,
+    checkpoint_block,
+    curve_block,
     decisions_of,
     default_shape,
     engine,
     error_class,
+    evaluation,
     features,
     greedy_block,
+    internal_module,
     no_limit_configuration,
     no_limit_run,
     one_seed_run,
+    resolved,
     second_shape,
+    seat_of_hand,
+    shape_history,
+    shape_names,
     shaped_episode,
     shaped_game_config,
     shaped_vocabulary,
+    six_seat_configuration_with_folders,
+    six_seat_run,
+    third_shape,
     training,
     with_entry_game,
     with_game,
+    write_tree,
 )
 
 
@@ -547,4 +574,405 @@ class ShapeInFairnessCase(TrainingCase):
             "and the pair differs on nothing, because the shape is a constant and never "
             "an axis (ladder.md §4, shapes.md §1, D-29): %r"
             % (as_mapping(report["axis"], "'axis'")["differs"],),
+        )
+
+
+class ThirdShapeCatalogueCase(TrainingCase):
+    """TRN-13.9 -- the restated catalogue's third row, and the rows that did not move."""
+
+    def test_trn_13_9_the_third_row_is_the_catalogues_and_no_row_moved(self):
+        """TRN-13.9 the third shape's name, six descriptors and its own capacity, last.
+
+        `shapes.md` §2 makes the catalogue the declaration itself -- "its instance set is the
+        declaration itself" -- so `training` restates the third row's name, its descriptor
+        count and its history capacity, and §8 states the capacity the row carries: 98 slots
+        on the six-seat shape, as 24 and 66 on the two that were there (`shapes.md` §8,
+        ASM-42, D-13, D-33).  `SHAPE_NAMES` names it **last**, after the two rows D-29 left,
+        because a shape is added beside the ones a record already reads and never in front
+        of them (`shapes.md` §5, D-29).
+        """
+        declarations = internal_module("declarations")
+        third = third_shape()
+        self.assertEqual(
+            declarations.SHAPE_NAMES[-1],
+            third,
+            "the restated catalogue names the third shape last, after the two that were "
+            "there, so no existing row moved (shapes.md §2, §5, D-29, D-33): %r"
+            % (tuple(declarations.SHAPE_NAMES),),
+        )
+        self.assertEqual(
+            tuple(declarations.SHAPE_NAMES),
+            shape_names(),
+            "and the restated names are the published catalogue's three, in its order "
+            "(shapes.md §2, D-13, D-33): %r against %r"
+            % (tuple(declarations.SHAPE_NAMES), shape_names()),
+        )
+        self.assertEqual(
+            as_text(
+                declarations.require_game(third, "training.declarations.require_game"),
+                "require_game's answer for the third shape",
+            ),
+            third,
+            "`require_game` resolves the third shape's own name rather than defaulting it, "
+            "because a name the catalogue carries is read and never substituted "
+            "(shapes.md §2-§3, D-29, D-33): %r" % (third,),
+        )
+        self.assertEqual(
+            as_int(declarations.shape_actions(third), "shape_actions of the third shape"),
+            6,
+            "the third shape's descriptor count is six -- a seat count adds no descriptor, "
+            "because six seats change the price of aggression and not the vocabulary "
+            "(shapes.md §2, seats.md §2, sizing.md §3): %r"
+            % (declarations.shape_actions(third),),
+        )
+        declared_vocabulary = {
+            as_int(index, "a vocabulary index"): as_text(name, "a descriptor")
+            for index, name in as_mapping(
+                declarations.vocabulary(third), "the third shape's vocabulary"
+            ).items()
+        }
+        self.assertEqual(
+            declared_vocabulary,
+            shaped_vocabulary(third),
+            "and its vocabulary is the six descriptors `features.decode_action` answers for "
+            "it, in the shape's own index order -- the same six the two-seat uncapped shape "
+            "declares, because a seat count renames no descriptor (shapes.md §2, "
+            "features/surface.md §7, §9, seats.md §2): %r" % (declared_vocabulary,),
+        )
+        self.assertEqual(
+            sorted(declared_vocabulary),
+            list(range(6)),
+            "which are indices 0 to 5 and no sixth index, so a six-wide mask is that "
+            "shape's (sizing.md §3, §6): %r" % (sorted(declared_vocabulary),),
+        )
+        self.assertEqual(
+            as_int(
+                declarations.shape_history(third), "shape_history of the third shape"
+            ),
+            shape_history(third),
+            "and the capacity it restates is the published catalogue row's own -- 98 slots "
+            "on this shape, derived from its own betting and never from the fixed-limit "
+            "cap's 24 (shapes.md §8, ASM-42, D-13, D-33): module %r against catalogue %r"
+            % (declarations.shape_history(third), shape_history(third)),
+        )
+        self.assertEqual(
+            [shape_history(name) for name in (default_shape(), second_shape(), third)],
+            [24, 66, 98],
+            "the three rows' capacities are the three §8 derives -- 24, 66 and 98 -- so the "
+            "third row joined the table and neither of the two moved (shapes.md §8, "
+            "ASM-42, D-33): %r"
+            % ([shape_history(name) for name in shape_names()],),
+        )
+
+
+class SixSeatRunCase(TrainingCase):
+    """TRN-13.10, TRN-13.11 -- a six-seat run trains end to end, and rotates the seat."""
+
+    def test_trn_13_10_a_six_seat_run_trains_and_passes_end_to_end(self):
+        """TRN-13.10 a six-seat run completes: ten points, a window, and its own decisions.
+
+        `shapes.md` §1 makes a shape a value a configuration declares and not a fork of the
+        loop, and `seats.md` §5 says that everything the test needs -- hands, readout,
+        encoder, learner, pool, greedy pass -- works at six seats.  So the run trains,
+        snapshots, saves and passes exactly as a default-shape run does: the curve closes at
+        the declared interval, the record retains ASM-18's five snapshots plus a final model,
+        the header's game is the six-seat row, and the pass's decisions are **the learner's
+        own** -- each an index of its own legal mask that decodes in the six-seat vocabulary
+        (`records.md` §15, `sizing.md` §4, ASM-18, ASM-38, seats.md §4, D-33).
+        """
+        record = six_seat_run()
+        third = third_shape()
+        self.assertEqual(
+            as_text(record["game"], "the record's game"),
+            third,
+            "the run's record names the six-seat shape it played, because a shape is a "
+            "declaration the record repeats (records.md §12, shapes.md §3, D-33): %r"
+            % (record["game"],),
+        )
+        game = as_mapping(
+            as_mapping(record["header"], "'header'")["game"], "the header's game"
+        )
+        self.assertEqual(
+            as_int(game["seats"], "the header's seat count"),
+            6,
+            "the header's game row is the six-seat shape's, so a reader of the record alone "
+            "sees a six-seat game (surface.md §4.1, engine/surface.md §3, seats.md §2): %r"
+            % (game.get("seats"),),
+        )
+        self.assertEqual(
+            as_int(game["starting_stack"], "the header's starting stack"),
+            100,
+            "and a hundred chips a seat, which is the third row's stack and the normaliser "
+            "its shortfall utility divides by (shapes.md §2, sizing.md §5, seats.md §2): %r"
+            % (game.get("starting_stack"),),
+        )
+        vocabulary = shaped_vocabulary(third)
+        self.assertEqual(
+            sorted(vocabulary),
+            list(range(6)),
+            "the six-seat shape's vocabulary is six descriptors in its own order, because a "
+            "seventh seat adds no seventh action (shapes.md §2, seats.md §2, sizing.md §3): "
+            "%r" % (vocabulary,),
+        )
+        budget = as_int(record["budget"], "the run's budget")
+        self.assertEqual(
+            budget,
+            SIX_BUDGET,
+            "the invented fixture runs at the battery's own twelve-hand budget, which the "
+            "pass is sample-matched to (%r)" % (budget,),
+        )
+        for declared in as_sequence(record["variants"], "the record's variants"):
+            variant = as_text(
+                as_mapping(declared, "a variant entry")["name"], "a variant's name"
+            )
+            for seed in as_sequence(record["seeds"], "the record's seeds"):
+                seed = as_int(seed, "a recorded seed")
+                points = curve_block(record, variant, seed)
+                self.assertEqual(
+                    len(as_sequence(points["td_error"], "the curve's signal")),
+                    SNAPSHOTS,
+                    "every curve of %r at seed %r closes at the ten snapshot intervals, one "
+                    "signal per point, on the six-seat shape as on the other two "
+                    "(curves.md §2, ASM-18): %r"
+                    % (variant, seed, len(points["td_error"])),
+                )
+                self.assertEqual(
+                    [
+                        as_int(sample, "a sample-axis point")
+                        for sample in as_sequence(points["samples"], "the sample axis")
+                    ],
+                    [k * max(1, budget // SNAPSHOTS) for k in range(1, SNAPSHOTS + 1)],
+                    "and its axis is `budget // 10` apart, the interval the run used and "
+                    "not a literal of this case (curves.md §2, loop.md §2, ASM-18): %r"
+                    % (points["samples"],),
+                )
+                written = checkpoint_block(record, variant, seed)
+                snapshots = as_sequence(written["snapshots"], "the retained snapshots")
+                self.assertEqual(
+                    len(snapshots),
+                    RETAINED,
+                    "the pair retains ASM-18's five snapshots -- ten written, the last five "
+                    "kept -- on the six-seat shape too (checkpoints.md §3, ASM-18): %r"
+                    % (len(snapshots),),
+                )
+                for path in list(snapshots) + [written["final"]]:
+                    self.assertTrue(
+                        os.path.isfile(resolved(path)),
+                        "each retained snapshot and the final model is a file this run "
+                        "wrote, so the six-seat artefacts exist and are not a listing of "
+                        "names (checkpoints.md §1-§3, write-root.md §3): %r" % (path,),
+                    )
+                block = greedy_block(record, variant, seed)
+                self.assertEqual(
+                    as_text(block["mode"], "the block's mode"),
+                    "off",
+                    "the six-seat pass carries `mode: off`, the masked maximum and the "
+                    "tie-break alone with no generator drawn from (records.md §15, "
+                    "sizing.md §4, ASM-38): %r" % (block["mode"],),
+                )
+                self.assertEqual(
+                    as_int(block["hands"], "the block's hands"),
+                    budget,
+                    "and it plays the run's own sample budget, so training and the pass are "
+                    "one sample at six seats as at two (sizing.md §4, records.md §15, "
+                    "ASM-38): %r against %r" % (block["hands"], budget),
+                )
+                self.assertEqual(
+                    len(as_sequence(block["net_chips"], "the pass's per-hand chips")),
+                    budget,
+                    "with one net chip delta per hand it played, so the five-opponent pass's "
+                    "price is recomputable (records.md §15, ASM-23): %r"
+                    % (len(as_sequence(block["net_chips"], "the pass's per-hand chips")),),
+                )
+                decisions = [
+                    as_mapping(decision, "one decision record")
+                    for decision in as_sequence(block["decisions"], "the pass's decisions")
+                ]
+                self.assertTrue(
+                    decisions,
+                    "the pass retains decisions at six seats, and twelve hands at two to "
+                    "four decisions a hand yields several (sizing.md §4, ASM-38): %r"
+                    % (block,),
+                )
+                for decision in decisions:
+                    index = as_int(decision["index"], "a decision's index")
+                    self.assertIn(
+                        index,
+                        [int(member) for member in as_sequence(decision["legal"], "a mask")],
+                        "every retained index is one of its own decision's legal indices, so "
+                        "the decision is the learner's own and the census re-derives no mask "
+                        "(records.md §15, sizing.md §7, ASM-38): %r" % (decision,),
+                    )
+                    self.assertEqual(
+                        as_text(decision["descriptor"], "a decision's descriptor"),
+                        vocabulary[index],
+                        "and its descriptor is the six-seat vocabulary's name for that "
+                        "index, so the record maps back to one band of the run's own game "
+                        "(records.md §15, features/surface.md §9, shapes.md §2): %r"
+                        % (decision,),
+                    )
+
+    def test_trn_13_11_the_learner_takes_each_of_the_six_seats(self):
+        """TRN-13.11 `_seat` rotates through six seats and leaves the alternation alone.
+
+        `seats.md` §4 and ASM-43 seat the learner at `hand index mod seats`, reading the
+        seat count from `engine.game_config` and never from a literal, so on the six-seat
+        shape the learner holds each of the six seats for one hand in six -- position is a
+        real and unequal advantage in a multi-way pot, and a fixed seat would make a seed's
+        chips a measurement of the seat rather than of the policy.  On a two-seat shape the
+        same rule is the `index % 2` every run has always had, which is the half of
+        `shapes.md` §5 this case measures: the rotation generalises the alternation and does
+        not move it (`episode.md` §1, seats.md §2, §4, shapes.md §5, ASM-43, ASM-44, D-33).
+        """
+        third = third_shape()
+        self.assertEqual(
+            as_int(shaped_game_config(third)["seats"], "the third shape's seat count"),
+            6,
+            "the six-seat row declares six seats, which is the modulus the rotation reads "
+            "(shapes.md §2, seats.md §2, engine/surface.md §3, ASM-44): %r"
+            % (shaped_game_config(third)["seats"],),
+        )
+        self.assertEqual(
+            [seat_of_hand(index, third) for index in range(6)],
+            [0, 1, 2, 3, 4, 5],
+            "the learner plays each of the six seats once in the first six hands, in seat "
+            "order, so no seat is skipped and none is held twice (seats.md §4, ASM-43): %r"
+            % ([seat_of_hand(index, third) for index in range(6)],),
+        )
+        self.assertEqual(
+            [seat_of_hand(index, default_shape()) for index in range(6)],
+            [0, 1, 0, 1, 0, 1],
+            "and on the default shape the same rule is the alternation a run has always "
+            "had, so no fixed-limit hand moved (shapes.md §5, episode.md §1, ASM-43): %r"
+            % ([seat_of_hand(index, default_shape()) for index in range(6)],),
+        )
+
+
+class SixSeatDrawCase(TrainingCase):
+    """TRN-13.12 -- five distinct opponents, and a pool that cannot supply them."""
+
+    def test_trn_13_12_five_distinct_opponents_and_a_pool_that_cannot_supply_them(self):
+        """TRN-13.12 a five-member pool trains; a four-member one is refused naming both.
+
+        `seats.md` §4 and ASM-43 make `evaluation.opponent(pool, seed, count)` a draw
+        **without replacement**, so a six-seat hand seats `seats - 1` distinct members and a
+        seat never faces itself; a pool holding fewer than the draw is `evaluation`'s own
+        refusal, naming both counts, because a substitute seat would be an opponent the
+        membership does not carry (`records.md` §8, `module-map.md` §2, D-21, D-33).  So a
+        pool holding the three anchors and two folders -- five members -- must train, and
+        the same configuration declaring one folder -- four members -- must be refused
+        before a hand is dealt and before anything is written, propagating unchanged in its
+        owner's class.  The learner the six-seat shape sizes is measured beside it: 18,510
+        parameters at `W = 36`, `D = 2`, which is the third row's arithmetic and not the
+        default shape's 10,119 (`shapes.md` §8, ASM-42, ASM-44).
+        """
+        record = six_seat_run()
+        pool = as_mapping(record["pool"], "the run's pool record")
+        members = as_sequence(pool["members"], "the pool's membership")
+        self.assertEqual(
+            len(members),
+            5,
+            "the invented declaration names two folders, and the frozen pool holds D-6's "
+            "three anchors plus them -- five members, the least a five-opponent draw can be "
+            "satisfied from (records.md §8, seats.md §4, ASM-32, ASM-43, D-21): %r"
+            % ([member.get("id") for member in members],),
+        )
+        budget = as_int(record["budget"], "the run's budget")
+        trained = 0
+        for declared in as_sequence(record["variants"], "the record's variants"):
+            variant = as_text(
+                as_mapping(declared, "a variant entry")["name"], "a variant's name"
+            )
+            for seed in as_sequence(record["seeds"], "the record's seeds"):
+                block = greedy_block(record, variant, as_int(seed, "a recorded seed"))
+                net = as_sequence(block["net_chips"], "the pass's per-hand chips")
+                self.assertEqual(
+                    len(net),
+                    budget,
+                    "the run played every hand of its budget, so the five-member draw was "
+                    "satisfied hand after hand and no hand was skipped for want of an "
+                    "opponent (seats.md §4, sizing.md §4, ASM-43, ASM-38): %r deltas for %r "
+                    "hands" % (len(net), budget),
+                )
+                trained += len(as_sequence(block["decisions"], "the pass's decisions"))
+        self.assertGreater(
+            trained,
+            0,
+            "and the pass retains the learner's own decisions, so the run trained against "
+            "those five opponents and did not merely list them (records.md §15, "
+            "sizing.md §4, ASM-38)",
+        )
+        owner = getattr(evaluation(), "errors", None)
+        refusal = getattr(owner, "DrawExceedsMembership", None) if owner else None
+        if not isinstance(refusal, type):
+            raise SurfaceAbsent(
+                "evaluation.errors.DrawExceedsMembership is not declared, and seats.md §4 "
+                "and errors.md §2-§4 make it the class a draw larger than the membership is "
+                "refused with"
+            )
+        configuration = six_seat_configuration_with_folders(1)
+        before = random.getstate()
+        tree = write_tree()
+        with self.assertRaises(
+            refusal,
+            msg="a six-seat run whose pool holds four members must be refused by "
+                "evaluation.opponent, because a draw of five is without replacement "
+                "(seats.md §4, records.md §8, ASM-43)",
+        ) as caught:
+            training().run(configuration, seeds=[SIX_SEED], budget=SIX_BUDGET)
+        message = str(caught.exception)
+        self.assertEqual(
+            type(caught.exception).__module__.split(".")[0],
+            "evaluation",
+            "the refusal propagates in its owner's class, because re-wrapping it in "
+            "training's would hide which module owns the contract (module-map.md §2, "
+            "records.md §8, seats.md §4): %r" % (caught.exception,),
+        )
+        self.assertIn(
+            "asks for 5",
+            message.lower(),
+            "and it names the draw's own count of five distinct opponents, so the number a "
+            "caller reads is the one it asked for (seats.md §4, ASM-43): %r" % (message,),
+        )
+        self.assertIn(
+            "holds 4",
+            message.lower(),
+            "and the membership that could not supply it, both counts being named because "
+            "the two numbers are the whole of the finding (records.md §8, seats.md §4, "
+            "errors.md §4): %r" % (message,),
+        )
+        self.assert_no_hand_dealt(
+            before, "a six-seat run whose pool holds fewer members than its draw"
+        )
+        self.assertEqual(
+            write_tree(),
+            tree,
+            "and it writes nothing: the pool is frozen before the first hand and the draw "
+            "refuses at that hand, so the write tree gained no file (write-root.md §1, §3, "
+            "loop.md §1 steps 2-5, ASM-43): %r" % (write_tree(),),
+        )
+        encoder = features().build_encoder("flat-numeric", shape=third_shape())
+        learner = agents().build_learner(
+            {
+                "backend": "numpy",
+                "architecture": {
+                    "kind": "naive-stack",
+                    "width": 36,
+                    "depth": 2,
+                    "sparsity": 0.0,
+                    "residual": False,
+                },
+                "seed": SIX_SEED,
+                "encoder": encoder,
+                "game": third_shape(),
+            }
+        )
+        self.assertEqual(
+            as_int(agents().param_count(learner), "the six-seat learner's parameter count"),
+            18510,
+            "and the learner this shape sizes is 18,510 parameters at 36 by 2 -- the third "
+            "row's arithmetic, which rises by the input term alone from the default shape's "
+            "10,119, so the count follows the shape's encoder and not the kind's declared "
+            "observation size (shapes.md §8, ASM-42, ASM-44): %r"
+            % (agents().param_count(learner),),
         )

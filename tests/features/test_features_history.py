@@ -2,7 +2,10 @@
 
 ``docs/L3/features/flat-numeric.md`` §5; ``docs/L3/features/card-tokens.md`` §5;
 ``docs/L3/features/README.md`` §4 (ASM-E2); ``docs/L3/features/errors.md`` §3-§4;
-``docs/L3/features/guardrails.md`` G13; ``docs/L2/features/encodings.md`` §3.
+``docs/L3/features/guardrails.md`` G13; ``docs/L2/features/encodings.md`` §3;
+``docs/L1/shapes.md`` §8 and ``docs/L1/assumptions.md`` ASM-42, ASM-44 (the block's
+capacity is the shape's -- 24 on `fixed-limit-20`, 66 on `no-limit-100` -- and it is the
+refusal threshold as well as the width).
 
 A history entry is a plain str of exactly four grammars and its fourth token is the
 verb.  The entry's street, seat and amount are other blocks -- or not facts at all --
@@ -254,6 +257,221 @@ class FEA6History(S.FeaturesCase):
             "no applied action means 24 pad tokens (card-tokens.md §5): %r"
             % (tokens[16:24],),
         )
+
+
+class FEA6ShapedCapacity(S.FeaturesCase):
+    """The capacity is the shape's: it is the block's width and its refusal threshold."""
+
+    def test_fea6_11_the_default_shape_carries_24_entries_and_refuses_a_25th(self):
+        """FEA-6.11 on `fixed-limit-20` a history of exactly the shape's 24 entries encodes
+        in both encodings, and a 25th is refused -- never truncated -- by a message naming
+        the field, the capacity and the count it saw, because the capacity is the block's
+        refusal threshold as well as its width (shapes.md §8, ASM-42, flat-numeric.md §5,
+        card-tokens.md §5, errors.md §3)."""
+        F = self.surface()
+        capacity = S.CAPACITY[S.DEFAULT_SHAPE]
+        self.assertEqual(
+            capacity, S.HISTORY_SLOTS,
+            "the default shape's capacity is the 24 slots the encoding has always "
+            "declared: the fixed-limit path does not move (shapes.md §5, §8): %r"
+            % (capacity,),
+        )
+        history = S.history_entries(capacity)
+        self.assertEqual(len(history), 24, "the battery builds a 24-entry history")
+        for name in S.ENCODINGS:
+            with self.subTest(encoding=name):
+                encoder = F.build_encoder(name)
+                observation = F.encode(encoder, S.readout(history=history))
+                self.assertEqual(
+                    len(observation), S.DECLARED[name]["shape"][0],
+                    "a history of exactly the capacity encodes, and the observation is "
+                    "still the declared width (shapes.md §8, ASM-42): %d"
+                    % (len(observation),),
+                )
+                exc = self.refuses(
+                    F.encode, encoder, S.readout(history=S.history_entries(capacity + 1)),
+                    words=("encode", "history", str(capacity), str(capacity + 1)),
+                )
+                self.assertIn(
+                    str(capacity), str(exc),
+                    "the refusal names the capacity it was measured against, so a caller "
+                    "learns how long this shape's history may be (shapes.md §8, ASM-42, "
+                    "errors.md §3): %r" % (str(exc),),
+                )
+
+    def test_fea6_12_the_no_cap_shape_carries_66_entries_and_refuses_a_67th(self):
+        """FEA-6.12 on `no-limit-100` a history of exactly its 66 entries encodes in both
+        encodings -- 3 x 66 = 198 dense slots and 66 tokens, the last ones live -- and a
+        67th is refused, never truncated, naming the field, the capacity and the count:
+        the capacity is that shape's own derived bound (200 / 4 = 50 raises plus
+        4 x 2 x 2 = 16 non-bet actions), not the fixed-limit cap's (shapes.md §8, ASM-42,
+        ASM-44, flat-numeric.md §5, card-tokens.md §5)."""
+        F = self.surface()
+        capacity = S.CAPACITY[S.SECOND_SHAPE]
+        self.assertEqual(
+            capacity, 66,
+            "the no-cap shape's capacity is 66: 200 / 4 = 50 raises plus 4 x 2 x 2 = 16 "
+            "non-bet actions (shapes.md §8, ASM-42): %r" % (capacity,),
+        )
+        self.assertGreater(
+            capacity, S.CAPACITY[S.DEFAULT_SHAPE],
+            "the uncapped shape's capacity is wider than the fixed-limit cap's, which is "
+            "what makes a pool holding a trained no-limit model encodable at 25 decisions "
+            "(shapes.md §8, ASM-42): %r against %r"
+            % (capacity, S.CAPACITY[S.DEFAULT_SHAPE]),
+        )
+        history = S.history_entries(capacity)
+        self.assertEqual(len(history), 66, "the battery builds a 66-entry history")
+        for name in S.ENCODINGS:
+            with self.subTest(encoding=name):
+                encoder = F.build_encoder(name, shape=S.SECOND_SHAPE)
+                values = F.encode(encoder, S.readout(history=history))
+                self.assertEqual(
+                    len(values), S.DECLARED_BY_SHAPE[S.SECOND_SHAPE][name][0],
+                    "a history of exactly the capacity encodes, at that shape's declared "
+                    "width (shapes.md §8, ASM-42): %d" % (len(values),),
+                )
+                if name == S.FLAT:
+                    block = S.floats(values)[S.FIXED_FLAT_SLOTS:]
+                    self.assertEqual(
+                        len(block), 3 * capacity,
+                        "the dense history block of the no-cap shape is 3 x 66 = 198 slots "
+                        "(flat-numeric.md §5, shapes.md §8): %d" % (len(block),),
+                    )
+                    self.assertEqual(
+                        sum(1 for value in block if value == 1.0), 66,
+                        "66 applied actions are 66 one-hots, so the last slot is live and "
+                        "nothing was truncated (flat-numeric.md §5, ASM-42)",
+                    )
+                else:
+                    block = S.ints(values)[S.FIXED_TOKEN_SLOTS:]
+                    self.assertEqual(
+                        block, S.history_tokens(history, capacity),
+                        "the token history block of the no-cap shape is 66 tokens, oldest "
+                        "first, with no pad at all (card-tokens.md §5, shapes.md §8)",
+                    )
+                    self.assertNotIn(
+                        S.PAD, block,
+                        "a full 66-entry history leaves no pad token: the block's width "
+                        "and its capacity are one number (card-tokens.md §5, ASM-42): %r"
+                        % (block,),
+                    )
+                exc = self.refuses(
+                    F.encode, encoder,
+                    S.readout(history=S.history_entries(capacity + 1)),
+                    words=("encode", "history", str(capacity), str(capacity + 1)),
+                )
+                self.assertIn(
+                    str(capacity), str(exc),
+                    "the refusal names this shape's capacity, not the default shape's "
+                    "(shapes.md §8, ASM-42, errors.md §3): %r" % (str(exc),),
+                )
+        default_encoder = F.build_encoder(S.FLAT)
+        self.refuses(
+            F.encode, default_encoder, S.readout(history=S.history_entries(capacity)),
+            words=("encode", "history", str(S.CAPACITY[S.DEFAULT_SHAPE]), str(capacity)),
+        )
+
+
+
+class FEA6ThirdSeatCapacity(S.FeaturesCase):
+    """The six-seat row's capacity of 98 is the block's width and its threshold."""
+
+    def test_fea6_13_the_six_seat_row_carries_98_entries_and_refuses_a_99th(self):
+        """FEA-6.13 on `six-seat-no-limit-100` a history of exactly its 98 entries encodes
+        in both encodings -- 3 x 98 = 294 dense slots and 98 tokens, every one live and no
+        pad at all -- and a 99th is refused, never truncated, naming the field, the 98 and
+        the 99, so the capacity is that row's own derived bound (600 / 12 = 50 raises plus
+        4 x 6 x 2 = 48 non-bet actions) and not the 66 or 24 of the two-seat rows
+        (capacity.md §1-§3, shapes.md §8, seats.md §2, flat-numeric.md §5,
+        card-tokens.md §5, errors.md §3, ASM-42, ASM-44)."""
+        F = self.surface()
+        capacity = S.CAPACITY[S.THIRD_SHAPE]
+        self.assertEqual(
+            capacity, 98,
+            "the six-seat row's capacity is 98: 600 / 12 = 50 raises plus 4 x 6 x 2 = 48 "
+            "non-bet actions (capacity.md §1, seats.md §2): %r" % (capacity,),
+        )
+        self.assertGreater(
+            capacity, S.CAPACITY[S.SECOND_SHAPE],
+            "and it is wider than both two-seat rows' capacities, which is what makes a "
+            "pool holding a six-seat hand encodable at 67 decisions (capacity.md §1, "
+            "ASM-42): %r against %r"
+            % (capacity, S.CAPACITY[S.SECOND_SHAPE]),
+        )
+        history = S.history_entries(capacity)
+        self.assertEqual(
+            len(history), 98,
+            "the battery builds a 98-entry history of the documented forms (capacity.md "
+            "§1): %d entries" % (len(history),),
+        )
+        for name in S.ENCODINGS:
+            with self.subTest(encoding=name):
+                encoder = F.build_encoder(name, shape=S.THIRD_SHAPE)
+                values = F.encode(encoder, S.six_seat_readout(history=history))
+                self.assertEqual(
+                    len(values), S.DECLARED_BY_SHAPE[S.THIRD_SHAPE][name][0],
+                    "a history of exactly the capacity encodes, at the row's declared "
+                    "width -- 433 dense and 122 tokens (capacity.md §2-§3): %d"
+                    % (len(values),),
+                )
+                if name == S.FLAT:
+                    block = S.floats(values)[S.flat_slots_before_history(S.THIRD_SHAPE):]
+                    self.assertEqual(
+                        len(block), 3 * capacity,
+                        "the dense history block is 3 x 98 = 294 slots, from slot 139 to "
+                        "432 (flat-numeric.md §5, capacity.md §2): %d" % (len(block),),
+                    )
+                    self.assert_floats(
+                        block, S.history_block(history, capacity),
+                        "and it is the 98 one-hots of 3, oldest first (flat-numeric.md "
+                        "§5, ASM-42)",
+                    )
+                    self.assertEqual(
+                        sum(1 for value in block if value == 1.0), 98,
+                        "98 applied actions are 98 one-hots, so the last slot is live and "
+                        "nothing was truncated (flat-numeric.md §5, ASM-42)",
+                    )
+                else:
+                    block = S.ints(values)[S.token_slots_before_history(S.THIRD_SHAPE):]
+                    self.assertEqual(
+                        len(block), capacity,
+                        "the token history block is 98 tokens, from token 24 to 121 "
+                        "(card-tokens.md §5, capacity.md §2): %d" % (len(block),),
+                    )
+                    self.assert_ints(
+                        block, S.history_tokens(history, capacity),
+                        "and it is one id per applied action, oldest first "
+                        "(card-tokens.md §5, ASM-42)",
+                    )
+                    self.assertNotIn(
+                        S.PAD, block,
+                        "a full 98-entry history leaves no pad token: the block's width "
+                        "and its capacity are one number (card-tokens.md §5, ASM-42): %r"
+                        % (block[:6],),
+                    )
+                exc = self.refuses(
+                    F.encode, encoder,
+                    S.six_seat_readout(history=S.history_entries(capacity + 1)),
+                    words=("encode", "history", str(capacity), str(capacity + 1)),
+                )
+                self.assertIn(
+                    str(capacity), str(exc),
+                    "the refusal names this row's 98, not another row's capacity "
+                    "(capacity.md §3, errors.md §3): %r" % (str(exc),),
+                )
+                self.assertIn(
+                    str(capacity + 1), str(exc),
+                    "and the 99 entries it saw, so the caller learns the count was one "
+                    "past the bound (flat-numeric.md §6, errors.md §3): %r" % (str(exc),),
+                )
+        for shape in S.SHAPES:
+            with self.subTest(shape=shape, entries=98, accepted=False):
+                self.refuses(
+                    F.encode, F.build_encoder(S.FLAT, shape=shape),
+                    S.readout(history=history),
+                    words=("encode", "history", str(S.CAPACITY[shape]), str(capacity)),
+                )
 
 
 if __name__ == "__main__":

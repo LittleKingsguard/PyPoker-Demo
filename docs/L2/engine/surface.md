@@ -1,15 +1,15 @@
 # engine — the callable surface
 
-- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-10
 - **Owner of this file:** the surface — the ten module-level names of `src/engine/`, each with its argument contract, its return, its refusals and its ordering (D-12, `e2e-surface.md` §1)
-- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+- **Ceiling:** 130 lines — raised from 120 for D-33's third shape and the six-seat hand: the catalogue's `history` key, `game_config`'s six-seat row, the seat count in `payoffs`, and `play_hand`'s `seats` with its four refusals. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
 
 Each of the ten names is a module-level name of the `engine` package, and nothing below one of them
 is contract (`e2e-surface.md` §1, brief §5). Six rules are shared and are stated here once (D-12, D-13):
 
-- The ten names are fixed: L2 refines types, defaults and error classes and never adds, removes or renames an entry point (D-12, `e2e-surface.md` §1). A shape is reached through an **optional argument whose absence is today's value**, never through a new row: that is why the count went 9 → 10 by one name, `game_shapes`, and by no widening (`shapes.md` §4, D-29).
+- The ten names are fixed: L2 refines types, defaults and error classes and never adds, removes or renames an entry point (D-12, `e2e-surface.md` §1). A shape is reached through an **optional argument whose absence is today's value**, never through a new row: that is why the count went 9 → 10 by one name, `game_shapes`, and by no widening (`shapes.md` §4, D-29). D-33's third shape and the six-seat hand add **no name** either — they reach this surface as `play_hand`'s optional `seats` — so the map stays at **50** endpoints and `engine` at **10** (`seats.md` §6, `e2e-surface.md` §4).
 - An invalid argument is refused by raising an error that names the violated contract; no entry point coerces a value, substitutes a default, swallows an error or returns part of a record (`e2e-surface.md` §2). A shape name outside the catalogue is refused **naming it and the declared names**, never defaulted — absence is the default and a name is not (`shapes.md` §3, D-13).
 - `new_hand` is the project's single seeding point, and `play_hand` deals through it instead of seeding again, so no call seeds the stream twice (ASM-2, `protocol.md` §4).
 - Dealing is the only thing that moves a caller's draws: `new_hand` leaves the stream where its own deal left it, `play_hand` leaves it where the deal it made through `new_hand` left it, and every other entry point returns it in the state a caller gave it — `equity`, the one that must sample, included, and `apply_action` included even though `pokerkit` draws from the stream while it deals a street (ASM-2, `battery.md` §3 FAM-4, `strata/platform.md`).
@@ -35,9 +35,11 @@ descriptors that partition the legal raise interval, and each resolves to its ow
 
 ## 3. `game_config` — the declared shapes
 
-- Takes a shape name, optionally, and returns that shape's parameters as one mapping: two seats, blinds 1 and 2, one blind level that never rises, the shape's starting stack, its bet sizes, its raise cap and its four streets — its `game` name says which game, and the bet **structure** is §12's row and never a key here (`e2e-surface.md` §3.1, `shapes.md` §2).
-- Called with **no argument** it returns the default shape's row, which is byte for byte the mapping this entry point has always returned — stacks 20, a small bet of 2, a big bet of 4 and a raise cap of 4 (ASM-6, `shapes.md` §2, §5).
+- Takes a shape name, optionally, and returns that shape's parameters as one mapping: the shape's seat count, blinds 1 and 2, one blind level that never rises, its starting stack, its bet sizes, its raise cap and its four streets — its `game` name says which game, and the bet **structure** is §12's row and never a key here (`e2e-surface.md` §3.1, `shapes.md` §2, `seats.md` §2).
+- Called with **no argument** it returns the default shape's row, which is byte for byte the mapping this entry point has always returned — two seats, stacks 20, a small bet of 2, a big bet of 4 and a raise cap of 4 (ASM-6, `shapes.md` §2, §5).
 - A named shape returns the **same fifteen keys with the same value shapes**, differing only in the values that shape declares: the no-limit row states `no-limit texas hold'em`, stacks 100, and `None` for `small_bet`, `big_bet`, `limit` and `raise_cap`, because a shape with no fixed bet and no cap has neither (`shapes.md` §2, D-29).
+- The **six-seat row** is that same fifteen keys again with its own values: `seats` and `player_count` 6, `starting_stacks` a six-tuple of 100 — the seat count is what makes it six — `blinds` (1, 2), `small_bet`/`big_bet`/`limit`/`raise_cap` all `None`, and a `game` name naming the six-seat no-limit game (`seats.md` §2, `shapes.md` §2, D-33).
+- The history block's capacity is **not** a key here, on any shape: it is §12's catalogue row's, and this mapping's fifteen keys are a contract (`shapes.md` §8, ASM-42, ASM-44).
 - Its quantities are stated as numbers and not only as prose, because the report's header and the invariance family read them numerically (`protocol.md` §1, `battery.md` §3 FAM-2).
 - Two calls with one argument return equal values and there is no per-call state — no seed, no hand, no rung — so a ladder on one shape has one game object for its whole length (D-2, D-3).
 - Refuses a name outside `game_shapes`' catalogue, naming it and the declared names (`shapes.md` §3, D-13).
@@ -45,10 +47,10 @@ descriptors that partition the legal raise interval, and each resolves to its ow
 ## 4. `new_hand` — deal one hand
 
 - Takes a `seed`, an integer, and returns a hand handle: it seeds Python's global `random` with it and deals the hand, and it is the project's single seeding point (ASM-2, `protocol.md` §4).
-- Takes the **shape** as an optional argument; absence is the default shape, so today's call deals today's hand and the deal is unchanged card for card (`shapes.md` §3, §5). A named shape deals that shape's state: for the no-limit row, blinds 1/2, starting stacks 100, no fixed bet and no cap (`shapes.md` §2).
+- Takes the **shape** as an optional argument; absence is the default shape, so today's call deals today's hand and the deal is unchanged card for card (`shapes.md` §3, §5). A named shape deals that shape's state: for the no-limit row, blinds 1/2, starting stacks 100, no fixed bet and no cap; for the six-seat row the same game over six seats, its blind vector one entry per player and the two blinds posted by seats 1 and 2 (`shapes.md` §2, `seats.md` §2, `hand.md` §3).
 - The same seed and the same shape deal the same hand, a different seed deals a different one, and a deal depends on its seed and shape and not on the hands dealt before it (ASM-2, `battery.md` §3 FAM-4).
 - The whole deck order is fixed when the hand is created, because `pokerkit` shuffles at state creation; after that nothing a caller does can change which cards this hand gets, though the library's own dealing draws from the stream, which is why §1's fourth rule requires every later call to hand it back (`strata/platform.md`, ASM-2).
-- Seat 0 holds the button and posts the small blind in every hand of every shape, so a caller alternates seats by swapping the two policies it hands to `play_hand` (`league.md` §3, D-16, `shapes.md` §2).
+- **Seat 0 holds the button in every hand of every shape**, and the button acts last on every street after the pre-flop (`seats.md` §3). What the button posts is the shape's: on a two-seat shape it posts the small blind of 1 and acts first pre-flop, and on the six-seat shape it posts nothing, seat 1 posts the small blind of 1 and acts first post-flop, seat 2 posts the big blind of 2, and seat 3 acts first pre-flop (`hand.md` §3, `seats.md` §2–§3). A two-seat caller alternates seats by swapping the two policies it hands to `play_hand`; a six-seat caller seats the whole table through §10's `seats` (`league.md` §3, `seats.md` §4, D-16).
 - Refuses a seed that is not an integer (`protocol.md` §2, ASM-2) and a shape name outside the catalogue, naming it and the declared names, both before the deal (`shapes.md` §3).
 
 ## 5. `readout` — the acting seat's facts
@@ -86,26 +88,30 @@ descriptors that partition the legal raise interval, and each resolves to its ow
 
 ## 9. `payoffs` — what the hand paid
 
-- Takes a completed hand handle and returns the net chip delta per seat: exactly one number per seat and nothing else numeric, and the numbers sum to zero (`e2e-surface.md` §3.1, `battery.md` §3 FAM-16).
+- Takes a completed hand handle and returns the net chip delta per seat: exactly one number per seat and nothing else numeric, and the numbers sum to zero (`e2e-surface.md` §3.1, `battery.md` §3 FAM-16). The **seat count is the hand's shape's**, so the mapping holds two entries on a two-seat shape and six on the six-seat one (`seats.md` §3, ASM-42).
 - The record is keyed by seat and carries no total, because a second number in it would no longer be a per-seat payoff (ASM-12, `battery.md` §3 FAM-16).
 - Refuses a hand that is still running: a running hand has paid nothing (`e2e-surface.md` §3.1).
 - Deterministic: the payoffs are a function of the completed hand alone (ASM-12, ASM-2).
 
 ## 10. `play_hand` — one whole episode
 
-- Takes a seed and the two policies — seat 0's then seat 1's — and the **shape** optionally, and returns an episode record (`records.md` §5): it deals the hand through `new_hand` at that seed and shape and drives it to its end, so one seed deals one hand however that hand is played (`e2e-surface.md` §3.1, ASM-2, `shapes.md` §3).
-- It calls the acting seat's policy as the policy protocol states — with the readout and the legal descriptors — and applies the descriptor the policy returns (`e2e-surface.md` §2, D-2).
+- Takes a seed and the policies — seat 0's then seat 1's positionally, or the shape's whole **seating** as the optional `seats` — and the **shape** optionally, and returns an episode record (`records.md` §5): it deals the hand through `new_hand` at that seed and shape and drives it to its end, so one seed deals one hand however that hand is played (`e2e-surface.md` §3.1, ASM-2, `shapes.md` §3).
+- Absent `seats`, it plays exactly the two positional policies it has always played, so **no fixed-limit or two-seat caller changes** — the argument order and the default shape included (`seats.md` §4, `e2e-surface.md` §3.1).
+- With `seats`, the two positional policies are **absent** and the sequence is the shape's whole seating, one policy per seat in **seat order**, so a six-seat hand is six policies of which one is the learner's (`seats.md` §4, ASM-43). The two forms are exclusive, and a `seats` sequence whose length is not the shape's seat count, a `seats` handed beside a positional policy, and two positional policies on a shape with more than two seats are each **refused by name** with this module's error class — never truncated, padded or defaulted (`seats.md` §4, `e2e-surface.md` §3.1, D-13).
+- It calls the acting seat's policy as the policy protocol states — with the readout and the legal descriptors — and applies the descriptor the policy returns; the refusal names the seat that failed (`e2e-surface.md` §2, D-2).
 - Every decision carries the legal raise interval's `minimum` and `maximum` — `None` exactly when no raise was legal — and `amount`, the raise-to the engine resolved, `None` whenever the chosen descriptor is not a raise (`records.md` §5, `sizing.md` §2).
-- Refuses a policy that is not callable, a policy whose answer is outside `legal_actions`, and a shape name outside the catalogue naming it and the declared names (D-2, D-13, `shapes.md` §3).
+- Each decision's `seat` is the **readout's own seat fact**, so a seat index means the same thing in the record as in the facts, and each seat's terminal decision carries that seat's net chip delta (`records.md` §5, `seats.md` §3).
+- Refuses a policy that is not callable, a policy whose answer is outside `legal_actions`, a seating that is not one policy per seat, and a shape name outside the catalogue naming it and the declared names (D-2, D-13, `shapes.md` §3, `seats.md` §4).
 - It does not catch a policy's own exception and turn it into an action (`e2e-surface.md` §2, D-2).
 - One seed and one pair of policies give one record; a different seed gives a different one (ASM-2, `battery.md` §3 FAM-4).
 - The record's shape, its decisions and its rewards are `environment.md` §3's, and it names no hand handle because nothing below an entry point is surface (`e2e-surface.md` §1, brief §5).
 
 ## 11. `equity` — the oracle's question
 
-- Takes the decision in question, a seed and a sample count, and returns the acting seat's win probability against a uniformly random opponent hand, from `pokerkit`'s equity calculation, as a number in [0, 1] (ASM-4, `e2e-surface.md` §3.1).
+- Takes the decision in question, a seed and a sample count, and returns the acting seat's win probability against uniformly random opponent hands, from `pokerkit`'s equity calculation, as a number in [0, 1] (ASM-4, `e2e-surface.md` §3.1).
+- **The number of opponents is the shape's**: a two-seat decision is heads-up, and on a shape with more than two seats the opponents are the **other seats'** uniformly random hands, so a six-seat call is six-way and its answer is the acting seat's share against five random hands (`seats.md` §2, ASM-44). The heads-up answer is today's, unchanged (ASM-4, `shapes.md` §5).
 - Its first argument is a hand handle **or** that hand's readout: both denote the same decision and return the same number, because the readout already carries the acting seat's cards and the board (`environment.md` §2, ASM-4).
-- A mapping is a decision only when it carries two distinct cards under `hole` and 0, 3, 4 or 5 distinct cards under `board`; any other mapping is refused rather than sampled, and a fact beyond those two is ignored, so a hand and its own readout are the two shapes that answer (`environment.md` §2, `e2e-surface.md` §2).
+- A mapping is a decision only when it carries two distinct cards under `hole` and 0, 3, 4 or 5 distinct cards under `board`; any other mapping is refused rather than sampled, and a fact beyond those two is ignored except `stacks`, whose length is the seat count and therefore the opponent count (`environment.md` §2, `e2e-surface.md` §2, `seats.md` §3).
 - Refuses a decision that is over, a seed that is not an integer, and a sample count that is not a positive integer (`e2e-surface.md` §2, ASM-4).
 - One decision, seed and sample count give one estimate, and a coarse sample count is a legal call and not an error (`battery.md` §3 FAM-16, ASM-4).
 - It is a query and not a step: it neither advances nor mutates the hand, it hands the global stream back in the state it found, and its estimate is a function of the decision, its seed and the sample count and of nothing else — which is what makes it repeatable and what keeps the deal out of an equity question (ASM-2, ASM-4).
@@ -113,8 +119,10 @@ descriptors that partition the legal raise interval, and each resolves to its ow
 ## 12. `game_shapes` — the declared shapes
 
 - Takes no argument and returns the declared shapes as an **ordered mapping, default first** — the catalogue itself, so no caller can invent a shape through this surface and the row is `fixed` (`shapes.md` §2, `e2e-surface.md` §5, D-29).
-- Each row is a mapping carrying `name`, `default`, `seats`, `blinds`, `starting_stack`, `chips_in_play`, `bet_structure`, `small_bet`/`big_bet`/`raise_cap` (`None` for a shape without a cap), `actions` — the vocabulary's descriptor names in that shape's index order — `head_width`, its descriptor count, and `normalisers`, one divisor per key (`shapes.md` §2, `sizing.md` §3, §5, §6).
-- `fixed-limit-20` is the first row and the default: seats 2, blinds (1, 2), stack 20, 40 chips in play, fixed bets 2 and 4, cap 4, three descriptors, head width 3 and normalisers `stack` 20, `pot` 40, `to_call` 20, `amount` 4, `count` 4 (ASM-6, `shapes.md` §2).
-- `no-limit-100` is the second: the same seats and blinds, stack 100, 200 chips in play, no fixed bet and no cap, six descriptors in the declared index order, head width 6 and normalisers `stack` 100, `pot` 200, `to_call` 100, `amount` 100, `count` 50 (`shapes.md` §2, `sizing.md` §3, §5).
-- The chips in play are the row's own total, so `pot + sum(stacks)` is 40 in the default shape and the row's total in any other (`shapes.md` §2, `environment.md` §1).
+- Each row is a mapping carrying `name`, `default`, `seats`, `blinds`, `starting_stack`, `chips_in_play`, `bet_structure`, `small_bet`/`big_bet`/`raise_cap` (`None` for a shape without a cap), `actions` — the vocabulary's descriptor names in that shape's index order — `head_width`, its descriptor count, **`history`**, the shape's history-block capacity, and `normalisers`, one divisor per key (`shapes.md` §2, §8, `sizing.md` §3, §5, §6, ASM-42).
+- `fixed-limit-20` is the first row and the default: seats 2, blinds (1, 2), stack 20, 40 chips in play, fixed bets 2 and 4, cap 4, three descriptors, head width 3, `history` 24 and normalisers `stack` 20, `pot` 40, `to_call` 20, `amount` 4, `count` 4 (ASM-6, `shapes.md` §2, §8).
+- `no-limit-100` is the second: the same seats and blinds, stack 100, 200 chips in play, no fixed bet and no cap, six descriptors in the declared index order, head width 6, `history` 66 and normalisers `stack` 100, `pot` 200, `to_call` 100, `amount` 100, `count` 50 (`shapes.md` §2, §8, `sizing.md` §3, §5).
+- `six-seat-no-limit-100` is the third: **six** seats, blinds (1, 2), stack 100 a seat, **600** chips in play, no fixed bet and no cap, the same six descriptors in the same index order, head width 6, `history` **98** and normalisers `stack` 100, **`pot` 600**, `to_call` 100, `amount` 100, `count` 50 — the two-seat uncapped row's divisors with the pot divided by the six-seat total, because a divisor of 200 on a 600-chip pot is a clip and not a normalisation (`seats.md` §2, `shapes.md` §8, `sizing.md` §5, ASM-39, ASM-42).
+- The chips in play are the row's own total, so `pot + sum(stacks)` is 40 in the default shape, 200 in the two-seat uncapped one and 600 in the six-seat one (`shapes.md` §2, `environment.md` §1, `seats.md` §2).
+- The seat count is the row's and so is the capacity: a row with more seats carries more `stacks` entries, more payoffs and more history slots, and the three facts move together because the seat count and the capacity are the same shape's data (ASM-42, ASM-44).
 - Two calls return equal values and the returned mapping is fresh, so a caller's edit of a row cannot reach the catalogue; it refuses nothing, because it takes no argument (`surface.md` §1, D-13).

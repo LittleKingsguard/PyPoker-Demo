@@ -25,45 +25,20 @@ except ImportError:  # collected as a plain directory, as pytest's prepend mode 
     import _support as S  # noqa: E402
 
 
-# surface.md §12: the declared shapes, in the catalogue's order — default first.
-DECLARED = ("fixed-limit-20", "no-limit-100")
+# surface.md §12, shapes.md §2, seats.md §2: the declared shapes, in the catalogue's order
+# -- default first.  The third row is D-33's six-seat shape, reached as data like the other
+# two (shapes.md §8, seats.md §2).
+DECLARED = S.SHAPE_NAMES
 
-# surface.md §12, shapes.md §2: the keys every row carries, and the five normalisers.
-ROW_FACTS = (
-    "name",
-    "default",
-    "seats",
-    "blinds",
-    "starting_stack",
-    "chips_in_play",
-    "bet_structure",
-    "small_bet",
-    "big_bet",
-    "raise_cap",
-    "actions",
-    "head_width",
-    "normalisers",
-)
-NORMALISER_FACTS = ("stack", "pot", "to_call", "amount", "count")
+# surface.md §12, shapes.md §2, §8: the keys every row carries -- `history` is the shape's
+# history-block capacity, the row's key and not `game_config`'s (ASM-42, ASM-44) -- and the
+# five normalisers.
+ROW_FACTS = S.ROW_FACTS
+NORMALISER_FACTS = S.NORMALISER_FACTS
 
-# surface.md §3: the fifteen keys of `game_config`, the same fifteen in every shape.
-CONFIG_FACTS = (
-    "game",
-    "seats",
-    "player_count",
-    "button_seat",
-    "blinds",
-    "small_blind",
-    "big_blind",
-    "blind_levels",
-    "starting_stack",
-    "starting_stacks",
-    "small_bet",
-    "big_bet",
-    "limit",
-    "raise_cap",
-    "streets",
-)
+# surface.md §3: the fifteen keys of `game_config`, the same fifteen in every shape, and
+# no history capacity among them (shapes.md §8, ASM-44).
+CONFIG_FACTS = S.CONFIG_FACTS
 
 # surface.md §12, §2: each shape's vocabulary, in the shape's own index order.  The
 # fixed-limit row is ASM-6's three descriptors; the sized row declares the four raise
@@ -78,8 +53,10 @@ SIZED_ACTIONS = (
     "raise-minimum",
 )
 
-# The values the two configs share, because the two shapes have the same table
-# (shapes.md §2): two seats, blinds 1 and 2, one blind level and the same four streets.
+# The values the two two-seat configs share, because the two shapes have the same table
+# (shapes.md §2): two seats, blinds 1 and 2, one blind level and the same four streets.  The
+# six-seat row shares the blinds, the one level, the streets and the button seat, and not
+# the seat count, which is what makes its `seats` and `player_count` six (seats.md §2).
 SHARED_CONFIG_FACTS = (
     "seats",
     "player_count",
@@ -167,7 +144,7 @@ class FAM19Shapes(S.EngineCase):
 
     # -- the catalogue -----------------------------------------------------
     def test_fam19_01_the_catalogue_is_ordered_default_first(self):
-        """FAM-19.1 game_shapes() declares exactly the two shapes, default first (§12)."""
+        """FAM-19.1 game_shapes() declares exactly the three shapes, default first (§12, seats.md §2)."""
         shapes = self.game_shapes()
         self.assertTrue(
             S.is_mapping(shapes),
@@ -178,15 +155,15 @@ class FAM19Shapes(S.EngineCase):
         self.assertEqual(
             names,
             list(DECLARED),
-            "the catalogue declares exactly two shapes, `fixed-limit-20` then "
-            "`no-limit-100`, in that order and default first (surface.md §12, "
-            "shapes.md §2); it keyed %r" % (names,),
+            "the catalogue declares exactly three shapes, `fixed-limit-20` then "
+            "`no-limit-100` then `six-seat-no-limit-100`, in that order and default first "
+            "(surface.md §12, shapes.md §2, seats.md §2); it keyed %r" % (names,),
         )
         flags = [row_of(self, shapes, name)["default"] for name in DECLARED]
         self.assertEqual(
             flags,
-            [True, False],
-            "the first row is the default and the second is not (surface.md §12): the "
+            [True, False, False],
+            "the first row is the default and the other two are not (surface.md §12): the "
             "rows said %r" % (flags,),
         )
         self.assertEqual(
@@ -195,20 +172,21 @@ class FAM19Shapes(S.EngineCase):
             "exactly one declared shape is the default, because absence reads as one "
             "shape and never as two (shapes.md §3): the rows said %r" % (flags,),
         )
+        self.assertIs(flags[0], True, "the default flag is the boolean True: %r" % (flags[0],))
 
     def test_fam19_02_every_row_carries_exactly_the_declared_keys(self):
-        """FAM-19.2 each row carries the thirteen declared keys and the five normalisers (§12)."""
+        """FAM-19.2 each row carries the fourteen declared keys, `history` included, and the five normalisers (§12, shapes.md §8)."""
         shapes = self.game_shapes()
         for name in DECLARED:
             row = row_of(self, shapes, name)
             self.assertEqual(
                 set(row),
                 set(ROW_FACTS),
-                "a row is the shape's declaration and carries exactly the keys §12 "
-                "names — name, default, seats, blinds, starting_stack, chips_in_play, "
-                "bet_structure, small_bet/big_bet/raise_cap, actions, head_width and "
-                "normalisers (surface.md §12, shapes.md §2); row %r carried %r"
-                % (name, sorted(str(key) for key in row)),
+                "a row is the shape's declaration and carries exactly the keys §12 and "
+                "shapes.md §8 name — name, default, seats, blinds, starting_stack, "
+                "chips_in_play, bet_structure, small_bet/big_bet/raise_cap, actions, "
+                "head_width, history and normalisers (surface.md §12, shapes.md §8); row %r "
+                "carried %r" % (name, sorted(str(key) for key in row)),
             )
             normalisers = S.required(row, "the row %r" % (name,), "normalisers")
             self.assertTrue(
@@ -445,7 +423,7 @@ class FAM19Shapes(S.EngineCase):
             self.assert_chips_conserved(S.SHAPE_SIZED, seed, row["chips_in_play"])
 
     def test_fam19_05_two_calls_are_equal_and_an_edit_does_not_reach_the_catalogue(self):
-        """FAM-19.5 two calls return equal values, and a caller's edit of a row stays the caller's (§12)."""
+        """FAM-19.5 two calls return equal values, and a caller's edit of a row stays the caller's (§12, seats.md §2)."""
         before = S.canon(self.game_shapes())
         first = self.game_shapes()
         row = row_of(self, first, S.SHAPE_DEFAULT)
@@ -457,6 +435,10 @@ class FAM19Shapes(S.EngineCase):
         try_edit(normalisers, "stack", 1)
         sized = row_of(self, first, S.SHAPE_SIZED)
         try_edit(sized, "default", True)
+        six_seat = row_of(self, first, S.SHAPE_SIX)
+        try_edit(six_seat, "seats", 2)
+        try_edit(six_seat, "history", 24)
+        try_edit(six_seat, "normalisers", {"pot": 200})
         try_edit(first, S.SHAPE_DEFAULT, {"name": "an invented shape"})
         second = self.game_shapes()
         self.assertEqual(
@@ -479,10 +461,20 @@ class FAM19Shapes(S.EngineCase):
             "two calls with no argument return equal values and there is no per-call "
             "state (surface.md §12, §3)",
         )
+        six_after = row_of(self, self.game_shapes(), S.SHAPE_SIX)
+        self.assertEqual(
+            [six_after["seats"], six_after["history"],
+             S.required(six_after, "the six-seat row", "normalisers")["pot"]],
+            [S.SHAPE_SEATS[S.SHAPE_SIX], S.SHAPE_HISTORY[S.SHAPE_SIX],
+             S.SHAPE_CHIPS_IN_PLAY[S.SHAPE_SIX]],
+            "the six-seat row still declares six seats, its 98-slot history block and its "
+            "600-chip pot divisor after a caller edited them (seats.md §2, shapes.md §8): "
+            "%r" % (six_after,),
+        )
 
     # -- the two configs ---------------------------------------------------
     def test_fam19_06_game_config_with_no_argument_is_the_default_rows_config(self):
-        """FAM-19.6 game_config() is game_config('fixed-limit-20'), with the fifteen declared keys (§3)."""
+        """FAM-19.6 game_config() is game_config('fixed-limit-20'), with the fifteen declared keys and no history capacity (§3, shapes.md §8)."""
         config = self.game_config()
         self.assertTrue(
             S.is_mapping(config),
@@ -495,6 +487,13 @@ class FAM19Shapes(S.EngineCase):
             "the config states exactly the fifteen declared keys and the bet structure is "
             "§12's row and never a key here (surface.md §3): it stated %r"
             % (sorted(str(key) for key in config),),
+        )
+        self.assertNotIn(
+            "history",
+            config,
+            "the history block's capacity is §12's catalogue row's and never a key of "
+            "game_config, whose fifteen keys are a contract (shapes.md §8, ASM-42, "
+            "ASM-44): it stated %r" % (sorted(str(key) for key in config),),
         )
         self.assertEqual(
             S.canon(config),

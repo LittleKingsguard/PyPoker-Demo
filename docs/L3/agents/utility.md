@@ -79,7 +79,9 @@ net chip delta for the completed hand (ASM-12, ASM-6):
     s_after   = s_0 + delta
 
 `T` is `40` at every hand of the fixed game, since two seats begin every hand at `s_0 = 20` chips (D-2, ASM-6), so
-the normaliser is `U(s_0) = (40 − 20)² = 400`. The four scores D-20 fixes:
+the normaliser is `U(s_0) = (40 − 20)² = 400`; on a row with other stacks the pair is that row's — 600 chips in play
+over 100-chip stacks on `six-seat-no-limit-100` — so `U(s_0)` is that row's too (`seats.md` §2, D-33). The four scores
+D-20 fixes:
 
 | Hand | `delta` | `s_after` | `U(s_after)` | `r` |
 |---|---|---|---|---|

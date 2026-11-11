@@ -33,6 +33,14 @@ no encoding catalogue is read (`scheduler.md` §5.1, `module-map.md` §2).
 draw and `off` is the masked maximum and the tie-break alone, with no generator drawn from,
 so a census computed over it is a function of the model and not of a seed (`shape.md` §5,
 `docs/L1/sizing.md` §4, D-29).
+
+`opponent`'s third argument is the **draw count** and its absence is today's call: one
+policy for one training hand.  Named, it draws that many **distinct** pool members without
+replacement, in the draw's order, which is what seats five opponents in a six-seat hand;
+a pool holding fewer is refused naming both counts (`docs/L1/seats.md` §4, `league.md` §2,
+ASM-43).  Both arms build a drawn **baseline** for the pool's own shape, so a six-seat
+pool's `fold-large-bet` reads 100 and its oracle is asked a six-way question
+(`seats.md` §2, §6, ASM-31, D-33).
 """
 
 import hashlib
@@ -53,6 +61,8 @@ from .declarations import (
 from .errors import (
     CheckpointRecordMissing,
     CheckpointUnreadable,
+    DrawExceedsMembership,
+    InvalidDrawCount,
     InvalidPool,
     InvalidSeed,
     MemberInvalid,
@@ -63,7 +73,7 @@ from .errors import (
     UtilityMismatch,
 )
 from .pool import Pool, _rule, _utility
-from .seeds import _draw_index
+from .seeds import _draw_index, _draw_order
 
 #: The deepest a recorded fact is looked for in one JSON document (`scheduler.md` §5.1).
 _MAX_DEPTH = 8
@@ -394,15 +404,39 @@ def policy_from(path, exploration=EXPLORATION_DEFAULT):
 # ---------------------------------------------------------------------------
 # `opponent` (`surface.md` §8)
 # ---------------------------------------------------------------------------
-def opponent(pool, seed):
-    """One pool member drawn by ``seed % n``, as a policy (`surface.md` §8, `pool.md` §7).
+def _drawn(pool, member, seed):
+    """One drawn member as a policy: a baseline of the **pool's** shape, or a version policy.
 
-    A baseline is built at the caller's seed and a version at the seed its checkpoint
-    records, so one pool and one seed draw one opponent that answers one decision one
-    way.  A drawn version carrying no `path` is refused, naming the member, and its policy
-    carries **the shape its container records** -- a disagreement with the member's own
-    `game` is `ShapeMismatch` -- while a drawn **baseline** stays shape-silent and plays
-    whatever shape the hands are dealt on (`pool.md` §7, `scheduler.md` §5, `shape.md` §4).
+    A baseline is `agents.build_baseline(name, seed, pool.game)`: the pool's one shape is
+    passed on, so `fold-large-bet` reads **that** shape's starting stack -- 100 on the
+    six-seat row, so "half the stack" is 50 -- and the oracle prices a readout whose
+    `stacks` carry that shape's seats (`seats.md` §2, §4, §6, ASM-31, D-33).  On the
+    default shape the named shape and the absent one are one policy, so a two-argument
+    draw is today's draw (`shape.md` §2, `seats.md` §6).  A version is the member policy
+    its own container records, whose shape the record is held to (`pool.md` §7,
+    `shape.md` §3-§4).
+    """
+    if member.get("baseline"):
+        return agents.build_baseline(member["id"], int(seed), pool.game)
+    return _member_policy(member, "opponent", what="an opponent", noun="drawn member")
+
+
+def opponent(pool, seed, count=None):
+    """One pool member drawn by ``seed % n``, or ``count`` distinct members in draw order.
+
+    **Without a count** it is today's call, unchanged: one policy drawn from the pool's
+    ordered membership by the seed, a baseline at the caller's seed and a version at the
+    seed its checkpoint records, so one pool and one seed draw one opponent that answers
+    one decision one way (`surface.md` §8, `pool.md` §7).
+
+    **With a count** it returns **that many distinct members**, drawn **without
+    replacement** from the frozen pool, in the draw's order: the first is the member the
+    uncounted draw names and the rest follow in `seeds._draw_order`'s keyed order, so the
+    draw is reproducible from `(seed, membership)` and is a function of the pool's own
+    ordered membership (`seats.md` §4, `league.md` §2, ASM-43).  A six-seat hand therefore
+    seats five opponents and never one member twice (`seats.md` §4, D-33).  A pool holding
+    fewer members than the draw is **refused naming both counts**, because a substitute
+    seat would be an opponent the membership does not carry (`records.md` §8, ASM-43).
     """
     if not isinstance(pool, Pool):
         raise InvalidPool(
@@ -411,12 +445,23 @@ def opponent(pool, seed):
         )
     if not _is_int(seed):
         raise InvalidSeed("opponent(seed): the seed must be an integer, got %r" % (seed,))
-    index = _draw_index(seed, len(pool.members))
-    member = pool.members[index]
-    if member.get("baseline"):
-        return agents.build_baseline(member["id"], int(seed))
-    return _member_policy(
-        member, "opponent", what="an opponent", noun="drawn member"
+    size = len(pool.members)
+    if count is None:
+        return _drawn(pool, pool.members[_draw_index(seed, size)], seed)
+    if not _is_int(count) or int(count) < 1:
+        raise InvalidDrawCount(
+            "opponent(count): the draw count must be a positive integer, got %r" % (count,)
+        )
+    wanted = int(count)
+    if wanted > size:
+        raise DrawExceedsMembership(
+            "opponent(count): the draw asks for %d distinct members and the pool holds %d, "
+            "and a draw is without replacement because a substitute seat would be an "
+            "opponent the membership does not carry" % (wanted, size)
+        )
+    return tuple(
+        _drawn(pool, pool.members[position], seed)
+        for position in _draw_order(seed, size)[:wanted]
     )
 
 

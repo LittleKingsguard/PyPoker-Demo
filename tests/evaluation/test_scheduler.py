@@ -1,9 +1,9 @@
 """EVL-3 — the scheduler: `match` and `policy_from`.
 
 Drives `docs/L3/evaluation/scheduler.md` §1-§8, `docs/L2/evaluation/surface.md` §9,
-§12 and `docs/L1/league.md` §3: the five seed derivations of §3 (recomputed here from
-the tag/`\\x1f`/SHA-256 payload, so `seed + i`, `random.Random(seed)` or a counter is
-red), seat alternation with `seat_split`'s two counts summing to `hands`, the hand's
+§12, `docs/L1/league.md` §3 and `docs/L3/evaluation/seats.md` §2: the six seed
+derivations of `scheduler.md` §3 and `seats.md` §2 (recomputed here from the
+tag/`\\x1f`/SHA-256 payload, so `seed + i`, `random.Random(seed)` or a counter is red), seat alternation with `seat_split`'s two counts summing to `hands`, the hand's
 class from the sign of its net delta with the two directions exact mirrors, the mean
 chip delta per hand negating exactly, `params` position-aligned with `members` and
 `unlabelled` naming an opaque policy's unmeasured zero, and the two things
@@ -56,6 +56,7 @@ from _evaluation_support import (
     declared_internal,
     direction_counts,
     draw_index,
+    draw_order,
     file_that_is_not_a_checkpoint,
     first_legal,
     hand_seed,
@@ -75,8 +76,8 @@ from _evaluation_support import (
 
 
 class SchedulerTest(EvaluationCase):
-    def test_evl_3_1_the_five_seed_derivations_are_the_design_s(self):
-        """EVL-3.1 `_hand_seed`, `_cell_seed`, `_member_seed` and `_bootstrap_seed` are the §3 digest of their tag and parts, and `_draw_index` is `seed % n`, recomputed here from `scheduler.md` §3 (`guardrails.md` G8, FAM-7.5)."""
+    def test_evl_3_1_the_six_seed_derivations_are_the_design_s(self):
+        """EVL-3.1 `_hand_seed`, `_cell_seed`, `_member_seed` and `_bootstrap_seed` are the §3 digest of their tag and parts, `_draw_index` is `seed % n`, and `_draw_order` is the counted draw's permutation whose first position is that same index and whose rest ascends by the `draw` digest, ties broken by position — all five recomputed here from `scheduler.md` §3 and `seats.md` §2 (`guardrails.md` G8, `docs/L1/seats.md` §4, FAM-7.5, ASM-43)."""
         self.evaluation()
         seed = declared_internal("seeds", "_seed")
         hand = declared_internal("seeds", "_hand_seed")
@@ -142,6 +143,49 @@ class SchedulerTest(EvaluationCase):
                         "membership's order, and not a digest (scheduler.md §3, "
                         "pool.md §7, G8): %r != %r"
                         % (drawn(value, size), draw_index(value, size)),
+                    )
+        # The sixth derivation: the counted draw's order, recomputed from seats.md §2
+        # rather than imported from `evaluation.seeds`, so the rule is asserted and not
+        # restated.  It is a permutation -- a draw is without replacement, so a six-seat
+        # hand never seats one member twice -- and its first position is the uncounted
+        # draw's own member, which is what makes a draw of one today's opponent
+        # (`docs/L1/seats.md` §4, `league.md` §2, ASM-43).
+        order = declared_internal("seeds", "_draw_order")
+        for size in (2, 5, 7):
+            for value in (MATCH_SEED, OTHER_MATCH_SEED, 0, 7, 12345):
+                with self.subTest(derivation="_draw_order", args=(value, size)):
+                    drawn_order = tuple(order(value, size))
+                    self.assertEqual(
+                        drawn_order,
+                        draw_order(value, size),
+                        "_draw_order(seed, n) is the first position seed %% n, then the "
+                        "rest ascending by the `draw` digest with ties broken by position "
+                        "(seats.md §2, docs/L1/seats.md §4, ASM-43): %r != %r"
+                        % (drawn_order, draw_order(value, size)),
+                    )
+                    self.assertEqual(
+                        sorted(drawn_order),
+                        list(range(size)),
+                        "the draw's order is a permutation of the membership's %d "
+                        "positions, so the draw is without replacement and no seat is "
+                        "seated twice (docs/L1/seats.md §4, league.md §2, ASM-43): %r"
+                        % (size, drawn_order),
+                    )
+                    self.assertEqual(
+                        drawn_order[0],
+                        value % size,
+                        "the first position of the counted draw is seed %% n, the member "
+                        "the uncounted draw names, so a draw of one is today's opponent "
+                        "(scheduler.md §3, pool.md §7, docs/L1/seats.md §4, ASM-43): %r"
+                        % (drawn_order,),
+                    )
+                    self.assertEqual(
+                        drawn_order[0],
+                        drawn(value, size),
+                        "the two derivations are one rule at the first position, so a "
+                        "counted draw that began anywhere else is red here "
+                        "(scheduler.md §3, seats.md §2, ASM-43): %r vs %r"
+                        % (drawn_order[0], drawn(value, size)),
                     )
 
     def test_evl_3_2_the_derived_seeds_are_in_range_distinct_and_move_no_stream(self):

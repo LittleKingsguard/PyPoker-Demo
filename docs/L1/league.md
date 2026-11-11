@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 league: pool, scheduler, matrix, rating, tables
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 11 · **Date:** 2026-11-09
-- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19) and several objectives (D-20), the folding baselines a configuration may declare (D-21), and what they cost
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 12 · **Date:** 2026-11-10
+- **Covers:** brief §3 — the bounded round-robin league of D-16, its parameters (ASM-13), a population that holds several estimators (D-19) and several objectives (D-20), the folding baselines a configuration may declare (D-21), and the shape and seat-count boundary the league may not cross (D-29, D-33)
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. What the league is
@@ -38,6 +38,7 @@ A cell's `seed` (`records.md` §9) is the seed its hands were dealt from, derive
 - The matrix is reported raw — both directions of every cell, its counts, chip deltas and seat split — and is never reduced to a ranking in the report. A summary statistic that assumes a transitive order is exactly what a poker payoff need not have (D-16).
 - A matrix whose cells differ in hand count, whose membership is not the pool's, or which is missing a baseline, is a contract violation and not a table (D-16, `e2e-surface.md` §2).
 - **A matrix is one shape's.** The pool declares the shape it is on and every member carries it, so a table's cells, seat splits and chip deltas are one game's; a membership naming two shapes, or a cell between two of them, is refused by name, and no cell, rating or table is compared across the two games — a second shape's table is a new artefact and never a column of this one (`shapes.md` §3, §6, D-29).
+- **A matrix is two seats'.** The cell is a pair, the rating is fitted over pairs and a six-way hand produces a placement rather than a pair, so a pool, a member or a matrix on a shape with more than two seats is refused **naming the shape and its seat count** by `match`, `matrix`, `rating` and `report` alike, and no table of any kind is built for the six-seat shape (`seats.md` §5, D-33 §3). A run on that shape still writes its curves, its pool, its checkpoints and its greedy pass; what it cannot write is a matrix, and therefore a report (`records.md` §12–§13).
 
 ## 5. The rating
 

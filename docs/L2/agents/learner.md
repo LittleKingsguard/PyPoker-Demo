@@ -1,6 +1,6 @@
 # agents — the learner family, the baselines, and the contracts at this edge
 
-- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-10
+- **Layer:** L2 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-10
 - **Owner of this file:** the one learner family and the rule catalogue it learns under (§1), the R1↔R2 backend
   axis (§2), the parameter budget (§3), a version as a checkpoint (§4), the six fixed baselines and their anchor
   (§5), the contracts `features`, `engine`, `training` and `evaluation` hold at this edge (§6–§8), the battery
@@ -92,11 +92,13 @@ A comparison pair — adjacent rungs and every intra-rung pair — is matched to
   target copy, so a two-rule pair is matched by its architecture alone: one kind, width and depth report one count
   under either rule (`rules.md` §3, ASM-10, ASM-25, D-19).
 - **The count is a function of the spec and the seed, never of a decision handed to the learner,** and a pair is
-  measured by one rule on both arms: a learner complete at construction — sized from its encoder or from its kind's
-  declared `observation_size` (`surface.md` §3, §4) — holds one count for its lifetime, and the rule set and
-  hyperparameters a pair holds constant mean a matched budget cannot be an artefact of the measurement
+  measured by one rule on both arms: a learner complete at construction — sized from its encoder or, on the default
+  shape, from its kind's declared `observation_size` (`surface.md` §3, §4) — holds one count for its lifetime, and the
+  rule set and hyperparameters a pair holds constant mean a matched budget cannot be an artefact of the measurement
   (`rules.md` §8, ASM-7, ASM-10, D-19). **`sizes` never moves the number** (`records.md` §3, `protocol.md` §4); the
-  spec's `game` does, the output term being `A·W + A` (`shapes.md` §2, ASM-40).
+  spec's `game` does — the input block is that shape's encoder's width, 203 against 329 and 433, and the output term is
+  `A·W + A` (`shapes.md` §2, §8, `seats.md` §4, ASM-40, ASM-44): 10,119 at the default shape, 14,766 on the two-seat
+  uncapped row and **18,510** on the six-seat one, at `W = 36` and `D = 2` (`seats.md` §4, `architecture.md` §5).
 
 ## 4. A version is a checkpoint
 
@@ -169,8 +171,12 @@ What this module may rely on, as what it consumes and never as that module's int
 - **The sizing rule is a contract in both directions.** Each kind's declared `observation_size` must equal the width of
   the `shape` a dense encoding's `observation_spec` declares — a one-element tuple — or the `vocabulary` a token
   encoding's declares, that vocabulary being the datum `e2e-surface.md` §2 makes the size of a token learner, never an
-  observation's length; and `build_learner` given an encoder must refuse a disagreement, naming both
-  (`e2e-surface.md` §3.3, `surface.md` §3, §4, D-3).
+  observation's length. That equality is the **default** shape's, which is the shape that size belongs to: on any other
+  shape the encoder the spec carries is authoritative — 329 dense and a vocabulary of 96 on `no-limit-100`, 433 dense
+  and a vocabulary of 102 on `six-seat-no-limit-100` — because the encoder is the only object that knows its shape,
+  while a spec naming another shape with **no** encoder is refused by name rather than sized at 203. A disagreement in
+  **family** is refused on every shape, naming both (`e2e-surface.md` §3.3, `surface.md` §3, §4, `shapes.md` §8,
+  `seats.md` §4, ASM-44, D-3).
 
 ## 7. The contract at the `engine` edge (D-13)
 

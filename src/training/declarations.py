@@ -53,31 +53,54 @@ DEVICE = "cpu"
 LEARNING_RULE = "masked-q-learning"
 UTILITY = "net-chips"
 
-#: The two declared game shapes' names, in `engine.game_shapes()`'s order — default
-#: first (`shapes.md` §2, D-29).  Only the names, their order and their descriptor
-#: counts are restated: `module-map.md` §2 grants this module `engine.game_config` and
-#: no `game_shapes`, and `features.decode_action` and no `features.action_space`, so the
-#: two tables below are held equal to the catalogue `engine` and `features` publish by
-#: the integration battery's shape join (`tests/integration/training/`) and by nothing
-#: this module asserts about itself (D-13, `shapes.md` §4).
-SHAPE_NAMES = ("fixed-limit-20", "no-limit-100")
+#: The three declared game shapes' names, in `engine.game_shapes()`'s order — default
+#: first (`shapes.md` §2, D-29, D-33).  Only the names, their order, their descriptor
+#: counts and their history capacities are restated: `module-map.md` §2 grants this
+#: module `engine.game_config` and no `game_shapes`, and `features.decode_action` and no
+#: `features.action_space`, so the three tables below are held equal to the catalogue
+#: `engine` and `features` publish by the integration battery's shape join
+#: (`tests/integration/training/`) and by nothing this module asserts about itself
+#: (D-13, `shapes.md` §4, §8).
+#:
+#: A shape's **seat count** is not among them: it is read from `engine.game_config`, the
+#: one place a hand's seat count is declared, so no literal `2` or `6` is written down here
+#: as the game's (`seats.md` §2–§3, §6, ASM-44, D-29).
+SHAPE_NAMES = ("fixed-limit-20", "no-limit-100", "six-seat-no-limit-100")
 
 #: The declared default: the first shape, which is what a configuration naming no
 #: `game` is trained and evaluated on and what an absent `game` in a run record reads
 #: as (`shapes.md` §3, D-29).  A name is never defaulted onto this; only absence is.
 DEFAULT_SHAPE = SHAPE_NAMES[0]
 
-#: `A`, each declared shape's descriptor count: three on the fixed-limit shape, six on
-#: the no-cap one (`shapes.md` §2, `sizing.md` §3).  It is the shape's head width and
-#: the number of indices `features.decode_action` answers for it (`sizing.md` §6).
-SHAPE_ACTIONS = {"fixed-limit-20": 3, "no-limit-100": 6}
+#: `A`, each declared shape's descriptor count: three on the fixed-limit shape and six on
+#: both uncapped ones — a seat count adds no descriptor, because it changes the price of
+#: aggression and not the vocabulary (`shapes.md` §2, `seats.md` §2, `sizing.md` §3).  It is
+#: the shape's head width and the number of indices `features.decode_action` answers for it
+#: (`sizing.md` §6).
+SHAPE_ACTIONS = {"fixed-limit-20": 3, "no-limit-100": 6, "six-seat-no-limit-100": 6}
+
+#: Each declared shape's **history block capacity**, in slots: 24 at the default shape, 66
+#: on the two-seat uncapped one and 98 on the six-seat one, each derived from that shape's
+#: own betting rather than fixed by the fixed-limit cap (`shapes.md` §8, ASM-42, ASM-44).
+#: Restated here for the same reason as `SHAPE_ACTIONS` — the capacity is the catalogue
+#: row's and `engine.game_config`'s fifteen keys carry none — and it is what the one
+#: greedy record bound is a multiple of (`records.md` §15, ASM-38).
+SHAPE_HISTORY = {"fixed-limit-20": 24, "no-limit-100": 66, "six-seat-no-limit-100": 98}
 
 #: The two bounds one variant's greedy pass must stay inside, per seed: at most 2,000
-#: hands and at most 24,000 decision records, and a pass that would exceed either is
-#: refused with both counts and **never truncated**, because a truncated log silently
-#: reports a different sample (`sizing.md` §4, `records.md` §15, ASM-38).
+#: hands, and at most `GREEDY_DECISIONS_PER_SLOT` decision records **per slot of the shape's
+#: history capacity** — 24,000 on the default shape, 66,000 and 98,000 on the uncapped ones
+#: — and a pass that would exceed either is refused with both counts and **never
+#: truncated**, because a truncated log silently reports a different sample (`sizing.md` §4,
+#: `records.md` §15, `shapes.md` §8, ASM-38, ASM-42).
 GREEDY_HANDS = 2000
-GREEDY_DECISIONS = 24000
+GREEDY_DECISIONS_PER_SLOT = 1000
+
+#: The **default shape's** record bound, kept as a name because `docs/L3/training/README.md`
+#: §4 makes `greedy.DECISIONS_BOUND` contract for `tests/training/`: one thousand records a
+#: slot over that shape's history capacity.  A pass on another shape is bounded by
+#: :func:`greedy_decisions`, which reads the run's own shape (`shapes.md` §8, ASM-38).
+GREEDY_DECISIONS = GREEDY_DECISIONS_PER_SLOT * SHAPE_HISTORY["fixed-limit-20"]
 
 #: `agents.learners()["hyper"]`'s declarations, quoted so a fairness report can name the
 #: hyperparameters a pair holds constant (ladder.md §4, docs/L3/agents/rule.md §6).
@@ -217,6 +240,32 @@ def shape_actions(shape=None):
     is the loop's own, so no caller spells a `3` or a `6` inline.
     """
     return int(SHAPE_ACTIONS[require_game(shape, "shape_actions")])
+
+
+def shape_history(shape=None):
+    """One declared shape's history block capacity, in slots (`shapes.md` §8, ASM-42).
+
+    The capacity a hand's history block is refused beyond and a pass's record bound is a
+    multiple of, read off `SHAPE_HISTORY` for the shape `require_game` resolved.  `engine`
+    declares it in the catalogue row and `engine.game_config`'s fifteen keys carry none, so
+    this module restates it exactly as it restates `SHAPE_ACTIONS`, and the join that keeps
+    the restatement the catalogue's is `tests/integration/training/`'s (D-13,
+    `shapes.md` §4, §8).
+    """
+    return int(SHAPE_HISTORY[require_game(shape, "shape_history")])
+
+
+def greedy_decisions(shape=None):
+    """`R`, one declared shape's greedy record bound, per variant per seed.
+
+    `records.md` §15 bounds a pass's `decisions` at 1,000 × the shape's history capacity —
+    24,000 at the default shape, 66,000 and 98,000 on the uncapped ones — because the pass
+    records the learner's own decisions and a shape whose block is wider holds more of
+    them (`shapes.md` §8, `sizing.md` §4, ASM-38).  The bound is the shape's and not a
+    constant: a six-seat run is refused beyond its own and never truncated.
+    """
+    name = require_game(shape, "greedy_decisions")
+    return int(GREEDY_DECISIONS_PER_SLOT) * int(SHAPE_HISTORY[name])
 
 
 def vocabulary(shape=None):

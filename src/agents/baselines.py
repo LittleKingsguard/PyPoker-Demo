@@ -14,6 +14,16 @@ and an eager import would leak it into `sys.modules` (`backends.md` §4, `README
 A folder's rank is read off the one card spelling `engine` declares and never off a second
 one; the starting stack is read from `engine.game_config` rather than copied (`folders.md`
 §2, ASM-31, D-13, D-21).
+
+**The shape is the policy's, and it is optional.**  `build_baseline(name, seed, shape=None)`
+takes the declared shape the policy decides in, absent meaning the default, and the policy
+carries that shape's **name** and neither a `learning_rule` nor a `utility`: a baseline
+still learns nothing and is trained on no reward (`e2e-surface.md` §2, §3.3, ASM-4, D-6,
+D-21).  Two of the six rules need it and one of them for a reading rather than an
+arithmetic: `fold-large-bet` folds when the call exceeds half the **shape's own** starting
+stack, so the same policy folds at 51 chips on a hundred-chip six-seat table and at 11 on
+the default shape's twenty, and the oracle's equity question is N-way on a shape with more
+than two seats (`folders.md` §2, ASM-31, `seats.md` §2, §6, D-33).
 """
 
 from __future__ import annotations
@@ -26,6 +36,7 @@ import numpy
 
 import features
 
+from . import declarations
 from .errors import InvalidReadout, InvalidSeed, UnknownBaseline
 
 #: The six catalogue names, in `protocol.md` §3's order: D-6's three first, then D-21's
@@ -130,8 +141,9 @@ def baselines():
         ),
         "fold-large-bet": _record(
             "fold-large-bet",
-            "fold when the chips to call exceed half the declared starting stack — "
-            "more than 10 of the declared 20 — on any street; check/call otherwise",
+            "fold when the chips to call exceed half the shape's declared starting "
+            "stack — more than 10 of the default shape's 20 — on any street; check/call "
+            "otherwise",
         ),
     }
 
@@ -161,6 +173,41 @@ def _pair(fact, wanted, value):
 def _amounts(fact, wanted, value):
     """One readout fact that is a pair of numbers: two amounts, not spellings."""
     entries = _pair(fact, wanted, value)
+    for entry in entries:
+        if isinstance(entry, bool) or not isinstance(entry, Real):
+            raise _malformed(fact, wanted, value)
+    return entries
+
+
+def _seat_counts():
+    """`one number per seat: the 2 or 6 entries the declared shapes carry`, as a refusal says it.
+
+    The clause is derived from `declarations.SEAT_COUNTS` rather than typed out, so a
+    fourth declared seat count cannot leave a message naming the old set (`errors.md` §3,
+    `seats.md` §2-§3).
+    """
+    counts = declarations.SEAT_COUNTS
+    return "one number per seat: the %s entries the declared shapes carry" % (
+        " or ".join("%d" % (count,) for count in counts),
+    )
+
+
+def _seats(fact, value):
+    """One readout fact that is one number per seat: as many entries as a declared shape's seats.
+
+    `stacks` is one entry per seat in seat order, so its length **is** the decision's seat
+    count -- the rule `engine.equity` reads the same fact by (`seats.md` §3, `engine/
+    equity.md` §3).  Two lengths are declared, two seats on D-2's and D-29's rows and six
+    on D-33's, so a sequence of any other length is a readout no declared shape produces
+    and is refused naming the fact, the declared lengths and the value; a single entry
+    that is not a number is refused the same way.  Nothing is parsed and nothing is
+    truncated to two: the count is the shape's and never a literal of this module's
+    validator (`shapes.md` §2, `seats.md` §2-§3, ASM-44).
+    """
+    wanted = _seat_counts()
+    entries = _entries(fact, value, wanted)
+    if len(entries) not in declarations.SEAT_COUNTS:
+        raise _malformed(fact, wanted, value)
     for entry in entries:
         if isinstance(entry, bool) or not isinstance(entry, Real):
             raise _malformed(fact, wanted, value)
@@ -227,7 +274,10 @@ def _readout(value):
     included (`folders.md` §2, §3, ASM-30).  Nothing parses a card's spelling here:
     the counts and the shapes are checked and the cards only counted, so no `engine`
     parser is imported to inspect one (`README.md` §6); the one rule that reads a rank
-    reads it through :func:`_rank`.
+    reads it through :func:`_rank`.  The **seat count** is checked too, and only through
+    `stacks`' own length: `stacks` is one entry per seat and `seat` indexes it, so a
+    six-seat decision is as well-formed as a two-seat one and no other length is
+    (`seats.md` §3, ASM-44).
     """
     if not isinstance(value, Mapping):
         raise InvalidReadout(
@@ -244,7 +294,17 @@ def _readout(value):
     seat = _pair("seat", pair, value["seat"])
     if isinstance(seat[0], bool) or not isinstance(seat[0], Integral):
         raise _malformed("seat", pair, value["seat"])
-    _amounts("stacks", "one number per seat", value["stacks"])
+    # The seat count is the shape's and it reaches this validator through the one fact
+    # whose length is it, `stacks`: two entries on the two-seat rows and six on the
+    # six-seat one, so an index in `0 .. seats − 1` is the range a decision of that shape
+    # can name and no looser or tighter one is accepted (`seats.md` §3, ASM-44).
+    seats = _seats("stacks", value["stacks"])
+    if not 0 <= int(seat[0]) < len(seats):
+        raise _malformed(
+            "seat",
+            "a seat index in 0..%d, one per entry of 'stacks'" % (len(seats) - 1,),
+            value["seat"],
+        )
     _amounts("limit", "a pair of numbers", value["limit"])
     _counted("pot", value["pot"])
     _counted("to_call", value["to_call"])
@@ -354,7 +414,18 @@ def _always_call_index(legal_actions):
 
 
 def _oracle_index(readout, legal_actions, seed):
-    """`baselines.md` §4: call at or above the pot odds, fold below them, never raise."""
+    """`baselines.md` §4: call at or above the pot odds, fold below them, never raise.
+
+    The equity question is asked with the readout it was handed, at the baseline's own
+    seed and at the declared sample count, and `engine.equity` reads the **seat count**
+    off that readout's `stacks` fact: a decision of a shape with more than two seats is
+    answered N-way, against the other seats' uniformly random hands, so a six-seat
+    readout is a six-way question and no argument here says how many opponents there are
+    (`engine/equity.md` §3, `seats.md` §2, D-33).  That is why a policy built for a shape
+    with more than two seats is an oracle at all: the shape decides whether this question
+    is asked two-way or N-way, and the validator above is what lets the six-seat readout
+    reach it (`e2e-surface.md` §3.1, §3.3, ASM-4, D-6).
+    """
     indices = _indices(legal_actions)
     pot = int(readout["pot"])
     to_call = int(readout["to_call"])
@@ -426,19 +497,22 @@ def _fold_no_pair_or_better_index(readout, legal_actions):
     return _continue_or_fold(indices, readout["hand_class"] == 0)
 
 
-def _fold_large_bet_index(readout, legal_actions):
-    """`baselines.md` §7: fold when the call is more than half the starting stack.
+def _fold_large_bet_index(readout, legal_actions, shape):
+    """`baselines.md` §9: fold when the call is more than half the shape's starting stack.
 
-    The stack is `engine.game_config()["starting_stack"]` read through the granted arrow
-    on every decision, never a copied `20`: a game parameter lives once, in `engine`
-    (ASM-31, `module-map.md` §2, D-13, D-21).
+    The stack is `engine.game_config(shape)["starting_stack"]` read through the granted
+    arrow on every decision, never a copied `20` and never a copied `100`: a game
+    parameter lives once, in `engine`, and the shape is the one the policy was built for,
+    so "half the stack" is 10 on the default shape's twenty chips and 50 on the
+    six-seat row's hundred -- the same rule and the same code (`folders.md` §2, ASM-31,
+    `module-map.md` §2, `seats.md` §2, §6, D-13, D-21, D-33).
     """
     indices = _indices(legal_actions)
     to_call = int(readout["to_call"])
     try:
         import engine
 
-        starting_stack = engine.game_config()["starting_stack"]
+        starting_stack = engine.game_config(shape)["starting_stack"]
     except Exception as error:
         raise InvalidReadout(
             "policy(readout): the game's declared starting stack is not readable: %s"
@@ -448,15 +522,23 @@ def _fold_large_bet_index(readout, legal_actions):
 
 
 class Baseline:
-    """One fixed rule as a policy: a callable over `(readout, legal_actions)`."""
+    """One fixed rule as a policy: a callable over `(readout, legal_actions)`.
+
+    It carries the baseline's name, its seed and the **name of the declared shape it
+    decides in** -- and nothing else: no `learning_rule` and no `utility`, because a
+    baseline learns nothing and is trained on no reward, and no shape object, because a
+    policy's state is its own and the shape is one string (`e2e-surface.md` §2, ASM-4,
+    D-6, D-21, `seats.md` §6).
+    """
 
     _agents_baseline = True
 
-    __slots__ = ("_name", "_seed")
+    __slots__ = ("_name", "_seed", "_shape")
 
-    def __init__(self, name, seed):
+    def __init__(self, name, seed, shape=None):
         self._name = name
         self._seed = seed
+        self._shape = shape
 
     def __repr__(self):
         return "Baseline(%r, seed %d)" % (self._name, self._seed)
@@ -480,12 +562,20 @@ class Baseline:
         elif self._name == "fold-no-pair-or-better":
             index = _fold_no_pair_or_better_index(decision, legal_actions)
         else:
-            index = _fold_large_bet_index(decision, legal_actions)
+            index = _fold_large_bet_index(decision, legal_actions, self._shape)
         return _descriptor(legal_actions, index)
 
 
-def build_baseline(name, seed):
-    """One baseline as a policy, or the refusal naming the name or the seed."""
+def build_baseline(name, seed, shape=None):
+    """One baseline as a policy, or the refusal naming the name, the seed or the shape.
+
+    `shape` is the declared game the policy decides in and is **optional**: absent it is
+    the default shape, which is what the two-seat fixed game's baselines were built as
+    before the shape existed, so a two-argument call is today's call (`e2e-surface.md`
+    §3.3, `shapes.md` §2, `seats.md` §6, D-33).  A name outside the catalogue is refused
+    naming it and the declared names, never defaulted, as every other row of this surface
+    that takes a shape refuses one (`shapes.md` §2, `seats.md` §6, D-13).
+    """
     if not isinstance(name, str) or name not in NAMES:
         raise UnknownBaseline(
             "build_baseline(name): the name must be one of %r, got %r" % (NAMES, name)
@@ -494,4 +584,4 @@ def build_baseline(name, seed):
         raise InvalidSeed(
             "build_baseline(seed): the seed must be an integer, got %r" % (seed,)
         )
-    return Baseline(name, int(seed))
+    return Baseline(name, int(seed), declarations.require_game(shape, "build_baseline"))

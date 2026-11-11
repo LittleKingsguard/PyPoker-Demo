@@ -325,37 +325,56 @@ class FAM14Harness(S.SurfaceCase):
 
 
     # -- the shape in force (D-29) ----------------------------------------
-    def test_fam14_12_a_seam_satisfies_the_protocol_on_the_named_shape(self):
-        """FAM-14.12 a seam answers the second shape's decisions, in its six indices.
+    def test_fam14_12_a_seam_satisfies_the_protocol_on_a_named_shape(self):
+        """FAM-14.12 a seam answers a named shape's decisions, in that shape's indices.
 
         The harness never substitutes for a module and never learns a game: a seam is a
         policy of `e2e-surface.md` §2 handed `(readout, legal_actions)`, so on a hand dealt
-        on D-29's no-cap shape it must return one of **that** shape's legal descriptors —
-        a seam that spoke only today's three indices would be a policy of one game and not
-        of the surface (`shapes.md` §2, §5, ``sizing.md`` §3, D-29).
+        on a shape declared beside the default it must return one of **that** shape's legal
+        descriptors — a seam that spoke only today's three indices would be a policy of one
+        game and not of the surface (`shapes.md` §2, §5, ``sizing.md`` §3, D-29).  The
+        assertion is made of every such shape, the six-seat one included: a seam does not
+        count seats, it answers the decision it is handed (`seats.md` §2, §4, D-33).
 
         The label is the battery's own, because a seam's contract is the protocol and not
         the label (`e2e-surface.md` §3.6, `records.md` §14, `battery.md` §4).
         """
-        shape = self.second_shape()
-        self.assertEqual(
-            set(self.vocabulary(shape)),
-            set(range(len(S.SIZED_ACTIONS))),
-            "the named shape's vocabulary is its six declared descriptors (sizing.md §3)",
-        )
-        walk = self.seam_plays_legally("fam14-12-six-index-seam", S.SEED_I, shape=shape)
-        self.assertTrue(walk, "the seam answered no decision of the named shape")
-        # The episode the seam's decisions end in is still the engine's: zero-sum payoffs.
-        episode = self.play(S.SEED_I, self.ep("harness", "seam")("fam14-12-six-index-seam"),
-                            self.baseline("always-call", S.SEED_D), shape=shape)
-        payoffs = S.numbers(S.find_values(episode, "payoff"))
-        self.assertTrue(payoffs, "a real episode record carries its payoffs: %r" % (episode,))
-        self.assertEqual(
-            sum(payoffs),
-            0,
-            "the episode the engine played through a seam on the named shape is still "
-            "zero-sum, because the engine and not the seam decided the hand (ASM-12)",
-        )
+        for shape in self.other_shapes():
+            self.assertEqual(
+                set(self.vocabulary(shape)),
+                set(range(len(S.SIZED_ACTIONS))),
+                "%r's vocabulary is its six declared descriptors (sizing.md §3)" % (shape,),
+            )
+            walk = self.seam_plays_legally("fam14-12-six-index-seam", S.SEED_I, shape=shape)
+            self.assertTrue(
+                walk, "the seam answered no decision of %r" % (shape,),
+            )
+            # The episode the seam's decisions end in is still the engine's: zero-sum payoffs.
+            if self.seats_of(shape) > 2:
+                seating = [self.ep("harness", "seam")("fam14-12-six-index-seam")
+                           for _seat in range(self.seats_of(shape))]
+                episode = self.play(S.SEED_I, seats=seating, shape=shape)
+            else:
+                episode = self.play(S.SEED_I,
+                                    self.ep("harness", "seam")("fam14-12-six-index-seam"),
+                                    self.baseline("always-call", S.SEED_D), shape=shape)
+            payoffs = S.numbers(S.find_values(episode, "payoff"))
+            self.assertTrue(
+                payoffs,
+                "a real episode record carries its payoffs: %r" % (episode,),
+            )
+            self.assertEqual(
+                len(payoffs), self.seats_of(shape),
+                "the episode pays one delta per seat of the shape a seam played — six on the "
+                "six-seat one (records.md §5, seats.md §3): %r" % (payoffs,),
+            )
+            self.assertEqual(
+                sum(payoffs),
+                0,
+                "the episode the engine played through a seam on %r is still zero-sum, "
+                "because the engine and not the seam decided the hand (ASM-12): %r"
+                % (shape, payoffs),
+            )
 
 
 if __name__ == "__main__":

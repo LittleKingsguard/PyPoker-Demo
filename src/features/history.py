@@ -16,8 +16,10 @@ mislabel an action (guardrails.md G13, errors.md §3).
 
 The kind is not a vocabulary index: the two declared shapes declare different action
 vocabularies, and this grammar's three kinds -- fold, check-call, raise -- are the
-history block's own fixed width on both of them, because a past bet's size is not a fact
-the learner is given (sizing.md §5, ASM-39).
+history block's own three-way width on both of them, because a past bet's size is not a
+fact the learner is given (sizing.md §5, ASM-39).  How many slots the block declares is
+the shape's, and not this module's: the capacity lives in the shape row and reaches the
+writer as its `params` (`shapes.md` §8, ASM-42).
 """
 
 from __future__ import annotations

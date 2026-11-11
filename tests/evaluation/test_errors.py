@@ -1,9 +1,11 @@
 """EVL-9 — the refusal hierarchy and the message grammar.
 
 Drives `docs/L3/evaluation/errors.md` §1-§6: one `EvaluationError` base and the
-forty-two subclasses of §2 -- D-19's, D-20's, D-21's and D-29's included, so the
-three shape classes `UnknownShape`, `ShapeMismatch` and `UnknownExploration` are
-driven from this file beside the rest (`shape.md` §3, §5), each reachable from the refusal the L2 surface
+forty-five subclasses of §2 -- D-19's, D-20's, D-21's, D-29's and D-33's included, so the
+three shape classes `UnknownShape`, `ShapeMismatch` and `UnknownExploration` and the
+three seat-count classes `InvalidDrawCount`, `DrawExceedsMembership` and
+`SeatCountExceeded` are driven from this file beside the rest (`shape.md` §3, §5,
+`seats.md` §2-§5), each reachable from the refusal the L2 surface
 declares for it; the message grammar of §3 -- `"<entry>(<argument or field>): <the
 violated contract>, got <what was passed>"` -- so the message names the entry point,
 the argument or key at fault and the offending value; the canonical spellings of §4
@@ -50,11 +52,12 @@ from _evaluation_support import (
     rating_record,
     report_inputs,
     run_record,
+    six_seat_shape,
     version_chain,
     version_record,
 )
 
-#: The forty-two subclasses `errors.md` §2 declares, in the order it lists them.
+#: The forty-five subclasses `errors.md` §2 declares, in the order it lists them.
 DECLARED_CLASSES = (
     "InvalidPool",
     "PoolDeclarationInvalid",
@@ -76,6 +79,9 @@ DECLARED_CLASSES = (
     "FamilyBoundExceeded",
     "PoolNotFrozen",
     "InvalidSeed",
+    "InvalidDrawCount",
+    "DrawExceedsMembership",
+    "SeatCountExceeded",
     "InvalidHandCount",
     "SameMemberPair",
     "VariantCountInvalid",
@@ -103,7 +109,7 @@ DECLARED_CLASSES = (
 
 class ErrorsTest(EvaluationCase):
     def test_evl_9_1_the_declared_hierarchy_exists(self):
-        """EVL-9.1 `src/evaluation/errors.py` declares `EvaluationError` and the forty-two subclasses `errors.md` §2 names -- `UnknownShape`, `ShapeMismatch` and `UnknownExploration` among them -- each a distinct subclass of that base (`errors.md` §2, `README.md` §3-§4, G16)."""
+        """EVL-9.1 `src/evaluation/errors.py` declares `EvaluationError` and the forty-five subclasses `errors.md` §2 names -- `UnknownShape`, `ShapeMismatch` and `UnknownExploration` among them -- each a distinct subclass of that base (`errors.md` §2, `README.md` §3-§4, G16)."""
         module = errors_module()
         root = getattr(module, "EvaluationError", None)
         self.assertTrue(
@@ -135,7 +141,7 @@ class ErrorsTest(EvaluationCase):
                 self.assertNotIn(
                     candidate,
                     seen,
-                    "the forty-two classes are one per refusal family, and %r is a "
+                    "the forty-five classes are one per refusal family, and %r is a "
                     "second name for one already declared (errors.md §2): %r"
                     % (name, candidate),
                 )
@@ -143,12 +149,12 @@ class ErrorsTest(EvaluationCase):
         self.assertEqual(
             len(seen),
             len(DECLARED_CLASSES),
-            "errors.md §2 declares forty-two distinct subclasses under one base: %r"
+            "errors.md §2 declares forty-five distinct subclasses under one base: %r"
             % (len(seen),),
         )
 
     def test_evl_9_2_every_declared_class_is_reachable_from_its_refusal(self):
-        """EVL-9.2 each of `errors.md` §2's forty-two classes is reachable from the refusal `surface.md` §5-§13 declares for it -- the three shape classes included -- so the hierarchy names what a caller can route on (`errors.md` §2, `guardrails.md` G16)."""
+        """EVL-9.2 each of `errors.md` §2's forty-five classes is reachable from the refusal `surface.md` §5-§13 declares for it -- the three shape classes included -- so the hierarchy names what a caller can route on (`errors.md` §2, `guardrails.md` G16)."""
         module = errors_module()
         for name, label, fn, args in self.provocations():
             with self.subTest(error=name, case=label):
@@ -188,6 +194,25 @@ class ErrorsTest(EvaluationCase):
         )
         frozen = package.build_pool(declaration(members=(), m=5, frozen=True))
         unfrozen = package.build_pool(declaration(members=(), m=5, frozen=False))
+        # A four-member pool: the three pinned anchors and D-21's `fold-large-bet`, so a
+        # draw of five is strictly larger than the membership and a draw of four is not
+        # (`docs/L1/seats.md` §4, `records.md` §8, ASM-43, D-21).
+        four = package.build_pool(
+            dict(
+                declaration(members=(), m=5, frozen=True),
+                baselines=[self.folder_names()[-1]],
+            )
+        )
+        # A six-seat pool: the three anchors and the three folders, on the one declared
+        # shape whose seat count is above the pairwise instrument's (`seats.md` §1, §3,
+        # §5, `docs/L1/seats.md` §2, §5, D-33).
+        six_seat = package.build_pool(
+            dict(
+                declaration(members=(), m=5, frozen=True),
+                baselines=list(self.folder_names()),
+                game=six_seat_shape(),
+            )
+        )
         chain = version_chain(VERSION_IDS[:2])
         open_pool = package.build_pool(declaration(members=chain, m=3, frozen=False))
         rung, record, matrix, rating = report_inputs()
@@ -410,6 +435,24 @@ class ErrorsTest(EvaluationCase):
                 (unfrozen, [first_legal], "live"),
             ),
             ("InvalidSeed", "a string seed", package.opponent, (frozen, "8086")),
+            (
+                "InvalidDrawCount",
+                "a draw count of zero",
+                package.opponent,
+                (frozen, OPPONENT_SEEDS[0], 0),
+            ),
+            (
+                "DrawExceedsMembership",
+                "a draw of five from a four-member pool",
+                package.opponent,
+                (four, OPPONENT_SEEDS[0], 5),
+            ),
+            (
+                "SeatCountExceeded",
+                "a matrix over a six-seat pool",
+                package.matrix,
+                (six_seat, [first_legal], "live"),
+            ),
             (
                 "InvalidHandCount",
                 "a hand count of zero",
@@ -751,6 +794,18 @@ class ErrorsTest(EvaluationCase):
             entry="opponent",
             groups=(("seed",),),
             label="a bool seed",
+        )
+
+    def folder_names(self):
+        """The catalogue's three folders, in `agents.baselines()`'s order (D-21).
+
+        The catalogue names beyond the pinned anchors: a declaration that admits them
+        holds the three anchors and the three folders, which is the six-member
+        composition a six-seat hand seats (`docs/L1/seats.md` §2, §4, `records.md` §8,
+        ASM-32, D-21).
+        """
+        return tuple(
+            name for name in self.agents().baselines() if name not in BASELINES
         )
 
     @staticmethod

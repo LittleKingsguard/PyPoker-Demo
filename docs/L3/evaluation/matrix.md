@@ -4,9 +4,9 @@
   per-member seeds (§3), how each member's policy is built (§4), the record's keys (§5), the two budgets (§6) and every
   refusal (`surface.md` §10, `records.md` §10, `league.md` §3, `shape.md` §4)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — the table's shape is the **pool's** and `matrix` takes no shape argument, a variant of another shape is refused by slot, and the record's own required `game` is carried by every cell and every member record (§1, §4–§5, §7, `shape.md` §4)
+- **Rev 6:** D-29's second shape — the table's shape is the **pool's** and `matrix` takes no shape argument, a variant of another shape is refused by slot, and the record's own required `game` is carried by every cell and every member record (§1, §4–§5, §7, `shape.md` §4) · **Rev 7:** D-33's third shape — a matrix is **two seats'**: a pool on a shape above the pairwise instrument's seat count is refused naming the shape and its seat count, before a variant is looked at and before a checkpoint is touched (§1, §7, `seats.md` §1, §5, D-22, D-33)
 - **Read with:** `shape.md` §2–§4, `pool.md` §5, `utility.md` §3–§4, `scheduler.md` §3–§5, `rating.md` §1, `tables.md` §1,
-  `errors.md` §2–§4
+  `errors.md` §2–§4, `seats.md` §1, §5
 
 ## 1. The membership, and it is frozen — and it is on one shape
 
@@ -28,6 +28,8 @@ plays (`pool.md` §1, §5), so the table is played on that shape and its record 
 the rung's own policy, so it may name that shape or none — naming **another** one is refused naming the variant's slot
 (`variant-1`, `variant-2`) and both shapes, because a table is measured on one shape and no row of it is a second game
 (`ShapeMismatch`, §7, `docs/L1/shapes.md` §6).
+
+**A matrix is two seats', and the refusal comes first.** The seat count is read through `engine.game_config` — the granted arrow, never a literal — and a pool on a shape whose count is above the pairwise instrument's is refused as `SeatCountExceeded`, naming the shape and its seat count, because a cell is an unordered pair and a six-way hand produces a placement (§5, §7, `module-map.md` §2, `seats.md` §1, §3, §5, `league.md` §4, D-22, D-33). The check sits **straight after the frozen-pool check and before `_variant_list`**, so no variant is looked at and no checkpoint is touched for a table that will not exist; both two-seat shapes pass untouched, and every table they produce today is exactly what it was (`seats.md` §3, §5). **No matrix, and therefore no rating and no report, exists for the six-seat shape in this pass**: a run on it writes its curves, its pool, its checkpoints and its greedy pass, and no table (`seats.md` §5, `league.md` §4, D-22, D-33).
 
 ## 2. The pairs, and the order the cells are played in
 
@@ -113,6 +115,7 @@ The required keys are what `rating` and `report` read (`rating.md` §1, `report.
 | `InvalidPool` | the first argument is not a pool this module built (`surface.md` §10) |
 | `PoolNotFrozen` | the pool is not frozen, naming it — a pool does not change while it is tabled (`surface.md` §10, ASM-16) |
 | `UnknownTable` | the label is not the string `live` or `full` (`records.md` §10, `league.md` §5) |
+| `SeatCountExceeded` | the pool's shape has more seats than the pairwise instrument's, naming the shape and its seat count — a cell is one pair of two seats — raised before a variant is looked at and before a checkpoint is touched (§1, `seats.md` §5, `league.md` §4, D-22, D-33) |
 | `VariantCountInvalid` | the variant list holds anything other than one or two policies (`ladder.md` §2, `league.md` §3) |
 | `VariantInvalid` | a variant is not callable, naming it (`surface.md` §10) |
 | `ShapeMismatch` | a variant's `game` is not the pool's, naming the variant's slot and both shapes — a table is measured on one shape (`surface.md` §10, `shape.md` §3, `docs/L1/shapes.md` §6) |
@@ -122,9 +125,10 @@ The required keys are what `rating` and `report` read (`rating.md` §1, `report.
 | `UnknownShape` | a version member's record or a variant names a shape `SHAPE_NAMES` does not carry, naming it and the declared shapes (`shape.md` §2) |
 | `RuleMismatch`, `UtilityMismatch`, `ShapeMismatch` | a version member's record declares a `rule`, a `utility` or a `game` its own policy contradicts — naming the member and both values, after the load and **before any cell is played** (`scheduler.md` §5, `families.md` §6, `utility.md` §4, `shape.md` §3, D-19, D-20) |
 
-The order is the table's: cheap checks first, then the variant's shape (before a member is built, because it is the table's
-own premise), then the members that must be loaded — so an unfrozen pool is reported before a single checkpoint is touched, a
-variant of another shape before a row exists, and no cell is played for a table that will be refused. A matrix is never
+The order is the table's: cheap checks first, then the pool's seat count, then the variant's shape (before a member is built,
+because it is the table's own premise), then the members that must be loaded — so an unfrozen pool is reported before a single
+checkpoint is touched, a pool no pair can table before a variant is looked at, a variant of another shape before a row exists,
+and no cell is played for a table that will be refused. A matrix is never
 repaired and never partially returned (`e2e-surface.md` §2). The `MemberDuplicate` guard is **defensive on the pool's side** —
 `build_pool` and `offer` already refuse two members carrying one id (`pool.md` §2, §8) — and it is reachable through §1 and no
 other way: a declared version whose id is `variant-1` collides with a variant's slot label, and the table refuses rather than

@@ -1,0 +1,1300 @@
+{
+  "axis row": "n/a, single variant",
+  "baselines": {
+    "note": "every baseline the pool holds is a pool member and a table row \u2014 the three anchor baselines always, plus any folding baseline the membership declared, and the anchor three are the rating's; the run declares the rows and measures no cell (D-16, D-21, protocol.md \u00a73)",
+    "rows": [
+      {
+        "hand count": 120,
+        "measured": false,
+        "member": "random",
+        "pinned": true
+      },
+      {
+        "hand count": 120,
+        "measured": false,
+        "member": "always-call",
+        "pinned": true
+      },
+      {
+        "hand count": 120,
+        "measured": false,
+        "member": "oracle",
+        "pinned": true
+      },
+      {
+        "hand count": 120,
+        "measured": false,
+        "member": "fold-no-pair-or-face",
+        "pinned": true
+      },
+      {
+        "hand count": 120,
+        "measured": false,
+        "member": "fold-no-pair-or-better",
+        "pinned": true
+      },
+      {
+        "hand count": 120,
+        "measured": false,
+        "member": "fold-large-bet",
+        "pinned": true
+      }
+    ]
+  },
+  "budget": 24,
+  "checkpoints": {
+    "variant-1": {
+      "5681": [
+        {
+          "members": [
+            {
+              "member": "metadata.json",
+              "sha256": "2554d2e546364df8fe104b31c8517cc9bb0640f679b0d0ae13c557b124a8d04f"
+            },
+            {
+              "member": "parameters.npy",
+              "sha256": "1991eb20b157e3defa08eb1497c88b3c3070b5dd9fed48f8b99e373480592b8b"
+            }
+          ],
+          "path": "trnj-baseline-default/variant-1/seed-5681/step-0016.ckpt"
+        },
+        {
+          "members": [
+            {
+              "member": "metadata.json",
+              "sha256": "8805421fea5e03aec922e68ccc0132ef83330e1c4b5e60e0b57f4c7c77e4ab29"
+            },
+            {
+              "member": "parameters.npy",
+              "sha256": "9d193877584b5ba0b7b2cb0503094641d9d255c7b09edcadd6ead50d574a6ecd"
+            }
+          ],
+          "path": "trnj-baseline-default/variant-1/seed-5681/step-0018.ckpt"
+        },
+        {
+          "members": [
+            {
+              "member": "metadata.json",
+              "sha256": "fe16fd4db9e558bafcbd1ec86e348cdf690d3d14d751650266a82714ea8b8715"
+            },
+            {
+              "member": "parameters.npy",
+              "sha256": "955e6a6b72e4656b98d2203f59e4e33cef97a1606c8be8f3078c9684b088d0a0"
+            }
+          ],
+          "path": "trnj-baseline-default/variant-1/seed-5681/step-0020.ckpt"
+        },
+        {
+          "members": [
+            {
+              "member": "metadata.json",
+              "sha256": "ba91bc3a38ef7637414934cb7d1128bb3bfd3955a9a426d1722ad195479d6402"
+            },
+            {
+              "member": "parameters.npy",
+              "sha256": "9c7d999145f464c6a261528fe741a2c43fbe6852e379ab624aa09c8718097913"
+            }
+          ],
+          "path": "trnj-baseline-default/variant-1/seed-5681/step-0022.ckpt"
+        },
+        {
+          "members": [
+            {
+              "member": "metadata.json",
+              "sha256": "a0b5e7dd3fc3e9029f4bfc0d8957b8055d6180d5a2ebe093b4a92466c50c2bfa"
+            },
+            {
+              "member": "parameters.npy",
+              "sha256": "80ae30d6478fd58607cf1a915781fa55be70a922f5c243d80f61446e6542c594"
+            }
+          ],
+          "path": "trnj-baseline-default/variant-1/seed-5681/step-0024.ckpt"
+        },
+        {
+          "members": [
+            {
+              "member": "metadata.json",
+              "sha256": "a0b5e7dd3fc3e9029f4bfc0d8957b8055d6180d5a2ebe093b4a92466c50c2bfa"
+            },
+            {
+              "member": "parameters.npy",
+              "sha256": "80ae30d6478fd58607cf1a915781fa55be70a922f5c243d80f61446e6542c594"
+            }
+          ],
+          "path": "trnj-baseline-default/variant-1/seed-5681/final.ckpt"
+        }
+      ]
+    }
+  },
+  "curves": {
+    "variant-1": {
+      "5681": {
+        "samples": [
+          2,
+          4,
+          6,
+          8,
+          10,
+          12,
+          14,
+          16,
+          18,
+          20
+        ],
+        "spread": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "td_error": [
+          2.076871350666475,
+          0.4668815727768884,
+          0.8511176732638597,
+          1.6465709839871239,
+          3.3012606266644355,
+          1.2462330491931333,
+          1.995601043297264,
+          2.133028041519704,
+          2.104323648014907,
+          3.0459480600557667
+        ]
+      }
+    }
+  },
+  "device": "cpu",
+  "game": "fixed-limit-20",
+  "greedy": {
+    "variant-1": {
+      "5681": {
+        "decisions": [
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 8,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 8,
+            "minimum": 8,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              0,
+              1
+            ],
+            "maximum": null,
+            "minimum": null,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 8,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 8,
+            "minimum": 8,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              0,
+              1
+            ],
+            "maximum": null,
+            "minimum": null,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "fold",
+            "index": 0,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 8,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 8,
+            "minimum": 8,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              0,
+              1
+            ],
+            "maximum": null,
+            "minimum": null,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": null,
+            "descriptor": "check-call",
+            "index": 1,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 8,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 8,
+            "minimum": 8,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              0,
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 2,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 2,
+            "minimum": 2,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          },
+          {
+            "amount": 4,
+            "descriptor": "raise",
+            "index": 2,
+            "legal": [
+              1,
+              2
+            ],
+            "maximum": 4,
+            "minimum": 4,
+            "tie": false
+          }
+        ],
+        "hands": 24,
+        "mode": "off",
+        "net_chips": [
+          4.0,
+          -10.0,
+          2.0,
+          0.0,
+          -14.0,
+          -14.0,
+          2.0,
+          10.0,
+          -14.0,
+          1.0,
+          -14.0,
+          2.0,
+          -20.0,
+          -10.0,
+          -1.0,
+          10.0,
+          20.0,
+          1.0,
+          -10.0,
+          -14.0,
+          -14.0,
+          6.0,
+          -14.0,
+          -14.0
+        ],
+        "seed": 5681
+      }
+    }
+  },
+  "header": {
+    "action space": {
+      "0": "fold",
+      "1": "check-call",
+      "2": "raise"
+    },
+    "cell size": 120,
+    "device": "cpu",
+    "game": {
+      "big_bet": 4,
+      "big_blind": 2,
+      "blind_levels": 1,
+      "blinds": [
+        1,
+        2
+      ],
+      "button_seat": 0,
+      "game": "fixed-limit texas hold'em",
+      "limit": [
+        2,
+        4
+      ],
+      "player_count": 2,
+      "raise_cap": 4,
+      "seats": 2,
+      "small_bet": 2,
+      "small_blind": 1,
+      "starting_stack": 20,
+      "starting_stacks": [
+        20,
+        20
+      ],
+      "streets": [
+        "preflop",
+        "flop",
+        "turn",
+        "river"
+      ]
+    },
+    "parameter counts": {
+      "always-call": 0,
+      "fold-large-bet": 0,
+      "fold-no-pair-or-better": 0,
+      "fold-no-pair-or-face": 0,
+      "oracle": 0,
+      "random": 0,
+      "variant-1": 10000
+    },
+    "sample budget": 24,
+    "seeds": [
+      5681
+    ],
+    "snapshot interval": 2,
+    "table seed": 20261105
+  },
+  "header_checkpoint_count": 6,
+  "header_checkpoint_suffixes": [
+    "trnj-baseline-default/variant-1/seed-5681/final.ckpt",
+    "trnj-baseline-default/variant-1/seed-5681/step-0016.ckpt",
+    "trnj-baseline-default/variant-1/seed-5681/step-0018.ckpt",
+    "trnj-baseline-default/variant-1/seed-5681/step-0020.ckpt",
+    "trnj-baseline-default/variant-1/seed-5681/step-0022.ckpt",
+    "trnj-baseline-default/variant-1/seed-5681/step-0024.ckpt"
+  ],
+  "params": {
+    "variant-1": {
+      "budget": 10000,
+      "lower": 9800.0,
+      "upper": 10200.0
+    }
+  },
+  "pool": {
+    "frozen": true,
+    "game": "fixed-limit-20",
+    "id": "pool-11b03e0a5ff07c13",
+    "lineage": null,
+    "m": 5,
+    "members": [
+      {
+        "baseline": true,
+        "game": null,
+        "id": "random",
+        "params": 0,
+        "pinned": true
+      },
+      {
+        "baseline": true,
+        "game": null,
+        "id": "always-call",
+        "params": 0,
+        "pinned": true
+      },
+      {
+        "baseline": true,
+        "game": null,
+        "id": "oracle",
+        "params": 0,
+        "pinned": true
+      },
+      {
+        "baseline": true,
+        "game": null,
+        "id": "fold-no-pair-or-face",
+        "params": 0,
+        "pinned": true
+      },
+      {
+        "baseline": true,
+        "game": null,
+        "id": "fold-no-pair-or-better",
+        "params": 0,
+        "pinned": true
+      },
+      {
+        "baseline": true,
+        "game": null,
+        "id": "fold-large-bet",
+        "params": 0,
+        "pinned": true
+      }
+    ],
+    "rules": [],
+    "utilities": []
+  },
+  "record_keys": [
+    "axis row",
+    "baselines",
+    "budget",
+    "checkpoints",
+    "curves",
+    "device",
+    "game",
+    "greedy",
+    "header",
+    "params",
+    "pool",
+    "rules",
+    "rung",
+    "seeds",
+    "table",
+    "timings",
+    "utilities",
+    "variants"
+  ],
+  "rules": [
+    "masked-q-learning"
+  ],
+  "rung": "trnj-baseline-default",
+  "seeds": [
+    5681
+  ],
+  "table": "live",
+  "timings": {
+    "variant-1": {
+      "5681": {
+        "hands": 24,
+        "keys": [
+          "hands",
+          "hands_per_second",
+          "seconds_per_hand",
+          "wall_clock_seconds"
+        ]
+      }
+    }
+  },
+  "utilities": [
+    "net-chips"
+  ],
+  "variants": [
+    {
+      "architecture": {
+        "depth": 1,
+        "kind": "naive-stack",
+        "width": 8
+      },
+      "backend": "numpy",
+      "encoding": "flat-numeric",
+      "learning_rule": "masked-q-learning",
+      "name": "variant-1",
+      "samples": 24,
+      "snapshot_every": 2,
+      "utility": "net-chips"
+    }
+  ]
+}

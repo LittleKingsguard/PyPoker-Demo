@@ -16,18 +16,20 @@ Rejected: a seventh rung whose axis is the game. A rung is a comparison, and §6
 
 One new entry point publishes the declared shapes, default first: its instance set is the declaration itself, so the row is `fixed` and no instance of it can be invented (`e2e-surface.md` §5). `engine.game_config(shape)` takes a shape name and returns that shape's row; called with no argument it returns the **default** shape's row, which is byte-for-byte the mapping `engine.game_config()` returns today (D-2, ASM-6). A name outside the catalogue is refused **naming it and the declared names** — never defaulted, because a default on a name is the silent substitution `e2e-surface.md` §2 forbids (D-13).
 
-| Key | `fixed-limit-20` — the default (D-2, ASM-6) | `no-limit-100` (D-27, D-29) |
-|---|---|---|
-| seats, blinds | two seats, blinds 1/2, one blind level that never rises | the same |
-| starting stack | 20 chips | 100 chips |
-| chips in play | 40 — `pot + sum(stacks)` at every decision | 200 — the same invariant at the new total |
-| betting | fixed bets of 2 and 4, raise cap four bet-or-raise actions a street | no fixed bet and no cap: any legal amount up to the stack |
-| action vocabulary | `fold`, `check-call`, `raise` — three indices | `fold`, `check-call`, `raise-quarter`, `raise-half`, `raise-all-in`, `raise-minimum` — six, in that index order (`sizing.md` §2–§3) |
-| head width | 3, the vocabulary's size | 6, the vocabulary's size (`sizing.md` §6) |
-| amount normalisers | stack ÷20, pot ÷40, `to_call` ÷20, bet size ÷4, action count ÷4 (ASM-6) | stack ÷100, pot ÷200, `to_call` ÷100, amount in force ÷100, action count ÷50 (`sizing.md` §5) |
-| declared pool additions | the three anchor baselines of D-6 | the same, plus the three folders of D-21: the price is folder-borne, so a baselines-only pool holds no opponent it applies to (D-26, D-21) |
+| Key | `fixed-limit-20` — the default (D-2, ASM-6) | `no-limit-100` (D-27, D-29) | `six-seat-no-limit-100` (D-33) |
+|---|---|---|---|
+| seats, blinds | two seats, blinds 1/2, one blind level that never rises | the same | six seats, the same blinds and the same single level (`seats.md` §2) |
+| starting stack | 20 chips | 100 chips | 100 chips a seat |
+| chips in play | 40 — `pot + sum(stacks)` at every decision | 200 — the same invariant at the new total | 600 — the same invariant at the six-seat total |
+| history capacity | 24, the fixed-limit cap's bound (§8) | 66, the uncapped shape's derived bound (§8) | 98, its own derived bound (§8) |
+| betting | fixed bets of 2 and 4, raise cap four bet-or-raise actions a street | no fixed bet and no cap: any legal amount up to the stack | the same, at six seats |
+| action vocabulary | `fold`, `check-call`, `raise` — three indices | `fold`, `check-call`, `raise-quarter`, `raise-half`, `raise-all-in`, `raise-minimum` — six, in that index order (`sizing.md` §2–§3) | the same six, in the same order — the vocabulary is the shape's, and a seat count does not add a descriptor |
+| head width | 3, the vocabulary's size | 6, the vocabulary's size (`sizing.md` §6) | 6, the vocabulary's |
+| amount normalisers | stack ÷20, pot ÷40, `to_call` ÷20, bet size ÷4, action count ÷4 (ASM-6) | stack ÷100, pot ÷200, `to_call` ÷100, amount in force ÷100, action count ÷50 (`sizing.md` §5) | the same, with the pot ÷600 — the six-seat total (`sizing.md` §5) |
+| layout widths | 203 dense, 40 tokens, vocabulary 96 | 329 dense, 82 tokens, vocabulary 96 (§8) | 433 dense, 122 tokens, vocabulary 102 (§8, `seats.md` §3) |
+| declared pool additions | the three anchor baselines of D-6 | the same, plus the three folders of D-21: the price is folder-borne, so a baselines-only pool holds no opponent it applies to (D-26, D-21) | the same six, and version members of its own shape: the pool must hold folders **and** raisers (D-33 §2, `seats.md` §4) |
 
-The two shapes share every **fact** of the readout and every **slot** of both encodings: what changes is what the facts mean and what the divisors and buckets are, because a divisor of 40 on a 200-chip game is not a normalisation but a clip (`sizing.md` §5, D-25).
+The three shapes share every **fact** of the readout; what changes is what the facts are worth — the seat count, the seats a `stacks` fact carries, what the divisors divide — because a divisor of 40 on a 200-chip game is not a normalisation but a clip (`sizing.md` §5, D-25, `seats.md` §3).
 
 ## 3. Identity — the four carriers
 
@@ -54,7 +56,7 @@ An absent `game` reads as the **default** shape, in a configuration, a run recor
 
 ## 5. The fixed-limit path is unchanged
 
-This is the constraint the whole design is written under, and the design meets it without an exception: every widening's absence reproduces today's value, the only new entry point is one no fixed-limit path calls, `engine.game_config()` and `features.action_space()` return today's mappings unchanged, both encodings keep their slot counts, widths and vocabulary, and the fixed-limit shape's head width is 3 — so `param_count` at that shape is today's formula and today's 10,119 holds (`docs/L3/agents/architecture.md` §5). The readout keeps eleven facts in both shapes and no twelfth is added (`records.md` §5, `docs/L3/engine/readout.md` §2).
+This is the constraint the whole design is written under, and the design meets it without an exception: every widening's absence reproduces today's value, the only new entry point is one no fixed-limit path calls, `engine.game_config()` and `features.action_space()` return today's mappings unchanged, the **default** shape keeps its slot counts, its widths, its capacity, its vocabulary and its head width of 3 — so `param_count` at that shape is today's formula and today's 10,119 holds (`docs/L3/agents/architecture.md` §5). D-33 widens the uncapped shapes' history and nothing of the default shape's (§8). The readout keeps eleven facts on every shape and no twelfth is added; what the seat count changes is the seats a `stacks` fact carries (`records.md` §5, `seats.md` §3, `docs/L3/engine/readout.md` §2).
 
 The 18 shipped checkpoints are version-1 containers and stay version 1, read as the default shape's — which is what the absence of the field means (§3). `checkpoints/evidence/r1-live.json` and `tables/league-full.json` are records of one fixed-limit run and one fixed-limit table; neither is re-measured, neither is rewritten, and no field is added to them (D-8, ASM-18, `protocol.md` §5). A future fixed-limit run writes a version-3 container exactly as today and its payload is byte-identical; only a run on another shape writes version 4 (`sizing.md` §6).
 
@@ -78,3 +80,41 @@ The register's rule is that a later row names what it supersedes, and four rows 
 - **ASM-6** (20-chip stacks, fixed bets, a cap of four) — superseded as the *only* parameterisation: it stays the default shape's row (§2) and stops being the game's.
 
 D-25, D-26, D-27 and D-28 already record the retractions and the gates this design answers, and D-29 records the authorisation; none of them is reworded here (D-29).
+
+## 8. The history block's capacity is the shape's (D-33)
+
+Keeping one 203-slot layout for both shapes left the uncapped shape's history overflow latent until a raiser was
+seated: a pool holding one trained no-limit model trains until a hand reaches 25 decisions and the encoder refuses
+it, because the 24 slots are the **fixed-limit cap's** bound. D-33 widened the block per shape rather than
+coarsening it — which loses the resolution the price lives in — or truncating it
+(`strata/records/pool-without-raiser.md` §2, `decisions.md` D-33, D-31, D-32, ASM-42).
+
+A shape's capacity is therefore **derived from its own betting and declared in its row**. A bet or raise
+advances the street's bet level by at least the minimum bet of 2, and each seat commits that level on every
+street it plays, so the levels summed over the four streets are at most the chips in play divided by the seats;
+each seat also takes at most two non-bet actions on a street. So `no-limit-100` gives 200 ÷ 4 = 50 raises plus
+4 × 2 × 2 = 16 = **66**, `six-seat-no-limit-100` gives 600 ÷ 12 = 50 plus 4 × 6 × 2 = 48 = **98**, and
+`fixed-limit-20` keeps **24**, the number its cap gives (ASM-6, ASM-42). A longer history is refused naming the
+field, the capacity and the count — never truncated (`sizing.md` §5).
+
+| Quantity | `fixed-limit-20` | `no-limit-100` | `six-seat-no-limit-100` |
+|---|---|---|---|
+| dense width, `4 + seats + 34 + 85 + seats + 1 + 1 + 2 + 3 × slots` | 203 | **329** | **433** |
+| token width, `1 + seats + 2 + 5 + seats + 1 + 1 + 2 + slots` | 40 | **82** | **122** |
+| token vocabulary | 96 | 96 | **102** — six seat ids above the current top id (`seats.md` §3) |
+| `param_count` at `W = 36`, `D = 2` — input + trunk + `A·W + A` | 10,119 | **14,766** | **18,510** |
+
+Three consequences are accepted rather than absorbed, and each is a fact a record carries:
+
+- **A kind's declared observation size is the default shape's.** `naive-stack`'s 203 and the token kinds' 96
+  stay as they are; a learner on another shape takes its input width from that shape's encoder, and an
+  encoder-less build on a non-default shape is refused by name rather than sized from a number that is not that
+  shape's (`e2e-surface.md` §3.3, ASM-44).
+- **The container carries the shape's width.** A version-4 container names its shape and records that shape's
+  own `representation.size` and `representation.shape`; a reader checks the geometry against them rather than
+  against the kind's 203, so a widened container restores to the head it was written at. A version-1, 2 or 3
+  container is a default-shape one, is read as 203, and the **18 shipped containers still load untouched**
+  (§5, `sizing.md` §6, ASM-40).
+- **A greedy pass's record bound follows the shape**: at most 1,000 hands × the shape's capacity per variant per
+  seed — 24,000 at the default shape, 66,000 and 98,000 on the uncapped ones — refused beyond and never
+  truncated, because the pass records the learner's own decisions (`sizing.md` §4, ASM-38, D-31).

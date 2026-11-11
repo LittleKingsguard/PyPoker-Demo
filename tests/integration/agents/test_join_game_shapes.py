@@ -15,6 +15,16 @@ case here reads the engine's catalogue and hands the module what the engine actu
 produced — a real hand of one shape, its readout, its own legal descriptors — and never
 a shape's descriptors, its head width or an observation of its own.
 
+The shape's **input width** is a second reading, and it is `features`' too: a shape's
+history capacity is its own, so its dense observation is 203 wide over 24 slots on the
+default shape and 329 over 66 on `no-limit-100`, and a token kind is sized by its
+vocabulary on both (`docs/L1/shapes.md` §8, ASM-44, `docs/L2/features/capacity.md` §2).
+`shaped_input_size` reads it out of `features.observation_spec`, and every learner this
+battery builds on a declared shape is handed that shape's encoder, because a kind's
+declared `observation_size` is the default shape's and an encoder-less build on another
+shape is refused by name (`docs/L2/agents/shapes.md` §2, §6, `docs/L2/features/capacity.md`
+§5).
+
 The one exception is named at `flat_observation` in the support: `act`'s masked values
 are not observable through any entry point, so the case that decides the `tie` flag from
 the record alone drives a **zero** observation of the declared shape and dtype, which no
@@ -47,6 +57,14 @@ else:
 #: descriptors behind them are read off the engine's row, so a case asserts that those
 #: indices are reached, never that a band is a size (`sizing.md` §3, ASM-37).
 BAND_INDICES = (3, 4, 5)
+
+#: The one width and depth `docs/L2/agents/shapes.md` §2's table is read at — 36 and 2, the
+#: R1/R2 rung's own settings — so this battery's reading of that table is at the settings
+#: the table itself states (`ladder.md` §3, ASM-10, ASM-44).  They are settings and not
+#: counts: every count below comes out of `architecture.md` §5's formula at the width each
+#: shape's own encoder declares.
+WIDTH_DOCUMENTED = 36
+DEPTH_DOCUMENTED = 2
 
 
 class ShapeCatalogue(J.JoinCase):
@@ -212,11 +230,21 @@ class ShapeHead(J.JoinCase):
 
     def test_join_agt_14_2_the_head_width_follows_the_shape_through_param_count(self):
         """JOIN-AGT-14.2 for one kind at one width and one depth the two declared
-        shapes' `param_count` differ by exactly `(A₂ − A₁)·W + (A₂ − A₁)` and each equals
-        `architecture.md` §5's sum with its own `A` in the output term, while a spec
-        naming the default shape reports the count a spec naming no shape reports — one
-        learner, one count (`docs/L2/agents/shapes.md` §2, `docs/L3/agents/shapes.md`
-        §2, `sizing.md` §6, ASM-10, ASM-40, D-29).
+        shapes' `param_count` each equals `architecture.md` §5's sum with **that**
+        shape's `A` in the output term and **that** shape's own input width in the input
+        term, the two differing by `(I₂ − I₁)·W` for the wider observation plus
+        `(A₂ − A₁)·W + (A₂ − A₁)` for the extra head rows, while a spec naming the default
+        shape reports the count a spec naming no shape reports — one learner, one count
+        (`docs/L2/agents/shapes.md` §2, `docs/L3/agents/shapes.md` §2, `docs/L1/
+        shapes.md` §8, ASM-44, `docs/L2/features/capacity.md` §2, `sizing.md` §6, ASM-10,
+        ASM-40, D-29).
+
+        A shape's history capacity is its own, so its encoder's width is too: 203 dense
+        over 24 slots on the default shape and 329 over 66 on `no-limit-100`, and a token
+        kind is sized by its vocabulary on both.  Both learners are therefore built with
+        **that shape's** encoder, which is the size they are built at, and the input
+        width each reports is read out of `features.observation_spec` — never written
+        down here (`docs/L1/shapes.md` §8, ASM-44).
         """
         kind, width, depth = "naive-stack", J.WIDTH_SHAPE, J.DEPTH_SHAPE
         names = J.shape_names()
@@ -233,6 +261,10 @@ class ShapeHead(J.JoinCase):
                     "sizing.md §6, ASM-40): %r against %r"
                     % (counted, catalogue[name]["head_width"]),
                 )
+        widths = {
+            default_name: J.shaped_input_size(kind, default_name),
+            second_name: J.shaped_input_size(kind, second_name),
+        }
         named_default = J.build_learner(
             J.shaped_learner_spec(
                 kind, width, depth, J.LEARNER_SEED_SHAPE, default_name
@@ -260,22 +292,36 @@ class ShapeHead(J.JoinCase):
         ):
             with self.subTest(shape=name, counted=counted):
                 self.assertEqual(
+                    int(learner.layout.input_dim),
+                    widths[name],
+                    "the learner's input width is not the one its shape's encoder "
+                    "declares, so it was not sized from the shape it decides in "
+                    "(docs/L1/shapes.md §8, ASM-44): %r against %r"
+                    % (int(learner.layout.input_dim), widths[name]),
+                )
+                self.assertEqual(
                     J.param_count(learner),
-                    J.declared_param_count(kind, width, depth, 0.0, counted),
+                    J.declared_param_count(kind, width, depth, 0.0, counted, widths[name]),
                     "the count is architecture.md §5's sum with this shape's A in its "
-                    "output term A·W + A (shapes.md §2, sizing.md §6, ASM-40): %r "
-                    "against the formula at A = %d and W = %d"
-                    % (J.param_count(learner), counted, width),
+                    "output term A·W + A and this shape's own input width in its input "
+                    "term (shapes.md §2, docs/L1/shapes.md §8, ASM-44, sizing.md §6, "
+                    "ASM-40): %r against the formula at A = %d, I = %d and W = %d"
+                    % (J.param_count(learner), counted, widths[name], width),
                 )
         self.assertEqual(
             J.param_count(other) - J.param_count(named_default),
-            (second - first) * width + (second - first),
-            "the two shapes' counts differ by exactly the head's extra term, "
-            "(A₂ − A₁)·W + (A₂ − A₁), so the shape reaches the measurement through A and "
-            "through nothing else (shapes.md §2, sizing.md §6, ASM-10, ASM-40): %r "
-            "against %r for A = %d and %d at W = %d"
+            (widths[second_name] - widths[default_name]) * width
+            + (second - first) * width
+            + (second - first),
+            "the two shapes' counts differ by exactly the wider input block, "
+            "(I₂ − I₁)·W, plus the head's extra term, (A₂ − A₁)·W + (A₂ − A₁), so the "
+            "shape reaches the measurement through its own width and its own A and "
+            "through nothing else (shapes.md §2, docs/L1/shapes.md §8, ASM-44, ASM-10, "
+            "ASM-40): %r against %r for I = %d and %d at A = %d and %d and W = %d"
             % (J.param_count(other) - J.param_count(named_default),
-               (second - first) * width + (second - first), first, second, width),
+               (widths[second_name] - widths[default_name]) * width
+               + (second - first) * width + (second - first),
+               widths[default_name], widths[second_name], first, second, width),
         )
         hand = J.new_hand(J.DEAL_SHAPE_A)
         observation = J.encode(
@@ -770,6 +816,376 @@ class ShapeExploration(J.JoinCase):
                 learner, encoder, J.POLICY_SEED_SHAPE, J.EXPLORATION_UNDECLARED
             ),
             note="JOIN-AGT-14.5 an exploration mode outside the two declared ones",
+        )
+
+
+class ShapeWidth(J.JoinCase):
+    """The two shapes' input widths and counts, each its own."""
+
+    def test_join_agt_14_6_the_two_shapes_widths_and_counts_are_each_their_own(self):
+        """JOIN-AGT-14.6 for `naive-stack` at one width and one depth a learner built on
+        each declared shape with **that shape's** encoder reports the input width its
+        encoder's `observation_spec` declares — the two shapes' 203 and 329 dense, which
+        `features` publishes and this battery never writes down — and a `param_count` equal
+        to `architecture.md` §5's sum at that width, namely 10,119 and 14,766 at width 36
+        and depth 2, the two differing by exactly `126·W` for the input block plus
+        `(A₂ − A₁)·W + (A₂ − A₁)` for the extra head rows (`docs/L1/shapes.md` §8, ASM-44,
+        `docs/L2/agents/shapes.md` §2, `docs/L2/features/capacity.md` §2, `sizing.md` §6,
+        `architecture.md` §5, `ladder.md` §3, ASM-10, ASM-40, D-29).
+
+        The input term is the shape's because a shape's history capacity is its own: 24
+        slots and `131 + 3·24 = 203` on the default shape against 66 slots and
+        `131 + 3·66 = 329` on `no-limit-100`, and a token kind would be sized by its
+        vocabulary on both (`docs/L2/features/capacity.md` §2, ASM-42, ASM-44).  So neither
+        shape's count is the other's, and the difference is the sum of the two facts the
+        shape owns — its width and its `A` — and nothing else.  Every number read here comes
+        out of `features.observation_spec`, `features.action_space` and the engine's row;
+        the two counts appear as literals only in the failure messages, where they say what
+        the design's table records (`docs/L1/battery.md` §4, D-15).
+        """
+        kind, width, depth = "naive-stack", WIDTH_DOCUMENTED, DEPTH_DOCUMENTED
+        names = J.shape_names()
+        first_name, second_name = names[0], names[1]
+        widths = {name: J.shaped_input_size(kind, name) for name in names}
+        heads = {name: J.head_width(name) for name in names}
+        counts = {}
+        for name in names:
+            with self.subTest(shape=name):
+                spec = J.observation_spec(
+                    J.shaped_encoder(J.encoding_for(kind), name)
+                )
+                self.assertEqual(
+                    int(tuple(spec["shape"])[0]),
+                    widths[name],
+                    "the shape's dense width is its encoder's `observation_spec`'s own "
+                    "`shape`, so the number this case uses is the published one and not a "
+                    "copy (docs/L2/features/capacity.md §2, ASM-44): %r against %r"
+                    % (spec["shape"], (widths[name],)),
+                )
+                learner = J.build_learner(
+                    J.shaped_learner_spec(
+                        kind, width, depth, J.LEARNER_SEED_SHAPE, name
+                    )
+                )
+                self.assertEqual(
+                    int(learner.layout.input_dim),
+                    widths[name],
+                    "a learner built on %r with that shape's encoder is not built at that "
+                    "shape's own input width, so the input block is not the shape's "
+                    "(docs/L1/shapes.md §8, ASM-44, docs/L2/agents/shapes.md §2): %r "
+                    "against %r" % (name, int(learner.layout.input_dim), widths[name]),
+                )
+                self.assertEqual(
+                    tuple(learner.shape),
+                    tuple(spec["shape"]),
+                    "the learner's declared observation is not one the shape's encoder "
+                    "answers, so `act` would refuse the observations its own shape produces "
+                    "(architecture.md §6, docs/L1/shapes.md §8, ASM-44): %r against %r"
+                    % (learner.shape, spec["shape"]),
+                )
+                counts[name] = J.param_count(learner)
+                self.assertEqual(
+                    counts[name],
+                    J.declared_param_count(kind, width, depth, 0.0, heads[name],
+                                           widths[name]),
+                    "the count on %r is not architecture.md §5's sum with that shape's own "
+                    "input width in its input term and its own A in the output term: the "
+                    "design's table records 10,119 at W = 36, D = 2 on %r and 14,766 on %r "
+                    "(docs/L2/agents/shapes.md §2, docs/L2/features/capacity.md §2, "
+                    "sizing.md §6, ASM-10, ASM-44): %r against the formula at I = %d, "
+                    "A = %d, W = %d and D = %d"
+                    % (
+                        name,
+                        first_name,
+                        second_name,
+                        counts[name],
+                        widths[name],
+                        heads[name],
+                        width,
+                        depth,
+                    ),
+                )
+        self.assertNotEqual(
+            widths[first_name],
+            widths[second_name],
+            "the two declared shapes declare one observation width, so no case here can "
+            "say that a learner takes its input width from its own shape "
+            "(docs/L2/features/capacity.md §2, ASM-44): %r" % (widths,),
+        )
+        self.assertEqual(
+            counts[second_name] - counts[first_name],
+            (widths[second_name] - widths[first_name]) * width
+            + (heads[second_name] - heads[first_name]) * width
+            + (heads[second_name] - heads[first_name]),
+            "the two counts differ by exactly the wider input block, (I₂ − I₁)·W, plus the "
+            "head's extra term, (A₂ − A₁)·W + (A₂ − A₁), so the shape reaches the measurement "
+            "through its own width and its own A and through nothing else — the design's "
+            "10,119 and 14,766 are 126·36 = 4,536 plus 3·36 + 3 = 111 apart at W = 36 "
+            "(docs/L1/shapes.md §8, ASM-44, docs/L2/agents/shapes.md §2, ASM-40): %r "
+            "against %r for I = %r and A = %r at W = %d"
+            % (
+                counts[second_name] - counts[first_name],
+                (widths[second_name] - widths[first_name]) * width
+                + (heads[second_name] - heads[first_name]) * width
+                + (heads[second_name] - heads[first_name]),
+                widths,
+                heads,
+                width,
+            ),
+        )
+
+    def test_join_agt_14_7_an_encoderless_spec_naming_the_second_shape_is_refused(self):
+        """JOIN-AGT-14.7 an otherwise valid encoder-less spec naming the second declared
+        shape is refused by `agents` itself, naming `build_learner`, that shape and the word
+        `encoder`, so no module silently sizes it at the default shape's 203 — while the same
+        spec carrying that shape's encoder builds a learner at that shape's own width
+        (`docs/L1/shapes.md` §8, ASM-44, `docs/L2/agents/shapes.md` §2, §6,
+        `docs/L2/features/capacity.md` §2, §5, `docs/L2/agents/surface.md` §4, §9,
+        `docs/L3/agents/errors.md` §3, D-29).
+
+        The spec is `learner_spec`'s — one encoder of the kind's own encoding, the kind's
+        settings and an invented seed — with the encoder key **deleted** and the second shape
+        named, which is exactly the spec `docs/L1/shapes.md` §8 says has no width to be built
+        at: a kind's declared `observation_size` is the **default** shape's, so a learner on
+        another shape takes its input width from that shape's encoder and an encoder-less
+        build on one is refused by name (`docs/L2/features/capacity.md` §5, ASM-44).  The
+        refusal is one number off the twin below it, so the case distinguishes "refused
+        because the encoder is absent" from "refused because the spec is invalid".
+        """
+        kind = "naive-stack"
+        default_size = int(J.learners()["architectures"][kind]["observation_size"])
+        spec = J.learner_spec(
+            kind, J.WIDTH_SHAPE, J.DEPTH_SHAPE, J.LEARNER_SEED_SHAPE
+        )
+        self.assertIn(
+            "encoder",
+            spec,
+            "the support's own spec no longer carries an encoder, so this case's deletion "
+            "below would assert nothing about an encoder-less build (docs/L2/agents/"
+            "surface.md §4): %r" % (spec,),
+        )
+        spec.pop("encoder")
+        spec["game"] = J.SHAPE_SECOND
+        self.assertNotIn(
+            "encoder",
+            spec,
+            "this case's spec still carries an encoder, and the refusal under judgement is "
+            "the encoder-less one's (docs/L1/shapes.md §8, ASM-44): %r" % (spec,),
+        )
+        self.assertEqual(
+            spec["game"],
+            J.SHAPE_SECOND,
+            "the spec under judgement does not name the second shape (shapes.md §1, D-29): "
+            "%r" % (spec,),
+        )
+        message = self.assert_refusal(
+            "build_learner",
+            ((J.SHAPE_SECOND,), ("encoder",), (str(default_size),)),
+            lambda: J.build_learner(spec),
+            note="JOIN-AGT-14.7 an encoder-less spec naming %r" % (J.SHAPE_SECOND,),
+        )
+        self.assertIn(
+            J.SHAPE_DEFAULT,
+            message,
+            "the refusal does not name the default shape whose declared %d the kind's "
+            "observation_size is, so a reader cannot tell which shape that number belongs to "
+            "(docs/L1/shapes.md §8, ASM-44, docs/L3/agents/errors.md §3): %r"
+            % (default_size, message),
+        )
+        twin = dict(spec)
+        twin["encoder"] = J.shaped_encoder(J.encoding_for(kind), J.SHAPE_SECOND)
+        built = J.build_learner(twin)
+        self.assertEqual(
+            J.learner_game(built),
+            J.SHAPE_SECOND,
+            "the spec that differs from the refused one only by carrying the shape's encoder "
+            "does not build a learner of that shape (shapes.md §1-§2, D-29): %r"
+            % (J.learner_game(built),),
+        )
+        self.assertEqual(
+            int(built.layout.input_dim),
+            J.shaped_input_size(kind, J.SHAPE_SECOND),
+            "the twin's learner is not built at the shape's own input width, so this case "
+            "cannot say the refusal was the encoder's absence rather than the shape's "
+            "(docs/L1/shapes.md §8, ASM-44): %r against %r"
+            % (int(built.layout.input_dim), J.shaped_input_size(kind, J.SHAPE_SECOND)),
+        )
+        self.assertNotEqual(
+            J.param_count(built),
+            J.declared_param_count(
+                kind, J.WIDTH_SHAPE, J.DEPTH_SHAPE, 0.0, J.head_width(J.SHAPE_SECOND)
+            ),
+            "the twin reports the count architecture.md §5's sum gives at the **default** "
+            "shape's input width, so something sized it at 203 after all "
+            "(docs/L1/shapes.md §8, ASM-44, docs/L2/features/capacity.md §5): %r"
+            % (J.param_count(built),),
+        )
+        self.assertEqual(
+            J.param_count(built),
+            J.declared_param_count(
+                kind,
+                J.WIDTH_SHAPE,
+                J.DEPTH_SHAPE,
+                0.0,
+                J.head_width(J.SHAPE_SECOND),
+                J.shaped_input_size(kind, J.SHAPE_SECOND),
+            ),
+            "the twin's count is not architecture.md §5's sum at the shape's own input width "
+            "(docs/L2/agents/shapes.md §2, sizing.md §6, ASM-44): %r"
+            % (J.param_count(built),),
+        )
+
+
+class ShapeBaselines(J.JoinCase):
+    """The six fixed baselines on every declared shape: the folder's stack and the oracle's question."""
+
+    def test_join_agt_14_8_the_fixed_baselines_decide_on_every_declared_shape(self):
+        """JOIN-AGT-14.8 every one of the six baselines, built for a declared shape with `agents.build_baseline(name, seed, shape=...)`, answers a member of a real decision's `legal_actions` on **every** declared shape — the six-seat row included — `fold-large-bet` folds exactly where `2·to_call` exceeds the `starting_stack` the engine's own row declares for that shape, and `oracle`'s answer is consistent with the pot-odds inequality re-issued through `engine.equity` at that shape, so the shape argument's two jobs are held to the two modules that declare them (`docs/L2/agents/baselines.md` §2-§3, `docs/L1/e2e-surface.md` §3.1, §3.3, `docs/L1/folders.md` §2, `docs/L1/seats.md` §2, §6, ASM-4, ASM-31, D-6, D-21, D-33).
+
+        Two statements and both are cross-module.  **The stack** is the row's: the case
+        reads `starting_stack` out of `engine.game_shapes()` and never writes a 20 or a 100
+        down, so a folder holding a copy of the default shape's twenty would be red here on
+        the six-seat row, where 11 chips is under half of that shape's 100 and over half of
+        the default's 20.  **The equity** is the engine's: `engine.equity` reads the seat
+        count off the readout's `stacks`, so a six-seat decision is asked six-way, and the
+        oracle's index is the inequality's own — which is the whole of what a `shape`-aware
+        oracle buys at a table with more than two seats (`docs/L2/engine/surface.md` §11,
+        `docs/L1/seats.md` §2, ASM-4, D-33).  The catalogue's baseline names are not
+        invented: they are `agents.baselines()`'s, and the shapes are the engine's, as
+        `docs/L1/battery.md` §4 requires of a declared game and its fixed standards.
+        """
+        catalogue = J.game_shapes()
+        names = J.shape_names()
+        self.assertGreaterEqual(
+            len(names),
+            3,
+            "the catalogue declares the six-seat row this case is about beside the two it "
+            "already published (docs/L1/seats.md §2, D-33): %r" % (list(names),),
+        )
+        baselines = tuple(J.baselines())
+        self.assertEqual(
+            len(baselines), 6, "agents.baselines() declares the six: %r" % (list(baselines),)
+        )
+        samples = J.oracle_samples()
+        eng = J.mod("engine")
+        decisions = 0
+        fold_side = 0
+        call_side = 0
+        for name in names:
+            with self.subTest(shape=name):
+                row = catalogue[name]
+                stack = int(row["starting_stack"])
+                self.assertGreater(
+                    stack,
+                    0,
+                    "the row of %r declares no positive starting stack, so this case's "
+                    "boundary is undecidable (shapes.md §2): %r" % (name, stack),
+                )
+                self.assertEqual(
+                    int(eng.game_config(name)["starting_stack"]),
+                    stack,
+                    "the starting stack this case read out of the catalogue row is not the "
+                    "one `engine.game_config` declares for %r, so the two readings of the "
+                    "shape disagree (docs/L2/engine/surface.md §3, ASM-31): %r against %r"
+                    % (name, stack, eng.game_config(name)["starting_stack"]),
+                )
+                walked = J.shaped_walk(J.DEAL_SHAPE_A, name, J.caller_in(name))
+                self.assertGreater(
+                    len(walked),
+                    0,
+                    "a dealt hand of %r offers at least one decision "
+                    "(docs/L2/engine/surface.md §6): deal %r" % (name, J.DEAL_SHAPE_A),
+                )
+                policies = {
+                    baseline: J.build_baseline(baseline, J.BASELINE_SEED, name)
+                    for baseline in baselines
+                }
+                for _hand, facts, legal, _chosen, _index in walked[:3]:
+                    for baseline, policy in policies.items():
+                        with self.subTest(shape=name, baseline=baseline, decision=decisions):
+                            answer = policy(facts, legal)
+                            self.assert_descriptor_in(
+                                legal,
+                                answer,
+                                "JOIN-AGT-14.8 %r on %r" % (baseline, name),
+                            )
+                            self.assertFalse(
+                                hasattr(policy, "learning_rule")
+                                or hasattr(policy, "utility"),
+                                "a baseline of %r built for %r carries a rule or a utility, "
+                                "and a baseline learns nothing and is trained on no reward "
+                                "(e2e-surface.md §2, D-6, D-19, D-20)" % (baseline, name),
+                            )
+                    decisions += 1
+                # The folder's boundary, on a real decision of this shape: half the stack
+                # the engine's own row declares, and one chip above it.
+                folder = policies["fold-large-bet"]
+                for to_call in (stack // 2, stack // 2 + 1):
+                    probe = dict(walked[0][1], to_call=to_call)
+                    legal = walked[0][2]
+                    folds = 2 * to_call > stack
+                    with self.subTest(shape=name, to_call=to_call):
+                        chosen = folder(probe, legal)
+                        self.assert_descriptor_in(
+                            legal, chosen, "JOIN-AGT-14.8 fold-large-bet"
+                        )
+                        if "fold" not in list(legal):
+                            continue
+                        expected = "fold" if folds else "check-call"
+                        self.assertTrue(
+                            J.same_descriptor(chosen, expected),
+                            "with %d chips to call on the shape %r, whose declared starting "
+                            "stack is %d, the folder answered %r and the rule says %r "
+                            "(docs/L1/folders.md §2, ASM-31, docs/L2/agents/baselines.md "
+                            "§2, D-33)"
+                            % (to_call, name, stack, chosen, expected),
+                        )
+                # The oracle's inequality, re-issued at the baseline's own seed and the
+                # catalogue's declared count, on the same real decisions of this shape.
+                oracle = policies["oracle"]
+                for position, (_hand, facts, legal, _c, _i) in enumerate(walked[:3]):
+                    pot = int(facts["pot"])
+                    to_call = int(facts["to_call"])
+                    total = pot + to_call
+                    odds = to_call / total if total else 0.0
+                    equity = float(eng.equity(facts, J.BASELINE_SEED, samples))
+                    with self.subTest(shape=name, oracle=position):
+                        self.assertGreaterEqual(equity, 0.0)
+                        self.assertLessEqual(equity, 1.0)
+                        answer = oracle(facts, legal)
+                        self.assert_descriptor_in(
+                            legal, answer, "JOIN-AGT-14.8 the oracle"
+                        )
+                        if equity >= odds:
+                            self.assertFalse(
+                                J.same_descriptor(answer, "fold"),
+                                "the oracle folded at or above the pot odds %r it was "
+                                "handed %r on %r (docs/L2/agents/baselines.md §3, ASM-4): "
+                                "%r" % (odds, equity, name, answer),
+                            )
+                            if "fold" in list(legal):
+                                call_side += 1
+                        elif "fold" in list(legal):
+                            self.assertTrue(
+                                J.same_descriptor(answer, "fold"),
+                                "the oracle did not fold below the pot odds %r it was handed "
+                                "%r on %r (docs/L2/agents/baselines.md §3, ASM-4): %r"
+                                % (odds, equity, name, answer),
+                            )
+                            fold_side += 1
+        self.assertGreaterEqual(
+            decisions,
+            len(names),
+            "the walks reach at least one decision per declared shape, so the six baselines "
+            "are asserted over real hands of every row: %d decisions" % (decisions,),
+        )
+        self.assertGreaterEqual(
+            call_side + fold_side,
+            len(names),
+            "fewer than one decision per declared shape was decisive for the oracle's "
+            "inequality, so the case does not say what the oracle decides on every row "
+            "(ASM-4): %r call-side and %r fold-side across %r decisions"
+            % (call_side, fold_side, decisions),
         )
 
 

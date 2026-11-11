@@ -37,6 +37,8 @@ refuse the registry (`ladder.md` §3, `surface.md` §3). `residual` is a setting
 not this module (`agents/surface.md` §3).
 
 The pass's two bounds are **not a configuration key at all** and are audited with the refusals: at most 2,000 hands and
-24,000 decision records per variant per seed, declared once in `src/training/declarations.py` and refused by
-`GreedyPassRefused` with both counts, because a shorter pass would silently report a different sample than the one it
-names (`sizing.md` §4, `records.md` §15, ASM-38, `declarations.md` §2, `docs/L3/training/greedy.md` §4).
+at most 1,000 decision records per slot of the **run's own shape's** history capacity — 24,000 at the default shape,
+66,000 and 98,000 on the uncapped ones — read once through `declarations.greedy_decisions(shape)` and refused by
+`GreedyPassRefused` with the count reached, the bound, the shape and its capacity, because a shorter pass would silently
+report a different sample than the one it names (`sizing.md` §4, `records.md` §15, `shapes.md` §8, ASM-38, ASM-42,
+`seats.md` §2, `declarations.md` §2, `docs/L3/training/greedy.md` §4).

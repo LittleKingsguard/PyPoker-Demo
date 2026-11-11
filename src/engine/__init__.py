@@ -73,11 +73,20 @@ def payoffs(hand: "Hand") -> dict[int, int]:
     return _hand.payoffs(hand)
 
 
-def play_hand(seed: int, seat0_policy, seat1_policy, shape=None) -> dict:
-    """One whole hand driven by the two policies, on `shape` (surface.md §10)."""
-    return _episode.play_hand(seed, seat0_policy, seat1_policy, shape)
+def play_hand(seed: int, seat0_policy=None, seat1_policy=None, shape=None, seats=None) -> dict:
+    """One whole hand driven by the policies, on `shape` (surface.md §10).
+
+    The two positional policies are today's call; the optional `seats` sequence is the
+    shape's whole seating, one policy per seat in seat order, and is the form a
+    six-seat hand takes (seats.md §4).
+    """
+    return _episode.play_hand(seed, seat0_policy, seat1_policy, shape, seats)
 
 
 def equity(decision: "Hand | dict", seed: int, samples: int) -> float:
-    """The acting seat's share of the pot against a uniform opponent (surface.md §11)."""
+    """The acting seat's share of the pot against uniform opponents (surface.md §11).
+
+    Heads-up on a two-seat shape, and multi-way on a shape with more seats: a six-seat
+    decision is asked against the other five seats' random hands (seats.md §2).
+    """
     return _equity.equity(decision, seed, samples)

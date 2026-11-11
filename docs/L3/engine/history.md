@@ -29,7 +29,11 @@ change is visible both in the entry’s `<street>` and in `board`’s length. So
 Two records of one deal therefore compare through `history` alone, which is what FAM-16’s
 applied-action case and FAM-4’s reproducibility case read (`battery.md` §3, ASM-2).
 
-One consequence to name rather than discover: in heads-up a fold always ends the hand, and `readout`
-refuses a finished hand, so the `folds` entry is never observable through the entry points. It is built
-anyway — the grammar has no special case — and the fold is observable where it matters, as an episode
-decision and as the payoffs that follow it.
+One consequence to name rather than discover: in **heads-up** a fold always ends the hand, and `readout`
+refuses a finished hand, so there the `folds` entry is never observable through the entry points. It is
+built anyway — the grammar has no special case — and the fold is observable where it matters, as an
+episode decision and as the payoffs that follow it. On a shape with more than two seats it is observable
+directly, because a fold does not end the hand while other seats are live: measured on
+`six-seat-no-limit-100`, the decision after seat 3 folds reads `seat == (4, False)` and
+`history == ['preflop seat 3 folds']`, and three folds then a call leave four entries in order. The
+grammar is one grammar for every seat count, not a heads-up special case (`seats.md` §2, `hand.md` §3).

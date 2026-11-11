@@ -12,7 +12,7 @@ The seven kind names are `learners()`'s catalogue keys, spelled exactly: `naive-
 of these spellings and no other, and this module never infers a kind from a variant's *name* — `dense` and
 `deep` are rung variant labels (`ladder.md` §2), not kind names (D-3, `records.md` §2).
 
-| Kind | `observation` | `observation_size` | Input block | Trunk | Reads |
+| Kind | `observation` | `observation_size` — the default shape's | Input block | Trunk | Reads |
 |---|---|---|---|---|---|
 | `naive-stack` | `dense-numeric` | 203 | dense `I → W`, bias, ReLU | `D` layers `W → W` | `width`, `depth` |
 | `token-embedding` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | same | `width`, `depth` |
@@ -23,14 +23,15 @@ of these spellings and no other, and this module never infers a kind from a vari
 | `plain` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` layers `W → W`, replacing the carried vector | `width`, `depth` |
 
 Every kind ends in an output layer as wide as the shape's descriptor count, `W → A` with a bias and no activation: the
-`A` values `rule.md` §5 takes a mask over, three on the default shape and six on the other (`shapes.md` §2). Every trunk
+`A` values `rule.md` §5 takes a mask over, three on the default shape and six on the others (`shapes.md` §2). Every trunk
 layer is `W → W` with a bias and a ReLU (`residual` excepted only in *how* its output is combined, §2). `I` is the dense
 input width and `V` the token vocabulary; both come from the learner's sizing record, never from a document (§6, D-3).
 
-The catalogue value for each kind is a plain record of three keys, `name`, `observation` and
-`observation_size`, in that order (`surface.md` §3). `naive-stack`'s 203 and the six token kinds' 96 are the
-declared sizes; each is the value an encoder-less build is sized from, and each is what an encoder's
-`observation_spec` is checked against (§6).
+The catalogue value for each kind is a plain record of three keys, `name`, `observation` and `observation_size`, in that
+order (`surface.md` §3). `naive-stack`'s 203 and the six token kinds' 96 are the **default shape's** sizes: each is what
+an encoder-less build on that shape is sized from, and each is what an encoder's `observation_spec` is held equal to
+there. A learner on another shape takes its input width from that shape's own encoder — 329 or 433 dense, vocabulary 96
+or 102 — so this table's third column is the default shape's and not every shape's (§6, `shapes.md` §8, `seats.md` §4, ASM-44).
 
 ## 2. The layer stacks, exactly
 
@@ -60,7 +61,7 @@ topology at three declared settings; what makes them distinct kinds is that a ru
 
 **The output.** `q = h @ W_out + b_out`, `W_out` of shape `(W, A)` and `b_out` of shape `(A,)`, no activation, returned
 as `A` `float64` values in the shape's declared index order — `fold` 0, `check-call` 1, `raise` 2 on the default shape,
-and the six of `no-limit-100` on the other (`features/surface.md` §2, `shapes.md` §2–§3). Both backends read `A` off
+and the six of the two uncapped rows (`features/surface.md` §2, `shapes.md` §2–§3). Both backends read `A` off
 `layout.actions` and never write it down. The output layer is never sparse and never residual.
 
 ## 3. How the four settings are read
@@ -108,49 +109,48 @@ numbers and of nothing else — which is what makes two learners from one spec o
 
 ## 5. The parameter formula
 
-`param_count` counts every value the update can change, and nothing else (`surface.md` §5, ASM-10). With `I` the
-dense input width, `V` the vocabulary, `W` the width, `D` the depth and `k = round((1 − s)·W²)`:
+`param_count` counts every value the update can change, and nothing else (`surface.md` §5, ASM-10). With `I` the dense
+input width — 203 at the default shape, 329 and 433 on the two uncapped rows, each read from its shape's encoder — `V`
+the vocabulary, `W` the width, `D` the depth and `k = round((1 − s)·W²)`:
 
     input block      naive-stack:  I·W + W            any token kind:  V·W
     trunk            D·(W²  + W)                      sparse:          D·(k + W)
     output           A·W + A                          3·W + 3 at the default shape's A = 3
+    at W = 36, D = 2 default: 7344 + 2664 + 111 = 10,119   no-limit-100: 11880 + 2664 + 222 = 14,766
+                             six-seat:  15624 + 2664 + 222 = 18,510
     param_count      the sum of the three lines
 
 So `naive-stack` is `I·W + W + D·(W² + W) + A·W + A`, each dense token kind is `V·W + D·(W² + W) + A·W + A`, and
 `sparse` replaces the trunk term with `D·(k + W)` — the formula covers `s = 0` too, where `k = W²`. `A` is the
-learner's shape's descriptor count, read through `declarations.actions_for` and never written down (`shapes.md` §2), so
-a kind's count is a function of its kind, its settings and its shape: **not** a decision, **not** a step, **not** a
-seed (the mask's size is `k`), and one number in both backends (D-7, `ladder.md` §5).
+learner's shape's descriptor count, read through `declarations.actions_for`, and `I` its shape's input width, read off
+that shape's encoder; neither is written down (`shapes.md` §2, §8, ASM-44), so a kind's count is a function of its kind,
+its settings and its shape: **not** a decision, **not** a step, **not** a seed (the mask's size is `k`), and one number in
+both backends (D-7, `ladder.md` §5).
 
 **Not counted:** the target copy, the mask buffers, the schedule's constants and the position (`learner.md` §3).
 **Counted:** the input block first, because the embedding table is trainable (`learner.md` §3).
 
 **An arithmetic check, not a declaration.** At the default shape's `A = 3`, `I = 203`, `W = 36`, `D = 2`:
-`7344 + 2664 + 111 = 10,119`, which is every recorded count unmoved (ASM-40). At `V = 96`, `W = 50`, `D = 2`:
-`4800 + 5100 + 153 = 10,053`, and at `V = 96`, `W = 39`, `D = 4`: `3744 + 6240 + 120 = 10,104` — two token kinds
-within 0.5% of one another, which is how ASM-10's 10,000 ±2% budget is reachable at all. Which numbers a rung declares
-is `training`'s (`ladder.md` §3, §4); `sparse`'s trunk term `D·(k + W)` shrinks with `s`, so a sparse arm matches its
-dense mate by being declared **wider** — "connectivity varied at a matched budget" (`strata/brief.md` §2, R5, ASM-10).
+`7344 + 2664 + 111 = 10,119`, which is every recorded count unmoved (ASM-40); at the uncapped rows' `A = 6` and `I` of
+329 and 433 the same two lines are `11880 + 2664 + 222 = 14,766` and `15624 + 2664 + 222 = 18,510` (`shapes.md` §8,
+`seats.md` §4, ASM-42, ASM-44, D-33). At `V = 96`, `W = 50`, `D = 2`: `4800 + 5100 + 153 = 10,053`, and at `V = 96`,
+`W = 39`, `D = 4`: `3744 + 6240 + 120 = 10,104` — two token kinds within 1%, which is how ASM-10's 10,000 ±2% budget
+is reachable at all, and both the same on the two-seat rows, whose vocabulary is 96, while a six-seat learner's block is
+`102·W`. Which numbers a rung declares is `training`'s (`ladder.md` §3, §4); `sparse`'s trunk term `D·(k + W)` shrinks with
+`s`, so a sparse arm matches its dense mate by being declared **wider** — "connectivity varied at a matched budget" (R5, ASM-10).
 
 ## 6. The sizing contract
 
-A learner is complete when it is built, and it is sized one of two ways (`surface.md` §3–§4, D-3):
-
-- **With an encoder:** from its `observation_spec`. A `dense-numeric` spec sizes the dense input as its
-  `shape[0]` and a `token-sequence` spec sizes the embedding table as its `vocabulary`; the learner records
-  the spec's `kind`, `representation`, `shape`, `dtype` and size as its **sizing record**. The spec's `kind`
-  must equal the kind's declared family and its size the kind's declared `observation_size`, or the build is
-  **refused naming both** — the declaration and the encoding are held equal by a refusal and not by a comment
-  (`surface.md` §4, `learner.md` §6).
-- **With no encoder:** from the kind's declared `observation_size` — 203 for `naive-stack`, 96 for the six
-  token kinds — and the sizing record's `representation` is the encoding the kind's row declares
-  (`flat-numeric`, `card-tokens`), with `shape` and `dtype` recorded as `null`, the encoder being the only
-  thing that knows them (`e2e-surface.md` §3.3, `learner.md` §4).
-
-That record is what `act`, `learn`, `as_policy` and `load` check an argument against, and what a checkpoint
-carries so a member loads from its path alone (`checkpoint.md` §2, `surface.md` §9). An observation of the wrong
-family, a dense one of the wrong width, or a token one carrying an id outside `[0, V)` is refused naming both
-the observation and the learner (`errors.md` §3).
+A learner is complete when it is built and is sized one of two ways (`surface.md` §3–§4, D-3): from an encoder's
+`observation_spec` — `shape[0]` dense, `vocabulary` token, so a token learner's size is its vocabulary and never its
+sequence length — or, with none, from the kind's declared `observation_size`. The resolution is one, and it is
+`surface.md` §4's: the **family** must be the kind's on every shape, or the build is refused naming both; the **size**
+must be the kind's declared `observation_size` only on the **default** shape, where it is 203 or 96; on any other shape
+the encoder's own width is **authoritative** (329 or 433 dense, vocabulary 96 or 102), because the encoder alone knows
+which shape it was built for; and a spec naming another shape with no encoder is **refused by name**, never sized at 203
+(`learner.md` §4, §6, `shapes.md` §8, ASM-44). That record is what `act`, `learn`, `as_policy` and `load` check an
+argument against and what a checkpoint carries (`checkpoint.md` §2, `surface.md` §9), and an observation of the wrong
+family, a dense one of the wrong width or a token one carrying an id outside `[0, V)` is refused naming both (`errors.md` §3).
 
 ## 7. What is left to L4
 

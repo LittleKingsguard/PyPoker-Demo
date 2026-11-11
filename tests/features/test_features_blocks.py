@@ -1,10 +1,13 @@
 """FEA-4 -- `flat-numeric`: the nine blocks, their offsets and the slot order inside them.
 
 ``docs/L3/features/flat-numeric.md`` §2-§5; ``docs/L2/features/encodings.md`` §3;
-``docs/L3/features/encoder.md`` §3.1, §4; ``docs/L3/features/guardrails.md`` G3, G10.
+``docs/L3/features/encoder.md`` §3.1, §4; ``docs/L3/features/guardrails.md`` G3, G10;
+``docs/L1/shapes.md`` §8 and ``docs/L1/assumptions.md`` ASM-42, ASM-44 (the history
+block's capacity is the shape's).
 
 The numbers asserted here are the design's, not a re-derivation: every case compares
-one slice of `encode`'s array with the values `flat-numeric.md` fixes for it.
+one slice of `encode`'s array with the values `flat-numeric.md` fixes for it, and the
+two shapes' widths -- 203 and 329 -- with the arithmetic `shapes.md` §8 states.
 """
 
 import os
@@ -333,6 +336,295 @@ class FEA4FlatBlocks(S.FeaturesCase):
                 self.assertAlmostEqual(
                     values[position], expected, delta=1e-5,
                     msg="%s, got %r (flat-numeric.md §2-§5)" % (where, values[position]),
+                )
+
+    def test_fea4_14_the_dense_width_is_the_shapes_and_the_other_blocks_do_not_move(self):
+        """FEA-4.14 the dense history block is `3 x the shape's capacity` and the eight
+        blocks before it are one table on both shapes: `no-limit-100` declares 329 slots
+        -- 131 + 3 x 66 = 329 -- with its history block at 131 over 198 slots, while the
+        default shape keeps 203 -- 131 + 3 x 24 -- and `encode` returns each shape's
+        declared width; the slots before the history that no normaliser touches (street,
+        seat, hole and board, 0-124) are the same values on both shapes, and the shape
+        declares its own capacity as the block's refusal threshold (shapes.md §8,
+        ASM-42, ASM-44, flat-numeric.md §2, §5).
+        """
+        F = self.surface()
+        record = S.readout(street="flop", seat=(1, False), hole=("2c", "Td"),
+                           board=("Jh", "7c", "2d"), stacks=(17, 17), pot=6,
+                           to_call=0, limit=(2, 0),
+                           history=S.history_entries(3))
+        widths = {}
+        for shape in S.SHAPES:
+            capacity = S.CAPACITY[shape]
+            encoder = F.build_encoder(S.FLAT, shape=shape)
+            spec = F.observation_spec(encoder)
+            values = S.floats(F.encode(encoder, record))
+            with self.subTest(shape=shape):
+                self.assertEqual(
+                    tuple(spec["shape"]), S.DECLARED_BY_SHAPE[shape][S.FLAT],
+                    "the dense width of %r is %d: 131 + 3 x %d = %d (shapes.md §8, "
+                    "ASM-42, ASM-44): %r"
+                    % (shape, S.DECLARED_BY_SHAPE[shape][S.FLAT][0], capacity,
+                       131 + 3 * capacity, spec["shape"]),
+                )
+                self.assertEqual(
+                    len(values), S.FIXED_FLAT_SLOTS + 3 * capacity,
+                    "one dense observation of %r is the 131 slots before the history "
+                    "plus 3 x its %d-slot history block (flat-numeric.md §2, §5, "
+                    "shapes.md §8): %d slots" % (shape, capacity, len(values)),
+                )
+                self.assertEqual(
+                    len(values) - 3 * capacity, S.FIXED_FLAT_SLOTS,
+                    "the slots before the history are 131 on every shape: the shape "
+                    "moves the capacity and no other block (shapes.md §8, ASM-44): %d"
+                    % (len(values) - 3 * capacity,),
+                )
+                self.assert_floats(
+                    values[S.FIXED_FLAT_SLOTS:],
+                    S.history_block(record["history"], capacity),
+                    "the history block of %r is the last %d slots, three per action "
+                    "oldest first (flat-numeric.md §5, shapes.md §8)"
+                    % (shape, 3 * capacity),
+                )
+                self.assertEqual(
+                    values[S.FIXED_FLAT_SLOTS + 3 * len(record["history"]):
+                           S.FIXED_FLAT_SLOTS + 3 * capacity],
+                    [0.0] * (3 * (capacity - len(record["history"]))),
+                    "the slots past the history's end stay all-zero on either capacity "
+                    "(flat-numeric.md §5): %r"
+                    % (values[S.FIXED_FLAT_SLOTS + 3 * len(record["history"]):][:6],),
+                )
+                widths[shape] = len(values)
+        self.assertEqual(
+            (widths[S.DEFAULT_SHAPE], widths[S.SECOND_SHAPE]), (203, 329),
+            "the default shape's width does not move and the no-cap shape's is its own: "
+            "203 and 329 (shapes.md §5, §8): %r" % (widths,),
+        )
+        default_values = S.floats(
+            F.encode(F.build_encoder(S.FLAT, shape=S.DEFAULT_SHAPE), record))
+        second_values = S.floats(
+            F.encode(F.build_encoder(S.FLAT, shape=S.SECOND_SHAPE), record))
+        self.assert_floats(
+            second_values[0:125], default_values[0:125],
+            "the street, seat, hole and board slots -- the ones no normaliser reaches -- "
+            "are byte for byte the same on both shapes: the shape adds history slots and "
+            "moves no earlier block (shapes.md §8, ASM-44)",
+        )
+
+
+
+class FEA4ThirdSeatCount(S.FeaturesCase):
+    """The third row's dense table: six-wide seat and stacks blocks, 433 slots."""
+
+    def test_fea4_15_the_six_seat_dense_table_is_433_slots_at_its_own_offsets(self):
+        """FEA-4.15 on `six-seat-no-limit-100` the dense block table is
+        `0/4, 4/6, 10/34, 44/85, 129/6, 135/1, 136/1, 137/2, 139/294` -- the eight blocks
+        before the history reaching `127 + 2 x 6 = 139` and `139 + 3 x 98 = 433` -- and one
+        six-seat readout's nine blocks land at exactly those offsets with the values the
+        design fixes: the acting seat's one-hot over six seats, six stacks in seat order
+        each over 100, the pot over 600, to_call over 100, the limit pair over 100 and
+        50, and 98 slots of 3 for the history (capacity.md §2, flat-numeric.md §2, §4,
+        §5, seats.md §3, ASM-42, ASM-44)."""
+        F = self.surface()
+        expected = (
+            ("street", 0, 4),
+            ("seat", 4, 6),
+            ("hole", 10, 34),
+            ("board", 44, 85),
+            ("stacks", 129, 6),
+            ("pot", 135, 1),
+            ("to_call", 136, 1),
+            ("limit", 137, 2),
+            ("history", 139, 294),
+        )
+        self.assertEqual(
+            S.THIRD_FLAT_BLOCKS, expected,
+            "the six-seat row's dense block table is the design's, field for field, "
+            "offset for offset and width for width (capacity.md §2, flat-numeric.md §2, "
+            "seats.md §3): %r" % (S.THIRD_FLAT_BLOCKS,),
+        )
+        widths = [width for _field, _offset, width in S.THIRD_FLAT_BLOCKS]
+        self.assertEqual(
+            (sum(widths), 139 + 3 * 98, 127 + 2 * 6 + 3 * 98),
+            (433, 433, 433),
+            "4 + 6 + 34 + 85 + 6 + 1 + 1 + 2 + 294 = 433: the nine widths, the "
+            "pre-history sum plus the history, and the row's arithmetic are one number "
+            "(capacity.md §2, encoder.md §4): %r" % (sum(widths),),
+        )
+        record = S.six_seat_readout(street="river", seat=(2, True), hole=("As", "Ah"),
+                                    stacks=(100, 76, 40, 20, 10, 5), pot=96,
+                                    to_call=25, limit=(100, 3),
+                                    history=S.history_entries(3))
+        self.assertEqual(
+            len(record["stacks"]), 6,
+            "the readout handed to the six-seat encoder carries six stacks in seat "
+            "order (seats.md §3, ASM-44): %r" % (record["stacks"],),
+        )
+        values = S.floats(F.encode(F.build_encoder(S.FLAT, shape=S.THIRD_SHAPE), record))
+        self.assertEqual(
+            len(values), S.DECLARED_BY_SHAPE[S.THIRD_SHAPE][S.FLAT][0],
+            "one dense observation of the third row is the declared 433 slots "
+            "(capacity.md §2, surface.md §5): %d" % (len(values),),
+        )
+        expected_of = {
+            "street": S.street_onehot("river"),
+            "seat": [1.0 if slot == 2 else 0.0 for slot in range(6)],
+            "hole": S.card_slot("As") + S.card_slot("Ah"),
+            "board": [value for card in record["board"] for value in S.card_slot(card)],
+            "stacks": [amount / 100.0 for amount in record["stacks"]],
+            "pot": [96 / 600.0],
+            "to_call": [25 / 100.0],
+            "limit": [100 / 100.0, 3 / 50.0],
+            "history": S.history_block(record["history"], S.CAPACITY[S.THIRD_SHAPE]),
+        }
+        for field, offset, width in expected:
+            with self.subTest(field=field):
+                self.assertEqual(
+                    len(expected_of[field]), width,
+                    "the %r block is %d slots on the six-seat row (capacity.md §2, "
+                    "flat-numeric.md §2, seats.md §3): %d"
+                    % (field, width, len(expected_of[field])),
+                )
+                self.assert_floats(
+                    values[offset:offset + width], expected_of[field],
+                    "the %r block of a six-seat readout occupies slots %d-%d with the "
+                    "design's values (flat-numeric.md §4, §5, seats.md §3)"
+                    % (field, offset, offset + width),
+                )
+                if offset:
+                    self.assertNotEqual(
+                        values[offset - 1:offset - 1 + width], expected_of[field],
+                        "the %r block does not start one slot earlier: a block an offset "
+                        "off lands here instead (flat-numeric.md §2, guardrails.md G3): %r"
+                        % (field, values[offset - 1:offset - 1 + width]),
+                    )
+        self.assert_floats(
+            values[139:], expected_of["history"],
+            "the history block is the last 294 slots, 98 slots of 3, oldest first "
+            "(flat-numeric.md §5, capacity.md §2): %r" % (values[139:145],),
+        )
+        self.assert_floats(
+            values[10:10 + 34 + 85],
+            expected_of["hole"] + expected_of["board"],
+            "the hole and board slots are still one table: 4 + 6 = 10 for the seat block "
+            "and then the same 34 + 85 card slots the two-seat rows carry (flat-numeric.md "
+            "§3, capacity.md §4)",
+        )
+
+    def test_fea4_16_the_three_rows_arithmetic_is_127_plus_2_seats_plus_3_capacity(self):
+        """FEA-4.16 all three rows' dense tables are their own and the arithmetic is
+        `127 + 2 x seats + 3 x capacity`: the 127 slots no seat count touches are the
+        same on all three, the two per-seat blocks are one slot per seat, the slots
+        before the history are 131/131/139, the history block is 3 x 24/66/98, and the
+        widths are 203/329/433 -- while a six-seat readout's street, hole and board slots
+        are the same values the two-seat rows write at their own offsets (capacity.md §2,
+        §4, flat-numeric.md §2, §5, shapes.md §8, seats.md §3, ASM-42, ASM-44)."""
+        F = self.surface()
+        tables = {
+            S.DEFAULT_SHAPE: (
+                ("street", 0, 4), ("seat", 4, 2), ("hole", 6, 34),
+                ("board", 40, 85), ("stacks", 125, 2), ("pot", 127, 1),
+                ("to_call", 128, 1), ("limit", 129, 2), ("history", 131, 72),
+            ),
+            S.SECOND_SHAPE: (
+                ("street", 0, 4), ("seat", 4, 2), ("hole", 6, 34),
+                ("board", 40, 85), ("stacks", 125, 2), ("pot", 127, 1),
+                ("to_call", 128, 1), ("limit", 129, 2), ("history", 131, 198),
+            ),
+            S.THIRD_SHAPE: S.THIRD_FLAT_BLOCKS,
+        }
+        widths = {}
+        for shape, table in tables.items():
+            seats, capacity = S.SEATS[shape], S.CAPACITY[shape]
+            blocks = S.FLAT_BLOCKS_BY_SHAPE[shape]
+            with self.subTest(shape=shape):
+                self.assertEqual(
+                    blocks, table,
+                    "the %r dense block table is the design's (capacity.md §2, "
+                    "flat-numeric.md §2, seats.md §3): %r" % (shape, blocks),
+                )
+                self.assertEqual(
+                    (blocks[1][2], blocks[4][2]), (seats, seats),
+                    "the seat and the stacks blocks are %d slots each, one per seat "
+                    "(seats.md §3, ASM-44): %r" % (seats, blocks),
+                )
+                pre = blocks[-1][1]
+                self.assertEqual(
+                    (pre, S.SEAT_INVARIANT_FLAT_SLOTS + 2 * seats),
+                    (S.SEAT_INVARIANT_FLAT_SLOTS + 2 * seats, pre),
+                    "127 + 2 x %d = %d slots before the history: the 127 no seat count "
+                    "touches plus the two per-seat blocks (capacity.md §2, ASM-44): %d"
+                    % (seats, S.SEAT_INVARIANT_FLAT_SLOTS + 2 * seats, pre),
+                )
+                self.assertEqual(
+                    blocks[-1][2], 3 * capacity,
+                    "the history block is 3 x %d = %d slots (capacity.md §2, "
+                    "flat-numeric.md §5, ASM-42): %d"
+                    % (capacity, 3 * capacity, blocks[-1][2]),
+                )
+                self.assertEqual(
+                    sum(width for _field, _offset, width in blocks), 3 * capacity + pre,
+                    "and the widths sum to the pre-history slots plus the block "
+                    "(encoder.md §4): %d" % (sum(w for _f, _o, w in blocks),),
+                )
+                spec = F.observation_spec(F.build_encoder(S.FLAT, shape=shape))
+                self.assertEqual(
+                    tuple(spec["shape"]),
+                    (pre + 3 * capacity,),
+                    "the row declares that width and no other (surface.md §5, "
+                    "capacity.md §2): %r" % (spec["shape"],),
+                )
+                widths[shape] = pre + 3 * capacity
+        self.assertEqual(
+            (widths[S.DEFAULT_SHAPE], widths[S.SECOND_SHAPE], widths[S.THIRD_SHAPE]),
+            (203, 329, 433),
+            "the three rows' dense widths are 203, 329 and 433, each its own arithmetic "
+            "(capacity.md §2, shapes.md §8): %r" % (widths,),
+        )
+        for shape, wanted in (
+            (S.DEFAULT_SHAPE, 131), (S.SECOND_SHAPE, 131), (S.THIRD_SHAPE, 139),
+        ):
+            with self.subTest(shape=shape, before_history=wanted):
+                blocks = S.FLAT_BLOCKS_BY_SHAPE[shape]
+                self.assertEqual(
+                    blocks[-1][1], wanted,
+                    "the history block starts at slot %d on %r -- 131 on the two-seat "
+                    "rows and 139 on the six-seat one, because the two per-seat blocks "
+                    "are seats wide (capacity.md §2, seats.md §3): %d"
+                    % (wanted, shape, blocks[-1][1]),
+                )
+                self.assertEqual(
+                    blocks[-1][1] + blocks[-1][2],
+                    widths[shape],
+                    "and it ends the observation (flat-numeric.md §2): %d"
+                    % (blocks[-1][1] + blocks[-1][2],),
+                )
+        fixed = S.readout(street="flop", seat=(1, False), hole=("2c", "Td"),
+                          board=("Jh", "7c", "2d"), stacks=(17, 17), pot=6,
+                          to_call=0, limit=(2, 0))
+        six = S.six_seat_readout(street="flop", seat=(1, False), hole=("2c", "Td"),
+                                 board=("Jh", "7c", "2d"), pot=6, to_call=0,
+                                 limit=(2, 0))
+        offsets = {shape: S.FLAT_BLOCKS_BY_SHAPE[shape] for shape in tables}
+        default_values = S.floats(F.encode(F.build_encoder(S.FLAT, shape=S.DEFAULT_SHAPE),
+                                           fixed))
+        six_values = S.floats(F.encode(F.build_encoder(S.FLAT, shape=S.THIRD_SHAPE), six))
+        for field, start, width in (("street", 0, 4), ("hole", None, 34),
+                                    ("board", None, 85)):
+            with self.subTest(field=field, shapes="two-seat against six-seat"):
+                default_offset = dict(
+                    (name, offset) for name, offset, _w in offsets[S.DEFAULT_SHAPE]
+                )[field]
+                six_offset = dict(
+                    (name, offset) for name, offset, _w in offsets[S.THIRD_SHAPE]
+                )[field]
+                self.assert_floats(
+                    six_values[six_offset:six_offset + width],
+                    default_values[default_offset:default_offset + width],
+                    "the %r block carries the same values on the six-seat row as on the "
+                    "default: a seat count moves the block's offset and never its "
+                    "contents (capacity.md §4, flat-numeric.md §3, ASM-44)"
+                    % (field,),
                 )
 
 

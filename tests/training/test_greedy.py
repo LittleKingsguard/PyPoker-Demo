@@ -13,7 +13,7 @@ that a default-shape record gained exactly the two keys D-29 adds.
 | TRN-14.2 | one decision record's seven keys, its index, descriptor and bounds |
 | TRN-14.3 | the sample: `hands` is the run's budget, one net chip delta per hand |
 | TRN-14.4 | two runs of one tuple reproduce one block, seed and all |
-| TRN-14.5 | the 2,000-hand and 24,000-record bounds refused by name with the counts |
+| TRN-14.5 | the 2,000-hand and the per-shape record bounds refused by name with the counts |
 | TRN-14.6 | no training decision log anywhere in the record but `greedy` (D-28) |
 | TRN-14.7 | a default-shape record gained exactly `game` and `greedy` and nothing else |
 
@@ -35,13 +35,16 @@ from _training_support import (  # noqa: E402  - the battery's own support modul
     as_text,
     custom_configuration,
     decision_logs,
+    declared_greedy_bound,
     default_shape,
     greedy_block,
     greedy_blocks,
     one_seed_run,
     pair_run,
     repeated_run,
+    second_shape,
     shaped_vocabulary,
+    third_shape,
     training,
 )
 
@@ -287,7 +290,7 @@ class GreedyBoundCase(TrainingCase):
     """TRN-14.5 -- the bound is refused and never truncated."""
 
     def test_trn_14_5_both_bounds_are_refused_by_name_with_the_counts(self):
-        """TRN-14.5 2,000 hands and 24,000 records, refused with both numbers.
+        """TRN-14.5 2,000 hands and one record bound per shape, refused with both numbers.
 
         `sizing.md` §4: "at most 2,000 hands and 24,000 decision records per variant per
         seed -- ... a pass that would exceed either bound is **refused, never truncated**,
@@ -295,16 +298,43 @@ class GreedyBoundCase(TrainingCase):
         known before the run trains, because the pass's hand count is the budget; the record
         bound is known only as the pass accumulates.  Both are refused with the count and
         the bound, and neither is clamped (`records.md` §15, ASM-38).
+
+        `shapes.md` §8 makes the record bound the **shape's**: 1,000 × its history capacity,
+        so 24,000 at the default shape, 66,000 on the two-seat uncapped one and 98,000 on
+        the six-seat one, "refused beyond and never truncated".  The check reads that
+        capacity through `declarations.greedy_decisions(shape)`, so this case drives the
+        third number beside the default shape's and shows that the default shape's own bound
+        did not widen when the bound became a function of the shape (`shapes.md` §8,
+        ASM-38, ASM-42, `docs/L2/training/surface.md` §4, D-29, D-33).
         """
         check_hands = self.internal("greedy", "_check_hands")
         check_decisions = self.internal("greedy", "_check_decisions")
+        decisions_bound = as_int(
+            self.internal("greedy", "DECISIONS_BOUND"), "greedy.DECISIONS_BOUND"
+        )
+        where = "training.run of a variant"
+        self.assertEqual(
+            decisions_bound,
+            24000,
+            "the module's own `DECISIONS_BOUND` is still the default shape's 24,000 -- the "
+            "name `docs/L3/training/README.md` §4 makes contract -- so a shape took the "
+            "bound's argument and not its spelling (shapes.md §8, greedy.md §4, ASM-42): %r"
+            % (decisions_bound,),
+        )
+        self.assertEqual(
+            declared_greedy_bound(default_shape()),
+            decisions_bound,
+            "and it is the declaration's bound for the default shape, so the name and the "
+            "shape's own number are one number (shapes.md §8, ASM-38, ASM-42): %r against %r"
+            % (declared_greedy_bound(default_shape()), decisions_bound),
+        )
         self.assertIsNone(
             check_hands(2000, "training.run of a variant"),
             "a pass of exactly the 2,000-hand bound is inside it and is not refused "
             "(sizing.md §4, ASM-38)",
         )
         self.assertIsNone(
-            check_decisions(24000, "training.run of a variant"),
+            check_decisions(24000, where),
             "and a pass of exactly the 24,000-record bound is inside it (sizing.md §4, "
             "ASM-38)",
         )
@@ -315,10 +345,69 @@ class GreedyBoundCase(TrainingCase):
             label="a pass one hand above the hand bound",
         )
         self.refuse(
-            lambda: check_decisions(24001, "training.run of a variant"),
+            lambda: check_decisions(24001, where),
             "GreedyPassRefused",
             groups=(("24001",), ("24000",)),
             label="a pass one record above the record bound",
+        )
+        # ... a pass on the default shape, asked for with the shape named, is the same
+        # 24,000: no bound widened for the shape that had one.
+        self.assertIsNone(
+            check_decisions(24000, where, default_shape()),
+            "a default-shape pass of exactly 24,000 records is inside its own bound too, so "
+            "naming the shape changed no number for it (shapes.md §5, §8, ASM-38, ASM-42)",
+        )
+        self.refuse(
+            lambda: check_decisions(24001, where, default_shape()),
+            "GreedyPassRefused",
+            groups=(("24001",), ("24000",), ("capacity of 24", "24 slots")),
+            label="a default-shape pass one record above its own bound",
+        )
+        # ... and each uncapped shape bounds at 1,000 x its own capacity.
+        self.assertEqual(
+            declared_greedy_bound(second_shape()),
+            66000,
+            "the two-seat uncapped shape's bound is 66,000 records -- 1,000 x its 66-slot "
+            "history capacity (shapes.md §8, ASM-42): %r"
+            % (declared_greedy_bound(second_shape()),),
+        )
+        self.assertIsNone(
+            check_decisions(66000, where, second_shape()),
+            "a pass of exactly 66,000 records on that shape is inside its bound "
+            "(shapes.md §8, sizing.md §4, ASM-38)",
+        )
+        self.refuse(
+            lambda: check_decisions(66001, where, second_shape()),
+            "GreedyPassRefused",
+            groups=(("66001",), ("66000",), ("capacity of 66", "66 slots")),
+            label="a two-seat uncapped pass one record above its own bound",
+        )
+        self.assertEqual(
+            declared_greedy_bound(third_shape()),
+            98000,
+            "and the six-seat shape's is 98,000 -- 1,000 x its own 98-slot capacity, which "
+            "its betting and not the fixed-limit cap derives (shapes.md §8, ASM-42, "
+            "ASM-44, D-33): %r" % (declared_greedy_bound(third_shape()),),
+        )
+        self.assertIsNone(
+            check_decisions(98000, where, third_shape()),
+            "a pass of exactly 98,000 records on the six-seat shape is inside its bound, so "
+            "the bound is the uncapped shape's own and not the default's "
+            "(shapes.md §8, ASM-38, ASM-42)",
+        )
+        refusal = self.refuse(
+            lambda: check_decisions(98001, where, third_shape()),
+            "GreedyPassRefused",
+            groups=(("98001",), ("98000",), ("capacity of 98", "98 slots")),
+            label="a six-seat pass one record above its own bound",
+        )
+        message = str(refusal)
+        self.assertIn(
+            third_shape(),
+            message,
+            "and the refusal names the shape whose capacity set the bound, so a caller reads "
+            "which game's bound it crossed (shapes.md §8, records.md §15, ASM-38, "
+            "ASM-42): %r" % (message,),
         )
         # ... and the run refuses a budget it could not pass at, before it trains: the
         # pass's hand count IS the budget, so nothing is written for a record this module

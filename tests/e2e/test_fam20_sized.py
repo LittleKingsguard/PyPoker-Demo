@@ -23,6 +23,14 @@ Every assertion is read from entry points and from the decision records they ret
 arithmetic of `sizing.md` §2 is the **expected** side and is computed from each decision's
 own reported bounds (`_surface.band_resolution`, `_surface.band_owners`), never from a span
 this battery hoped the walk would reach.
+
+**D-33's widened history is this family's too**, because what a sized hand reaches is what the
+block must hold: an uncapped hand is not capped, so a raiser seated opposite a learner takes it
+past the 24 decisions the fixed-limit cap bounds — the reach `shapes.md` §8 widened the
+`no-limit-100` block to 66 for — and every readout of such a walk must still encode on that
+shape's own encoders, at 329 dense values and 82 tokens, with nothing truncated
+(`shapes.md` §8, ASM-42, `flat-numeric.md` §5, `card-tokens.md` §5).  FAM-20.10 drives exactly
+that; the capacity itself, and the refusal one entry beyond it, is FAM-19.14's.
 """
 
 import os
@@ -88,18 +96,27 @@ class FAM20Sized(S.SurfaceCase):
         ``descriptor`` names the raise descriptor the battery's own seat tries first;
         ``None`` drives the catalogue's `random` baseline instead, which reaches the small
         spans a one-descriptor drive does not (`sizing.md` §2's masked bands).
+
+        A shape with more than two seats is played through `engine.play_hand`'s seating —
+        one policy per seat, which is the only route such a hand has — and every seat is
+        handed the same policy, so the walk reaches that descriptor from every position and
+        not only from the button (`seats.md` §4, `e2e-surface.md` §3.1, D-33).
         """
         if seeds is None:
             seeds = S.SHAPE_SEEDS
         shape = shape or self.second_shape()
+        seats = self.seats_of(shape)
         out = []
         for seed in seeds:
             policy = (
                 self.baseline("random", S.SEED_D) if descriptor is None
                 else self.chooser(descriptor)
             )
-            out.append(self.play(seed, policy, self.baseline("always-call", S.SEED_G),
-                                 shape=shape))
+            if seats > 2:
+                out.append(self.play(seed, seats=[policy] * seats, shape=shape))
+            else:
+                out.append(self.play(seed, policy, self.baseline("always-call", S.SEED_G),
+                                     shape=shape))
         return out
 
     def every_decision(self, episodes):
@@ -179,153 +196,160 @@ class FAM20Sized(S.SurfaceCase):
         return passes
 
     # -- the vocabulary (sizing.md §2–§3) ---------------------------------
-    def test_fam20_1_the_second_shape_declares_its_six_descriptors_in_order(self):
-        """FAM-20.1 the six descriptors are declared in the shape's own index order.
+    def test_fam20_1_each_uncapped_shape_declares_its_six_descriptors_in_order(self):
+        """FAM-20.1 the six descriptors are declared in each shape's own index order.
 
         `sizing.md` §3 fixes the order as the measured price order, worst first — `fold` 0,
         `check-call` 1, `raise-quarter` 2, `raise-half` 3, `raise-all-in` 4,
-        `raise-minimum` 5 — and `e2e-surface.md` §2 makes `features.action_space(shape)`
-        the declaration and `engine.legal_actions` the legal subset in the same order.
+        `raise-minimum` 5 — and `e2e-surface.md` §2 makes `features.action_space(shape)` the
+        declaration and `engine.legal_actions` the legal subset in the same order.  A seat
+        count adds no descriptor, so both uncapped rows declare the same six in the same
+        order and the case is asserted of each (`shapes.md` §2, `seats.md` §2, D-33).
         """
-        shape = self.second_shape()
-        space = self.action_space(shape)
-        self.assertEqual(
-            sorted(S.action_vocabulary(space)),
-            list(range(len(S.SIZED_ACTIONS))),
-            "the named shape's vocabulary is six indices, whichever way the container "
-            "keys them (e2e-surface.md §2, shapes.md §2): %r" % (space,),
-        )
-        self.assertEqual(
-            [self.decode_action(index, shape) for index in range(len(S.SIZED_ACTIONS))],
-            list(S.SIZED_ACTIONS),
-            "the indices decode to the declared descriptors **in the declared order** "
-            "(sizing.md §3): %r" % (space,),
-        )
-        hand = self.hand(S.SEED_A, shape)
-        legal = self.legal(hand)
-        self.assertEqual(
-            list(self.ep("features", "legal_indices")(legal)),
-            sorted(self.ep("features", "legal_indices")(legal)),
-            "engine.legal_actions returns the legal subset in the shape's index order "
-            "and legal_indices is position-aligned (sizing.md §3): %r" % (legal,),
-        )
-        self.assertEqual(
-            set(legal),
-            set(S.SIZED_ACTIONS),
-            "the first decision of a no-cap hand is the one decision on which every "
-            "declared descriptor is legal, so the whole vocabulary is observable "
-            "(sizing.md §2): %r" % (legal,),
-        )
+        for shape in self.other_shapes():
+            space = self.action_space(shape)
+            self.assertEqual(
+                sorted(S.action_vocabulary(space)),
+                list(range(len(S.SIZED_ACTIONS))),
+                "%r's vocabulary is six indices, whichever way the container keys them "
+                "(e2e-surface.md §2, shapes.md §2): %r" % (shape, space),
+            )
+            self.assertEqual(
+                [self.decode_action(index, shape) for index in range(len(S.SIZED_ACTIONS))],
+                list(S.SIZED_ACTIONS),
+                "%r's indices decode to the declared descriptors **in the declared order** "
+                "(sizing.md §3): %r" % (shape, space),
+            )
+            hand = self.hand(S.SEED_A, shape)
+            legal = self.legal(hand)
+            self.assertEqual(
+                list(self.ep("features", "legal_indices")(legal)),
+                sorted(self.ep("features", "legal_indices")(legal)),
+                "engine.legal_actions returns the legal subset in %r's index order and "
+                "legal_indices is position-aligned (sizing.md §3): %r" % (shape, legal),
+            )
+            self.assertEqual(
+                set(legal),
+                set(S.SIZED_ACTIONS),
+                "the first decision of a no-cap hand of %r is the one decision on which every "
+                "declared descriptor is legal, so the whole vocabulary is observable "
+                "(sizing.md §2): %r" % (shape, legal),
+            )
 
     def test_fam20_2_a_raise_resolves_to_its_own_band_s_maximum(self):
         """FAM-20.2 every raise resolves to its band's maximum, at its own bounds.
 
         `sizing.md` §2: each band resolves to **its own maximum** — so no two descriptors
         resolve to one amount at one decision, and a raise descriptor carries no amount of
-        its own.  The case drives each descriptor in turn, reads the amount the engine
-        resolved and the two bounds it was resolved between off the episode record
-        (`records.md` §5), and compares them with the arithmetic of the decision itself.
+        its own.  The case drives each descriptor in turn on **each** shape declared beside
+        the default, reads the amount the engine resolved and the two bounds it was
+        resolved between off the episode record (`records.md` §5), and compares them with
+        the arithmetic of the decision itself — the bands are the shape's, and a six-seat
+        hand's bounds are its own (`seats.md` §2, D-33).
         """
-        shape = self.second_shape()
-        seen = {}
-        for descriptor in S.SIZED_RAISES:
-            resolved = 0
-            for episode in self.episodes(descriptor, seeds=S.SHAPE_SEEDS[:6]):
-                for _episode, decision, amount, minimum, maximum in self.raise_decisions(
-                    [episode]
-                ):
-                    if decision["action"] != descriptor:
-                        continue
-                    resolved += 1
-                    expected = S.band_resolution(descriptor, minimum, maximum)
-                    self.assertIsNotNone(
-                        expected,
-                        "%r was legal, so its band is not empty (sizing.md §2): bounds "
-                        "%r..%r" % (descriptor, minimum, maximum),
-                    )
-                    self.assertEqual(
-                        amount,
-                        expected,
-                        "%r resolves to its band's maximum (sizing.md §2): at bounds "
-                        "%r..%r the band's maximum is %r, the engine resolved %r"
-                        % (descriptor, minimum, maximum, expected, amount),
-                    )
-            seen[descriptor] = resolved
-            self.assertGreater(
-                resolved,
-                0,
-                "the case must drive %r on a real decision, or its resolution is asserted "
-                "on nothing (sizing.md §2): %r" % (descriptor, seen),
-            )
+        for shape in self.other_shapes():
+            seen = {}
+            for descriptor in S.SIZED_RAISES:
+                resolved = 0
+                for episode in self.episodes(descriptor, seeds=S.SHAPE_SEEDS[:6], shape=shape):
+                    for _episode, decision, amount, minimum, maximum in self.raise_decisions(
+                        [episode]
+                    ):
+                        if decision["action"] != descriptor:
+                            continue
+                        resolved += 1
+                        expected = S.band_resolution(descriptor, minimum, maximum)
+                        self.assertIsNotNone(
+                            expected,
+                            "%r was legal on %r, so its band is not empty (sizing.md §2): "
+                            "bounds %r..%r" % (descriptor, shape, minimum, maximum),
+                        )
+                        self.assertEqual(
+                            amount,
+                            expected,
+                            "%r resolves to its band's maximum (sizing.md §2): at bounds "
+                            "%r..%r on %r the band's maximum is %r, the engine resolved %r"
+                            % (descriptor, minimum, maximum, shape, expected, amount),
+                        )
+                seen[descriptor] = resolved
+                self.assertGreater(
+                    resolved,
+                    0,
+                    "the case must drive %r on a real decision of %r, or its resolution is "
+                    "asserted on nothing (sizing.md §2): %r"
+                    % (descriptor, shape, seen),
+                )
 
     def test_fam20_3_every_legal_amount_belongs_to_exactly_one_descriptor(self):
         """FAM-20.3 the four bands partition `[m, A]`: no overlap, no gap, one owner each.
 
         `sizing.md` §2 makes the four bands disjoint and total over the legal integer
         interval, and that is the property D-28's measured overlap violated.  The case
-        walks decisions on the named shape and, at each one, computes from the decision's
-        **own** bounds which descriptor owns each legal amount: every amount must have
-        exactly one owner, and the four resolutions must be four distinct amounts (the
-        empty bands excepted).
+        walks decisions on **each** shape the catalogue declares beside the default — the
+        bands are the shape's, and a six-seat row's bounds are its own — and, at each
+        decision, computes from the decision's **own** bounds which descriptor owns each
+        legal amount: every amount must have exactly one owner, and the four resolutions
+        must be four distinct amounts (the empty bands excepted) (`seats.md` §2, D-33).
         """
-        decisions = 0
-        for episode, decision in self.every_decision(
-            self.episodes(seeds=S.SHAPE_SEEDS[:6])
-        ):
-            _amount, minimum, maximum = self.decision_amounts(decision)
-            if minimum is None or maximum is None:
-                continue
-            decisions += 1
-            owners = S.band_owners(minimum, maximum)
-            for amount, descriptors in owners.items():
-                self.assertEqual(
-                    len(descriptors),
-                    1,
-                    "every legal amount belongs to exactly one descriptor — the overlap "
-                    "D-28 recorded is impossible by construction (sizing.md §2): amount %r "
-                    "of [%r, %r] is owned by %r"
-                    % (amount, minimum, maximum, descriptors),
-                )
-            resolutions = {}
-            for descriptor in S.SIZED_RAISES:
-                resolved = S.band_resolution(descriptor, minimum, maximum)
-                if resolved is None:
+        for shape in self.other_shapes():
+            decisions = 0
+            for episode, decision in self.every_decision(
+                self.episodes(seeds=S.SHAPE_SEEDS[:6], shape=shape)
+            ):
+                _amount, minimum, maximum = self.decision_amounts(decision)
+                if minimum is None or maximum is None:
                     continue
-                resolutions[descriptor] = resolved
-                self.assertIn(
-                    resolved,
-                    owners,
-                    "%r's resolution is a legal amount of the interval it was resolved "
-                    "between (sizing.md §2): %r outside [%r, %r]"
-                    % (descriptor, resolved, minimum, maximum),
+                decisions += 1
+                owners = S.band_owners(minimum, maximum)
+                for amount, descriptors in owners.items():
+                    self.assertEqual(
+                        len(descriptors),
+                        1,
+                        "every legal amount belongs to exactly one descriptor — the overlap "
+                        "D-28 recorded is impossible by construction (sizing.md §2): amount "
+                        "%r of [%r, %r] on %r is owned by %r"
+                        % (amount, minimum, maximum, shape, descriptors),
+                    )
+                resolutions = {}
+                for descriptor in S.SIZED_RAISES:
+                    resolved = S.band_resolution(descriptor, minimum, maximum)
+                    if resolved is None:
+                        continue
+                    resolutions[descriptor] = resolved
+                    self.assertIn(
+                        resolved,
+                        owners,
+                        "%r's resolution is a legal amount of the interval it was resolved "
+                        "between (sizing.md §2): %r outside [%r, %r] on %r"
+                        % (descriptor, resolved, minimum, maximum, shape),
+                    )
+                    self.assertIn(
+                        descriptor,
+                        owners[resolved],
+                        "the band's own resolution is inside the band it owns (sizing.md "
+                        "§2): %r resolves to %r, whose owner is %r, on %r"
+                        % (descriptor, resolved, owners[resolved], shape),
+                    )
+                self.assertEqual(
+                    len(set(resolutions.values())),
+                    len(resolutions),
+                    "two descriptors never resolve to one amount at one decision "
+                    "(sizing.md §2): bounds %r..%r, resolutions %r, on %r"
+                    % (minimum, maximum, resolutions, shape),
                 )
                 self.assertIn(
-                    descriptor,
-                    owners[resolved],
-                    "the band's own resolution is inside the band it owns (sizing.md §2): "
-                    "%r resolves to %r, whose owner is %r"
-                    % (descriptor, resolved, owners[resolved]),
+                    maximum,
+                    resolutions.values(),
+                    "the all-in is reachable — it is the top band's resolution whenever the "
+                    "interval holds more than the minimum (sizing.md §2): bounds %r..%r, "
+                    "resolutions %r, on %r" % (minimum, maximum, resolutions, shape),
                 )
-            self.assertEqual(
-                len(set(resolutions.values())),
-                len(resolutions),
-                "two descriptors never resolve to one amount at one decision "
-                "(sizing.md §2): bounds %r..%r, resolutions %r"
-                % (minimum, maximum, resolutions),
+            self.assertGreater(
+                decisions,
+                1,
+                "the case must walk %r's decisions that declare raise bounds before it "
+                "asserts the partition (records.md §5, sizing.md §2)" % (shape,),
             )
-            self.assertIn(
-                maximum,
-                resolutions.values(),
-                "the all-in is reachable — it is the top band's resolution whenever the "
-                "interval holds more than the minimum (sizing.md §2): bounds %r..%r, "
-                "resolutions %r" % (minimum, maximum, resolutions),
-            )
-        self.assertGreater(
-            decisions,
-            1,
-            "the case must walk decisions that declare raise bounds before it asserts "
-            "the partition (records.md §5, sizing.md §2)",
-        )
 
     def test_fam20_4_an_empty_band_is_masked_out_and_never_collapsed(self):
         """FAM-20.4 a band with no legal amount is masked out, not folded onto a neighbour.
@@ -335,59 +359,67 @@ class FAM20Sized(S.SurfaceCase):
         neighbour.  So at every decision the **legal** raise descriptors are exactly the
         bands whose resolution exists, and at an interval that masks a band the masked
         descriptors are absent from `legal_actions` while the minimum is present.  The
-        walk must reach such a decision, or the masking is asserted on nothing.
+        case walks each shape declared beside the default — a six-seat hand's intervals are
+        its own — and each walk must reach such a decision, or the masking is asserted on
+        nothing (`seats.md` §2, D-33).
         """
-        episodes = self.episodes(seeds=S.SHAPE_SEEDS)
-        decisions = 0
-        for _episode, decision in self.every_decision(episodes):
-            _amount, minimum, maximum = self.decision_amounts(decision)
-            if minimum is None or maximum is None:
-                continue
-            decisions += 1
-            legal = set(decision["legal"])
-            for descriptor in S.SIZED_RAISES:
-                wanted = S.band_resolution(descriptor, minimum, maximum) is not None
-                self.assertEqual(
-                    descriptor in legal,
-                    wanted,
-                    "a raise descriptor is legal exactly when its band holds a legal "
-                    "amount, and an empty band is masked out rather than collapsed onto "
-                    "its neighbour (sizing.md §2): at bounds %r..%r %r is %r and the legal "
-                    "set is %r" % (minimum, maximum, descriptor,
-                                   "legal" if wanted else "masked", sorted(legal)),
-                )
-        self.assertGreater(decisions, 1, "the walk must reach decisions with raise bounds")
-        masked = self.empty_band_decisions(episodes)
-        self.assertTrue(
-            masked,
-            "the walk must reach an interval that masks at least one declared band, or the "
-            "masking this case asserts is never exercised (sizing.md §2): %d decisions"
-            % (decisions,),
-        )
-        for decision, minimum, maximum, names in masked:
-            legal = set(decision["legal"])
-            self.assertIn(
-                "raise-minimum",
-                legal,
-                "the minimum band is never empty while a raise is legal at all — an "
-                "interval that masked it too would be no interval (sizing.md §2): bounds "
-                "%r..%r" % (minimum, maximum),
+        for shape in self.other_shapes():
+            episodes = self.episodes(seeds=S.SHAPE_SEEDS, shape=shape)
+            decisions = 0
+            for _episode, decision in self.every_decision(episodes):
+                _amount, minimum, maximum = self.decision_amounts(decision)
+                if minimum is None or maximum is None:
+                    continue
+                decisions += 1
+                legal = set(decision["legal"])
+                for descriptor in S.SIZED_RAISES:
+                    wanted = S.band_resolution(descriptor, minimum, maximum) is not None
+                    self.assertEqual(
+                        descriptor in legal,
+                        wanted,
+                        "a raise descriptor is legal exactly when its band holds a legal "
+                        "amount, and an empty band is masked out rather than collapsed onto "
+                        "its neighbour (sizing.md §2): at bounds %r..%r %r is %r and the "
+                        "legal set is %r on %r"
+                        % (minimum, maximum, descriptor,
+                           "legal" if wanted else "masked", sorted(legal), shape),
+                    )
+            self.assertGreater(
+                decisions, 1,
+                "the %r walk must reach decisions with raise bounds" % (shape,),
             )
-            for name in names:
-                self.assertNotIn(
-                    name,
+            masked = self.empty_band_decisions(episodes)
+            self.assertTrue(
+                masked,
+                "the %r walk must reach an interval that masks at least one declared band, "
+                "or the masking this case asserts is never exercised (sizing.md §2): %d "
+                "decisions" % (shape, decisions),
+            )
+            for decision, minimum, maximum, names in masked:
+                legal = set(decision["legal"])
+                self.assertIn(
+                    "raise-minimum",
                     legal,
-                    "a band with no legal amount is masked out, never collapsed onto its "
-                    "neighbour (sizing.md §2): %r at bounds %r..%r, legal %r"
-                    % (name, minimum, maximum, sorted(legal)),
+                    "the minimum band is never empty while a raise is legal at all — an "
+                    "interval that masked it too would be no interval (sizing.md §2): bounds "
+                    "%r..%r on %r" % (minimum, maximum, shape),
                 )
-            if maximum == minimum:
-                self.assertEqual(
-                    set(name for name in S.SIZED_RAISES if name in legal),
-                    {"raise-minimum"},
-                    "at L = 0 only `raise-minimum` is legal (sizing.md §2): bounds %r..%r, "
-                    "legal %r" % (minimum, maximum, sorted(legal)),
-                )
+                for name in names:
+                    self.assertNotIn(
+                        name,
+                        legal,
+                        "a band with no legal amount is masked out, never collapsed onto its "
+                        "neighbour (sizing.md §2): %r at bounds %r..%r on %r, legal %r"
+                        % (name, minimum, maximum, shape, sorted(legal)),
+                    )
+                if maximum == minimum:
+                    self.assertEqual(
+                        set(name for name in S.SIZED_RAISES if name in legal),
+                        {"raise-minimum"},
+                        "at L = 0 only `raise-minimum` is legal (sizing.md §2): bounds "
+                        "%r..%r on %r, legal %r"
+                        % (minimum, maximum, shape, sorted(legal)),
+                    )
 
     def test_fam20_5_the_index_order_is_not_monotone_in_amount(self):
         """FAM-20.5 the index order is the price order, so it is not monotone in amount.
@@ -396,60 +428,63 @@ class FAM20Sized(S.SurfaceCase):
         the minimum, so no reader and no test can read an index as a size, and the
         smallest raise index is not the cheapest band — a tie therefore resolves toward a
         worse-priced band and never manufactures a PASS (ASM-37, validity V-F13, D-29).
+        The order is the shape's, so the case reads one bounded decision of **each** shape
+        declared beside the default and resolves the four bands from that decision's own
+        bounds (`seats.md` §2, D-33).
         """
-        episodes = self.episodes(seeds=S.SHAPE_SEEDS[:6])
-        decision, minimum, maximum = self.bounded_decision(episodes)
-        amounts = {}
-        for descriptor in S.SIZED_RAISES:
-            resolved = S.band_resolution(descriptor, minimum, maximum)
-            self.assertIsNotNone(
-                resolved,
-                "%r must be legal at the decision this case reads (sizing.md §2): bounds "
-                "%r..%r" % (descriptor, minimum, maximum),
+        for shape in self.other_shapes():
+            episodes = self.episodes(seeds=S.SHAPE_SEEDS[:6], shape=shape)
+            decision, minimum, maximum = self.bounded_decision(episodes)
+            amounts = {}
+            for descriptor in S.SIZED_RAISES:
+                resolved = S.band_resolution(descriptor, minimum, maximum)
+                self.assertIsNotNone(
+                    resolved,
+                    "%r must be legal at the decision this case reads on %r (sizing.md "
+                    "§2): bounds %r..%r" % (descriptor, shape, minimum, maximum),
+                )
+                index = list(S.SIZED_ACTIONS).index(descriptor)
+                self.assertIn(
+                    index,
+                    self.ep("features", "legal_indices")(decision["legal"]),
+                    "the descriptor's own index is legal at this decision on %r: %r against "
+                    "%r" % (shape, descriptor, decision["legal"]),
+                )
+                amounts[index] = resolved
+            ordered = [amounts[index] for index in sorted(amounts)]
+            self.assertNotEqual(
+                ordered,
+                sorted(ordered),
+                "the index order is **not** monotone in amount — the all-in sits before the "
+                "minimum (sizing.md §3, ASM-37): index order %r resolves to %r on %r"
+                % (sorted(amounts), ordered, shape),
             )
-            index = list(S.SIZED_ACTIONS).index(descriptor)
-            self.assertIn(
-                index,
-                self.ep("features", "legal_indices")(decision["legal"]),
-                "the descriptor's own index is legal at this decision: %r against %r"
-                % (descriptor, decision["legal"]),
+            smallest_raise_index = min(
+                index for index in amounts if S.is_raise(self.decode_action(index, shape))
             )
-            amounts[index] = resolved
-        ordered = [amounts[index] for index in sorted(amounts)]
-        self.assertNotEqual(
-            ordered,
-            sorted(ordered),
-            "the index order is **not** monotone in amount — the all-in sits before the "
-            "minimum (sizing.md §3, ASM-37): index order %r resolves to %r"
-            % (sorted(amounts), ordered),
-        )
-        smallest_raise_index = min(
-            index for index in amounts
-            if S.is_raise(self.decode_action(index, self.second_shape()))
-        )
-        self.assertNotEqual(
-            amounts[smallest_raise_index],
-            min(amounts.values()),
-            "the smallest raise index is not the cheapest band, so a learner whose values "
-            "are all equal cannot read as one that found the minimum raise (sizing.md §3, "
-            "V-F13): index %r resolves to %r against the cheapest %r"
-            % (smallest_raise_index, amounts[smallest_raise_index], min(amounts.values())),
-        )
-        self.assertEqual(
-            amounts[list(S.SIZED_ACTIONS).index("raise-all-in")],
-            max(amounts.values()),
-            "the all-in's own index resolves to the largest legal amount (sizing.md §2): "
-            "%r" % (amounts,),
-        )
-        self.assertEqual(
-            amounts[max(amounts)],
-            min(amounts.values()),
-            "the **last** raise index resolves to the cheapest band and the first to the "
-            "second-cheapest, so the order runs against the price and no reader can take "
-            "an index for a size (sizing.md §3, ASM-37): %r" % (amounts,),
-        )
+            self.assertNotEqual(
+                amounts[smallest_raise_index],
+                min(amounts.values()),
+                "the smallest raise index is not the cheapest band, so a learner whose "
+                "values are all equal cannot read as one that found the minimum raise "
+                "(sizing.md §3, V-F13): index %r resolves to %r against the cheapest %r on "
+                "%r" % (smallest_raise_index, amounts[smallest_raise_index],
+                        min(amounts.values()), shape),
+            )
+            self.assertEqual(
+                amounts[list(S.SIZED_ACTIONS).index("raise-all-in")],
+                max(amounts.values()),
+                "the all-in's own index resolves to the largest legal amount (sizing.md §2): "
+                "%r on %r" % (amounts, shape),
+            )
+            self.assertEqual(
+                amounts[max(amounts)],
+                min(amounts.values()),
+                "the **last** raise index resolves to the cheapest band and the first to the "
+                "second-cheapest, so the order runs against the price and no reader can take "
+                "an index for a size (sizing.md §3, ASM-37): %r on %r" % (amounts, shape),
+            )
 
-    # -- the record (records.md §5, §15) ----------------------------------
     def test_fam20_6_a_decision_record_carries_its_amount_and_both_bounds(self):
         """FAM-20.6 `records.md` §5's three amount facts are on every decision record.
 
@@ -459,7 +494,7 @@ class FAM20Sized(S.SurfaceCase):
         `records.md` §5, D-29).  Both shapes are asserted: the default game's raises carry
         their own resolution and its no-raise decisions carry `None`.
         """
-        for shape in (None, self.second_shape()):
+        for shape in (None,) + tuple(self.other_shapes()):
             decisions = 0
             raises = 0
             for episode in self.episodes(seeds=S.SHAPE_SEEDS[:4], shape=shape):
@@ -515,212 +550,230 @@ class FAM20Sized(S.SurfaceCase):
         """FAM-20.7 the pass plays the run's own sample, and a pass beyond its bound is refused.
 
         `sizing.md` §4 and `records.md` §15: a run retains one decision stream — the
-        exploration-off pass — at most 2,000 hands and 24,000 decision records per variant
-        per seed, and a pass that would exceed either bound is **refused, never
-        truncated**.  The case reads a run at a ten-hand budget, so the pass's own hand
-        count is ten (the sample is the run's), and it then hands the same configuration a
-        budget one hand over the bound: the call must be refused, naming the bound, and
-        must return no record at all — a truncated log would silently report a different
-        sample (ASM-38, D-28).
+        exploration-off pass — at most 2,000 hands and, per variant per seed, 1,000 decision
+        records **per slot of the shape's history capacity** — 24,000 at the default shape,
+        66,000 on `no-limit-100` and 98,000 on D-33's six-seat row — and a pass that would
+        exceed either bound is **refused, never truncated** (`shapes.md` §8, ASM-38,
+        D-33).  The case reads a run at a ten-hand budget on each shape declared beside the
+        default, so the pass's own hand count is ten (the sample is the run's), and it then
+        hands one configuration a budget one hand over the bound: the call must be refused,
+        naming the bound, and must return no record at all — a truncated log would silently
+        report a different sample.
         """
-        shape = self.second_shape()
-        configuration = self.shaped_rung(shape=shape, seeds=(S.SEED_A,))
-        record = self.ep("training", "run")(
-            configuration, [S.SEED_A], PASS_HANDS, "cpu"
-        )
-        self.assertEqual(
-            int(S.declared_field(record, "a run record (records.md §12)", "budget")),
-            PASS_HANDS,
-            "the run's budget is the sample it played (records.md §12, sizing.md §4)",
-        )
-        passes = self.greedy_passes(record)
-        for path, block in passes:
-            mode = S.declared_field(block, "a greedy pass (records.md §15)", "mode")
-            self.assertEqual(
-                str(mode), MODE_GREEDY,
-                "a retained decision stream is the exploration-off pass and its mode is "
-                "`off` (records.md §15, sizing.md §4): %r" % (block,),
-            )
-            hands = int(S.declared_field(block, "a greedy pass (records.md §15)", "hands"))
-            self.assertEqual(
-                hands, PASS_HANDS,
-                "the pass's hand count is the run's own sample budget — a ten-hand run "
-                "yields a ten-hand pass (sizing.md §4, ASM-38): %r" % (block,),
-            )
-            self.assertLessEqual(
-                hands, PASS_HANDS_BOUND,
-                "one pass plays at most %d hands (sizing.md §4, records.md §15): %r"
-                % (PASS_HANDS_BOUND, hands),
+        for shape in self.other_shapes():
+            configuration = self.seated_rung(shape=shape, seeds=(S.SEED_A,),
+                                             samples=PASS_HANDS)
+            record = self.ep("training", "run")(
+                configuration, [S.SEED_A], PASS_HANDS, "cpu"
             )
             self.assertEqual(
-                int(S.declared_field(block, "a greedy pass (records.md §15)", "seed")),
-                S.SEED_A,
-                "the pass is played at the run's own seed (records.md §15, sizing.md §4): "
-                "%r" % (block.get("seed"),),
+                int(S.declared_field(record, "a run record (records.md §12)", "budget")),
+                PASS_HANDS,
+                "the run's budget is the sample it played (records.md §12, sizing.md §4): "
+                "%r on %r" % (record.get("budget"), shape),
             )
-            net_chips = S.declared_field(block, "a greedy pass (records.md §15)",
-                                         "net_chips")
-            self.assertEqual(
-                len(list(net_chips)), hands,
-                "the pass carries one net chip delta per hand it played, so the price can "
-                "be recomputed and not only quoted (records.md §15, ASM-23): %d deltas "
-                "for %d hands" % (len(list(net_chips)), hands),
+            decisions_bound = 1000 * S.SHAPE_LAYOUTS[shape]["history"]
+            passes = self.greedy_passes(record)
+            self.assertTrue(
+                passes,
+                "a %r run retains its pass (records.md §12, §15): %r"
+                % (shape, sorted(str(key) for key in record) if S.is_mapping(record)
+                   else record),
             )
-            decisions = S.declared_field(block, "a greedy pass (records.md §15)",
-                                         "decisions")
-            decisions = list(decisions)
-            # The learner's own decisions only: a hand its opponent ends pre-flop (the
-            # button folds and the learner is the big blind) holds none of them, so the
-            # record's length is bounded by the sample and is not the sample's hand count
-            # (`records.md` §5, §15).  What "never truncated" means here is that every hand
-            # of the pass is present with its own outcome and that the log stays inside its
-            # bound: a pass over the bound is refused below, and a shorter **sample** is
-            # caught by the hand count above.
-            self.assertGreaterEqual(
-                len(decisions), 1,
-                "the pass retains the decisions it played — an empty log is no stream at "
-                "all (sizing.md §4, records.md §15): %r" % (block,),
-            )
-            self.assertLessEqual(
-                len(decisions), PASS_DECISIONS_BOUND,
-                "one pass records at most %d decision records (records.md §15): %d"
-                % (PASS_DECISIONS_BOUND, len(decisions)),
-            )
-            vocabulary = set(self.vocabulary(shape))
-            for decision in decisions:
-                for key in ("index", "descriptor", "amount", "minimum", "maximum",
-                            "legal", "tie"):
-                    self.assertIn(
-                        key, decision,
-                        "records.md §15 makes %r a required key of a retained decision: %r"
-                        % (key, decision),
-                    )
-                self.assertIn(
-                    int(decision["index"]),
-                    set(int(member) for member in decision["legal"]),
-                    "a retained decision's index is one of its own legal mask "
-                    "(records.md §15): %r" % (decision,),
+            for path, block in passes:
+                mode = S.declared_field(block, "a greedy pass (records.md §15)", "mode")
+                self.assertEqual(
+                    str(mode), MODE_GREEDY,
+                    "a retained decision stream is the exploration-off pass and its mode is "
+                    "`off` (records.md §15, sizing.md §4): %r on %r" % (block, shape),
+                )
+                hands = int(S.declared_field(block, "a greedy pass (records.md §15)", "hands"))
+                self.assertEqual(
+                    hands, PASS_HANDS,
+                    "the pass's hand count is the run's own sample budget — a ten-hand run "
+                    "yields a ten-hand pass (sizing.md §4, ASM-38): %r on %r"
+                    % (block, shape),
+                )
+                self.assertLessEqual(
+                    hands, PASS_HANDS_BOUND,
+                    "one pass plays at most %d hands (sizing.md §4, records.md §15): %r"
+                    % (PASS_HANDS_BOUND, hands),
                 )
                 self.assertEqual(
-                    str(decision["descriptor"]),
-                    self.decode_action(int(decision["index"]), shape),
-                    "a retained decision carries the descriptor its index decodes to in "
-                    "the run's shape (records.md §15, sizing.md §3): %r" % (decision,),
+                    int(S.declared_field(block, "a greedy pass (records.md §15)", "seed")),
+                    S.SEED_A,
+                    "the pass is played at the run's own seed (records.md §15, sizing.md "
+                    "§4): %r" % (block.get("seed"),),
                 )
-                self.assertIn(
-                    int(decision["index"]),
-                    vocabulary,
-                    "the pass is played on the run's shape, so its indices are that "
-                    "shape's (records.md §15, shapes.md §3): %r" % (decision,),
+                net_chips = S.declared_field(block, "a greedy pass (records.md §15)",
+                                             "net_chips")
+                self.assertEqual(
+                    len(list(net_chips)), hands,
+                    "the pass carries one net chip delta per hand it played, so the price "
+                    "can be recomputed and not only quoted (records.md §15, ASM-23): %d "
+                    "deltas for %d hands" % (len(list(net_chips)), hands),
                 )
-                self.assertIsInstance(
-                    bool(decision["tie"]), bool,
-                    "`tie` is a boolean flag on every retained decision (records.md §15, "
-                    "sizing.md §3): %r" % (decision["tie"],),
+                decisions = S.declared_field(block, "a greedy pass (records.md §15)",
+                                             "decisions")
+                decisions = list(decisions)
+                # The learner's own decisions only: a hand its opponent ends pre-flop (the
+                # button folds and the learner is the big blind) holds none of them, so the
+                # record's length is bounded by the sample and is not the sample's hand count
+                # (`records.md` §5, §15).  What "never truncated" means here is that every
+                # hand of the pass is present with its own outcome and that the log stays
+                # inside its bound: a pass over the bound is refused below, and a shorter
+                # **sample** is caught by the hand count above.
+                self.assertGreaterEqual(
+                    len(decisions), 1,
+                    "the pass retains the decisions it played — an empty log is no stream at "
+                    "all (sizing.md §4, records.md §15): %r on %r" % (block, shape),
                 )
-        # One hand over the bound: refused with both counts named, and no record written.
-        text = S.refusal_text(
-            lambda: self.ep("training", "run")(
-                configuration, [S.SEED_A], REFUSED_HANDS, "cpu"
+                self.assertLessEqual(
+                    len(decisions), decisions_bound,
+                    "one pass on %r records at most 1,000 × its history capacity = %d "
+                    "decision records, refused beyond and never truncated (records.md §15, "
+                    "shapes.md §8, ASM-38, D-33): %d"
+                    % (shape, decisions_bound, len(decisions)),
+                )
+                vocabulary = set(self.vocabulary(shape))
+                for decision in decisions:
+                    for key in ("index", "descriptor", "amount", "minimum", "maximum",
+                                "legal", "tie"):
+                        self.assertIn(
+                            key, decision,
+                            "records.md §15 makes %r a required key of a retained decision: "
+                            "%r" % (key, decision),
+                        )
+                    self.assertIn(
+                        int(decision["index"]),
+                        set(int(member) for member in decision["legal"]),
+                        "a retained decision's index is one of its own legal mask "
+                        "(records.md §15): %r" % (decision,),
+                    )
+                    self.assertEqual(
+                        str(decision["descriptor"]),
+                        self.decode_action(int(decision["index"]), shape),
+                        "a retained decision carries the descriptor its index decodes to in "
+                        "the run's shape (records.md §15, sizing.md §3): %r on %r"
+                        % (decision, shape),
+                    )
+                    self.assertIn(
+                        int(decision["index"]),
+                        vocabulary,
+                        "the pass is played on the run's shape, so its indices are that "
+                        "shape's (records.md §15, shapes.md §3): %r on %r"
+                        % (decision, shape),
+                    )
+                    self.assertIsInstance(
+                        bool(decision["tie"]), bool,
+                        "`tie` is a boolean flag on every retained decision (records.md §15, "
+                        "sizing.md §3): %r" % (decision["tie"],),
+                    )
+            # One hand over the bound: refused with both counts named, and no record written.
+            text = S.refusal_text(
+                lambda configuration=configuration: self.ep("training", "run")(
+                    configuration, [S.SEED_A], REFUSED_HANDS, "cpu"
+                )
             )
-        )
-        self.assertIsNotNone(
-            text,
-            "a run whose budget would make the pass exceed its hand bound is refused, not "
-            "truncated (sizing.md §4, records.md §15, ASM-38): a %d-hand budget"
-            % (REFUSED_HANDS,),
-        )
-        self.assertIn(
-            str(PASS_HANDS_BOUND),
-            text,
-            "the refusal names the bound the pass would cross (records.md §15, sizing.md "
-            "§4): %r" % (text,),
-        )
-        self.assertIn(
-            str(REFUSED_HANDS),
-            text,
-            "the refusal names the count that crossed it, so a reader knows the sample it "
-            "asked for and the sample the bound allows (sizing.md §4): %r" % (text,),
-        )
+            self.assertIsNotNone(
+                text,
+                "a run whose budget would make the pass exceed its hand bound is refused, not "
+                "truncated (sizing.md §4, records.md §15, ASM-38): a %d-hand budget on %r"
+                % (REFUSED_HANDS, shape),
+            )
+            self.assertIn(
+                str(PASS_HANDS_BOUND),
+                text,
+                "the refusal names the bound the pass would cross (records.md §15, sizing.md "
+                "§4): %r" % (text,),
+            )
+            self.assertIn(
+                str(REFUSED_HANDS),
+                text,
+                "the refusal names the count that crossed it, so a reader knows the sample it "
+                "asked for and the sample the bound allows (sizing.md §4): %r" % (text,),
+            )
 
-    # -- the exploration-off surface (sizing.md §4) -----------------------
     def test_fam20_8_exploration_off_decides_without_a_draw(self):
         """FAM-20.8 two `off` policies at two seeds decide identically; `schedule` does not.
 
         `sizing.md` §4: `off` is the masked maximum and the tie-break alone and **no
         generator is drawn from**, so the decision is a function of the model and the
         readout and not of a seed; `schedule` is today's keyed draw and does move with the
-        seed.  The case drives both modes on the same hands: the two greedy policies agree
-        decision for decision, and at least one hand's scheduled decisions differ — so the
-        identity asserted of `off` is a property of the mode and not of a learner that
-        happens to be constant (`e2e-surface.md` §3.3, ASM-38).
+        seed.  The case drives both modes on the same hands of **each** shape declared
+        beside the default — a six-seat hand's readouts are the shape's, and its greedy
+        pass is what the census of D-33 reads `(seats.md` §2, §4, D-33): the two greedy
+        policies agree decision for decision, and at least one hand's scheduled decisions
+        differ — so the identity asserted of `off` is a property of the mode and not of a
+        learner that happens to be constant (`e2e-surface.md` §3.3, ASM-38).
         """
-        shape = self.second_shape()
-        learner = self.learner(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH, seed=S.SEED_I,
-                               game=shape)
-        greedy_first = self.policy(learner, self.encoder(shape=shape), S.SEED_A,
-                                   MODE_GREEDY)
-        greedy_second = self.policy(learner, self.encoder(shape=shape), S.SEED_B,
-                                    MODE_GREEDY)
-        scheduled_first = self.policy(learner, self.encoder(shape=shape), S.SEED_A,
-                                      MODE_DEFAULT)
-        scheduled_second = self.policy(learner, self.encoder(shape=shape), S.SEED_B,
-                                       MODE_DEFAULT)
-        hands = 0
-        scheduled_differs = 0
-        for seed in S.SHAPE_SEEDS[:5]:
-            first = [entry[4] for entry in
-                     self.decision_walk(seed, greedy_first, limit=4, shape=shape)]
-            second = [entry[4] for entry in
-                      self.decision_walk(seed, greedy_second, limit=4, shape=shape)]
-            self.assertTrue(first, "the greedy policy answered no decision at all")
-            self.assertEqual(
-                first,
-                second,
-                "at exploration `off` the decision is the masked maximum and the "
-                "tie-break alone, so two greedy policies built at two seeds decide "
-                "identically on the same readouts (sizing.md §4, e2e-surface.md §3.3): "
-                "seed %r, %r against %r" % (seed, first, second),
+        for shape in self.other_shapes():
+            learner = self.learner(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH, seed=S.SEED_I,
+                                   game=shape)
+            greedy_first = self.policy(learner, self.encoder(shape=shape), S.SEED_A,
+                                       MODE_GREEDY)
+            greedy_second = self.policy(learner, self.encoder(shape=shape), S.SEED_B,
+                                        MODE_GREEDY)
+            scheduled_first = self.policy(learner, self.encoder(shape=shape), S.SEED_A,
+                                          MODE_DEFAULT)
+            scheduled_second = self.policy(learner, self.encoder(shape=shape), S.SEED_B,
+                                           MODE_DEFAULT)
+            hands = 0
+            scheduled_differs = 0
+            for seed in S.SHAPE_SEEDS[:5]:
+                first = [entry[4] for entry in
+                         self.decision_walk(seed, greedy_first, limit=4, shape=shape)]
+                second = [entry[4] for entry in
+                          self.decision_walk(seed, greedy_second, limit=4, shape=shape)]
+                self.assertTrue(first, "the greedy policy answered no decision at all")
+                self.assertEqual(
+                    first,
+                    second,
+                    "at exploration `off` the decision is the masked maximum and the "
+                    "tie-break alone, so two greedy policies built at two seeds decide "
+                    "identically on the same readouts (sizing.md §4, e2e-surface.md §3.3): "
+                    "%r, seed %r, %r against %r" % (shape, seed, first, second),
+                )
+                hands += 1
+                one = [entry[4] for entry in
+                       self.decision_walk(seed, scheduled_first, limit=4, shape=shape)]
+                other = [entry[4] for entry in
+                         self.decision_walk(seed, scheduled_second, limit=4, shape=shape)]
+                if one != other:
+                    scheduled_differs += 1
+            self.assertGreater(hands, 0, "the case must drive real hands")
+            self.assertGreater(
+                scheduled_differs,
+                0,
+                "the default `schedule` mode does draw from the policy's own generator, so "
+                "two scheduled policies at two seeds differ somewhere — otherwise the "
+                "identity asserted of `off` would be a property of the learner and not of "
+                "the mode (sizing.md §4, docs/L3/agents/rule.md §4): %d hands on %r, %d "
+                "differed" % (hands, shape, scheduled_differs),
             )
-            hands += 1
-            one = [entry[4] for entry in
-                   self.decision_walk(seed, scheduled_first, limit=4, shape=shape)]
-            other = [entry[4] for entry in
-                     self.decision_walk(seed, scheduled_second, limit=4, shape=shape)]
-            if one != other:
-                scheduled_differs += 1
-        self.assertGreater(hands, 0, "the case must drive real hands")
-        self.assertGreater(
-            scheduled_differs,
-            0,
-            "the default `schedule` mode does draw from the policy's own generator, so two "
-            "scheduled policies at two seeds differ somewhere — otherwise the identity "
-            "asserted of `off` would be a property of the learner and not of the mode "
-            "(sizing.md §4, docs/L3/agents/rule.md §4): %d hands, %d differed"
-            % (hands, scheduled_differs),
-        )
-        # `policy_from(path, "off")` is the same greedy read of the model the file holds.
-        path = self.ep("agents", "save")(
-            learner, os.path.join(self.scratch(), "fam20-8-greedy.ckpt")
-        )
-        loaded = self.ep("evaluation", "policy_from")(path, MODE_GREEDY)
-        self.assertTrue(
-            callable(loaded),
-            "evaluation.policy_from(path, \"off\") returns a policy in the sense of §2 "
-            "(e2e-surface.md §3.4, sizing.md §4): %r" % (loaded,),
-        )
-        for seed in S.SHAPE_SEEDS[:3]:
-            from_file = [entry[4] for entry in
-                         self.decision_walk(seed, loaded, limit=4, shape=shape)]
-            from_learner = [entry[4] for entry in
-                            self.decision_walk(seed, greedy_first, limit=4, shape=shape)]
-            self.assertEqual(
-                from_file,
-                from_learner,
-                "`policy_from(..., \"off\")` is the same masked maximum over the same "
-                "model that `as_policy(..., \"off\")` takes, so the two agree decision for "
-                "decision (sizing.md §4, e2e-surface.md §3.4): seed %r" % (seed,),
+            # `policy_from(path, "off")` is the same greedy read of the model the file holds.
+            path = self.ep("agents", "save")(
+                learner, os.path.join(self.scratch(), "fam20-8-greedy-%s.ckpt" % (shape,))
             )
+            loaded = self.ep("evaluation", "policy_from")(path, MODE_GREEDY)
+            self.assertTrue(
+                callable(loaded),
+                "evaluation.policy_from(path, \"off\") returns a policy in the sense of §2 "
+                "(e2e-surface.md §3.4, sizing.md §4): %r" % (loaded,),
+            )
+            for seed in S.SHAPE_SEEDS[:3]:
+                from_file = [entry[4] for entry in
+                             self.decision_walk(seed, loaded, limit=4, shape=shape)]
+                from_learner = [entry[4] for entry in
+                                self.decision_walk(seed, greedy_first, limit=4, shape=shape)]
+                self.assertEqual(
+                    from_file,
+                    from_learner,
+                    "`policy_from(..., \"off\")` is the same masked maximum over the same "
+                    "model that `as_policy(..., \"off\")` takes, so the two agree decision "
+                    "for decision (sizing.md §4, e2e-surface.md §3.4): %r, seed %r"
+                    % (shape, seed),
+                )
 
     def test_fam20_9_a_mode_outside_the_two_is_refused_by_name(self):
         """FAM-20.9 the exploration mode is closed: anything but `schedule`/`off` is refused.
@@ -772,17 +825,125 @@ class FAM20Sized(S.SurfaceCase):
             "the refusal names the mode it refused (sizing.md §4): %r" % (text,),
         )
         # And no retained pass carries another mode: the mode is `off` or it is not a pass.
-        configuration = self.shaped_rung(shape=self.second_shape(), seeds=(S.SEED_A,))
-        record = self.ep("training", "run")(
-            configuration, [S.SEED_A], PASS_HANDS, "cpu"
-        )
-        for path_keys, block in self.greedy_passes(record):
-            self.assertEqual(
-                str(block.get("mode")), MODE_GREEDY,
-                "every pass a run records is the exploration-off pass — a block whose "
-                "mode is not `off` is refused rather than read (records.md §15, sizing.md "
-                "§4, §7): %r" % (path_keys,),
+        for shape in self.other_shapes():
+            configuration = self.seated_rung(shape=shape, seeds=(S.SEED_A,),
+                                             samples=PASS_HANDS)
+            record = self.ep("training", "run")(
+                configuration, [S.SEED_A], PASS_HANDS, "cpu"
             )
+            passes = self.greedy_passes(record)
+            self.assertTrue(
+                passes,
+                "a %r run retains its pass, so the mode it carries is observable "
+                "(records.md §12, §15): %r" % (shape, record),
+            )
+            for path_keys, block in passes:
+                self.assertEqual(
+                    str(block.get("mode")), MODE_GREEDY,
+                    "every pass a run records is the exploration-off pass — a block whose "
+                    "mode is not `off` is refused rather than read (records.md §15, "
+                    "sizing.md §4, §7): %r on %r" % (path_keys, shape),
+                )
+
+    def test_fam20_10_a_sized_hand_s_reach_fits_the_shapes_own_block(self):
+        """FAM-20.10 a sized hand reaches past 24 decisions and every readout still encodes.
+
+        D-33 widened the history block because the 24 slots are the *fixed-limit cap's*
+        bound and the uncapped shapes have no cap: a raiser seated opposite a learner lifts
+        an uncapped hand past 25 decisions, and the 24-slot encoder refuses it
+        (`strata/records/pool-without-raiser.md` §2, `shapes.md` §8, ASM-42).  So this case
+        drives the sized action through the engine's own hand on **each** shape declared
+        beside the default — the battery's `raise-minimum` chooser on every seat, which is
+        one of the shape's six declared descriptors — and asserts that the walk reaches more
+        decisions than the default shape's capacity, that every readout of the walk encodes
+        on **both** of that shape's encoders at the shape's own widths (329 and 82 on
+        `no-limit-100`, 433 and 122 on the six-seat row), and that no readout of it is ever
+        refused or truncated (`flat-numeric.md` §5, `card-tokens.md` §5, `seats.md` §2).
+
+        The default shape's block holds its own hands: the same chooser's fixed-limit walk
+        stays inside 24 decisions and encodes at 203 and 40, so the widening is the uncapped
+        shapes' and the capped one's slots are untouched (`shapes.md` §5, §8).
+        """
+        policy = self.chooser("raise-minimum")
+        seats_by_shape = {shape: self.seats_of(shape) for shape in self.other_shapes()}
+        for shape in self.other_shapes():
+            seats = seats_by_shape[shape]
+            sized_encoders = (
+                (S.FLAT, self.encoder(S.FLAT, shape), S.SHAPE_LAYOUTS[shape]["dense"]),
+                (S.TOKENS, self.encoder(S.TOKENS, shape), S.SHAPE_LAYOUTS[shape]["tokens"]),
+            )
+            sized_decisions = 0
+            longest = 0
+            for seed in S.SHAPE_SEEDS[:3]:
+                if seats > 2:
+                    walk = self.seated_walk(
+                        seed, {"default": policy}, limit=200, shape=shape)
+                    decisions = [(readout, legal, action, index)
+                                 for _seat, readout, legal, action, index in walk]
+                else:
+                    decisions = [
+                        (readout, legal, action, index)
+                        for _hand, readout, legal, action, index in self.decision_walk(
+                            seed, policy, shape=shape)
+                    ]
+                self.assertTrue(
+                    decisions, "the sized walk must play real hands (seed %r, %r)"
+                    % (seed, shape),
+                )
+                sized_decisions += len(decisions)
+                for readout, _legal, _action, _index in decisions:
+                    longest = max(longest, len(readout["history"]))
+                    for representation, encoder, width in sized_encoders:
+                        encoded = self.ep("features", "encode")(encoder, readout)
+                        self.assertEqual(
+                            len(encoded), width,
+                            "every readout a sized hand deals on %r encodes on the shape's %r "
+                            "encoder at %d values, so no history the shape allows is refused "
+                            "or truncated (shapes.md §8, ASM-42, flat-numeric.md §5): %d "
+                            "values at seed %r"
+                            % (shape, representation, width, len(encoded), seed),
+                        )
+            self.assertGreater(
+                sized_decisions, S.SHAPE_LAYOUTS[S.SHAPE_DEFAULT]["history"],
+                "the %r walk reaches more decisions than the default shape's %d-slot block "
+                "would hold, which is the reach the widening exists for (shapes.md §8, "
+                "D-33): %d decisions over the seeds walked"
+                % (shape, S.SHAPE_LAYOUTS[S.SHAPE_DEFAULT]["history"], sized_decisions),
+            )
+            self.assertLessEqual(
+                longest, S.SHAPE_LAYOUTS[shape]["history"],
+                "no readout of the %r walk carries a longer history than the shape's own "
+                "capacity (shapes.md §8, ASM-42): %d entries against %d"
+                % (shape, longest, S.SHAPE_LAYOUTS[shape]["history"]),
+            )
+        # The default shape's block holds its own hands, and its layout is untouched.
+        default = S.SHAPE_DEFAULT
+        capped_encoders = (
+            (S.FLAT, self.encoder(), S.SHAPE_LAYOUTS[default]["dense"]),
+            (S.TOKENS, self.encoder(S.TOKENS), S.SHAPE_LAYOUTS[default]["tokens"]),
+        )
+        capped_policy = self.chooser("raise")
+        capped_longest = 0
+        for seed in S.SHAPE_SEEDS[:3]:
+            walk = self.decision_walk(seed, capped_policy)
+            self.assertTrue(walk, "the fixed-limit walk must play real hands (seed %r)" % (seed,))
+            for _hand, readout, _legal, _action, _index in walk:
+                capped_longest = max(capped_longest, len(readout["history"]))
+                for representation, encoder, width in capped_encoders:
+                    encoded = self.ep("features", "encode")(encoder, readout)
+                    self.assertEqual(
+                        len(encoded), width,
+                        "a fixed-limit readout still encodes at the default shape's %r width "
+                        "of %d (shapes.md §5, §8): %d values at seed %r"
+                        % (representation, width, len(encoded), seed),
+                    )
+        self.assertLessEqual(
+            capped_longest, S.SHAPE_LAYOUTS[default]["history"],
+            "the capped shape's own hands stay inside its 24 slots, so the widening moved "
+            "nothing of the fixed-limit path (shapes.md §5, §8): %d entries"
+            % (capped_longest,),
+        )
+
 
 
 if __name__ == "__main__":

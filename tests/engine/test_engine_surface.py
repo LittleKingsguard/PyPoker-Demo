@@ -71,7 +71,12 @@ class ENG1Surface(S.EngineCase):
         apply_action(hand, action), is_terminal(hand), payoffs(hand),
         play_hand(seed, policy0, policy1), equity(decision, seed, samples) -- and a
         call that omits a declared argument raises TypeError from the call itself
-        (e2e-surface.md §3.1 "Inputs", surface.md §3-§11)."""
+        (e2e-surface.md §3.1 "Inputs", surface.md §3-§11).
+
+        The two positional policies of `play_hand` are optional now, because a shape
+        with more than two seats seats its policies through the optional `seats`
+        sequence, so the argument `play_hand` cannot omit is its seed and a one-policy
+        call is the module's own policy refusal (surface.md §10, seats.md §4)."""
         hand = self.hand(S.SEED_A)
         finished = self.played_out(S.SEED_B)
         policy = S.always_call
@@ -118,6 +123,9 @@ class ENG1Surface(S.EngineCase):
 
         # A missing declared argument is Python's own TypeError from the call, not one of
         # this module's refusals: assert only that it is a TypeError (e2e-surface.md §3.1).
+        # The two positional policies are optional now -- the seating is the shape's -- so
+        # the omitted argument of `play_hand` is its seed, which no call can omit
+        # (surface.md §10, seats.md §4).
         for name, supplied in (
             ("new_hand", ()),
             ("readout", ()),
@@ -125,12 +133,19 @@ class ENG1Surface(S.EngineCase):
             ("apply_action", (hand,)),
             ("is_terminal", ()),
             ("payoffs", ()),
-            ("play_hand", (S.SEED_A, policy)),
+            ("play_hand", ()),
             ("equity", (hand, S.SEED_A)),
         ):
             with self.subTest(omitted_argument=name):
                 with self.assertRaises(TypeError):
                     S.ep(name)(*supplied)
+
+        # A call naming only one of the two positional policies is a complete call under the
+        # widened signature -- both are optional -- so it is the module's own refusal that
+        # names the policy contract, never Python's argument machinery (surface.md §10,
+        # episode.md §1, seats.md §4).
+        exc = self.refusal(S.ep("play_hand"), S.SEED_A, policy)
+        self.assert_mentions(exc, "policy")
 
 
 class ENG2Config(S.EngineCase):

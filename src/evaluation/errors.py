@@ -1,7 +1,7 @@
 """The refusals of the `evaluation` module (`docs/L3/evaluation/errors.md` §2).
 
-One `EvaluationError` base and forty-two subclasses, one per refusal family the L2
-surface declares (`docs/L2/evaluation/surface.md` §5-§13).  A caller catches
+One `EvaluationError` base and forty-five subclasses, one per refusal family the L2
+surface declares (`docs/L2/evaluation/surface.md` §5-§13, `§14`).  A caller catches
 `EvaluationError` to know that *this* module refused it, so a mistyped record key or a
 `TypeError` from a helper never masquerades as a refusal (`errors.md` §1).
 
@@ -106,6 +106,20 @@ class PoolNotFrozen(EvaluationError):
 
 class InvalidSeed(EvaluationError):
     """`opponent`, `match`: the seed is not an integer."""
+
+
+class InvalidDrawCount(EvaluationError):
+    """`opponent`: the optional draw count is not a positive integer (`seats.md` §4, ASM-43)."""
+
+
+class DrawExceedsMembership(EvaluationError):
+    """`opponent`: the draw asks for more distinct members than the pool holds, and a draw is
+    without replacement (`seats.md` §4, `records.md` §8, ASM-43)."""
+
+
+class SeatCountExceeded(EvaluationError):
+    """`match`, `matrix`, `rating`, `report`: the shape has more seats than a pair has, and a
+    cell is a pair (`seats.md` §5, `league.md` §4, D-33)."""
 
 
 class InvalidHandCount(EvaluationError):

@@ -4,8 +4,9 @@
   the anchor (§2), the **solver, its tolerance and its bound** (§3), the **hand-level bootstrap** (§4), the record (§5)
   and every refusal (§6) (`surface.md` §11, `records.md` §11, `league.md` §4, `shape.md` §4, ASM-17)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — a rating is fitted over **one shape's** cells, the record gains `game`, and a matrix whose cells name two shapes, or whose own `game` contradicts them, is refused naming the shapes (§1, §5–§6, `shape.md` §3)
-- **Read with:** `shape.md` §2–§4, `matrix.md` §5, `scheduler.md` §3, `declarations.md` §2.2, `errors.md` §2–§4
+- **Rev 6:** D-29's second shape — a rating is fitted over **one shape's** cells, the record gains `game`, and a matrix whose cells name two shapes, or whose own `game` contradicts them, is refused naming the shapes (§1, §5–§6, `shape.md` §3) · **Rev 7:** D-33's third shape — the fit is over **pairs**, so `_table_facts` refuses a table on a shape above the pairwise instrument's seat count, naming the shape and its seat count, after the record's one shape is resolved and before a value is fitted (§1, §6, `seats.md` §5, D-22, D-33)
+- **Read with:** `shape.md` §2–§4, `matrix.md` §5, `scheduler.md` §3, `declarations.md` §2.2, `errors.md` §2–§4,
+  `seats.md` §1, §5
 
 ## 1. What is fitted, and what it is not
 
@@ -20,6 +21,8 @@ both **tolerantly** (an absent one reads as the default, which is what keeps eve
 ratable), and refuses a matrix whose cells name more than one shape, or whose own `game` is not the shape its cells name,
 naming the shapes (§6, `shape.md` §2–§3, `docs/L1/shapes.md` §6). The shape enters the fit in **no other way**: the
 arithmetic below reads counts and never a game parameter, a rule or a utility (`docs/L1/league.md` §4).
+
+**And it is fitted over pairs.** A cell is one unordered pair and §2's `w_ab`, `n_ab` are that pair's counts, so a table on a shape with more than two seats has no terms to fit: `rating._table_facts` — the one reader of the record — refuses it as `SeatCountExceeded`, naming the shape and its seat count, **after the record's one shape is resolved and before a value is fitted**, so no rating exists for a game whose hands do not come in pairs (`seats.md` §5, `league.md` §4, D-22, D-33). The count is read through `engine.game_config` and never written down, so both two-seat shapes fit exactly the ratings they fitted before; `report` judges its matrix as a table through this same reader and reaches the same refusal, naming `report` (`module-map.md` §2, `seats.md` §3, §5, `report.md` §3). **No rating exists for the six-seat shape in this pass**, and therefore no report over one (`seats.md` §5, `league.md` §4, D-22, D-33).
 
 `rating(matrix)` reads `records.md` §10's matrix record — this module's own or a hand-built one, because what is
 checked is the record and not its provenance (`surface.md` §11) — and reads only the keys it fits: `members`, `cells`,
@@ -136,6 +139,7 @@ of hands behind the value (`records.md` §11, FAM-9.5). `bounded` repeats `bound
 | `UnevenCell` | a cell's `hands` differs from the record's `hands_per_cell` — no member's row is measured more precisely than another's (`league.md` §3, FAM-8.7) |
 | `MissingBaseline` | the membership lacks `random`, `always-call` or `oracle` — the anchor would not exist (`protocol.md` §3, FAM-8.8) |
 | `ShapeMismatch` | a matrix whose **cells name more than one shape**, or whose own `game` is not the shape its cells name — naming the shapes, because a rating is fitted over **one shape's** cells and reads as a distance from that game's baselines (`shape.md` §3, `docs/L1/shapes.md` §6, ASM-17) |
+| `SeatCountExceeded` | the record's one shape has more seats than the pairwise instrument's — naming the shape and its seat count — raised once the shape is resolved and **before a value is fitted**, because a cell is a pair and a six-way hand produces a placement (`seats.md` §5, `league.md` §4, D-22, D-33) |
 
 Two absences are read and never refused: a matrix with no `game` and a cell with none are the **default** shape, which is what keeps every table and every rating already recorded ratable (`shape.md` §2). A `table` label's **value** is not re-judged here: `matrix` refused anything but `live` or `full` when it built the record (`matrix.md` §7), and `rating` fits a hand-built record by the rules above and nothing else (`surface.md` §11). A cell whose two directions disagree with its hand count is not refused either: §2's `n_ij` is the observed total, so the fit reads what the record says instead of repairing it — and a membership of K members is fitted as it stands, so refusing more than `surface.md` §11 refuses is a defect, and a battery may hand any valid table, hand-built ones included.
 

@@ -21,6 +21,13 @@ It is a statement about the table's named members on this game at this cell size
 **never a claim of poker skill** (`league.md` §8, D-16).  It plays no hand, reads no file
 and leaves Python's global `random` stream where it found it: the bootstrap draws from
 its own NumPy generator (`rating.md` §4, `surface.md` §1).
+
+**A rating is fitted over pairs, so a table on a shape with more than two seats is
+refused** naming the shape and its seat count, after the record's one shape is resolved
+and before a value is fitted (`docs/L1/seats.md` §5, `league.md` §4, D-22, D-33).  The
+count comes from `engine.game_config` and never from a literal; the two-seat shapes are
+unaffected and every rating they produce today is the rating they produce after it
+(`seats.md` §5, D-33).
 """
 
 import math
@@ -29,7 +36,7 @@ from collections.abc import Mapping
 
 from numpy.random import PCG64, Generator
 
-from .declarations import BASELINES, DEFAULT_SHAPE, RATING, require_shape
+from .declarations import BASELINES, DEFAULT_SHAPE, RATING, require_pairwise, require_shape
 from .errors import (
     CellCountMismatch,
     DuplicatePair,
@@ -170,10 +177,11 @@ def _table_facts(matrix, entry):
     """Read a matrix record as a table, refusing what is not one (`rating.md` §6).
 
     The checks are `rating`'s own and `report` reuses them verbatim, so a refusal names the
-    violated rule -- `cells`, `hands`, `pair`, the missing baseline or the shapes -- and
-    nothing is fitted or assembled when one fires.  The record's `game` is read here and
-    carried out beside its other four own facts: it is the one shape whose cells the fit is
-    over (`rating.md` §1, §5, `shape.md` §4).
+    violated rule -- `cells`, `seats`, `hands`, `pair`, the missing baseline or the shapes
+    -- and nothing is fitted or assembled when one fires.  The record's `game` is read here
+    and carried out beside its other four own facts: it is the one shape whose cells the fit
+    is over (`rating.md` §1, §5, `shape.md` §4), and its seat count is read off
+    `engine.game_config` and held to the pairwise instrument's (`docs/L1/seats.md` §5, D-33).
     """
     if not isinstance(matrix, Mapping):
         raise InvalidMatrix(
@@ -295,6 +303,12 @@ def _table_facts(matrix, entry):
                 "second": _counts(second, entry, index),
             }
         )
+    # A rating is fitted over **pairs**, so a table on a shape whose seat count is above
+    # the instrument's is refused here, after the shapes are resolved and before a value is
+    # fitted, naming the shape and its seat count -- the same refusal `report` reaches
+    # through this reader, so the two entry points refuse one contract one way
+    # (`docs/L1/seats.md` §5, `league.md` §4, D-22, D-33).
+    require_pairwise(game, entry, "cells")
     return {
         "members": members,
         "cells": facts,

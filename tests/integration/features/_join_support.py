@@ -71,9 +71,65 @@ ENTRY_POINTS = (
 ENCODING_NAMES = ("flat-numeric", "card-tokens")
 SPEC_KEYS = ("representation", "kind", "fields", "shape", "dtype", "vocabulary")
 KINDS = {"flat-numeric": "dense-numeric", "card-tokens": "token-sequence"}
+
+# The **default** shape's declared widths: the pair a no-shape encoder declares, and the
+# width a kind's declared observation size stays at (shapes.md §8, ASM-44).
 SHAPES = {"flat-numeric": (203,), "card-tokens": (40,)}
+
+# The three declared shapes, and each one's two widths.  The 127 dense slots and the 12
+# tokens that no seat count touches are the encoding's; the `seat` and `stacks` blocks are
+# one slot per seat, so the slots before the history are `127 + 2 x seats` and
+# `12 + 2 x seats`, and the block that follows them is 3 x the shape's capacity (dense) or
+# the capacity itself (token).  So 131 + 3 x 24 = 203 and 16 + 24 = 40 on
+# `fixed-limit-20`, 131 + 3 x 66 = 329 and 16 + 66 = 82 on `no-limit-100`, and
+# 139 + 3 x 98 = 433 and 24 + 98 = 122 on `six-seat-no-limit-100` (capacity.md §2,
+# shapes.md §8, seats.md §3, ASM-42, ASM-44).  `engine.game_shapes()` now publishes
+# `seats` and `history` on every row, so a case derives those widths from the engine's own
+# catalogue (`dense_width` / `token_width`) and this table is only the battery's second
+# statement of the same arithmetic (D-13).
+DEFAULT_SHAPE = "fixed-limit-20"
+SECOND_SHAPE = "no-limit-100"
+THIRD_SHAPE = "six-seat-no-limit-100"
+SHAPE_NAMES = (DEFAULT_SHAPE, SECOND_SHAPE, THIRD_SHAPE)
+CAPACITY = {DEFAULT_SHAPE: 24, SECOND_SHAPE: 66, THIRD_SHAPE: 98}
+SEATS = {DEFAULT_SHAPE: 2, SECOND_SHAPE: 2, THIRD_SHAPE: 6}
+SHAPES_BY_CATALOGUE = {
+    DEFAULT_SHAPE: {"flat-numeric": (203,), "card-tokens": (40,)},
+    SECOND_SHAPE: {"flat-numeric": (329,), "card-tokens": (82,)},
+    THIRD_SHAPE: {"flat-numeric": (433,), "card-tokens": (122,)},
+}
 DTYPES = {"flat-numeric": "float32", "card-tokens": "int32"}
 VOCABULARIES = {"flat-numeric": None, "card-tokens": 96}
+# The token vocabulary is the shape's: 96 ids on the two-seat rows and 102 on the
+# six-seat one, whose seat block emits six ids of its own above every id the other rows
+# use (card-tokens.md §6, seats.md §3, capacity.md §4, ASM-44).
+TOKEN_VOCABULARY = {DEFAULT_SHAPE: 96, SECOND_SHAPE: 96, THIRD_SHAPE: 102}
+SEAT_TOKEN_BASE = 96
+SIX_SEAT_SEAT_IDS = tuple(range(SEAT_TOKEN_BASE, SEAT_TOKEN_BASE + SEATS[THIRD_SHAPE]))
+#: The dense and token slots before the history that no seat count touches (capacity.md
+#: §2, ASM-44).
+SEAT_INVARIANT_DENSE_SLOTS = 127
+SEAT_INVARIANT_TOKEN_SLOTS = 12
+
+
+def dense_width(row):
+    """`127 + 2 x seats + 3 x history` from one `engine.game_shapes()` row.
+
+    The engine publishes both numbers this module restates -- `seats` and `history` --
+    so a case can compute the width the row implies and compare it with the width the
+    encoder declares, instead of restating a capacity the engine did not publish
+    (capacity.md §2, §5, shapes.md §2, §8, ASM-42, D-13).
+    """
+    return (SEAT_INVARIANT_DENSE_SLOTS + 2 * int(row["seats"])
+            + 3 * int(row["history"]))
+
+
+def token_width(row):
+    """`12 + 2 x seats + history` from one `engine.game_shapes()` row (capacity.md §2)."""
+    return (SEAT_INVARIANT_TOKEN_SLOTS + 2 * int(row["seats"])
+            + int(row["history"]))
+
+
 
 # environment.md §2 (engine): the readout's closed eleven facts, in the declared order,
 # and the nine an observation carries — the eleven less `legal` and less D-21's

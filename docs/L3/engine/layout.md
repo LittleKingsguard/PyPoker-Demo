@@ -1,21 +1,23 @@
 # engine — the file layout
 
 - **Owner:** what lives where under `src/engine/`, which names the package exports, and which imports are allowed
-- **Ceiling:** 80 lines. At the ceiling, split by owner — never append
+- **Ceiling:** 84 lines — raised from 80 for the third seat count: the eighth error subclass, `seat_map()`/`blind_vector()` in the file table, and the widened `play_hand` wrapper. At the ceiling, split by owner — never append
 
 ## 1. The files
 
     src/engine/__init__.py     the ten entry points, and nothing else (§2)
-    src/engine/config.py       the shape catalogue, its helpers, game_shapes() / game_config()
-    src/engine/errors.py       EngineError and its seven subclasses (errors.md §2)
+    src/engine/config.py       the shape catalogue, its helpers (seat_count(), shape_row(),
+                               require_shape()), game_shapes() / game_config()
+    src/engine/errors.py       EngineError and its eight subclasses (errors.md §2)
     src/engine/cards.py        card_spelling() / parse_card() — the one spelling (readout.md §3)
-    src/engine/hand.py         Hand, SEAT_TO_PLAYER, player_index(), seat_of(), AUTOMATIONS,
-                               create_state(), new_hand(), advance(), is_terminal(), payoffs()
+    src/engine/hand.py         Hand, SEAT_TO_PLAYER, seat_map(), blind_vector(), player_index(),
+                               seat_of(), AUTOMATIONS, create_state(), new_hand(), advance(),
+                               is_terminal(), payoffs()
     src/engine/actions.py      BASES, SIZED, vocabulary(), raise_interval(), raise_amount(),
                                legal_actions(), apply_action()
     src/engine/readout.py      facts(), readout(), hand_class() and CLASS_OF — the eleven-key mapping (readout.md §2)
-    src/engine/episode.py      play_hand() and the reward placement
-    src/engine/equity.py       equity() and the random save/seed/restore
+    src/engine/episode.py      play_hand(), the seating (POSITIONAL) and the reward placement
+    src/engine/equity.py       equity(), the seat count's source and the random save/seed/restore
 
 Nine files, one concern each: `config.py` grew an owner — the catalogue — and did not split. A tenth file
 is allowed only if a document here says what it owns; one helper is a sign the owner is missing.
@@ -38,7 +40,8 @@ constant, not the error base, not `Hand`, not the shape rows.
     def apply_action(hand, action):       return _actions.apply_action(hand, action)
     def is_terminal(hand):                return _hand.is_terminal(hand)
     def payoffs(hand):                    return _hand.payoffs(hand)
-    def play_hand(seed, seat0_policy, seat1_policy, shape=None):  return _episode.play_hand(seed, seat0_policy, seat1_policy, shape)
+    def play_hand(seed, seat0_policy=None, seat1_policy=None, shape=None, seats=None):
+                                          return _episode.play_hand(seed, seat0_policy, seat1_policy, shape, seats)
     def equity(decision, seed, samples):  return _equity.equity(decision, seed, samples)
 
 The thin wrapper is deliberate: the entry point is a module-level name of the package (that is what
@@ -57,7 +60,7 @@ them, `game_shapes` first. A battery that drives the surface uses `engine.<name>
 
 - `pokerkit` (`FixedLimitTexasHoldem`, `NoLimitTexasHoldem`, `Automation`, `analysis.calculate_equities`,
   `utilities.Deck`, `hands.StandardHighHand`, `lookups.Label`) and the Python standard library (`random`,
-  `copy`, `itertools`, `collections.abc`, `numbers`, `typing`).
+  `copy`, `itertools`, `collections.abc`, `typing`).
 
 and **nothing else**. Never `features`, `agents`, `evaluation`, `training`, `harness`, and never a
 `tests/` helper (`module-map.md` §3, D-1, D-13). The no-cap row needs `NoLimitTexasHoldem` beside
@@ -72,8 +75,8 @@ import `numpy`, `torch`, `pytest` or `unittest`: a numeric dependency would leak
 
 Function bodies are L4's. This directory fixes: the ten names and their arguments and returns, the
 value types (a `str` card, a `str` descriptor, a `dict` readout with eleven keys, a `tuple` legal set, a
-`dict` payoff, an opaque `Hand`), the shape catalogue and the two rows, the seat mapping, the
-derivations of the eleven facts, the seeding and stream rules, the error grammar, and the file/import
-layout. Anything else — helper names, private constants, docstring style, the order of two independent
+`dict` payoff, an opaque `Hand`), the shape catalogue and the three rows, the seat mapping and its
+general formula, the derivations of the eleven facts, the seeding and stream rules, the error grammar,
+and the file/import layout. Anything else — helper names, private constants, docstring style, the order of two independent
 statements — is L4's and is not a finding against this design unless it breaks one of the rules above
 (`guardrails.md`).

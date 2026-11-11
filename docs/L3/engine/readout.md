@@ -1,7 +1,7 @@
 # engine — the eleven facts
 
 - **Owner:** `readout(hand)` — the information set of D-3: each fact’s derivation, its type, the one card spelling, and what the readout may never expose
-- **Ceiling:** 120 lines. At the ceiling, split by owner — never append
+- **Ceiling:** 126 lines — raised from 120 for the third seat count: the `stacks` and `seat` rows are the shape's, and §5 asserts the six-seat reads. At the ceiling, split by owner — never append
 
 ## 1. `readout(hand)`
 
@@ -12,24 +12,26 @@ readout, and there is no "who would act next" to invent (`L2 surface.md` §5). I
 randomness, mutates nothing, and returns a **fresh** mapping each call whose lists are copies, so a
 caller cannot reach back into the handle through what it was handed.
 
-The acting seat is `seat_of(state.actor_index)` (`hand.md` §3). Both the seat and the hand’s street
-come from the state; the module keeps no notion of "whose turn" of its own.
+The acting seat is `seat_of(state.actor_index, seats)` with `seats = seat_count(hand._shape)` — the
+hand’s own seat count — so no `pokerkit` index reaches a caller and no seat is assumed to be one of
+two (`hand.md` §3, `seats.md` §3). Both the seat and the hand’s street come from the state; the module
+keeps no notion of "whose turn" of its own.
 
 ## 2. The eleven keys — exactly these, and how each is derived
 
 The mapping has these eleven keys and no others (`e2e-surface.md` §2, `L2 environment.md` §2). "Seat
 order" below always means engine seat order, `0` = button (`hand.md` §3) — and the eleven are the same
-eleven in both declared shapes: what changes is what a fact means, never how many there are
-(`shapes.md` §5, D-29).
+eleven in **every** declared shape, two seats or six: what changes is what a fact means, never how many
+there are (`shapes.md` §5, `seats.md` §3, D-29).
 
 | Key | Type | Derivation |
 |---|---|---|
 | `street` | `str` | `STREETS[state.street_index]` where `STREETS = ("preflop", "flop", "turn", "river")`. **Not** `streets.index(state.street)`: the turn and river `Street` values are equal by value, so `.index()` answers 2 on the river too and the river would never be named (`platform.md` §3) |
-| `seat` | `tuple[int, bool]` | `(seat, seat == 0)` — the acting seat’s index **first**, then whether it holds the button. The button is seat 0 in every declared shape, so the flag is `seat == 0`; it is carried as a fact, not implied, because `records.md` §5 and the encoder read it |
-| `hole` | `tuple[str, str]` | the acting seat’s two cards, `tuple(card_spelling(c) for c in state.hole_cards[player_index(seat)])`, in `pokerkit`’s own order |
+| `seat` | `tuple[int, bool]` | `(seat, seat == 0)` — the acting seat’s index **first**, then whether it holds the button. The index is in `0 .. seats − 1` and the button is seat 0 in every declared shape, so the flag is `seat == 0`; it is carried as a fact, not implied, because `records.md` §5 and the encoder read it (`seats.md` §3, ASM-44) |
+| `hole` | `tuple[str, str]` | the acting seat’s two cards, `tuple(card_spelling(c) for c in state.hole_cards[player_index(seat, seats)])`, in `pokerkit`’s own order |
 | `board` | `tuple[str, ...]` | `tuple(card_spelling(c) for c in state.get_board_cards(0))`, length 0, 3, 4 or 5. **Not** `state.board_cards[0]`: `board_cards` is one row per *dealing operation*, so its row 0 is a single card on the flop (`platform.md` §2) |
-| `stacks` | `tuple[int, int]` | `tuple(state.stacks[player_index(s)] for s in (0, 1))` — chips behind, in seat order |
-| `pot` | `int` | `state.total_pot_amount` — **includes** the current street’s outstanding bets (`state.py:2601-2606`), so `pot + sum(stacks)` is the hand’s own shape’s chips in play at every decision: 40 in the default shape, 200 in the no-cap one (`config.md` §4) |
+| `stacks` | `tuple[int, ...]` | `tuple(state.stacks[player_index(s, seats)] for s in range(seats))` — chips behind, **one entry per seat in seat order**: two on the two-seat shapes and six on `six-seat-no-limit-100` (`seats.md` §3, ASM-44) |
+| `pot` | `int` | `state.total_pot_amount` — **includes** the current street’s outstanding bets (`state.py:2601-2606`), so `pot + sum(stacks)` is the hand’s own shape’s chips in play at every decision: 40 in the default shape, 200 in the two-seat no-cap one and 600 on the six-seat one (`config.md` §4) |
 | `to_call` | `int` | `state.checking_or_calling_amount` — 0 when the actor may check, else `min(actor_stack, max_bets - actor_bet)`, so it is never more than the actor’s stack and a call for less is bounded |
 | `limit` | `tuple[int, int]` | `(state.street.min_completion_betting_or_raising_amount, state.completion_betting_or_raising_count)` — the bet size in force (2 on the pre-flop and flop, 4 on the turn and river) and the **bet-or-raise actions made so far this street** — a completion, a bet or a raise — 0 to 4 under ASM-6’s cap: post-flop the opening bet plus three raises, pre-flop four raises after the posted blind, five bet levels, and the posted blind is never one of them, so a street’s first decision reads `0` (`e2e-surface.md` §2, `L2 environment.md` §2, ASM-6). The **cap is the fixed-limit row’s**: a no-cap row’s first entry is that row’s minimum bet of 2 and its count is bounded by the row’s stack instead of by four (`config.md` §6, D-29) |
 | `history` | `list[str]` | a **new list** of the handle’s applied actions, oldest first, and the empty list `[]` before the first one (`history.md` §1) |
@@ -59,9 +61,10 @@ The eleventh fact is D-21's, and three things about its derivation are contract:
 - **The board is materialised once**, `tuple(state.get_board_cards(0))`, because the library yields it as an
   iterator and two facts read it: the `board` spelling and this one (`platform.md` §2).
 - **It is derived, and it widens nothing.** A function of `hole` and `board`, which the readout already carries, so
-  D-3's information set is unchanged — and no encoding carries it: `features.observation_spec`'s `fields`, both
-  203-slot layouts and every shipped checkpoint's encoding are untouched, and the map stays at **50** endpoints,
-  `engine` being 10 of them (ASM-30, `folders.md` §3, `shapes.md` §4). It costs one search per post-flop readout, and
+  D-3's information set is unchanged — and no encoding carries it: `features.observation_spec`'s `fields` is the
+  same subset in every shape, no row's layout gains a slot from this fact, every shipped checkpoint's encoding is
+  untouched, and the map stays at **50** endpoints, `engine` being 10 of them, because D-33 added no name (ASM-30,
+  `folders.md` §3, `shapes.md` §4, §8, `seats.md` §6). It costs one search per post-flop readout, and
   that search is priced by C(known cards, 5): 2.1 µs on the flop, 34.5 µs on the turn, 101 µs on the river,
   nothing before the flop, and no equity sample at all (`cost.md` §G6.1, D-21).
 
@@ -80,13 +83,14 @@ of a card a question each encoder answered for itself — the exact "second spel
 `features/encodings.md` forbids.
 
 The card value never appears as a `pokerkit` object anywhere: the translation is at this one place,
-so a record is plain data. (`repr`, not `str`: `str(Card)` prints `TWO OF CLUBS (2c)`.)
+so a record is plain data. (`repr`, not `str`: `str(Deck.STANDARD[0])` prints `DEUCE OF CLUBS (2c)`.)
 
 ## 4. What the readout may never expose (D-3)
 
 The facts are closed. The mapping never carries, in any form:
 
-- the non-acting seat’s hole cards — `hole` is the *acting* seat’s only;
+- another seat’s hole cards — `hole` is the *acting* seat’s only, whatever the seat count, so five
+  opponents’ hands are as hidden as one;
 - the undealt deck, its order, or a board card the hand has not revealed — `board` is the cards
   already dealt to board `0` (`get_board_cards(0)`), and nothing else of the deck is read;
 - a rung, an encoding, a learner, an opponent, a seed or an episode count;
@@ -102,9 +106,13 @@ convenience". A `readout`-shaped helper that wants to report the pot odds, the n
 Driving only `new_hand`, `readout` and `legal_actions`: the key set is exactly the eleven; the **default
 shape's** first decision at any seed reads `street == "preflop"`, `pot == 3`, `sum(stacks) == 37`,
 `stacks == (19, 18)`, `to_call == 1`, `seat == (0, True)`, `len(hole) == 2`, `len(board) == 0`,
-`history == []` and `hand_class is None`, and the no-cap row's own reads `pot == 3`,
-`stacks == (99, 98)`, `to_call == 1`, `limit == (2, 0)` with the same seating (`hand.md` §4); at every
-decision `pot + sum(stacks)` is the hand's shape's chips in play, 40 or 200 (`config.md` §4); `len(board)` is
+`history == []` and `hand_class is None`; the two-seat no-cap row's own reads `pot == 3`,
+`stacks == (99, 98)`, `to_call == 1`, `limit == (2, 0)` with the same seating (`hand.md` §4); the
+**six-seat** row's own reads `pot == 3`, `stacks == (100, 99, 98, 100, 100, 100)` — six entries in seat
+order — `to_call == 2`, `seat == (3, False)`, `limit == (2, 0)`, `board == ()`, `history == []`,
+`hand_class is None`, the same eleven keys and the same values at every seed 0–4 (`hand.md` §4,
+`seats.md` §3); at every decision `pot + sum(stacks)` is the hand's shape's chips in play — 40, 200 or
+600 — and `len(stacks)` is that shape's seat count (`config.md` §4, ASM-44); `len(board)` is
 always one of 0, 3, 4, 5, and `hand_class` is `None` while fewer than five cards are known and an
 integer 0–8 from the flop onward; the spellings in `hole` and `board` are two characters from the two
 declared alphabets; `readout(hand)["legal"] == legal_actions(hand)`; `readout` refuses a hand that is

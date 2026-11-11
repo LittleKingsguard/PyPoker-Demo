@@ -71,6 +71,7 @@ TABLE_SEED_A = 40961   # a table seed, invented
 TABLE_SEED_B = 7817
 BUDGET = 250           # hands per variant per seed, invented (live is 1,000)
 BUDGET_TINY = 60
+BUDGET_MICRO = 12      # the smallest sample a shaped run is read back at, invented
 EQUITY_SAMPLES = 257
 VERSION_WIDTH = 61     # the invented version's learner size
 VERSION_DEPTH = 2
@@ -94,16 +95,17 @@ TOKENS = "card-tokens"
 # The declared game shapes (e2e-surface.md §2 "Game shape", §5; shapes.md §2, D-29).
 #
 # `engine.game_shapes()` is the declaration itself — the row is `fixed`, so no shape is
-# invented here and the two names are the design's own — and every reader below takes a
+# invented here and the three names are the design's own — and every reader below takes a
 # **shape name** whose absence is the default, exactly as the entry points do.  The
 # descriptors of each vocabulary are the design's rows too: three on the default shape and
-# the six of `sizing.md` §2–§3 on the no-cap one, in that shape's declared index order.
+# the six of `sizing.md` §2–§3 on the two no-cap ones, in each shape's declared index order.
 # --------------------------------------------------------------------------
 SHAPE_DEFAULT = "fixed-limit-20"    # the catalogue's first row, and the default (shapes.md §2)
-SHAPE_SECOND = "no-limit-100"       # the second declared row (shapes.md §2, D-29)
-SHAPE_ORDER = (SHAPE_DEFAULT, SHAPE_SECOND)
+SHAPE_SECOND = "no-limit-100"       # the second declared row, two seats (shapes.md §2, D-29)
+SHAPE_THIRD = "six-seat-no-limit-100"  # the third row, six seats (seats.md §2, D-33)
+SHAPE_ORDER = (SHAPE_DEFAULT, SHAPE_SECOND, SHAPE_THIRD)
 
-#: The three descriptors of the fixed-limit shape, and the six of the no-cap one, in each
+#: The three descriptors of the fixed-limit shape, and the six of the no-cap ones, in each
 #: shape's own index order — the no-cap order is the measured price order, worst first, so
 #: it is deliberately **not** monotone in amount (sizing.md §3, e2e-surface.md §2).
 FIXED_ACTIONS = ("fold", "check-call", "raise")
@@ -129,6 +131,7 @@ SHAPE_ROW_KEYS = (
     "blinds",
     "starting_stack",
     "chips_in_play",
+    "history",
     "bet_structure",
     "small_bet",
     "big_bet",
@@ -139,6 +142,37 @@ SHAPE_ROW_KEYS = (
 )
 #: The five amount normalisers a shape declares (shapes.md §2, sizing.md §5).
 NORMALISER_KEYS = ("stack", "pot", "to_call", "amount", "count")
+
+#: Each declared shape's seat count and chips in play, as `shapes.md` §2 and `seats.md` §2
+#: state them: two seats and 40 chips on the default shape, two seats and 200 on the
+#: two-seat uncapped one, and **six seats and 600** on D-33's row (`pot + sum(stacks)` at
+#: every decision, ASM-28).  The row is `fixed`, so these are the declaration's numbers.
+SHAPE_SEATS = {SHAPE_DEFAULT: 2, SHAPE_SECOND: 2, SHAPE_THIRD: 6}
+SHAPE_CHIPS = {SHAPE_DEFAULT: 40, SHAPE_SECOND: 200, SHAPE_THIRD: 600}
+
+#: Each declared shape's **layout**, as `shapes.md` §2 and §8 state it: the dense width,
+#: the token width, the token vocabulary, and the history capacity the block declares —
+#: which is now the shape's own data and its refusal threshold as well as its length
+#: (D-33, ASM-42, ASM-44).  The row is `fixed`, so these are the design's numbers and not
+#: instances the battery invents (`e2e-surface.md` §5, `battery.md` §4): the dense width is
+#: the shape's nine blocks over its own capacity, `131 + 3 × capacity`, and the token width
+#: `16 + capacity`, over a vocabulary of 96 on the two two-seat rows and **102** on the
+#: six-seat one, whose six seat ids sit above every id the other rows use (`seats.md` §3,
+#: `flat-numeric.md` §5, `card-tokens.md` §2, §6).
+SHAPE_LAYOUTS = {
+    SHAPE_DEFAULT: {"dense": 203, "tokens": 40, "vocabulary": 96, "history": 24},
+    SHAPE_SECOND: {"dense": 329, "tokens": 82, "vocabulary": 96, "history": 66},
+    SHAPE_THIRD: {"dense": 433, "tokens": 122, "vocabulary": 102, "history": 98},
+}
+
+#: `param_count` at `W = 36`, `D = 2` under `naive-stack` — input + trunk + `A·W + A`, which
+#: `shapes.md` §8 states as **10,119** at the default shape, **14,766** on `no-limit-100`
+#: and **18,510** on `six-seat-no-limit-100`: the input block is 203, 329 and 433 wide and
+#: the head three and six, so each count rises by the input term and the head term
+#: together (ASM-40, ASM-44).
+PARAM_WIDTH = 36
+PARAM_DEPTH = 2
+PARAM_COUNTS = {SHAPE_DEFAULT: 10119, SHAPE_SECOND: 14766, SHAPE_THIRD: 18510}
 
 #: One invented shape name the catalogue does **not** carry, for the refusals D-29 owes a
 #: name outside it (`shapes.md` §2, `records.md` §8).  It is the battery's own and appears
@@ -156,6 +190,28 @@ SHAPE_TABLE_SEEDS = (TABLE_SEED_A, TABLE_SEED_B)
 #: (`sizing.md` §6, ASM-40).
 SHAPE_WIDTH = 59
 SHAPE_DEPTH = 3
+
+
+class _ShapeEncoder:
+    """The sentinel ``learner_spec``'s ``encoder`` keyword takes by default.
+
+    A kind's declared ``observation_size`` is the **default** shape's width, so a
+    learner on any other declared shape takes its input width from that shape's own
+    encoder and an encoder-less build on one is refused by name (`shapes.md` §8,
+    ASM-44, `e2e-surface.md` §3.3).  ``SHAPE_ENCODER`` therefore means "hand the build
+    the shape's own encoder — ``features.build_encoder`` on the encoding the kind
+    consumes, at the shape the spec names" — while ``None`` means "carry no ``encoder``
+    key", which is a spec a case may build deliberately to observe the designed refusal.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self):
+        return "SHAPE_ENCODER"
+
+
+#: See :class:`_ShapeEncoder`.
+SHAPE_ENCODER = _ShapeEncoder()
 
 # The baseline catalogue `protocol.md` §3 publishes, in catalogue order: D-6's three fixed
 # rules first, then D-21's three simple folders (`e2e-surface.md` §3.3, D-6, D-21).  A case
@@ -1063,6 +1119,28 @@ def normalisers_of(row):
     raise AssertionError(
         "a shape row declares its amount normalisers (shapes.md §2, sizing.md §5); the "
         "row carries %r" % (sorted(str(key) for key in row),)
+    )
+
+
+def history_capacity_of(row):
+    """One row's declared history capacity — the block's length **and** its threshold.
+
+    `shapes.md` §8 makes the capacity a shape's own data, derived from that row's betting:
+    24 on `fixed-limit-20`, 66 on `no-limit-100` and 98 on `six-seat-no-limit-100`.  The
+    number is read by what its key names rather than by one spelling, and a row that
+    declared none is the failure of the case that needed it (D-33, ASM-42, ASM-44).
+    """
+    if not is_mapping(row):
+        raise AssertionError("a shape row must be a mapping (shapes.md §2); got %r" % (row,))
+    for key, value in row.items():
+        if _family_token(key) in ("history", "historycapacity", "capacity", "slots",
+                                  "historyslots", "historylength"):
+            if _is_number(value) and float(value).is_integer():
+                return int(value)
+    raise AssertionError(
+        "a shape row declares its history capacity — the block's length and its refusal "
+        "threshold (shapes.md §8, ASM-42, D-33); the row carries %r"
+        % (sorted(str(key) for key in row),)
     )
 
 
@@ -2266,11 +2344,13 @@ class SurfaceCase(unittest.TestCase):
         return shape_row_of(dict(catalogue), shape)
 
     def second_shape(self):
-        """The one shape the catalogue declares that is **not** the default (D-29).
+        """The catalogue's **second** row — the two-seat uncapped shape (D-29).
 
         Read off ``engine.game_shapes()`` rather than spelled: the catalogue is the
         declaration, and the row is `fixed` because its instances are that declaration
-        (`e2e-surface.md` §5, ``shapes.md`` §2).
+        (`e2e-surface.md` §5, ``shapes.md`` §2).  A case about the *declaration* rather
+        than about this row names every declared shape — :meth:`other_shapes` — and this
+        reader keeps the row it names (`shapes.md` §3, `seats.md` §2).
         """
         catalogue = self.shapes()
         if len(catalogue) < 2:
@@ -2279,6 +2359,72 @@ class SurfaceCase(unittest.TestCase):
                 "D-29); it declared %r" % ([name for name, _row in catalogue],)
             )
         return catalogue[1][0]
+
+    def other_shapes(self):
+        """Every declared shape **but** the catalogue's first, in declared order.
+
+        `shapes.md` §2 makes the first row the default, and `seats.md` §2 adds the third:
+        a case whose subject is "a shape that is not the default" holds of **every** row
+        the catalogue declares after the first, so the assertion it makes is the same for
+        the two-seat uncapped shape and the six-seat one and does not pass merely because
+        the catalogue once held two rows (`battery.md` §3 FAM-21, D-33).
+        """
+        catalogue = self.shapes()
+        if len(catalogue) < 3:
+            raise AssertionError(
+                "engine.game_shapes() must declare the default shape and the two shapes "
+                "beside it — `no-limit-100` and `six-seat-no-limit-100` — in that order "
+                "(shapes.md §2, seats.md §2, D-29, D-33); it declared %r"
+                % ([name for name, _row in catalogue],)
+            )
+        return [name for name, _row in catalogue[1:]]
+
+    def seats_of(self, shape=None):
+        """The seat count a shape declares, read off ``engine.game_config`` (§3.1).
+
+        `seats.md` §2–§3 makes the seat count the shape's own data and never a literal a
+        battery carries: a hand's `stacks` and the seating `play_hand` needs are that
+        many, so a case reads the number here and nowhere else (`records.md` §5, §8).
+        """
+        config = self.game_config(shape)
+        for key, value in config.items():
+            if _family_token(key) in ("seats", "playercount") and is_count(value):
+                return int(value)
+        raise AssertionError(
+            "engine.game_config(shape) declares the shape's seat count (e2e-surface.md §3.1, "
+            "seats.md §2); it declared %r" % (config,)
+        )
+
+    def seating_members(self, shape, tags=VERSION_TAGS):
+        """The invented version members a hand of ``shape`` must be seated from.
+
+        `seats.md` §4 makes `evaluation.opponent` draw `count` **distinct** members without
+        replacement, so a shape with more than two seats needs a pool holding at least
+        `seats − 1` members: the three pinned baselines are always there and the rest are
+        the battery's own versions, built on that shape so the declaration and its members
+        name one shape (`records.md` §7–§8, `shapes.md` §3, ASM-43).  The tags are the
+        battery's own and no design document carries them (`battery.md` §4).
+        """
+        wanted = max(0, self.seats_of(shape) - 1 - len(ANCHOR_BASELINES))
+        if wanted > len(tags):
+            raise AssertionError(
+                "the battery declares only %d invented versions and a hand of %r needs %d "
+                "of them beside the pinned baselines (seats.md §4, ASM-43)"
+                % (len(tags), shape, wanted)
+            )
+        return [self.version(tag, game=shape) for tag in tags[:wanted]]
+
+    def seated_rung(self, shape=SHAPE_THIRD, members=None, **kwargs):
+        """A shaped configuration whose declaration seats the shape's whole table.
+
+        :meth:`shaped_rung`'s declaration is the baselines alone, which is enough for two
+        seats; a hand with more seats draws `seats − 1` distinct opponents, so this
+        declares :meth:`seating_members`'s versions too and the run can seat every hand
+        (`seats.md` §2, §4, ASM-43, D-33).
+        """
+        if members is None:
+            members = self.seating_members(shape)
+        return self.shaped_rung(shape=shape, members=members, **kwargs)
 
     def game_config(self, shape=None):
         """One shape's game parameters; no name is the default game (§3.1)."""
@@ -2303,9 +2449,42 @@ class SurfaceCase(unittest.TestCase):
             )
         return names[0]
 
+    def encoding_of(self, kind):
+        """The declared encoding one architecture kind consumes (`shapes.md` §2, §8).
+
+        ``agents.learners``'s architecture row names the observation **family** a kind
+        consumes — `dense-numeric` or `token-sequence` — and ``features.encodings``
+        declares which encoding builds which family, so the pair is read here rather
+        than spelled down: a shaped learner spec hands the build the encoder of the
+        family its kind consumes, and a token kind is not handed a dense one
+        (`e2e-surface.md` §3.2–§3.3, D-3, D-13).  ``FLAT`` is the fallback because every
+        caller of :meth:`learner_spec` that names a shape builds the dense kind.
+        """
+        family = None
+        declared = self.ep("agents", "learners")()
+        architectures = declared.get("architectures") if is_mapping(declared) else None
+        row = architectures.get(kind) if is_mapping(architectures) else None
+        if is_mapping(row):
+            for key, value in row.items():
+                if _family_token(key) in ("observation", "observations", "family"):
+                    family = str(value)
+        encodings = self.ep("features", "encodings")()
+        if family and is_mapping(encodings):
+            for representation, declared_row in encodings.items():
+                stated = None
+                if is_mapping(declared_row):
+                    for key, value in declared_row.items():
+                        if _family_token(key) in ("kind", "family", "observation"):
+                            stated = str(value)
+                elif isinstance(declared_row, str):
+                    stated = declared_row
+                if stated == family:
+                    return str(representation)
+        return FLAT
+
     def learner_spec(self, width=96, depth=3, seed=SEED_A, backend="numpy",
                      kind=None, sparsity=0.0, residual=False, learning_rule=None,
-                     utility=None, game=None):
+                     utility=None, game=None, encoder=SHAPE_ENCODER):
         """The battery's learner spec: the four names §3.3 gives, plus the settings.
 
         ``docs/L1/e2e-surface.md`` §3.3 declares ``backend, architecture, sizes,
@@ -2328,6 +2507,18 @@ class SurfaceCase(unittest.TestCase):
         ``game`` is D-29's third optional selection: the shape whose vocabulary sets the
         learner's head, absent meaning the default shape, so a spec that names none is
         exactly the spec every caller before FAM-19 passed (`shapes.md` §2–§3, §6).
+
+        ``encoder`` is how a shaped build gets its input width, and it defaults to
+        :data:`SHAPE_ENCODER`: when the spec names a declared shape other than the
+        catalogue's first, the shape's **own** encoder is handed to the build —
+        ``features.build_encoder(encoding, shape=name)`` on the encoding the kind
+        consumes — because a kind's declared ``observation_size`` is the *default*
+        shape's width and an encoder-less build on another shape is refused by name
+        (`shapes.md` §8, ASM-44, `e2e-surface.md` §3.3).  A spec that names no shape, or
+        names the default one, carries no ``encoder`` key at all, so it is the spec every
+        caller passed before D-33.  ``encoder=None`` omits the key deliberately, which is
+        how a case drives the designed encoder-less refusal; any other value is handed
+        through as it is.
         """
         if kind is None:
             kind = self.architecture_kind("naive")
@@ -2350,6 +2541,17 @@ class SurfaceCase(unittest.TestCase):
             spec["utility"] = utility
         if game is not None:
             spec["game"] = game
+        if encoder is SHAPE_ENCODER:
+            # The catalogue is read rather than compared against a spelling of its first
+            # row, and a name the catalogue does not carry is left alone: `build_learner`
+            # refuses that name itself, and building an encoder for it here would refuse
+            # the same value at the other entry point (`shapes.md` §2, §4, D-13).
+            encoder = None
+            names = self.shape_names()
+            if isinstance(game, str) and game in names and game != names[0]:
+                encoder = self.encoder(self.encoding_of(kind), shape=game)
+        if encoder is not None:
+            spec["encoder"] = encoder
         return spec
 
     def learner(self, **kwargs):
@@ -2395,6 +2597,10 @@ class SurfaceCase(unittest.TestCase):
                 # ... and D-20's `utility` is the second axis of the same entry: a variant
                 # that names one is trained on that utility's reward (utilities.md §5, §7).
                 utility=variant_setting(variant, "utility"),
+                # ... and the shape is the entry's own third axis: a variant that names
+                # one is built in that shape's head, and `learner_spec` hands the build
+                # that shape's encoder (`shapes.md` §8, ASM-44, D-29).
+                game=variant_setting(variant, "game"),
             )
         )
 
@@ -2622,8 +2828,15 @@ class SurfaceCase(unittest.TestCase):
             encoder = self.encoder()
         return self.ep("agents", "as_policy")(learner, encoder, seed, exploration)
 
-    def baseline(self, name="random", seed=SEED_D):
-        return self.ep("agents", "build_baseline")(name, seed)
+    def baseline(self, name="random", seed=SEED_D, shape=None):
+        """One baseline policy, built on the shape in force (`seats.md` §6).
+
+        `agents.build_baseline`'s shape is optional and its absence is the default, so a
+        two-argument call is today's call; a named shape is what `fold-large-bet` reads its
+        declared starting stack from, so "half the stack" is that shape's own
+        (`e2e-surface.md` §3.3, ASM-31, ASM-34, D-33).
+        """
+        return self.ep("agents", "build_baseline")(name, seed, shape)
 
     def hand(self, seed=SEED_A, shape=None):
         """One hand on the shape in force; no name is the default game (§3.1, shapes.md §3)."""
@@ -2635,8 +2848,17 @@ class SurfaceCase(unittest.TestCase):
     def legal(self, hand):
         return self.ep("engine", "legal_actions")(hand)
 
-    def play(self, seed=SEED_A, policy_a=None, policy_b=None, shape=None):
-        """One episode on the shape in force; no name is the default game (§3.1)."""
+    def play(self, seed=SEED_A, policy_a=None, policy_b=None, shape=None, seats=None):
+        """One episode on the shape in force; no name is the default game (§3.1).
+
+        With ``seats`` the episode is played through `engine.play_hand`'s **optional
+        seating** — the shape's whole seating, one policy per seat in seat order, and the
+        two positional policies absent — which is the only route a hand of a shape with
+        more than two seats has, and which leaves the two-positional call untouched when
+        no seating is named (`seats.md` §4, `e2e-surface.md` §3.1, D-33).
+        """
+        if seats is not None:
+            return self.ep("engine", "play_hand")(seed, shape=shape, seats=list(seats))
         if policy_a is None:
             policy_a = self.baseline("always-call", SEED_D)
         if policy_b is None:
@@ -2750,7 +2972,8 @@ class SurfaceCase(unittest.TestCase):
             hand = engine.apply_action(hand, action)
         return walk
 
-    def folder_walk(self, folder, opponent, seed=SEED_A, seat=0, shape=None):
+    def folder_walk(self, folder, opponent, seed=SEED_A, seat=0, shape=None,
+                    folder_shape=None):
         """Every decision one folder makes in one hand, as ``seat``'s policy.
 
         The folder is built through ``agents.build_baseline`` and every other seat is
@@ -2760,10 +2983,16 @@ class SurfaceCase(unittest.TestCase):
         needs an opponent that bets, because a folder can fold only where folding is legal
         and a check is not a fold (``folders.md`` §2, ASM-31).
 
+        ``folder_shape`` is the shape the **folder** is built on, which is the stack it
+        reads its inequality against; absence is the default shape, exactly as a
+        two-argument `build_baseline` is (`seats.md` §6, ASM-34, D-33).  The hand's own
+        shape is ``shape`` and may differ: a case that asks "which stack does the folder
+        read" builds the folder on one shape and deals another's hands.
+
         Returns ``[(readout, legal, action, index)]``, in the order the folder decided.
         """
         policies = {
-            seat: self.baseline(folder, SEED_D),
+            seat: self.baseline(folder, SEED_D, folder_shape),
             # `opponent` is a catalogue name, or a policy this battery hands in: a folder
             # can fold only where folding is legal, and a case that needs a call above a
             # shape's half-stack drives the folder against a policy that bets that much

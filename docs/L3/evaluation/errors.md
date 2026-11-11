@@ -3,8 +3,8 @@
 - **Owner:** the error classes and the message grammar every refusal of this module follows, the canonical message
   per refusal the L2 surface declares, and what is deliberately *not* refused
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — three classes beside the two mismatches and the checkpoint's: `UnknownShape`, `ShapeMismatch` and `UnknownExploration`, one base and forty-two subclasses (§2–§5, `shape.md` §3, §5)
-- **Read with:** `shape.md` §2–§5, `declarations.md` §7, `pool.md` §8, `families.md` §6, `scheduler.md` §6–§7, `matrix.md` §7, `report.md` §3
+- **Rev 6:** D-29's second shape — three classes beside the two mismatches and the checkpoint's: `UnknownShape`, `ShapeMismatch` and `UnknownExploration`, one base and forty-two subclasses (§2–§5, `shape.md` §3, §5) · **Rev 7:** D-33's seat count — `InvalidDrawCount`, `DrawExceedsMembership` and `SeatCountExceeded` beside the seed's and the hand count's, one base and **forty-five** subclasses (§2–§5, `seats.md` §2–§3, `shape.md` §1, D-33)
+- **Read with:** `shape.md` §2–§5, `declarations.md` §7, `pool.md` §8, `families.md` §6, `scheduler.md` §6–§7, `matrix.md` §7, `report.md` §3, `seats.md` §2–§3
 
 ## 1. Why a hierarchy
 
@@ -27,13 +27,15 @@
     class UnknownUtility(EvaluationError)          # a member's utility is not one of the catalogue's (utility.md §4, D-20)
     class UnknownBaseline(EvaluationError)         # a pool declaration's baselines names a baseline the catalogue lacks (ASM-32, D-21)
     class UnknownShape(EvaluationError)           # a shape name the restated catalogue does not carry (shape.md §1–§3, D-29)
-    class RuleMismatch(EvaluationError)            # two declarations of one rule disagree: a record against its checkpoint's,
-                                                   #   or a version's rule against the family it extends (families.md §1, §5)
+    class RuleMismatch(EvaluationError)            # two declarations of one rule disagree: a record against its checkpoint's, or a version's rule against its family it extends (families.md §1, §5)
     class UtilityMismatch(EvaluationError)         # the utility's pair of the same two disagreements (utility.md §4, D-20)
     class ShapeMismatch(EvaluationError)           # two declarations of one shape disagree, any of the seven pairs (shape.md §3, §4, D-29)
     class FamilyBoundExceeded(EvaluationError)     # a declaration or an offer holds more families than the bound allows (ASM-26)
     class PoolNotFrozen(EvaluationError)           # matrix: the pool may still change while it is tabled
     class InvalidSeed(EvaluationError)             # opponent, match: the seed is not an integer
+    class InvalidDrawCount(EvaluationError)        # opponent: the draw count is not a positive integer (seats.md §2, ASM-43)
+    class DrawExceedsMembership(EvaluationError)   # opponent: the draw asks for more distinct members than the pool holds (seats.md §2, ASM-43)
+    class SeatCountExceeded(EvaluationError)       # match, matrix, rating, report: the shape has more seats than a pair has (seats.md §3, league.md §4, D-33)
     class InvalidHandCount(EvaluationError)        # match: the hand count is not a positive integer
     class SameMemberPair(EvaluationError)          # match: the two sides carry one id
     class VariantCountInvalid(EvaluationError)     # matrix: not one and not two variants
@@ -57,11 +59,11 @@
     class HeaderIncomplete(EvaluationError)        # report: a header item is missing — the item is named
     class InvalidArgument(EvaluationError)         # any: an argument of the wrong type — a not-mapping record, a non-str rung
 
-**One base and forty-two subclasses**, one per refusal family of `surface.md` §5–§13 — D-19 added `UnknownRule`,
-`RuleMismatch` and `FamilyBoundExceeded` in that order, D-20 added `UnknownUtility` and `UtilityMismatch` beside the
-rule's pair, D-21 added `UnknownBaseline` beside the utility's, and D-29 added `UnknownShape`, `ShapeMismatch` and
-`UnknownExploration` beside the two mismatches and the checkpoint's classes (`rules.md` §4, `families.md` §6, `utility.md` §4,
-`shape.md` §3, §5, `pool.md` §8, D-19, D-20, D-21, D-29).
+**One base and forty-five subclasses**, one per refusal family of `surface.md` §5–§13 — D-19 added `UnknownRule`, `RuleMismatch`
+and `FamilyBoundExceeded` in that order, D-20 added `UnknownUtility` and `UtilityMismatch` beside the rule's pair, D-21 added
+`UnknownBaseline` beside the utility's, D-29 added `UnknownShape`, `ShapeMismatch` and `UnknownExploration` beside the two
+mismatches, and D-33 added `InvalidDrawCount`, `DrawExceedsMembership` and `SeatCountExceeded` beside the seed's and the hand
+count's (`rules.md` §4, `families.md` §6, `utility.md` §4, `shape.md` §3, §5, `seats.md` §2–§3, `pool.md` §8, D-19–D-21, D-29, D-33).
 They are **not** module-level names of the `evaluation` package: they live below an entry point and are not surface
 (`README.md` §3, `e2e-surface.md` §1). Their names and nesting are nonetheless contract, because `README.md` §4 makes
 `errors.py` contract for `tests/evaluation/`: only `test_errors.py` (`EVL-9.1`–`EVL-9.2`) asserts a subclass by name.
@@ -72,11 +74,11 @@ Every message has the form
 
     "<entry point>(<argument or field>): <the violated contract>, got <what was passed>"
 
-so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a missing key —
-the message names the key instead of inventing a `got` clause. A `report` reusing `rating.md` §6's checks names the violated rule
-in the **field** slot (`hands` / `cells` / `pair` / the missing baseline), and `cell_count(K): …` names the callable `league()`
-returns (`declarations.md` §5). Three properties: the message names the entry point, the rule or `cell_count` and the key at fault;
-it never claims a value was accepted; and a member, a family, a baseline or a shape is named by its **id** or its own spelling.
+so the contract is named in the design's own words and the offending value is visible; where nothing was passed — a missing key — the
+message names the key rather than inventing a `got` clause. A `report` reusing `rating.md` §6's checks names the violated rule in the
+**field** slot, and `cell_count(K): …` names `league()`'s callable (`declarations.md` §5). Three properties: the message names the
+entry point, the rule or `cell_count` and the key at fault; it never claims a value was accepted; and a member, a family, a baseline, a
+shape or a shape's seat count is named by its **id** or its own spelling.
 
 ## 4. The canonical messages
 
@@ -117,9 +119,9 @@ L4 follows these spellings; the unit battery matches them tolerantly (the entry 
 | `policy_from` encoding | `policy_from(path): the checkpoint '/ckpt/x.pt' records the encoding 'bogus', and features.build_encoder refuses that name` |
 | `report` family | `report(record): the record carries no evidence family 'axis row'` |
 | `report` foreign | `report(matrix): 'version-outsider-9901' is not a member of the pool the report names` |
-| `report` rating | `report(rating): the rating names 'variant-1' and the matrix does not` |
-| `report` header | `report(header): the header is missing the required item 'table seed'` |
-| a shape's name or its two declarations | `build_pool(game): the shape 'fixed-limit-40' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100')`; `offer(version 'version-osprey'): the member records the shape 'no-limit-100' and the pool is 'fixed-limit-20', and a pool is one shape's`; `match(left, right): the sides record the shapes 'fixed-limit-20' and 'no-limit-100', and a cell is played on one shape`; `matrix(variant-1): the variant records the shape 'no-limit-100' and the table is 'fixed-limit-20'`; `report(record): the run records 'no-limit-100', the pool 'fixed-limit-20' and the matrix 'no-limit-100', and a report is one shape's` |
+| `report` rating or header | `report(rating): the rating names 'variant-1' and the matrix does not`; `report(header): the header is missing the required item 'table seed'` |
+| a shape's name or its two declarations | `build_pool(game): the shape 'fixed-limit-40' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100')`; `offer(version 'version-osprey'): the member records the shape 'no-limit-100' and the pool is 'fixed-limit-20', and a pool is one shape's`; `match(left, right): the sides record the shapes 'fixed-limit-20' and 'no-limit-100', and a cell is played on one shape`; `matrix(variant-1): the variant records the shape 'no-limit-100' and the table is 'fixed-limit-20'`; `report(record): the run records 'no-limit-100', the pool 'fixed-limit-20' and the matrix 'no-limit-100', and a report is one shape's` |
+| the draw's count, and a shape with more seats than a pair | `opponent(count): the draw count must be a positive integer, got 0`; `opponent(count): the draw asks for 5 distinct members and the pool holds 4, and a draw is without replacement because a substitute seat would be an opponent the membership does not carry`; `match(left, right): the shape 'six-seat-no-limit-100' has 6 seats, and a cell is one pair of two seats, so the pairwise instrument refuses a shape with more than 2 seats` (`seats.md` §2–§3, ASM-43, D-22, D-33) |
 | `policy_from` mode | `policy_from(exploration): the mode must be 'schedule' or 'off', got 'greedy'` |
 | `cell_count` | `cell_count(K): the bound must be an integer of at least 2, a members mapping or a sequence, got 1` |
 
@@ -127,9 +129,9 @@ L4 follows these spellings; the unit battery matches them tolerantly (the entry 
 
 Refusing more than the contract refuses is also a defect — a battery may pass any valid instance (`battery.md` §4, D-15) — so:
 
-- a declaration **richer than the bound** (windowed by `families.md` §3's rule) and one holding **two or more chains**, which
-  are two families in the order their starts are declared — even when two chains name **one undeclared start**, because
-  `LineageConflict` is about a declared `id` with two successors (`pool.md` §2, `families.md` §1);
+- a declaration **richer than the bound** (windowed by `families.md` §3's rule) and one holding **two or more chains**, which are two
+  families in the order their starts are declared — even when two chains name **one undeclared start**, because `LineageConflict`
+  is about a declared `id` with two successors (`pool.md` §2, `families.md` §1);
 - a declaration's `baselines` that names an **anchor** — `random`, `always-call` or `oracle` — which is accepted and adds
   nothing, the three being members whether a declaration names them or not, and `None`, an absent key and an empty sequence
   all meaning the pinned three alone (`pool.md` §2, `records.md` §8, ASM-32, D-21);
@@ -139,8 +141,8 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 - a member record carrying **extra keys**, one with no `path`, and a **`policy-1`/`policy-2` side** whose capacity and rule are
   simply unmeasured (`surface.md` §5, `scheduler.md` §5);
 - a **numpy integer** for a seed, a count or a position (`numpy.int64` is an `Integral`), but never a **`bool`**; a **hand-built matrix** handed to `rating`, and a matrix carrying this module's own keys beside the required ones (`rating.md` §1, `surface.md` §11);
-- an **absent `game` anywhere** — a pool declaration, a member record, a cell, a matrix, a rating, a report's three records or a version-1-to-3 container: it reads as the **default** shape, and only a name that *is* declared but uncatalogued is refused (`shape.md` §2) — and a **baseline's silence about a shape**: `agents.build_baseline(name, seed)` takes none, so a side, a cell and a member record naming `game: None` for a baseline are admitted (`shape.md` §4, `scheduler.md` §5);
-- a **`table` label's value** re-judged by `rating`, a cell whose two directions disagree with its hand count, and an **explicit `n/a` family** in a record (`rating.md` §6, `report.md` §1, §3).
+- an **absent `game` anywhere** — a pool declaration, a member record, a cell, a matrix, a rating, a report's three records or a version-1-to-3 container: it reads as the **default** shape, and only a name that *is* declared but uncatalogued is refused (`shape.md` §2) — and a **baseline's silence about a shape**: it is built for the pool's shape and its member record names `game: None`, so a side, a cell and a member record naming `game: None` for a baseline are admitted (`shape.md` §4, `seats.md` §4, `scheduler.md` §5);
+- a **`table` label's value** re-judged by `rating`, a cell whose two directions disagree with its hand count, and an **explicit `n/a` family** in a record (`rating.md` §6, `report.md` §1, §3) — and, with them, a **six-seat pool, hand, encoder, learner and greedy pass**: the seat count is refused by the four pairwise entry points and by no other call (`seats.md` §3, §5, D-33).
 
 ## 6. Where the messages are asserted
 

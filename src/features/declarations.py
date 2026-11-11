@@ -2,11 +2,13 @@
 
 `ENCODING_NAMES` fixes the ladder's two encodings and the order they are declared
 in.  A **shape row** (`SHAPE_ROWS`, default first) is the part of this module that
-the game shape varies, and it is the module's **single** statement of it: the
-descriptors in the shape's own index order, the five amount normalisers, and the
-five bucket ladders of the token encoding (shapes.md §2, sizing.md §3, §5).  A
-**declaration** is one encoding on one shape: the six spec keys plus a **block
-table** whose widths sum to the declared shape.
+the game shape varies, and it is the module's **single** statement of it: the seat
+count, the seat block's and the stacks block's declared modes, the descriptors in the
+shape's own index order, the five amount normalisers, the five bucket ladders of the
+token encoding, the history block's capacity and the token vocabulary (shapes.md §2,
+§8, seats.md §3, sizing.md §3, §5, ASM-42, ASM-44).  A **declaration** is one encoding
+on one shape: the six spec keys plus a **block table** whose widths sum to the
+declared shape.
 
 A block record is a 6-tuple ``(field, offset, width, writer, reads, params)`` -- the
 field it writes, the first slot it writes, how many slots, the tag of the writer
@@ -18,12 +20,12 @@ and the shape is their sum), so the table is the single source `encode` walks an
 hard-coded offset cannot drift from it (encoder.md §4, guardrails.md G3).  A third
 encoding would be a third *name* here, never a third module (D-3, guardrails.md G1).
 
-The normalisers and the descriptors are **restated, not imported**: this module
-imports no other project module (layout.md §3, guardrails.md G12), so the values a
-shape declares are the same values `engine.game_shapes()` publishes, and the join
-battery is what holds the two statements equal (shapes.md §2, D-13).  Nothing else
-in the module writes a divisor or a bucket edge down: every block's `params` is read
-from the shape's row here.
+The normalisers, the descriptors, the ladders and the capacity are **restated, not
+imported**: this module imports no other project module (layout.md §3, guardrails.md
+G12), so the values a shape declares are the same values `engine.game_shapes()`
+publishes, and the join battery is what holds the two statements equal (shapes.md §2,
+§8, D-13).  Nothing else in the module writes a divisor, a bucket edge or a capacity
+down: every block's `params` is read from the shape's row here.
 """
 
 from __future__ import annotations
@@ -49,12 +51,21 @@ FIELDS = (
 STREETS = ("preflop", "flop", "turn", "river")
 
 STREET_ID_BASE = 53          # 53 + street index, so preflop is 53 (card-tokens.md §3)
-SEAT_INDEX_BASE = 57         # 57 + seat index
-SEAT_FLAG_BASE = 59          # 59 + button flag
+SEAT_INDEX_BASE = 57         # 57 + seat index, the two-seat rows' first seat token
+SEAT_FLAG_BASE = 59          # 59 + button flag, the two-seat rows' second seat token
+SEAT_TOKEN_BASE = 96         # 96 + seat slot: the six-seat row's own six seat ids
 HISTORY_IDS = (93, 94, 95)   # the three action *kinds*: fold, check-call, raise
 
-HISTORY_SLOTS = 24           # the block's capacity, and the refusal threshold
 HISTORY_SLOT_WIDTH = 3       # one slot per action kind in the dense encoding
+
+#: The block's capacity is the **shape's** and lives in its row, beside the normalisers
+#: and the ladders (`shapes.md` §8, ASM-42): it is both the number of action slots the
+#: block declares and the refusal threshold, so it is one row value and never a second
+#: code path.  `fixed-limit-20` keeps 24 -- ASM-6's cap of four bet-or-raise actions a
+#: street is its bound; `no-limit-100` declares 66 -- 200 ÷ 4 = 50 raises plus
+#: 4 × 2 × 2 = 16 non-bet actions, its own betting's derived bound; and
+#: `six-seat-no-limit-100` declares 98 -- 600 ÷ 12 = 50 plus 4 × 6 × 2 = 48 -- the same
+#: derivation at six seats (`shapes.md` §8, `seats.md` §2).
 
 #: The first row of the catalogue, and what an absent shape reads as (shapes.md §3).
 DEFAULT_SHAPE = "fixed-limit-20"
@@ -62,21 +73,20 @@ DEFAULT_SHAPE = "fixed-limit-20"
 #: The two declared encodings, in the ladder's order (ladder.md §2, surface.md §3).
 ENCODING_NAMES = ("flat-numeric", "card-tokens")
 
-#: What each encoding declares beyond its block table: the representation family, the
-#: dtype and the token-id cardinality.  All three are **the same on every shape** -- the
-#: slot counts, the block widths and the token vocabulary do not move (sizing.md §5).
+#: What each encoding declares beyond its block table: the representation family and the
+#: dtype, both **the same on every shape** (sizing.md §5).  The token vocabulary is *not*
+#: here: it is the shape's and lives in the shape row, because the six-seat row carries
+#: six seat ids of its own above every id the two-seat rows use (`seats.md` §3, ASM-44).
 _ENCODING_ROWS = {
     "flat-numeric": {
         "representation": "flat-numeric",
         "kind": "dense-numeric",
         "dtype": "float32",
-        "vocabulary": None,
     },
     "card-tokens": {
         "representation": "card-tokens",
         "kind": "token-sequence",
         "dtype": "int32",
-        "vocabulary": 96,
     },
 }
 
@@ -106,6 +116,22 @@ _NO_LIMIT_LADDERS = {
     "count": ((0, 89), (2, 90), (5, 91), (None, 92)),
 }
 
+# `six-seat-no-limit-100`: the same 100-chip stack, the same blinds, and so the same four
+# ladders for every amount a seat can hold -- a stack is bounded by 100, the amount in
+# force by 100 and the count by 50 -- with **the pot's ladder re-edged for the shape's 600
+# chips in play**, because a divisor of 200 on a six-seat pot is a clip and not a
+# normalisation (sizing.md §5, ASM-39, seats.md §2).  The edges are exactly three times
+# `no-limit-100`'s, the ratio of the two games' chips in play.
+_SIX_SEAT_LADDERS = {
+    "to_call": ((0, 61), (1, 62), (2, 63), (3, 64), (5, 65), (10, 66), (25, 67), (None, 68)),
+    "pot": ((12, 69), (24, 70), (48, 71), (96, 72), (192, 73), (300, 74), (450, 75),
+            (None, 76)),
+    "stacks": ((5, 77), (10, 78), (20, 79), (40, 80), (60, 81), (80, 82), (95, 83),
+               (None, 84)),
+    "amount": ((5, 85), (10, 86), (25, 87), (None, 88)),
+    "count": ((0, 89), (2, 90), (5, 91), (None, 92)),
+}
+
 #: The descriptor spellings a shape may declare, and the note `action_space`'s record
 #: carries for each beyond its `name`: the fixed-limit `raise` resolves to the minimum
 #: legal completion, and a sized band resolves to its own band's maximum (vocabulary.md
@@ -129,18 +155,32 @@ _RESOLUTIONS = {
 }
 
 #: The declared shapes, in the catalogue's own order -- default first (shapes.md §2).
-#: A row is data: the vocabulary in the shape's index order, the amount normalisers under
-#: the same five key names `engine.game_shapes()` publishes, and the bucket ladders
-#: (shapes.md §2, sizing.md §3, §5).
+#: A row is data: the seat count and both per-seat blocks' **declared modes**, the
+#: vocabulary in the shape's index order, the amount normalisers under the same five key
+#: names `engine.game_shapes()` publishes, the bucket ladders, the history block's
+#: capacity and the shape's token vocabulary (shapes.md §2, §8, seats.md §3, sizing.md
+#: §3, §5, ASM-42, ASM-44).  `seat_mode` and `stacks_order` are the two modes of writers
+#: that already exist, never a second encoder: `index-flag` writes the acting seat's index
+#: then its button flag and `one-hot` writes its one-hot over the seat count; `actor-first`
+#: writes the acting seat's stack then the other's and `seat-order` writes one slot per
+#: seat (`encode.py`, flat-numeric.md §4, card-tokens.md §3).
 SHAPE_ROWS = {
     "fixed-limit-20": {
         "default": True,
+        "seats": 2,
+        "seat_mode": "index-flag",
+        "stacks_order": "actor-first",
         "actions": ("fold", "check-call", "raise"),
         "normalisers": {"stack": 20, "pot": 40, "to_call": 20, "amount": 4, "count": 4},
         "ladders": _FIXED_LIMIT_LADDERS,
+        "history": 24,
+        "vocabulary": 96,
     },
     "no-limit-100": {
         "default": False,
+        "seats": 2,
+        "seat_mode": "index-flag",
+        "stacks_order": "actor-first",
         "actions": (
             "fold",
             "check-call",
@@ -157,6 +197,37 @@ SHAPE_ROWS = {
             "count": 50,
         },
         "ladders": _NO_LIMIT_LADDERS,
+        "history": 66,
+        "vocabulary": 96,
+    },
+    "six-seat-no-limit-100": {
+        # D-33's row: the two-seat uncapped row's stack, blinds and four of its five
+        # divisors over six seats, so the seat count adds no descriptor and no rung
+        # (`seats.md` §2-§3, `shapes.md` §8).  Only the pot divides by the total, and the
+        # two per-seat blocks widen to the seat count -- which is why this row carries the
+        # six seat ids 96-101 and a vocabulary of 102 (ASM-44).
+        "default": False,
+        "seats": 6,
+        "seat_mode": "one-hot",
+        "stacks_order": "seat-order",
+        "actions": (
+            "fold",
+            "check-call",
+            "raise-quarter",
+            "raise-half",
+            "raise-all-in",
+            "raise-minimum",
+        ),
+        "normalisers": {
+            "stack": 100,
+            "pot": 600,
+            "to_call": 100,
+            "amount": 100,
+            "count": 50,
+        },
+        "ladders": _SIX_SEAT_LADDERS,
+        "history": 98,
+        "vocabulary": 102,
     },
 }
 
@@ -176,50 +247,74 @@ def _shape(blocks):
     return (sum(block[2] for block in blocks),)
 
 
-# flat-numeric: four street slots, two seat slots, two and five card slots of 17,
-# two stacks, the pot, the amount to call, the limit pair, and 24 history slots of 3
-# -- 4 + 2 + 34 + 85 + 2 + 1 + 1 + 2 + 72 = 203 (flat-numeric.md §2).
-# `stacks` is the one dense block that reads a second fact: its slots are the acting
-# seat's stack, then the other's (flat-numeric.md §4, encoder.md §4).  The five amount
-# params are the shape's normalisers and nothing else (flat-numeric.md §4).
+# flat-numeric: four street slots, one seat slot per seat, two and five card slots of 17,
+# one stack slot per seat, the pot, the amount to call, the limit pair, and the shape's
+# history capacity in slots of 3.  The 127 slots no seat count touches (street, hole,
+# board, pot, to_call, limit) are the encoding's and the same on every shape; the two
+# per-seat blocks are `seats` slots each and the block that follows them is the shape's
+# (`shapes.md` §8, seats.md §3, ASM-42, ASM-44):
+#     4 + seats + 34 + 85 + seats + 1 + 1 + 2 = 127 + 2 × seats
+#                 = 131 before the history, + 24 × 3 = 72 = 203 on `fixed-limit-20`
+#                 = 131 before the history, + 66 × 3 = 198 = 329 on `no-limit-100`
+#                 = 139 before the history, + 98 × 3 = 294 = 433 on `six-seat-no-limit-100`
+# (flat-numeric.md §2, §5).  `stacks` is the one dense block that reads a second fact when
+# the shape declares the `actor-first` order -- its slots are the acting seat's stack, then
+# the other's; a shape declaring `seat-order` writes one slot per seat and reads one fact
+# (flat-numeric.md §4, encoder.md §4).  The five amount params are the shape's normalisers
+# and nothing else (flat-numeric.md §4).
 def _flat_blocks(row):
     """The dense encoding's block table on one shape (flat-numeric.md §2)."""
     normalisers = row["normalisers"]
+    slots = row["history"]
+    seats = row["seats"]
     return _table((
         ("street", len(STREETS), "street-onehot", ("street",), STREETS),
-        ("seat", 2, "seat-index", ("seat",), None),
+        ("seat", seats, "seat-index", ("seat",), (row["seat_mode"], seats)),
         ("hole", 2 * CARD_SLOT, "card-onehot", ("hole",), (2, True)),
         ("board", 5 * CARD_SLOT, "card-onehot", ("board",), (5, False)),
-        ("stacks", 2, "stacks-scaled", ("stacks", "seat"), normalisers["stack"]),
+        ("stacks", seats, "stacks-scaled",
+         ("stacks", "seat") if row["stacks_order"] == "actor-first" else ("stacks",),
+         (normalisers["stack"], row["stacks_order"], seats)),
         ("pot", 1, "amount-scaled", ("pot",), normalisers["pot"]),
         ("to_call", 1, "amount-scaled", ("to_call",), normalisers["to_call"]),
         ("limit", 2, "limit-scaled", ("limit",),
          (normalisers["amount"], normalisers["count"])),
-        ("history", HISTORY_SLOTS * HISTORY_SLOT_WIDTH, "history-onehot", ("history",),
-         (HISTORY_SLOTS, HISTORY_SLOT_WIDTH)),
+        ("history", slots * HISTORY_SLOT_WIDTH, "history-onehot", ("history",),
+         (slots, HISTORY_SLOT_WIDTH)),
     ))
 
 
-# card-tokens: one street token, two seat tokens, two and five card tokens, two
-# stack tokens, the pot, the amount to call, the limit pair, and 24 history tokens
-# -- 1 + 2 + 2 + 5 + 2 + 1 + 1 + 2 + 24 = 40 over 96 ids (card-tokens.md §2, §6).
-# The five ladders are the shape's and the ids they emit do not move between shapes
-# (card-tokens.md §4).
+# card-tokens: one street token, one seat token per seat, two and five card tokens, one
+# stack token per seat, the pot, the amount to call, the limit pair, and the shape's
+# history capacity in tokens.  The twelve tokens no seat count touches do not move between
+# shapes; the two per-seat blocks are `seats` tokens each and the history block is the
+# shape's (`shapes.md` §8, seats.md §3, ASM-42, ASM-44):
+#     1 + seats + 2 + 5 + seats + 1 + 1 + 2 = 12 + 2 × seats
+#                 = 16 before the history, + 24 = 40 on `fixed-limit-20`
+#                 = 16 before the history, + 66 = 82 on `no-limit-100`
+#                 = 24 before the history, + 98 = 122 on `six-seat-no-limit-100`
+# over the shape row's own vocabulary -- 96 ids on the two-seat rows, 102 on the six-seat
+# one, whose seat block emits ids 96-101 above every id the other rows use (card-tokens.md
+# §2, §6, seats.md §3, ASM-44).  The five ladders are the shape's and the ids they emit do
+# not move between shapes (card-tokens.md §4).
 def _token_blocks(row):
     """The token encoding's block table on one shape (card-tokens.md §2)."""
     ladders = row["ladders"]
+    slots = row["history"]
+    seats = row["seats"]
     return _table((
         ("street", 1, "street-id", ("street",), (STREETS, STREET_ID_BASE)),
-        ("seat", 2, "seat-ids", ("seat",), (SEAT_INDEX_BASE, SEAT_FLAG_BASE)),
+        ("seat", seats, "seat-ids", ("seat",),
+         (row["seat_mode"], seats, SEAT_INDEX_BASE, SEAT_FLAG_BASE, SEAT_TOKEN_BASE)),
         ("hole", 2, "card-ids", ("hole",), (2, True)),
         ("board", 5, "card-ids", ("board",), (5, False)),
-        ("stacks", 2, "stacks-buckets", ("stacks",), ladders["stacks"]),
+        ("stacks", seats, "stacks-buckets", ("stacks",), (ladders["stacks"], seats)),
         ("pot", 1, "amount-bucket", ("pot",), ladders["pot"]),
         ("to_call", 1, "amount-bucket", ("to_call",), ladders["to_call"]),
         ("limit", 2, "limit-ids", ("limit",),
          (ladders["amount"], ladders["count"])),
-        ("history", HISTORY_SLOTS, "history-ids", ("history",),
-         (HISTORY_SLOTS, HISTORY_IDS)),
+        ("history", slots, "history-ids", ("history",),
+         (slots, HISTORY_IDS)),
     ))
 
 
@@ -253,9 +348,14 @@ def shape_row(shape=None, entry_point="shape_row"):
     return {
         "name": name,
         "default": row["default"],
+        "seats": row["seats"],
+        "seat_mode": row["seat_mode"],
+        "stacks_order": row["stacks_order"],
         "actions": tuple(row["actions"]),
         "normalisers": dict(row["normalisers"]),
         "ladders": {key: tuple(value) for key, value in row["ladders"].items()},
+        "history": row["history"],
+        "vocabulary": row["vocabulary"],
     }
 
 
@@ -295,7 +395,7 @@ def declaration(name, shape=None, entry_point="build_encoder"):
         "fields": FIELDS,
         "shape": _shape(blocks),
         "dtype": _ENCODING_ROWS[encoding]["dtype"],
-        "vocabulary": _ENCODING_ROWS[encoding]["vocabulary"],
+        "vocabulary": row["vocabulary"] if encoding == "card-tokens" else None,
         "blocks": blocks,
     }
     return record
@@ -304,9 +404,14 @@ def declaration(name, shape=None, entry_point="build_encoder"):
 def spec(name, shape=None, entry_point="build_encoder"):
     """The six-key spec record of one encoding on one shape (encoder.md §3).
 
-    The six values are the shape-invariant part of a declaration: the slot counts, the
-    block widths, the dtype and the token vocabulary are the same on every shape, so
-    this record does not name the shape it was built for (sizing.md §5, encoder.md §3).
+    Four of the six values are the shape-invariant part of a declaration: the
+    representation, the kind and the nine fields, and the dtype.  `shape` is not, because
+    one observation's width follows the history block's capacity, the seat count and the
+    shape's own token vocabulary (`shapes.md` §8, `seats.md` §3, ASM-42, ASM-44): the
+    two-seat rows declare 96 token ids and the six-seat row 102, because its seat block
+    emits six ids of its own above every id the other rows use.  The record still names no
+    shape, no normaliser and no capacity of its own -- the width and the vocabulary it
+    carries are the whole of what the shape does to it (`surface.md` §5, sizing.md §5).
     """
     record = declaration(name, shape, entry_point)
     return {

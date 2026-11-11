@@ -257,5 +257,227 @@ class ENG8Episode(S.EngineCase):
                          "the button's only decision carries its net chip delta (episode.md §3)")
 
 
+    def test_eng8_8_a_six_seat_hand_is_seated_by_the_shapes_whole_seating(self):
+        """ENG-8.8 play_hand(seed, seats=...) on the six-seat shape plays the shape's whole
+        seating: six policies, one per seat in seat order, each called only when its own
+        seat acts; every decision's `seat` is its readout's own seat fact; each seat's last
+        decision carries that seat's net chip delta and every other decision is zero; and
+        the payoffs are six numbers summing to zero (surface.md §10, episode.md §3,
+        seats.md §4, ASM-12)."""
+
+        class Recording:
+            """One seat's policy: records the seat fact of every readout it is handed."""
+
+            def __init__(self):
+                self.seats = []
+
+            def __call__(self, readout, legal):
+                self.seats.append(readout["seat"][0])
+                return "check-call"
+
+        seed = S.SIX_SEED_A
+        probes = [Recording() for _ in range(S.SHAPE_SEATS[S.SIX_SEAT_SHAPE])]
+        record = self.seated_episode(seed, probes, S.SIX_SEAT_SHAPE)
+        decisions = record["decisions"]
+        self.assertTrue(
+            decisions,
+            "an episode of a six-seat hand records its decisions (records.md §5): seed %r "
+            "recorded none" % (seed,),
+        )
+        self.assertEqual(
+            record["seed"], seed,
+            "the record carries the seed the call was made with, unchanged (episode.md §3)",
+        )
+
+        last = {}
+        seen = set()
+        for position, decision in enumerate(decisions):
+            with self.subTest(decision=position):
+                facts = decision["readout"]
+                self.assertEqual(
+                    set(facts), set(S.FACTS),
+                    "the decision's readout is the whole eleven-fact mapping, six seats or "
+                    "two (environment.md §3, seats.md §3): got %r" % (sorted(facts),),
+                )
+                self.assertEqual(
+                    tuple(decision["seat"]), tuple(facts["seat"]),
+                    "a decision's seat is its readout's own seat fact, so a seat index "
+                    "means one thing in the record and in the facts (episode.md §3, "
+                    "seats.md §3): %r against %r"
+                    % (decision["seat"], facts["seat"]),
+                )
+                self.assertIn(
+                    facts["seat"][0], range(6),
+                    "the deciding seat is one of the six (seats.md §3): %r"
+                    % (facts["seat"],),
+                )
+                self.assertEqual(
+                    facts["seat"][1], facts["seat"][0] == 0,
+                    "seat 0 holds the button on the six-seat shape too (readout.md §2, "
+                    "seats.md §3): %r" % (facts["seat"],),
+                )
+                seen.add(facts["seat"][0])
+                last[facts["seat"][0]] = position
+        self.assertEqual(
+            seen, set(range(6)),
+            "a check-call six-seat hand is a whole table, so all six seats act and all six "
+            "policies are called (seats.md §4): the record seated %r" % (sorted(seen),),
+        )
+        for seat, probe in enumerate(probes):
+            self.assertEqual(
+                probe.seats, [seat] * len(probe.seats),
+                "the sequence is one policy per seat in seat order, so seat %d's policy is "
+                "called only when seat %d acts -- never another seat's (seats.md §4): it "
+                "was handed %r" % (seat, seat, probe.seats),
+            )
+            self.assertEqual(
+                len(probe.seats),
+                sum(1 for decision in decisions if decision["seat"][0] == seat),
+                "and it is called once per decision of its own seat (seats.md §4)",
+            )
+
+        payoffs = record["payoffs"]
+        self.assertTrue(S.is_mapping(payoffs), "the record carries the hand's payoffs")
+        self.assertEqual(
+            set(payoffs), set(range(6)),
+            "a six-seat hand pays one net delta per seat, keyed by seats 0 to 5 (surface.md "
+            "§9, hand.md §5, seats.md §3): %r" % (payoffs,),
+        )
+        self.assertEqual(
+            len(S.numbers(payoffs)), 6,
+            "exactly one number per seat and nothing else numeric (surface.md §9): %r"
+            % (payoffs,),
+        )
+        self.assertEqual(
+            sum(S.numbers(payoffs)), 0,
+            "the six net chip deltas are zero-sum (surface.md §9, ASM-12): %r" % (payoffs,),
+        )
+        rewarded = sorted(decision["reward"] for decision in decisions
+                          if decision["reward"] != 0)
+        paid = sorted(value for value in S.numbers(payoffs) if value != 0)
+        self.assertEqual(
+            rewarded, paid,
+            "the non-zero rewards are exactly the non-zero payoffs, one per paid seat "
+            "(episode.md §3, ASM-12, guardrails G9): rewards %r against payoffs %r"
+            % (rewarded, payoffs),
+        )
+        for seat, position in last.items():
+            with self.subTest(seat=seat):
+                self.assertEqual(
+                    decisions[position]["reward"], payoffs[seat],
+                    "each seat's last decision carries that seat's net chip delta and no "
+                    "shaped per-decision term (episode.md §3, ASM-12, guardrails G9): seat "
+                    "%d was paid %r at decision %d, which carried %r"
+                    % (seat, payoffs[seat], position, decisions[position]["reward"]),
+                )
+        for position, decision in enumerate(decisions):
+            if position in set(last.values()):
+                continue
+            self.assertEqual(
+                decision["reward"], 0,
+                "a decision that is not its seat's last carries reward 0 (episode.md §3, "
+                "ASM-12): decision %d carried %r" % (position, decision["reward"]),
+            )
+
+    def test_eng8_9_the_seating_on_a_two_seat_shape_is_the_two_positional_policies(self):
+        """ENG-8.9 play_hand(seed, seats=(p0, p1), shape) on a two-seat shape is legal and
+        equals play_hand(seed, p0, p1, shape): the seating is the shape's whole seating, so
+        on two seats it is the positional pair (surface.md §10, seats.md §4,
+        e2e-surface.md §3.1)."""
+        for shape in (S.DEFAULT_SHAPE, S.NO_LIMIT_SHAPE):
+            seed = S.SHAPE_SEED_B
+            for label, factory in (
+                ("calling", lambda: (S.always_call, S.always_call)),
+                ("sized raise", lambda: (S.band_walk(("raise-minimum",)),
+                                         S.band_walk(("check-call",)))),
+            ):
+                with self.subTest(shape=shape, policies=label):
+                    positional = self.shaped_episode(seed, *factory(), shape)
+                    seated = self.seated_episode(seed, factory(), shape)
+                    self.assertEqual(
+                        seated, positional,
+                        "with two seats the seating is the two positional policies, so the "
+                        "two forms play one hand and record one episode (seats.md §4, "
+                        "e2e-surface.md §3.1): on %r with %r the seating recorded %r against "
+                        "the positional call's %r"
+                        % (shape, label, seated, positional),
+                    )
+
+    def test_eng8_10_the_two_positional_policies_play_the_hand_they_always_played(self):
+        """ENG-8.10 play_hand(seed, policy0, policy1) and play_hand(seed, policy0, policy1,
+        shape) behave exactly as before: the absent shape and the named default shape give
+        one record, its keys are the three the record has always had, its decision count
+        and payoffs are the ones a hand driven by the same two policies reaches, and its
+        seed is the call's (surface.md §10, episode.md §3-§4, shapes.md §5)."""
+        seed = S.SHAPE_SEED_C
+        pattern = ("raise-quarter", "check-call")
+
+        def pair():
+            return (S.band_walk(pattern), S.band_walk(("check-call",)))
+
+        absent = S.ep("play_hand")(seed, *pair())
+        explicit_none = S.ep("play_hand")(seed, *pair(), None)
+        named = S.ep("play_hand")(seed, *pair(), S.DEFAULT_SHAPE)
+        self.assertEqual(
+            absent, explicit_none,
+            "an absent shape is the default shape, so the two calls are one episode "
+            "(surface.md §10)",
+        )
+        self.assertEqual(
+            named, absent,
+            "naming the default shape is the same call as omitting it, so the fixed-limit "
+            "path is unchanged (shapes.md §5, surface.md §10)",
+        )
+        self.assertEqual(
+            set(absent), {"seed", "decisions", "payoffs"},
+            "the record carries the three keys it has always carried -- the seed, the "
+            "decisions and the payoffs -- and the shape is an argument, never a key "
+            "(surface.md §10, episode.md §3): got %r" % (sorted(absent),),
+        )
+        self.assertEqual(
+            absent["seed"], seed,
+            "the record carries the seed the call was made with, unchanged (episode.md §3)",
+        )
+        self.assertGreaterEqual(
+            len(absent["decisions"]), 5,
+            "the two-policy hand is a whole hand and takes several decisions: %r"
+            % (absent["decisions"],),
+        )
+
+        # The two policies play the hand they always played: the same seed and the same
+        # two policy behaviours, dispatched seat by seat exactly as play_hand dispatches
+        # them, reach the same decisions and pay the same chips.
+        policies = pair()
+        hand = self.hand(seed)
+        replayed = []
+        while not self.terminal(hand):
+            facts = self.readout(hand)
+            legal = self.legal(hand)
+            action = policies[facts["seat"][0]](facts, legal)
+            replayed.append((facts, legal, action))
+            hand = self.step(hand, action)
+        self.assertEqual(
+            [decision["readout"] for decision in absent["decisions"]],
+            [facts for facts, _legal, _action in replayed],
+            "the two-policy path is the hand new_hand deals at that seed and the two "
+            "policies drive, decision for decision (episode.md §5, surface.md §10)",
+        )
+        self.assertEqual(
+            [decision["action"] for decision in absent["decisions"]],
+            [action for _facts, _legal, action in replayed],
+            "and it records the actions those policies chose (episode.md §3)",
+        )
+        self.assertEqual(
+            len(absent["decisions"]), len(replayed),
+            "so its decision count is the hand's own (surface.md §8): %d against %d"
+            % (len(absent["decisions"]), len(replayed)),
+        )
+        self.assertEqual(
+            dict(absent["payoffs"]), dict(self.payoffs(hand)),
+            "and its payoffs are the completed hand's (episode.md §3, ASM-12): %r against %r"
+            % (absent["payoffs"], self.payoffs(hand)),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

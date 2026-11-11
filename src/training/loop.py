@@ -2,11 +2,12 @@
 
 One pass of `run`, in the documented order, for any configuration: resolve; freeze the pool
 before the first hand; build the encoder and one learner per seed; derive each hand's deal
-and opponent seed; play through `engine.play_hand`, swapping the two sides hand by hand;
-learn once per hand on the learner's own decisions; snapshot every `budget // 10` hands;
-write the final model and close the curve; assemble `records.md` §12's record and nothing
-beyond it. The nine steps are the same for R1 and for a configuration in no design
-document; only the data differs, and that is the whole of D-3 (`ladder.md` §1, FAM-15).
+and opponent seed; play through `engine.play_hand` with the learner at `hand index mod
+seats` and the hand's opponents in the other seats; learn once per hand on the learner's
+own decisions; snapshot every `budget // 10` hands; write the final model and close the
+curve; assemble `records.md` §12's record and nothing beyond it. The nine steps are the same
+for R1 and for a configuration in no design document; only the data differs, and that is the
+whole of D-3 (`ladder.md` §1, FAM-15, `seats.md` §4).
 """
 
 import copy
@@ -28,7 +29,6 @@ from . import (
     layout,
     policies,
     registry,
-    seeds as seeds_module,
 )
 from .devices import DEFAULT as DEFAULT_DEVICE
 from .devices import devices as device_catalogue
@@ -418,13 +418,12 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, s
     snapshots = []
     start = time.perf_counter()
     for index in range(int(budget)):
-        hand_seed = seeds_module._deal_seed(seed, index)
-        opponent = evaluation.opponent(pool, seeds_module._opponent_seed(seed, index))
-        seat = episode._seat(index)
-        if seat == 0:
-            played = engine.play_hand(hand_seed, policy, opponent, shape=shape)
-        else:
-            played = engine.play_hand(hand_seed, opponent, policy, shape=shape)
+        # The hand, and the seat the learner holds in it: `episode._hand` derives both
+        # seeds, seats the learner at `index mod seats` and fills the other seats with the
+        # hand's opponents — one draw of `seats − 1` distinct members on a shape with more
+        # seats, and the two positional policies on a two-seat one (`seats.md` §4, ASM-43,
+        # `shapes.md` §5).  Training and the pass call it, so they cannot drift apart.
+        played, seat = episode._hand(pool, shape, seed, index, policy)
         # The utility the variant is trained on, resolved once and handed to the step
         # that turns the hand into transitions — the one place D-20's reward is applied
         # (`utilities.md` §4, D-20).

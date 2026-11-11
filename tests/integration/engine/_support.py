@@ -46,10 +46,72 @@ ENTRY_POINTS = (
     "equity",
 )
 
-# surface.md §12, shapes.md §2: the two declared shapes, default first.  A shape is
-# reached as an optional argument whose absence is today's value, never as a row.
+# surface.md §12, shapes.md §2, seats.md §2: the three declared shapes, default first.  A
+# shape is reached as an optional argument whose absence is today's value, never as a row.
 SHAPE_DEFAULT = "fixed-limit-20"
 SHAPE_SIZED = "no-limit-100"
+SHAPE_SIX = "six-seat-no-limit-100"
+SHAPE_NAMES = (SHAPE_DEFAULT, SHAPE_SIZED, SHAPE_SIX)
+
+# surface.md §12, shapes.md §2, §8: the fourteen keys of one catalogue row -- `history` is
+# the shape's history-block capacity, the row's key and never one of `game_config`'s fifteen
+# (ASM-42, ASM-44) -- and the five normalisers every row declares.
+ROW_FACTS = (
+    "name",
+    "default",
+    "seats",
+    "blinds",
+    "starting_stack",
+    "chips_in_play",
+    "bet_structure",
+    "small_bet",
+    "big_bet",
+    "raise_cap",
+    "actions",
+    "head_width",
+    "history",
+    "normalisers",
+)
+NORMALISER_FACTS = ("stack", "pot", "to_call", "amount", "count")
+
+# surface.md §3: the fifteen keys `game_config` carries on every shape, in their declared
+# order.  The history capacity is not one of them (shapes.md §8, ASM-44).
+CONFIG_FACTS = (
+    "game",
+    "seats",
+    "player_count",
+    "button_seat",
+    "blinds",
+    "small_blind",
+    "big_blind",
+    "blind_levels",
+    "starting_stack",
+    "starting_stacks",
+    "small_bet",
+    "big_bet",
+    "limit",
+    "raise_cap",
+    "streets",
+)
+
+# surface.md §12, shapes.md §2, seats.md §2: the seats, chips in play and history capacity
+# each declared row states.  The seat count is shape data, so nothing below divides by two.
+SHAPE_SEATS = {SHAPE_DEFAULT: 2, SHAPE_SIZED: 2, SHAPE_SIX: 6}
+SHAPE_CHIPS_IN_PLAY = {SHAPE_DEFAULT: 40, SHAPE_SIZED: 200, SHAPE_SIX: 600}
+SHAPE_HISTORY = {SHAPE_DEFAULT: 24, SHAPE_SIZED: 66, SHAPE_SIX: 98}
+
+# surface.md §3, shapes.md §2, seats.md §2: the config facts every shape shares, because a
+# shape is the same table over its own seat count -- the button seat, the two blinds, the
+# one blind level and the four streets.  The seat count itself is not shared: it is what
+# the third row declares and the two two-seat rows do not (seats.md §2).
+SHARED_TABLE_FACTS = (
+    "button_seat",
+    "blinds",
+    "small_blind",
+    "big_blind",
+    "blind_levels",
+    "streets",
+)
 
 # surface.md §12, sizing.md §2–§3: the sized shape's four raise descriptors, in its
 # declared index order — the measured price order, worst first, so the order is not
@@ -133,6 +195,16 @@ SEED_S = 51673
 SEED_T = 60493
 SEED_U = 73589
 SEED_V = 80681
+
+# The third declared shape's own instances (D-15, D-33).  They are the writer's own too:
+# none is a seed of the design documents, of the seed sets above or of the e2e battery, and
+# the six-seat first decision is asserted to read the same numbers at every one of them
+# (seats.md §2-§3).
+SEED_W = 91307
+SEED_X = 44017
+SEED_Y = 73129
+SEED_Z = 20533
+SEEDS_SIX = (SEED_W, SEED_X, SEED_Y, SEED_Z)
 
 SEED_DISTINCT = (SEED_A, SEED_B, SEED_C, SEED_D, SEED_E, SEED_F, SEED_G,
                  SEED_H, SEED_I, SEED_J, SEED_K, SEED_L, SEED_M)
@@ -432,9 +504,11 @@ def descriptors_equal(left, right):
 def seat_fact(value):
     """The acting seat a ``seat`` fact names: its index and its button flag.
 
-    environment.md §2 fixes the content — the seat's index, 0 or 1, as the fact's
-    first number, and a boolean saying whether it holds the button — and leaves
-    the container free, so a tuple, a list or a mapping all read here.
+    environment.md §2 fixes the content — the seat's index, 0 to the shape's seat count
+    less one, as the fact's first number, and a boolean saying whether it holds the
+    button — and leaves the container free, so a tuple, a list or a mapping all read
+    here.  The seat count is the shape's, so a six-seat hand's index is 0 to 5
+    (seats.md §3).
     """
     numbers = numbers_in(value)
     flags = bools_in(value)
@@ -447,35 +521,41 @@ def seat_fact(value):
     return index, flags[0]
 
 
-def _seat_index(key):
-    """A per-seat record's key read as a seat index, or ``None``."""
-    if is_count(key) and int(key) in (0, 1):
+def _seat_index(key, seats=2):
+    """A per-seat record's key read as a seat index in ``0 .. seats - 1``, or ``None``."""
+    if is_count(key) and 0 <= int(key) < seats:
         return int(key)
     digits = "".join(ch for ch in str(key) if ch.isdigit())
-    if digits in ("0", "1"):
+    if digits.isdigit() and 0 <= int(digits) < seats:
         return int(digits)
     return None
 
 
-def seat_keyed(record, what):
-    """A per-seat record read as ``{seat index: value}``, or a failure naming it."""
+def seat_keyed(record, what, seats=2):
+    """A per-seat record read as ``{seat index: value}``, or a failure naming it.
+
+    ``seats`` is the seat count the record must hold one entry per, two on the two-seat
+    shapes and six on the six-seat one, because the payoffs are one net delta per seat of
+    the hand's own shape (surface.md §9, seats.md §3).
+    """
     if not isinstance(record, Mapping):
         raise AssertionError(
             "%s must be a mapping keyed by seat (surface.md §9); got %r" % (what, record)
         )
     out = {}
     for key, value in record.items():
-        index = _seat_index(key)
+        index = _seat_index(key, seats)
         if index is None:
             raise AssertionError(
                 "%s must be keyed by seat and carry nothing else (surface.md §9); key %r "
-                "names no seat (the record is %r)" % (what, key, record)
+                "names no seat of the %d a hand of this shape has (the record is %r)"
+                % (what, key, seats, record)
             )
         out[index] = value
-    if sorted(out) != [0, 1]:
+    if sorted(out) != list(range(seats)):
         raise AssertionError(
-            "%s must carry exactly one entry per seat (surface.md §9); got %r"
-            % (what, record)
+            "%s must carry exactly one entry per seat -- %d of them (surface.md §9, "
+            "seats.md §3); got %r" % (what, seats, record)
         )
     return out
 
@@ -589,6 +669,17 @@ def choose_raise(readout, legal):
         if descriptor_kind(descriptor) == "raise":
             return descriptor
     return choose_call(readout, legal)
+
+
+def seating(shape, chooser=choose_call):
+    """One policy per seat of ``shape``, in seat order (surface.md §10, seats.md §4).
+
+    The count is the declaration's own ``SHAPE_SEATS`` and never a reading of the engine:
+    six policies on the six-seat shape, two on a two-seat one.  The chooser is one of this
+    battery's plain callables, which is the policy protocol of ``e2e-surface.md`` §2 and
+    needs no per-seat state.
+    """
+    return tuple(chooser for _ in range(SHAPE_SEATS[shape]))
 
 
 class PolicyProbe:
@@ -735,6 +826,18 @@ class EngineCase(unittest.TestCase):
         if shape is ABSENT:
             return call(seed, seat0, seat1)
         return call(seed, seat0, seat1, shape)
+
+    def seated_play_hand(self, seed, policies, shape=ABSENT):
+        """`play_hand` with the shape's whole seating, in seat order (seats.md §4).
+
+        The two positional policies are absent in this form, so the call names the
+        seating and the shape and nothing else (surface.md §10, ``e2e-surface.md`` §3.1).
+        """
+        call = self.ep("play_hand")
+        policies = tuple(policies)
+        if shape is ABSENT:
+            return call(seed, seats=policies)
+        return call(seed, seats=policies, shape=shape)
 
     def equity(self, decision, seed, samples):
         return self.ep("equity")(decision, seed, samples)

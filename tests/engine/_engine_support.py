@@ -143,17 +143,22 @@ STREET_OF_SIZE = {0: "preflop", 3: "flop", 4: "turn", 5: "river"}
 MAX_DECISIONS = 200
 
 # --------------------------------------------------------------------------
-# The two declared shapes, spelled out (docs/L3/engine/config.md §1-§6,
-# docs/L1/shapes.md §2).  These are the *declaration* and not a reading of it:
-# a case asserts them against `game_shapes`, `game_config` and the deals, so the
-# expectation cannot move with the implementation (D-29, D-30).
+# The three declared shapes, spelled out (docs/L3/engine/config.md §1-§6,
+# docs/L1/shapes.md §2, docs/L1/seats.md §2).  These are the *declaration* and
+# not a reading of it: a case asserts them against `game_shapes`, `game_config`
+# and the deals, so the expectation cannot move with the implementation
+# (D-29, D-30, D-33).
 # --------------------------------------------------------------------------
 #: The catalogue's own order: the default row first (surface.md §12).
 DEFAULT_SHAPE = "fixed-limit-20"
 NO_LIMIT_SHAPE = "no-limit-100"
-SHAPE_NAMES = (DEFAULT_SHAPE, NO_LIMIT_SHAPE)
+SIX_SEAT_SHAPE = "six-seat-no-limit-100"
+SHAPE_NAMES = (DEFAULT_SHAPE, NO_LIMIT_SHAPE, SIX_SEAT_SHAPE)
 
-#: The thirteen keys of one catalogue row, in the order surface.md §12 states them.
+#: The fourteen keys of one catalogue row, in the order surface.md §12 and
+#: shapes.md §8 state them.  `history` is the shape's history-block capacity, the
+#: catalogue row's key and never one of `game_config`'s fifteen (shapes.md §8,
+#: ASM-42, ASM-44).
 ROW_KEYS = (
     "name",
     "default",
@@ -167,6 +172,7 @@ ROW_KEYS = (
     "raise_cap",
     "actions",
     "head_width",
+    "history",
     "normalisers",
 )
 
@@ -195,7 +201,9 @@ CONFIG_KEYS = (
 #: The two descriptors every declared shape carries, at indices 0 and 1 (actions.md §1).
 BASES = ("fold", "check-call")
 
-#: Each shape's vocabulary, in its own index order (config.md §2, §6).
+#: Each shape's vocabulary, in its own index order (config.md §2, §6).  A seat count
+#: adds no descriptor: the six-seat row declares the two-seat uncapped row's six, in
+#: that same index order (seats.md §2).
 FIXED_ACTIONS = ("fold", "check-call", "raise")
 SIZED_ACTIONS = (
     "fold",
@@ -205,16 +213,26 @@ SIZED_ACTIONS = (
     "raise-all-in",
     "raise-minimum",
 )
-SHAPE_ACTIONS = {DEFAULT_SHAPE: FIXED_ACTIONS, NO_LIMIT_SHAPE: SIZED_ACTIONS}
+SHAPE_ACTIONS = {
+    DEFAULT_SHAPE: FIXED_ACTIONS,
+    NO_LIMIT_SHAPE: SIZED_ACTIONS,
+    SIX_SEAT_SHAPE: SIZED_ACTIONS,
+}
 
 #: The four raise descriptors of a shape without a cap, in the declared index order --
 #: the measured price order, worst first, which is deliberately **not** monotone in
 #: amount: the all-in sits before the minimum (config.md §6, sizing.md §3).
 SIZED_RAISES = ("raise-quarter", "raise-half", "raise-all-in", "raise-minimum")
 
-#: The chips in play each row declares, and the stack it starts each seat with.
-SHAPE_CHIPS_IN_PLAY = {DEFAULT_SHAPE: 40, NO_LIMIT_SHAPE: 200}
-SHAPE_STARTING_STACK = {DEFAULT_SHAPE: 20, NO_LIMIT_SHAPE: 100}
+#: The seats each row declares, the chips in play it puts up and the stack it starts each
+#: seat with (config.md §2, §4; seats.md §2).
+SHAPE_SEATS = {DEFAULT_SHAPE: 2, NO_LIMIT_SHAPE: 2, SIX_SEAT_SHAPE: 6}
+SHAPE_CHIPS_IN_PLAY = {DEFAULT_SHAPE: 40, NO_LIMIT_SHAPE: 200, SIX_SEAT_SHAPE: 600}
+SHAPE_STARTING_STACK = {DEFAULT_SHAPE: 20, NO_LIMIT_SHAPE: 100, SIX_SEAT_SHAPE: 100}
+
+#: The history-block capacity each row declares, derived from its own betting rather
+#: than fixed by the default shape's cap (shapes.md §8, ASM-42, ASM-44).
+SHAPE_HISTORY = {DEFAULT_SHAPE: 24, NO_LIMIT_SHAPE: 66, SIX_SEAT_SHAPE: 98}
 
 # --------------------------------------------------------------------------
 # Invented instances.  Every seed and sample count here is the battery's own,
@@ -247,6 +265,17 @@ SHAPE_SEED_C = 730211
 SHAPE_SEED_D = 660133
 SHAPE_SEED_E = 512345
 SHAPE_SEEDS = (SHAPE_SEED_A, SHAPE_SEED_B, SHAPE_SEED_C, SHAPE_SEED_D, SHAPE_SEED_E)
+
+#: The third declared shape's own invented seeds (D-15, D-33).  They are the writer's
+#: own as well: none is a seed of a design document, of the seed sets above or of the
+#: e2e battery, and ENG-12 asserts that the six-seat first decision reads the same
+#: numbers at every one of them (seats.md §3).
+SIX_SEED_A = 913001
+SIX_SEED_B = 440027
+SIX_SEED_C = 731009
+SIX_SEED_D = 205111
+SIX_SEED_E = 660271
+SIX_SEEDS = (SIX_SEED_A, SIX_SEED_B, SIX_SEED_C, SIX_SEED_D, SIX_SEED_E)
 
 
 class SurfaceAbsent(AssertionError):
@@ -552,7 +581,27 @@ class EngineCase(unittest.TestCase):
         """`play_hand(seed, p0, p1, shape)`: one episode on the named shape (surface.md §10)."""
         return ep("play_hand")(seed, seat0_policy, seat1_policy, shape)
 
-    def replay(self, seed, shape, seat0_policy, seat1_policy, limit=MAX_DECISIONS):
+    def seated_episode(self, seed, policies, shape):
+        """`play_hand(seed, seats=...)`: one episode seated by the shape's whole seating.
+
+        The sequence is one policy per seat in seat order and the two positional policies
+        are absent, which is the form a shape with more than two seats takes
+        (seats.md §4, e2e-surface.md §3.1).
+        """
+        return ep("play_hand")(seed, seats=tuple(policies), shape=shape)
+
+    def seating(self, shape, factory=None):
+        """One fresh policy per seat of `shape`, in seat order (seats.md §4).
+
+        `factory` returns one policy, so every seat gets its own object and a stateful
+        policy counts its own seat's decisions rather than the table's.  The count is the
+        declaration's own, `SHAPE_SEATS`, and never the engine's answer.
+        """
+        if factory is None:
+            factory = lambda: always_call  # noqa: E731 - a factory, not a policy
+        return tuple(factory() for _ in range(SHAPE_SEATS[shape]))
+
+    def replay(self, seed, shape, seat0_policy, seat1_policy, limit=MAX_DECISIONS, seats=None):
         """Yield ``(hand, decision)`` pairs of one hand played out on ``shape``.
 
         The decisions are the episode record's; ``hand`` is the live handle at that
@@ -561,9 +610,15 @@ class EngineCase(unittest.TestCase):
         its bounds, its legal descriptors, its amount -- and steps from the handle the
         same walk reached (surface.md §10, episode.md §5).  The two policies are
         separate objects, exactly as ``play_hand`` is called with them, so a policy
-        that counts its own decisions counts one seat's.
+        that counts its own decisions counts one seat's.  With ``seats`` the episode is
+        the shape's whole seating, one policy per seat in seat order, and the two
+        positional policies are absent (seats.md §4).
         """
-        record = self.shaped_episode(seed, seat0_policy, seat1_policy, shape)
+        record = (
+            self.shaped_episode(seed, seat0_policy, seat1_policy, shape)
+            if seats is None
+            else self.seated_episode(seed, seats, shape)
+        )
         hand = self.shaped_hand(seed, shape)
         for position, decision in enumerate(record["decisions"]):
             if position >= limit:
@@ -575,16 +630,20 @@ class EngineCase(unittest.TestCase):
             hand = self.step(hand, decision["action"])
 
     # -- driving ------------------------------------------------------------
-    def drive(self, seed=SEED_A, policy=None, limit=MAX_DECISIONS):
+    def drive(self, seed=SEED_A, policy=None, limit=MAX_DECISIONS, shape=None):
         """Apply ``policy`` until the hand ends: the walk and the final hand.
 
         Returns ``(walk, last)`` where ``walk`` is a list of
         ``(readout, legal, action)`` before each applied action and ``last`` is
-        the terminal handle.
+        the terminal handle.  ``shape`` names the hand's shape and absence is the
+        default shape, so one walk is written the same way on any of the three
+        (surface.md §4, seats.md §2).  The single policy is applied to whoever is
+        acting, which is what a walk of one hand needs; a whole seating is
+        ``play_hand``'s and not this helper's (seats.md §4).
         """
         if policy is None:
             policy = always_call
-        hand = self.hand(seed)
+        hand = self.hand(seed) if shape is None else self.shaped_hand(seed, shape)
         walk = []
         while not self.terminal(hand):
             if len(walk) >= limit:

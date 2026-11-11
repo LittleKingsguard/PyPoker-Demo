@@ -90,8 +90,12 @@ TOKENS = "card-tokens"
 ENCODINGS = (FLAT, TOKENS)
 
 # What each encoding declares: representation, kind, shape, dtype, vocabulary
-# (encodings.md §1, surface.md §5).
+# (encodings.md §1, surface.md §5).  ``shape`` is the **default** shape's -- the record
+# an encoder built with no shape declares, and the width a kind's declared observation
+# size stays at (shapes.md §8, ASM-44); ``DECLARED_BY_SHAPE`` below carries the other two
+# rows' pairs.
 DECLARED = {
+
     FLAT: {
         "kind": "dense-numeric",
         "shape": (203,),
@@ -106,8 +110,13 @@ DECLARED = {
     },
 }
 
-# The two block tables: (field, offset, width), in the spec's `fields` order
-# (flat-numeric.md §2, card-tokens.md §2, encoder.md §4).
+# The two block tables on the **default** shape: (field, offset, width), in the spec's
+# `fields` order (flat-numeric.md §2, card-tokens.md §2, encoder.md §4).  The eight blocks
+# before the history are one table on the two-seat shapes; the history's offset is theirs
+# and its width is `HISTORY_SLOT_WIDTH * CAPACITY[shape]` (dense) or `CAPACITY[shape]`
+# (token) (shapes.md §8, ASM-42).  `FLAT_BLOCKS_BY_SHAPE` / `TOKEN_BLOCKS_BY_SHAPE` below
+# carry all three rows, and `flat_blocks` / `token_blocks` derive them from the arithmetic
+# `capacity.md` §2 states (ASM-42, ASM-44).
 FLAT_BLOCKS = (
     ("street", 0, 4),
     ("seat", 4, 2),
@@ -134,15 +143,136 @@ FLAT_WIDTH = 203
 TOKEN_WIDTH = 40
 CARD_SLOT = 17          # 13 ranks + 4 suits (flat-numeric.md §3)
 RANK_WIDTH = 13
-HISTORY_SLOTS = 24      # 24 slots of 3 in the dense encoding, 24 tokens in the other
+HISTORY_SLOTS = 24      # the default shape's capacity: 24 slots of 3, or 24 tokens
 HISTORY_SLOT_WIDTH = 3
 VOCABULARY = 96         # ids 0-95 (card-tokens.md §6)
+
+# The history block's capacity is the **shape's** (shapes.md §8, ASM-42): it is both the
+# number of action slots the block declares and the refusal threshold, so the three
+# declared shapes have three capacities and three pairs of widths.  The 127 dense slots
+# and the 12 tokens that **no seat count touches** are the encoding's and do not move;
+# the `seat` and the `stacks` blocks are one slot per seat, so the slots before the
+# history are `127 + 2 x seats` and `12 + 2 x seats`, and the blocks that follow them are
+# 3 x capacity and capacity (flat-numeric.md §2, §5; card-tokens.md §2, §5, seats.md §3,
+# capacity.md §2, ASM-42, ASM-44):
+#     131 + 3 x 24 = 203   and  16 + 24 = 40    on `fixed-limit-20` -- today's layout
+#     131 + 3 x 66 = 329   and  16 + 66 = 82    on `no-limit-100`
+#     139 + 3 x 98 = 433   and  24 + 98 = 122   on `six-seat-no-limit-100`
+DEFAULT_SHAPE = "fixed-limit-20"
+SECOND_SHAPE = "no-limit-100"
+THIRD_SHAPE = "six-seat-no-limit-100"
+SHAPES = (DEFAULT_SHAPE, SECOND_SHAPE)
+ALL_SHAPES = SHAPES + (THIRD_SHAPE,)
+CAPACITY = {DEFAULT_SHAPE: 24, SECOND_SHAPE: 66, THIRD_SHAPE: 98}
+DECLARED_BY_SHAPE = {
+    DEFAULT_SHAPE: {FLAT: (203,), TOKENS: (40,)},
+    SECOND_SHAPE: {FLAT: (329,), TOKENS: (82,)},
+    THIRD_SHAPE: {FLAT: (433,), TOKENS: (122,)},
+}
+# The seat count is the width of both per-seat blocks in both encodings, and the token
+# vocabulary is the shape's: 96 ids on the two-seat rows, 102 on the six-seat one, whose
+# seat block emits ids 96-101 above every id the other rows use (seats.md §2-§3,
+# capacity.md §2, §4, ASM-44).
+SEATS = {DEFAULT_SHAPE: 2, SECOND_SHAPE: 2, THIRD_SHAPE: 6}
+VOCABULARY_BY_SHAPE = {DEFAULT_SHAPE: 96, SECOND_SHAPE: 96, THIRD_SHAPE: 102}
+# The two two-seat rows' slots before the history -- the numbers `SHAPES`' cases use, kept
+# because one shape's capacity is not another's while these do not move between the rows.
+FIXED_FLAT_SLOTS = 131  # the two-seat rows' dense slots before the history: 4+2+34+85+2+1+1+2
+FIXED_TOKEN_SLOTS = 16  # the two-seat rows' tokens before the history: 1+2+2+5+2+1+1+2
+# The slots before the history that **no seat count touches** (street, hole, board, pot,
+# to_call, limit) -- 127 dense and 12 token on all three rows (capacity.md §2, ASM-44).
+SEAT_INVARIANT_FLAT_SLOTS = 127
+SEAT_INVARIANT_TOKEN_SLOTS = 12
+
+
+# -- the arithmetic `capacity.md` §2 states, one reading of it per encoding ----------
+def seats_of(shape=DEFAULT_SHAPE):
+    """The shape's seat count: the width of both per-seat blocks (seats.md §3)."""
+    return SEATS[shape]
+
+
+def capacity_of(shape=DEFAULT_SHAPE):
+    """The shape's history capacity: the block's width and its refusal threshold."""
+    return CAPACITY[shape]
+
+
+def flat_slots_before_history(shape=DEFAULT_SHAPE):
+    """`127 + 2 x seats`: 131 on the two-seat rows and 139 on the six-seat one."""
+    return SEAT_INVARIANT_FLAT_SLOTS + 2 * seats_of(shape)
+
+
+def token_slots_before_history(shape=DEFAULT_SHAPE):
+    """`12 + 2 x seats`: 16 on the two-seat rows and 24 on the six-seat one."""
+    return SEAT_INVARIANT_TOKEN_SLOTS + 2 * seats_of(shape)
+
+
+def flat_width(shape=DEFAULT_SHAPE):
+    """`127 + 2 x seats + 3 x capacity` -- 203, 329 and 433 (capacity.md §2)."""
+    return flat_slots_before_history(shape) + HISTORY_SLOT_WIDTH * capacity_of(shape)
+
+
+def token_width(shape=DEFAULT_SHAPE):
+    """`12 + 2 x seats + capacity` -- 40, 82 and 122 (capacity.md §2)."""
+    return token_slots_before_history(shape) + capacity_of(shape)
+
+
+def _table(rows):
+    """One block table, each offset the sum of the widths before it."""
+    blocks = []
+    offset = 0
+    for field, width in rows:
+        blocks.append((field, offset, width))
+        offset += width
+    return tuple(blocks)
+
+
+def flat_blocks(shape=DEFAULT_SHAPE):
+    """One shape's dense block table, `(field, offset, width)` (flat-numeric.md §2)."""
+    seats = seats_of(shape)
+    return _table((
+        ("street", 4),
+        ("seat", seats),
+        ("hole", 34),
+        ("board", 85),
+        ("stacks", seats),
+        ("pot", 1),
+        ("to_call", 1),
+        ("limit", 2),
+        ("history", HISTORY_SLOT_WIDTH * capacity_of(shape)),
+    ))
+
+
+def token_blocks(shape=DEFAULT_SHAPE):
+    """One shape's token block table, `(field, offset, count)` (card-tokens.md §2)."""
+    seats = seats_of(shape)
+    return _table((
+        ("street", 1),
+        ("seat", seats),
+        ("hole", 2),
+        ("board", 5),
+        ("stacks", seats),
+        ("pot", 1),
+        ("to_call", 1),
+        ("limit", 2),
+        ("history", capacity_of(shape)),
+    ))
+
+
+FLAT_BLOCKS_BY_SHAPE = {shape: flat_blocks(shape) for shape in ALL_SHAPES}
+TOKEN_BLOCKS_BY_SHAPE = {shape: token_blocks(shape) for shape in ALL_SHAPES}
+SECOND_FLAT_BLOCKS = FLAT_BLOCKS_BY_SHAPE[SECOND_SHAPE]
+SECOND_TOKEN_BLOCKS = TOKEN_BLOCKS_BY_SHAPE[SECOND_SHAPE]
+THIRD_FLAT_BLOCKS = FLAT_BLOCKS_BY_SHAPE[THIRD_SHAPE]
+THIRD_TOKEN_BLOCKS = TOKEN_BLOCKS_BY_SHAPE[THIRD_SHAPE]
+
 
 # The pad and the id maps (card-tokens.md §3, §5, §6).
 PAD = 0
 STREET_IDS = {"preflop": 53, "flop": 54, "turn": 55, "river": 56}
 SEAT_INDEX_BASE = 57    # 57 + index, so 57 seat 0 and 58 seat 1
 SEAT_FLAG_BASE = 59     # 59 + flag, so 59 no button and 60 the button
+SEAT_TOKEN_BASE = 96    # 96 + the seat slot: the six-seat row's own six seat ids
+SIX_SEAT_SEAT_IDS = tuple(range(SEAT_TOKEN_BASE, SEAT_TOKEN_BASE + SEATS[THIRD_SHAPE]))
 HISTORY_IDS = {"fold": 93, "check-call": 94, "raise": 95}
 
 # The verb map: a history entry's fourth token decides its action index
@@ -150,7 +280,12 @@ HISTORY_IDS = {"fold": 93, "check-call": 94, "raise": 95}
 HISTORY_VERBS = {"folds": 0, "checks": 1, "calls": 1, "raises": 2}
 
 # The five bucket ladders, as (upper bound, id) pairs read from the top; the last
-# bound is unbounded and each ladder is total (card-tokens.md §4).
+# bound is unbounded and each ladder is total (card-tokens.md §4).  `LADDERS` is the
+# **default** shape's; the uncapped row re-edges all five for a 100-chip stack and a
+# 200-chip game, and the six-seat row keeps four of them -- a stack is bounded by 100,
+# the amount in force by 100 and the count by 50 -- and re-edges the pot for its 600
+# chips in play (card-tokens.md §4, seats.md §2, capacity.md §2, sizing.md §5):
+#     pot 12, 24, 48, 96, 192, 300, 450 -- exactly three times `no-limit-100`'s
 LADDERS = {
     "to_call": (
         (0, 61), (1, 62), (2, 63), (3, 64), (4, 65), (6, 66), (10, 67), (None, 68),
@@ -167,6 +302,38 @@ LADDERS = {
     "raises": (
         (0, 89), (1, 90), (2, 91), (None, 92),
     ),
+}
+SECOND_LADDERS = {
+    "to_call": (
+        (0, 61), (1, 62), (2, 63), (3, 64), (5, 65), (10, 66), (25, 67), (None, 68),
+    ),
+    "pot": (
+        (4, 69), (8, 70), (16, 71), (32, 72), (64, 73), (100, 74), (150, 75), (None, 76),
+    ),
+    "stacks": (
+        (5, 77), (10, 78), (20, 79), (40, 80), (60, 81), (80, 82), (95, 83), (None, 84),
+    ),
+    "bet": (
+        (5, 85), (10, 86), (25, 87), (None, 88),
+    ),
+    "raises": (
+        (0, 89), (2, 90), (5, 91), (None, 92),
+    ),
+}
+SIX_SEAT_LADDERS = {
+    "to_call": SECOND_LADDERS["to_call"],
+    "pot": (
+        (12, 69), (24, 70), (48, 71), (96, 72), (192, 73), (300, 74), (450, 75),
+        (None, 76),
+    ),
+    "stacks": SECOND_LADDERS["stacks"],
+    "bet": SECOND_LADDERS["bet"],
+    "raises": SECOND_LADDERS["raises"],
+}
+LADDERS_BY_SHAPE = {
+    DEFAULT_SHAPE: LADDERS,
+    SECOND_SHAPE: SECOND_LADDERS,
+    THIRD_SHAPE: SIX_SEAT_LADDERS,
 }
 
 # The modules `import features` must leave absent (layout.md §3, guardrail G12).
@@ -490,6 +657,21 @@ def ladder_ids(ladder):
     return sorted({ident for _bound, ident in LADDERS[ladder]})
 
 
+def bucket_on(shape, ladder, value):
+    """The id one named ladder gives one non-negative integer on one declared shape.
+
+    The ids do not move between shapes -- only the edges do -- so a case reads a
+    six-seat pot, a six-seat stack or an amount to call on the row that declares it
+    (card-tokens.md §4, capacity.md §2, ASM-44).
+    """
+    for bound, ident in LADDERS_BY_SHAPE[shape][ladder]:
+        if bound is None or value <= bound:
+            return ident
+    raise AssertionError(
+        "the %r ladder of %r has no bound for %r" % (ladder, shape, value)
+    )
+
+
 # --------------------------------------------------------------------------
 # The history, read as one action index per entry (flat-numeric.md §5,
 # card-tokens.md §5, guardrail G13)
@@ -500,20 +682,25 @@ def history_action(entry):
     return HISTORY_VERBS[tokens[3]]
 
 
-def history_block(history):
-    """The 72 dense values the history block holds: 24 slots of 3, oldest first."""
-    values = [0.0] * (HISTORY_SLOTS * HISTORY_SLOT_WIDTH)
+def history_block(history, slots=HISTORY_SLOTS):
+    """The ``3 * slots`` dense values the history block holds: one per applied action.
+
+    ``slots`` is the shape's capacity, so a case that walks a longer history on the
+    second shape reads the same rule at that shape's length (shapes.md §8, ASM-42).
+    """
+    values = [0.0] * (slots * HISTORY_SLOT_WIDTH)
     for position, entry in enumerate(history):
         values[HISTORY_SLOT_WIDTH * position + history_action(entry)] = 1.0
     return values
 
 
-def history_tokens(history):
-    """The 24 token ids the history block holds, and the pad past the end."""
-    values = [PAD] * HISTORY_SLOTS
+def history_tokens(history, slots=HISTORY_SLOTS):
+    """The ``slots`` token ids the history block holds, and the pad past the end."""
+    values = [PAD] * slots
     for position, entry in enumerate(history):
         values[position] = HISTORY_IDS[ACTIONS[history_action(entry)]]
     return values
+
 
 
 # --------------------------------------------------------------------------
@@ -611,6 +798,40 @@ def with_facts(record, **changes):
     out = dict(record)
     out.update(changes)
     return out
+
+
+#: The six-seat row's invented stacks: one entry per seat, in seat order.  The values
+#: are the writer's own; only their *shape* -- six entries, never two -- is the
+#: contract's (``seats.md`` §3, ``readout.md`` §2, ASM-28, ASM-44).
+SIX_SEAT_STACKS = (100, 92, 84, 76, 68, 60)
+
+
+def six_seat_readout(street="preflop", seat=(0, True), hole=("Td", "2c"), board=None,
+                     stacks=None, pot=None, to_call=None, limit=None, history=None,
+                     legal=None, hand_class=None, extra=None):
+    """One invented **six-seat** readout: six stacks in seat order, a seat index in 0-5.
+
+    A two-seat invented readout carries two stacks, and it must never reach a six-seat
+    encoder except in the refusal case (`seats.md` §3, ASM-44): a case over the third
+    row builds its readout here, so the per-seat facts are the row's own width.
+    """
+    if stacks is None:
+        stacks = SIX_SEAT_STACKS
+    return readout(street=street, seat=seat, hole=hole, board=board, stacks=stacks,
+                   pot=pot, to_call=to_call, limit=limit, history=history, legal=legal,
+                   hand_class=hand_class, extra=extra)
+
+
+def shaped_readout(shape, **facts):
+    """One invented readout whose two per-seat facts are of ``shape``'s seat count.
+
+    ``stacks`` defaults to the shape's own count -- six on `six-seat-no-limit-100` and
+    two on the two-seat rows -- so a loop over all three rows never hands a two-stack
+    readout to a six-seat encoder by accident (`seats.md` §3, ASM-44).
+    """
+    if shape == THIRD_SHAPE:
+        return six_seat_readout(**facts)
+    return readout(**facts)
 
 
 def without(record, *keys):

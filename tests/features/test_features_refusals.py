@@ -288,5 +288,100 @@ class FEA8DecodeAction(S.FeaturesCase):
                 self.refuses(decode, value, words=("decode_action",))
 
 
+class FEA8ThirdSeatCount(S.FeaturesCase):
+    """The third row's seat count bounds both per-seat facts, and the two rows stay two."""
+
+    def test_fea8_34_a_seat_index_outside_the_shapes_seat_count_is_refused(self):
+        """FEA-8.34 the seat block's index is bounded by the **shape's** own seat count, which
+        the block's params carry: a six-seat encoder accepts exactly the six indices 0-5
+        with a real bool flag, refuses (6, True) and (-1, False) naming `seat`, while the
+        two-seat rows refuse (2, True) -- the value the six-seat row accepts -- so no
+        readout's seat is in one shape's range and another's by accident (seats.md §3,
+        flat-numeric.md §4, §6, card-tokens.md §3, §7, ASM-44)."""
+        F = self.surface()
+        six = F.build_encoder(S.FLAT, shape=S.THIRD_SHAPE)
+        for index in range(S.SEATS[S.THIRD_SHAPE]):
+            for flag in (True, False):
+                with self.subTest(shape=S.THIRD_SHAPE, seat=(index, flag), accepted=True):
+                    record = S.six_seat_readout(seat=(index, flag))
+                    for name in S.ENCODINGS:
+                        with self.subTest(shape=S.THIRD_SHAPE, seat=(index, flag),
+                                          encoding=name, accepted=True):
+                            F.encode(F.build_encoder(name, shape=S.THIRD_SHAPE), record)
+        for value in ((S.SEATS[S.THIRD_SHAPE], True), (-1, False),
+                      (S.SEATS[S.THIRD_SHAPE], False), (99, True)):
+            with self.subTest(shape=S.THIRD_SHAPE, seat=value, accepted=False):
+                for name in S.ENCODINGS:
+                    with self.subTest(shape=S.THIRD_SHAPE, seat=value, encoding=name):
+                        self.refuses(
+                            F.encode, F.build_encoder(name, shape=S.THIRD_SHAPE),
+                            S.six_seat_readout(seat=value),
+                            words=("encode", "seat"),
+                        )
+        for shape in S.SHAPES:
+            with self.subTest(shape=shape, seat=(2, True), accepted=False):
+                for name in S.ENCODINGS:
+                    with self.subTest(shape=shape, seat=(2, True), encoding=name):
+                        self.refuses(
+                            F.encode, F.build_encoder(name, shape=shape),
+                            S.readout(seat=(2, True)),
+                            words=("encode", "seat"),
+                        )
+        self.assertEqual(
+            S.SEATS[S.THIRD_SHAPE], 6,
+            "the six-seat row's seat count is 6, so its index range is 0-5 and the "
+            "two-seat rows' 0-1 is theirs alone (seats.md §2-§3, ASM-44): %r"
+            % (S.SEATS[S.THIRD_SHAPE],),
+        )
+        self.assertEqual(
+            (S.SEATS[S.DEFAULT_SHAPE], S.SEATS[S.SECOND_SHAPE]), (2, 2),
+            "the two two-seat rows keep exactly the four seat values they always carried "
+            "(seats.md §3, ASM-44): %r"
+            % ((S.SEATS[S.DEFAULT_SHAPE], S.SEATS[S.SECOND_SHAPE]),),
+        )
+        self.assertIsNotNone(
+            six,
+            "an encoder built for the six-seat row is one of this module's encoders "
+            "(surface.md §4): %r" % (six,),
+        )
+
+    def test_fea8_35_a_stacks_that_is_not_one_count_per_seat_is_refused(self):
+        """FEA-8.35 the stacks block's length is the shape's seat count: the six-seat row
+        refuses a two-entry stacks and the two-seat rows refuse a six-entry one, each
+        naming `stacks` and the count it declares, so a readout's stacks are one per seat
+        on every row and no block defaults a missing seat (seats.md §3, flat-numeric.md
+        §4, §6, card-tokens.md §4, §7, errors.md §3, ASM-44)."""
+        F = self.surface()
+        short = tuple(S.SIX_SEAT_STACKS[:2])
+        long = tuple(range(S.SEATS[S.THIRD_SHAPE]))
+        self.assertEqual(
+            (len(short), len(long)),
+            (2, 6),
+            "the battery holds one stacks shorter and one longer than the row's seat "
+            "count (seats.md §3, ASM-44): %r, %r" % (short, long),
+        )
+        for name in S.ENCODINGS:
+            with self.subTest(shape=S.THIRD_SHAPE, stacks=short):
+                self.refuses(
+                    F.encode, F.build_encoder(name, shape=S.THIRD_SHAPE),
+                    S.six_seat_readout(stacks=short),
+                    words=("encode", "stacks"),
+                )
+            with self.subTest(shape=S.THIRD_SHAPE, stacks=long, encoding=name):
+                F.encode(F.build_encoder(name, shape=S.THIRD_SHAPE),
+                         S.six_seat_readout(stacks=long))
+        for shape in S.SHAPES:
+            for name in S.ENCODINGS:
+                with self.subTest(shape=shape, stacks=long, encoding=name):
+                    self.refuses(
+                        F.encode, F.build_encoder(name, shape=shape),
+                        S.readout(stacks=long),
+                        words=("encode", "stacks"),
+                    )
+                with self.subTest(shape=shape, stacks=long[:2], encoding=name):
+                    F.encode(F.build_encoder(name, shape=shape),
+                             S.readout(stacks=long[:2]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -21,13 +21,25 @@ arithmetic is selected by the **reward token** the catalogue states for the memb
 catalogue's own description of what a member delivers — so no member name is copied into
 this module: `net-chip-delta` is the delta itself and `squared-stack-shortfall-delta` is
 `(U(s_before) − U(s_after)) / U(s_0)` with `U(s) = (T − s)²` (`utilities.md` §2, §4).
+
+**This is also where one hand is seated** (`seats.md` §4, ASM-43).  `_hand` is the loop's
+and the greedy pass's one way of dealing hand *i*: it derives the two seeds, puts the
+learner in `_seat(i, shape)` — `i mod seats`, with the seat count read from
+`engine.game_config` and never written down here — and fills the other seats with the
+hand's opponents.  On a two-seat shape that is the two positional policies a run has always
+handed `engine.play_hand`; on a shape with more seats it is `seats − 1` **distinct**
+opponents from one `evaluation.opponent(pool, seed, seats - 1)` draw, seated in the draw's
+order in seat order and played through `play_hand`'s `seats` argument (`seats.md` §4,
+`e2e-surface.md` §3.1, ASM-43).  Because training and the pass both call it, they cannot
+drift into two samples.
 """
 
 import agents
 import engine
+import evaluation
 import features
 
-from . import errors
+from . import errors, seeds as seeds_module
 
 #: `U(s) = (T − s)²`: the squared shortfall of one seat's stack from all the chips in play.
 def _shortfall(total, stack):
@@ -65,14 +77,15 @@ def _chips_in_play(decision, seed, seat, shape=None):
     """`T` from one decision's readout, or the refusal naming the hand and both totals.
 
     `T` is `sum(readout['stacks']) + readout['pot']`: the pot is un-awarded and chips are
-    conserved at every decision, so the two seats' stacks and the pot are all the chips
-    the hand holds (`utilities.md` §4, ASM-6).  The total the readout must agree with is
-    the **run's own shape's** — `engine.game_config(shape)`'s seats and starting stack, so
-    40 chips in the default shape and 200 on the six-descriptor one — and never the
-    default shape's, which is why a no-limit run conserves 200 and not 40 (`shapes.md`
-    §2, D-29).  A hand whose total disagrees is refused by name with the hand's seed and
-    both totals, because a normaliser that is not the game's own would make one reward
-    incommensurable with the next (ASM-28).
+    conserved at every decision, so every seat's stack and the pot are all the chips the
+    hand holds (`utilities.md` §4, ASM-6, `seats.md` §3).  The total the readout must
+    agree with is the **run's own shape's** — `engine.game_config(shape)`'s seats and
+    starting stack, so 40 chips in the default shape, 200 on the two-seat uncapped one and
+    600 on the six-seat one — and never the default shape's, which is why a no-limit run
+    conserves 200 and not 40 (`shapes.md` §2, `seats.md` §2, D-29, ASM-44).  A hand whose
+    total disagrees is refused by name with the hand's seed and both totals, because a
+    normaliser that is not the game's own would make one reward incommensurable with the
+    next (ASM-28).
     """
     config = engine.game_config(shape)
     starting_stack = float(config["starting_stack"])
@@ -138,14 +151,75 @@ def _reward_function(utility):
     return name, arithmetic
 
 
-def _seat(index):
-    """The seat the learner plays in hand `index`: seats alternate, seat 0 holds the button.
+#: The two positional policies `engine.play_hand` takes — `seat0_policy` and
+#: `seat1_policy` — which is the form a hand is played in when the shape seats that many
+#: policies, and the form every caller has taken.  Every other shape is played through that
+#: entry point's `seats` sequence (`e2e-surface.md` §3.1, §3.5, `seats.md` §4).  It is the
+#: **call's** arity and not a shape's seat count: a seat count is read from
+#: `engine.game_config` and never written down here (`seats.md` §2–§3, ASM-44, D-29).
+POSITIONAL_POLICIES = 2
 
-    Seat 0 posts the small blind and holds the button in **every** hand (`engine/surface.md`
-    §4), so a run alternates the learner's seat by swapping the two policies it hands to
-    `engine.play_hand` (`docs/L3/training/episode.md` §1, league.md §3).
+
+def _seats(shape=None):
+    """The seat count of the shape a run plays, read from `engine.game_config`.
+
+    `engine.game_config(shape)["seats"]` is the one place a hand's seat count is declared,
+    so neither this module nor a caller of `_seat` writes a `2` or a `6` down as the game's
+    (`seats.md` §2–§3, `engine/surface.md` §3, ASM-44, D-29).
     """
-    return int(index) % 2
+    return int(engine.game_config(shape)["seats"])
+
+
+def _seat(index, shape=None):
+    """The seat the learner plays in hand `index`: `index mod seats` (`seats.md` §4).
+
+    Seat 0 posts the small blind and holds the button in **every** hand
+    (`engine/surface.md` §4), and a shape seats `_seats(shape)` policies, so the learner
+    rotates through every seat of the run's own shape and each seat holds it for one hand
+    in `seats`: position is a real and unequal advantage in a multi-way pot, and rotating it
+    keeps a seed's chips from being a measurement of the seat it drew (ASM-43,
+    `seats.md` §4, `league.md` §3).  On a two-seat shape this is the alternation a run has
+    always had — `index % 2` — so no default-shape hand moves (`shapes.md` §5).
+    """
+    return int(index) % _seats(shape)
+
+
+def _hand(pool, shape, seed, index, policy):
+    """Hand `index` of the run at `seed`, and the seat the learner held in it.
+
+    Hand *i*'s deal seed and opponent draw seed are `seeds._deal_seed(seed, i)` and
+    `seeds._opponent_seed(seed, i)`, so the hand is a function of the tuple and of its index
+    alone and training and the greedy pass replay one sample (`seeds.md` §2, ASM-2, ASM-8,
+    `greedy.md` §1).  The learner is at `_seat(index, shape)` (`seats.md` §4).
+
+    **A two-seat shape is played exactly as every run has played it**: one opponent from
+    `evaluation.opponent(pool, draw_seed)` on the other side, and the two positional
+    policies swapped hand by hand because seat 0 holds the button in every hand
+    (`e2e-surface.md` §3.5, `engine/surface.md` §4, §10, `shapes.md` §5).
+
+    **A shape with more seats draws `seats − 1` distinct opponents** — one per seat the
+    learner does not hold — with `evaluation.opponent(pool, draw_seed, seats - 1)`, seats
+    them in the draw's order in the remaining seats **in seat order**, and plays the hand
+    through `engine.play_hand(..., seats=(...))`, so no seat faces itself and no policy is
+    seated twice (`seats.md` §4, ASM-43, `e2e-surface.md` §3.1).  A pool holding fewer
+    members than the draw is `evaluation`'s refusal and propagates unchanged in its owner's
+    class, because a refusal re-wrapped here would hide which module owns the contract
+    (`records.md` §8, `module-map.md` §2).
+    """
+    hand_seed = seeds_module._deal_seed(int(seed), int(index))
+    draw_seed = seeds_module._opponent_seed(int(seed), int(index))
+    seat = _seat(index, shape)
+    seats = _seats(shape)
+    if seats == POSITIONAL_POLICIES:
+        opponent = evaluation.opponent(pool, draw_seed)
+        if seat == 0:
+            played = engine.play_hand(hand_seed, policy, opponent, shape=shape)
+        else:
+            played = engine.play_hand(hand_seed, opponent, policy, shape=shape)
+        return played, seat
+    seating = list(evaluation.opponent(pool, draw_seed, seats - 1))
+    seating.insert(seat, policy)
+    return engine.play_hand(hand_seed, seats=tuple(seating), shape=shape), seat
 
 
 def _decision_seat(decision):

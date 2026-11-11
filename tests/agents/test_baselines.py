@@ -23,19 +23,31 @@ import unittest
 
 from _agents_support import (
     BASELINE_SEED,
+    DEFAULT_SHAPE,
     NONEMPTY_MASKS,
+    OTHER_SHAPE,
     SECOND_BASELINE_SEED,
+    SEAT_PAST_SIX,
+    SIX_MASKS,
+    SIX_SEAT_SHAPE,
+    UNDECLARED_SEATS,
     AgentsCase,
     chosen_index,
     engine,
     features,
     plain_int,
+    shape_decisions,
 )
 
 FOLD = "fold"
 CHECK_CALL = "check-call"
 RAISE = "raise"
 FULL = (FOLD, CHECK_CALL, RAISE)
+
+#: The three declared game shapes a baseline may be built for, the default named three
+#: ways — by absence, by `None` and by name — and the two other rows by name
+#: (`shapes.md` §2, `seats.md` §2, `docs/L2/agents/baselines.md` §2, D-29, D-33).
+SEAT_SHAPES = (DEFAULT_SHAPE, OTHER_SHAPE, SIX_SEAT_SHAPE)
 
 #: The six catalogue names in `protocol.md` §3's order, and the three that anchor the
 #: rating (D-21, ASM-32): the folders are members and never anchors.
@@ -547,7 +559,494 @@ class BaselinesTest(AgentsCase):
                     label="%r handed a readout with no hand_class" % (name,),
                 )
 
+    def test_agt9_17_build_baseline_with_no_shape_is_the_default_shape_everywhere(self):
+        """AGT-9.17 `build_baseline(name, seed)` — the two-argument call — takes the same decisions as `build_baseline(name, seed, None)` and as `build_baseline(name, seed, shape="fixed-limit-20")` on every decision of every one of the six, so a call that names no shape is today's call and absence is the default rather than a third behaviour (`docs/L2/agents/baselines.md` §2, `e2e-surface.md` §3.3, `shapes.md` §2-§3, `seats.md` §6, ASM-4, D-13, D-33).
+
+        The three spellings drive the same real decisions of the default shape — three
+        hands' first readouts with their own legal descriptors and every non-empty mask over
+        the three-index vocabulary — so "unchanged" is asserted on decisions a hand
+        produced and not on a fabricated readout (`docs/L2/engine/surface.md` §4,
+        `docs/L2/features/surface.md` §8).  The optional third argument is the only
+        signature change, and this is what its absence buys: no caller in the tree that
+        passes two arguments moves (`e2e-surface.md` §2).
+        """
+        package = self.agents()
+        rows = self.decisions(3)
+        self.assertTrue(rows, "the case drives real decisions")
+        for name in NAMES:
+            with self.subTest(baseline=name):
+                absent = package.build_baseline(name, BASELINE_SEED)
+                explicit_none = package.build_baseline(name, BASELINE_SEED, None)
+                explicit_default = package.build_baseline(
+                    name, BASELINE_SEED, shape=DEFAULT_SHAPE
+                )
+                for row in rows:
+                    for mask in NONEMPTY_MASKS:
+                        legal = legal_for(mask)
+                        answer = absent(row["readout"], legal)
+                        self.assertIn(
+                            answer,
+                            legal,
+                            "%r answered off the legal set it was handed (%r)"
+                            % (name, mask),
+                        )
+                        self.assertEqual(
+                            answer,
+                            explicit_none(row["readout"], legal),
+                            "%r's two-argument call is not its `shape=None` call, and the "
+                            "absent shape means the default (shapes.md §2, "
+                            "docs/L2/agents/baselines.md §2)" % (name,),
+                        )
+                        self.assertEqual(
+                            answer,
+                            explicit_default(row["readout"], legal),
+                            "%r's two-argument call is not its explicit-default call, so "
+                            "absence is not reading as the catalogue's first row "
+                            "(shapes.md §3, D-13): %r at %r" % (name, answer, mask),
+                        )
+
+    def test_agt9_18_the_folder_reads_its_own_shapes_starting_stack(self):
+        """AGT-9.18 `fold-large-bet` built for `six-seat-no-limit-100` reads that shape's **100**-chip starting stack through `engine.game_config` and folds at a `to_call` of 51 while check/calling at 11 — the same rule that folds at 11 and check/calls at 10 on the default shape's 20 — so "more than half the starting stack" is the shape's own and no `20` and no `100` is written down here (`docs/L2/agents/baselines.md` §2-§3, `folders.md` §2, ASM-31, `docs/L1/seats.md` §2, §6, D-21, D-33).
+
+        Both boundaries are computed from the stack `engine.game_config(shape)` declares,
+        and the one that matters is the pair 11 / 51: 11 chips is more than half of 20 and
+        less than half of 100, so a folder holding a copy of the default shape's 20 would
+        fold there and one reading the six-seat row's own stack would not — the two
+        readings the shape argument exists to separate (`e2e-surface.md` §3.3, §3.1,
+        `folders.md` §2, ASM-31).  The decisions are a real readout of each shape with only
+        its `to_call` changed, so the rest of the facts stay the hand's own.
+        """
+        package = self.agents()
+        eng = engine()
+        six_stack = plain_int(
+            eng.game_config(SIX_SEAT_SHAPE)["starting_stack"], "starting_stack"
+        )
+        default_stack = plain_int(eng.game_config()["starting_stack"], "starting_stack")
+        self.assertEqual(
+            six_stack,
+            100,
+            "the six-seat row's declared starting stack is not 100 chips a seat "
+            "(docs/L1/seats.md §2, shapes.md §2): %r" % (six_stack,),
+        )
+        self.assertEqual(
+            default_stack,
+            20,
+            "the default shape's declared starting stack is not the fixed game's 20, and "
+            "this case's two arms are then not one rule (ASM-6, shapes.md §2): %r"
+            % (default_stack,),
+        )
+        self.assertLess(
+            default_stack,
+            six_stack,
+            "the two shapes declare one starting stack, so 11 chips cannot separate the two "
+            "readings (docs/L1/seats.md §2, §6): %r against %r"
+            % (default_stack, six_stack),
+        )
+        cases = (
+            (SIX_SEAT_SHAPE, six_stack, self._six_seat_readout()),
+            (DEFAULT_SHAPE, default_stack, self.decisions(1)[0]["readout"]),
+        )
+        for shape, stack, readout in cases:
+            with self.subTest(shape=shape):
+                legal = tuple(readout["legal"])
+                self.assertIn(FOLD, legal)
+                self.assertIn(
+                    CHECK_CALL,
+                    legal,
+                    "the decision under judgement offers no check/call, so the folder's "
+                    "'never raises while check/call is legal' half is untested "
+                    "(ASM-31): %r" % (legal,),
+                )
+                policy = package.build_baseline(
+                    "fold-large-bet", BASELINE_SEED, shape=shape
+                )
+                for to_call in (0, 1, stack // 2, stack // 2 + 1, stack):
+                    with self.subTest(shape=shape, to_call=to_call):
+                        probe = dict(readout, to_call=to_call)
+                        folds = 2 * to_call > stack
+                        self.assertEqual(
+                            policy(probe, legal),
+                            FOLD if folds else CHECK_CALL,
+                            "at %d chips to call on the shape %r, whose declared starting "
+                            "stack is %d, the rule %s (folders.md §2, ASM-31, "
+                            "docs/L2/agents/baselines.md §2)"
+                            % (
+                                to_call,
+                                shape,
+                                stack,
+                                "folds" if folds else "check/calls",
+                            ),
+                        )
+        # The pair the shape exists to separate: 11 chips folds on 20 and does not on 100.
+        six_policy = package.build_baseline(
+            "fold-large-bet", BASELINE_SEED, shape=SIX_SEAT_SHAPE
+        )
+        default_policy = package.build_baseline("fold-large-bet", BASELINE_SEED)
+        six_readout = self._six_seat_readout()
+        default_readout = self.decisions(1)[0]["readout"]
+        self.assertEqual(
+            six_policy(dict(six_readout, to_call=11), tuple(six_readout["legal"])),
+            CHECK_CALL,
+            "the folder folds at 11 chips on the six-seat shape's hundred-chip stack, so it "
+            "is reading the default shape's 20 rather than its own shape's starting stack "
+            "(docs/L1/seats.md §2, §6, ASM-31): %r"
+            % (six_policy(dict(six_readout, to_call=11), tuple(six_readout["legal"])),),
+        )
+        self.assertEqual(
+            six_policy(dict(six_readout, to_call=51), tuple(six_readout["legal"])),
+            FOLD,
+            "the folder check/calls at 51 chips on the six-seat shape's hundred-chip stack, "
+            "so it is not folding above half of that shape's own starting stack "
+            "(folders.md §2, ASM-31, D-33)",
+        )
+        self.assertEqual(
+            default_policy(dict(default_readout, to_call=11), tuple(default_readout["legal"])),
+            FOLD,
+            "the folder no longer folds at 11 chips on the default shape's twenty-chip "
+            "stack, so the two-seat behaviour moved (folders.md §2, ASM-31, ASM-6)",
+        )
+        self.assertEqual(
+            default_policy(
+                dict(default_readout, to_call=default_stack // 2),
+                tuple(default_readout["legal"]),
+            ),
+            CHECK_CALL,
+            "the folder folds at exactly half the default shape's stack, and the rule is "
+            "'more than half' (folders.md §2, ASM-31)",
+        )
+
+    def test_agt9_19_the_oracle_decides_on_a_six_seat_readout(self):
+        """AGT-9.19 `build_baseline("oracle", seed, shape="six-seat-no-limit-100")` constructs and decides on real six-seat readouts, answering a legal descriptor at every decision and one consistent with the pot-odds inequality re-issued through `engine.equity` at the baseline's own seed and the declared sample count — an equity that is **six-way** because `engine.equity` reads the seat count off the readout's `stacks` (`docs/L2/agents/baselines.md` §2-§3, `e2e-surface.md` §3.1, §3.3, `engine/equity.md` §3, `docs/L1/seats.md` §2, ASM-4, D-6, D-33).
+
+        This is the shape's second effect on the six: the oracle asks one question and
+        `engine` answers it against the other **five** seats' uniformly random hands, so an
+        equity of about a sixth rather than about a half is what the inequality is tested
+        against, and the readout's own `stacks` is what tells the engine there are six
+        seats (`engine/equity.md` §3, `docs/L1/seats.md` §3).  Both decisive sides are
+        driven: the call side on the hands' own odds, and the fold side on a decision whose
+        call is worth almost the whole pot, which a six-way equity cannot beat.
+        """
+        package = self.agents()
+        eng = engine()
+        declared = plain_int(
+            package.baselines()["oracle"]["equity_samples"], "equity_samples"
+        )
+        self.assertGreater(declared, 0)
+        policy = package.build_baseline("oracle", BASELINE_SEED, shape=SIX_SEAT_SHAPE)
+        rows = shape_decisions(SIX_SEAT_SHAPE, 6)
+        self.assertGreaterEqual(
+            len(rows),
+            4,
+            "the case drives several real six-seat decisions and not one "
+            "(docs/L2/engine/surface.md §4): %r" % (len(rows),),
+        )
+        decisive_call = 0
+        for position, row in enumerate(rows):
+            readout, legal = dict(row["readout"]), tuple(row["legal"])
+            with self.subTest(hand=position):
+                self.assertEqual(
+                    len(readout["stacks"]),
+                    6,
+                    "the readout under judgement is not a six-seat one, so its equity is not "
+                    "six-way (docs/L1/seats.md §3, engine/equity.md §3): %r"
+                    % (len(readout["stacks"]),),
+                )
+                answer = policy(readout, legal)
+                self.assertIn(
+                    answer,
+                    legal,
+                    "the oracle answered a descriptor outside `legal_actions` (surface.md "
+                    "§2, D-2): %r at %r" % (answer, legal),
+                )
+                pot, to_call = int(readout["pot"]), int(readout["to_call"])
+                total = pot + to_call
+                odds = to_call / total if total else 0.0
+                equity = eng.equity(readout, BASELINE_SEED, declared)
+                self.assertGreaterEqual(
+                    float(equity),
+                    0.0,
+                    "a six-way equity is not a share of the pot (engine/equity.md §3): %r"
+                    % (equity,),
+                )
+                self.assertLessEqual(float(equity), 1.0)
+                if equity >= odds:
+                    self.assertNotEqual(
+                        answer,
+                        FOLD,
+                        "the oracle folded at or above the six-way pot odds %r, and the "
+                        "rule folds only below them (docs/L2/agents/baselines.md §3, "
+                        "ASM-4): equity %r on %r" % (odds, equity, readout),
+                    )
+                    if FOLD in legal:
+                        decisive_call += 1
+                elif FOLD in legal:
+                    self.assertEqual(
+                        answer,
+                        FOLD,
+                        "the oracle did not fold below the six-way pot odds %r although "
+                        "folding is legal (docs/L2/agents/baselines.md §3, ASM-4): equity "
+                        "%r on %r" % (odds, equity, readout),
+                    )
+                else:
+                    self.assertNotEqual(
+                        answer,
+                        FOLD,
+                        "the oracle folded where folding is not legal (ASM-31, ASM-4)",
+                    )
+        self.assertGreaterEqual(
+            decisive_call,
+            1,
+            "no decision of these six-seat hands was decisive for calling, so the case "
+            "proves only that the oracle answered (ASM-4): %r" % (decisive_call,),
+        )
+        # The fold side, on a decision whose call is worth almost the whole pot.
+        probe = self._six_seat_readout()
+        legal = tuple(probe["legal"])
+        expensive = dict(probe, pot=1, to_call=400)
+        equity = float(eng.equity(expensive, BASELINE_SEED, declared))
+        odds = 400.0 / 401.0
+        self.assertLess(
+            equity,
+            odds,
+            "a six-way equity of %r beats odds of %r, so this probe cannot decide the fold "
+            "side (engine/equity.md §3, ASM-4)" % (equity, odds),
+        )
+        self.assertEqual(
+            policy(expensive, legal),
+            FOLD,
+            "the oracle did not fold below the pot odds although folding is legal, so it is "
+            "not the pot-odds rule at six seats (docs/L2/agents/baselines.md §3, ASM-4): "
+            "equity %r against odds %r" % (equity, odds),
+        )
+
+    def test_agt9_20_a_baseline_carries_neither_a_rule_nor_a_utility_on_every_shape(self):
+        """AGT-9.20 every one of the six, built for each of the three declared shapes and for the absent one, carries **no** `learning_rule` and **no** `utility`, and each still answers a member of a real six-seat decision's `legal_actions` — a baseline learns nothing and is trained on no reward on any shape, and a shape is not a rule (`e2e-surface.md` §2, §3.3, `docs/L2/agents/baselines.md` §2-§3, `docs/L2/agents/surface.md` §10, `rules.md` §7, `utilities.md` §7, D-6, D-19, D-20, D-21).
+
+        The two attributes are the ones `as_policy` adds and a baseline must not have
+        (`docs/L2/agents/surface.md` §10): a table names its population by them, so a
+        baseline carrying either would be read as a trained member.  The shape is a
+        separate statement and is not one of them — a policy built for a shape may know
+        which shape it decides in, and it still learns nothing (`e2e-surface.md` §2,
+        `docs/L1/seats.md` §6).
+        """
+        package = self.agents()
+        readout = self._six_seat_readout()
+        legal = tuple(readout["legal"])
+        for shape in (None,) + tuple(SEAT_SHAPES):
+            for name in NAMES:
+                with self.subTest(shape=shape, baseline=name):
+                    policy = package.build_baseline(name, BASELINE_SEED, shape=shape)
+                    self.assertFalse(
+                        hasattr(policy, "learning_rule"),
+                        "%r built for the shape %r carries a `learning_rule`, and a "
+                        "baseline learns under no rule (e2e-surface.md §2, rules.md §7, "
+                        "D-19): %r"
+                        % (name, shape, getattr(policy, "learning_rule", None)),
+                    )
+                    self.assertFalse(
+                        hasattr(policy, "utility"),
+                        "%r built for the shape %r carries a `utility`, and a baseline is "
+                        "trained on no reward (e2e-surface.md §2, utilities.md §7, D-20): "
+                        "%r" % (name, shape, getattr(policy, "utility", None)),
+                    )
+                    self.assertIn(
+                        policy(readout, legal),
+                        legal,
+                        "%r built for the shape %r did not answer a member of the six-seat "
+                        "decision's `legal_actions`, so a baseline is a function of the "
+                        "decision it is handed on every shape (e2e-surface.md §2, "
+                        "docs/L2/agents/baselines.md §2, D-33): %r"
+                        % (name, shape, legal),
+                    )
+        catalogue = package.baselines()
+        for name, entry in catalogue.items():
+            with self.subTest(record=name):
+                self.assertNotIn(
+                    "learning_rule",
+                    entry,
+                    "the catalogue record %r carries a `learning_rule`, and a baseline "
+                    "learns under none (protocol.md §3, D-6, D-19)" % (name,),
+                )
+                self.assertNotIn(
+                    "utility",
+                    entry,
+                    "the catalogue record %r carries a `utility`, and a baseline is trained "
+                    "on no reward (protocol.md §3, D-6, D-20)" % (name,),
+                )
+
+    def test_agt9_21_the_readout_is_six_seats_wide_and_no_other(self):
+        """AGT-9.21 a readout whose `stacks` carries six numbers is accepted and one carrying three is refused naming the fact and the value, a seat index of 5 is accepted where 6 is refused, and the eleven facts, the distinct-card rule and the `hand_class` rule are the ones they were — the validators admit the shape's seat count and nothing else (`docs/L2/agents/baselines.md` §2, `docs/L1/seats.md` §3, `docs/L2/agents/surface.md` §1, `errors.md` §2-§3, ASM-30, ASM-44, D-33).
+
+        Six is the seat count the six-seat row's readout carries and three is a length no
+        declared shape declares, so the two halves of this case are the two sides of one
+        rule: the count is the shape's, read off the fact whose length is it, and the seat
+        index ranges over the same count (`docs/L1/seats.md` §3, `engine/equity.md` §3).  A
+        malformed fact of a six-seat readout — a card named twice, a `hand_class` of nine —
+        is still refused as this module's own `policy(readout)`, which is what says the new
+        length did not loosen the rest of the check (`folders.md` §2-§3, ASM-30).
+        """
+        package = self.agents()
+        readout = self._six_seat_readout()
+        legal = tuple(readout["legal"])
+        self.assertEqual(
+            len(tuple(readout["stacks"])),
+            6,
+            "the readout under judgement is not the six-seat one this case is about "
+            "(docs/L1/seats.md §3): %r" % (readout["stacks"],),
+        )
+        for name in NAMES:
+            policy = package.build_baseline(name, BASELINE_SEED)
+            with self.subTest(baseline=name, stacks="six"):
+                self.assertIn(
+                    policy(readout, legal),
+                    legal,
+                    "%r refused or answered off a six-seat readout, so no baseline can be "
+                    "seated at the six-seat table (docs/L2/agents/baselines.md §2, "
+                    "docs/L1/seats.md §3, D-33): %r" % (name, legal),
+                )
+            with self.subTest(baseline=name, stacks="five"):
+                self.assertIn(
+                    policy(dict(readout, seat=(5, False)), legal),
+                    legal,
+                    "%r refused the acting seat five of a six-seat decision "
+                    "(docs/L1/seats.md §3, ASM-44): %r" % (name, readout["seat"]),
+                )
+            with self.subTest(baseline=name, stacks="three"):
+                self.assert_agents_refusal(
+                    policy,
+                    dict(readout, stacks=(1, 2, 3)),
+                    legal,
+                    entry="policy(readout)",
+                    groups=(("stacks",), ("1, 2, 3",)),
+                    label="%r handed a readout whose `stacks` is %d long, a seat count no "
+                    "declared shape carries" % (name, UNDECLARED_SEATS),
+                )
+            with self.subTest(baseline=name, seat="past the seats"):
+                self.assert_agents_refusal(
+                    policy,
+                    dict(readout, seat=(SEAT_PAST_SIX, False)),
+                    legal,
+                    entry="policy(readout)",
+                    groups=(("seat",), (str(SEAT_PAST_SIX),)),
+                    label="%r handed a seat index past the six seats `stacks` declares"
+                    % (name,),
+                )
+            with self.subTest(baseline=name, cards="distinct"):
+                self.assert_agents_refusal(
+                    policy,
+                    dict(readout, hole=(readout["hole"][0], readout["hole"][0])),
+                    legal,
+                    entry="policy(readout)",
+                    groups=(("distinct",),),
+                    label="%r handed a six-seat readout naming one card twice" % (name,),
+                )
+            with self.subTest(baseline=name, hand_class="nine"):
+                self.assert_agents_refusal(
+                    policy,
+                    dict(readout, hand_class=9),
+                    legal,
+                    entry="policy(readout)",
+                    groups=(("hand_class",),),
+                    label="%r handed a six-seat readout with a hand_class of 9" % (name,),
+                )
+            with self.subTest(baseline=name, missing="hand_class"):
+                missing = dict(readout)
+                missing.pop("hand_class")
+                self.assert_agents_refusal(
+                    policy,
+                    missing,
+                    legal,
+                    entry="policy(readout)",
+                    groups=(("hand_class",),),
+                    label="%r handed a six-seat readout with no hand_class" % (name,),
+                )
+
+    def test_agt9_22_random_is_keyed_by_its_seed_at_six_seats(self):
+        """AGT-9.22 `random` built for the six-seat shape never returns an index outside the mask it was handed, one seed repeats its choices and two seeds differ, over real six-seat decisions and every non-empty mask over the six-index vocabulary — its draw is keyed by the decision, and `(stacks, limit, …)` is the six-fact spelling at six seats (`docs/L2/agents/baselines.md` §2, `protocol.md` §3-§4, `docs/L1/seats.md` §3, ASM-4, D-33).
+
+        The key is the decision's canonical spelling, and a six-seat decision's includes six
+        `stacks` entries and six legal indices instead of two and three: the draw has to
+        keep working there because a baseline that could not decide at six seats could not
+        be seated at the six-seat table the pool is drawn for (`docs/L1/seats.md` §4,
+        `docs/L2/agents/baselines.md` §2).  The masks are the shape's own six indices, one-,
+        two- and six-member (`docs/L1/sizing.md` §3, ASM-37).
+        """
+        package = self.agents()
+        first = package.build_baseline("random", BASELINE_SEED, shape=SIX_SEAT_SHAPE)
+        again = package.build_baseline("random", BASELINE_SEED, shape=SIX_SEAT_SHAPE)
+        other = package.build_baseline(
+            "random", SECOND_BASELINE_SEED, shape=SIX_SEAT_SHAPE
+        )
+        rows = shape_decisions(SIX_SEAT_SHAPE, 4)
+        self.assertGreaterEqual(
+            len(rows), 3, "the case drives several real six-seat decisions: %r" % (len(rows),)
+        )
+        probes = 0
+        differences = 0
+        for row in rows:
+            own = tuple(row["mask"])
+            for mask in SIX_MASKS:
+                if not set(mask) <= set(own):
+                    continue
+                legal = tuple(
+                    descriptor
+                    for descriptor, index in zip(row["legal"], own)
+                    if index in mask
+                )
+                self.assertTrue(
+                    legal,
+                    "the sub-mask %r this case built is empty, so it hands no decision "
+                    "(features/shapes.md §4): %r" % (mask, own),
+                )
+                with self.subTest(hand=row["readout"]["hole"], mask=mask):
+                    self.assertEqual(
+                        tuple(int(index) for index in features().legal_indices(legal)),
+                        tuple(mask),
+                        "the descriptors this case hands the policy are not the mask's own "
+                        "indices in that shape's vocabulary (features/shapes.md §4, "
+                        "docs/L2/features/surface.md §8): %r against %r"
+                        % (tuple(features().legal_indices(legal)), mask),
+                    )
+                    mine = first(row["readout"], legal)
+                    self.assertIn(
+                        mine,
+                        legal,
+                        "random answered off the legal set it was handed at six seats "
+                        "(baselines.md §2): %r at %r" % (mine, legal),
+                    )
+                    self.assertEqual(
+                        mine,
+                        again(row["readout"], legal),
+                        "one seed of `random` answered a six-seat decision twice and chose "
+                        "differently, so its draw is not keyed by the decision "
+                        "(protocol.md §4, surface.md §1)",
+                    )
+                    theirs = other(row["readout"], legal)
+                    self.assertIn(theirs, legal)
+                    if theirs != mine:
+                        differences += 1
+                    probes += 1
+        self.assertGreaterEqual(probes, 20, "%d probes" % (probes,))
+        self.assertGreater(
+            differences,
+            0,
+            "two seeds of `random` answered every six-seat decision alike, so the seed did "
+            "not reach the six-seat key (protocol.md §3, baselines.md §2)",
+        )
+
     # -- helpers ---------------------------------------------------------
+
+    def _six_seat_readout(self):
+        """One real six-seat readout, from the first decision of a hand `engine` dealt.
+
+        The facts are the hand's own — six `stacks` entries, a seat index in `0..5`, the
+        six legal descriptors — and only a case that asks about one fact substitutes it, so
+        no readout here is fabricated (`docs/L2/engine/surface.md` §4, `docs/L1/seats.md`
+        §3, `docs/L2/features/surface.md` §8).
+        """
+        rows = shape_decisions(SIX_SEAT_SHAPE, 1)
+        self.assertTrue(rows, "no hand was dealt on %r" % (SIX_SEAT_SHAPE,))
+        return dict(rows[0]["readout"])
 
     @staticmethod
     def _readout(hole, board, pot, to_call, legal, hand_class=UNSET, street=None):

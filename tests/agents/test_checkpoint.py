@@ -45,6 +45,7 @@ from _agents_support import (
     learner_spec,
     plain_int,
     shape_decisions,
+    shape_encoder,
     token_encoder,
     version_container,
 )
@@ -162,6 +163,21 @@ def version_one_metadata(source, target):
             container.writestr("metadata.json", json.dumps(metadata).encode("utf-8"))
             container.writestr("parameters.npy", parameters)
     return target
+
+
+def shape_width(representation, shape=None):
+    """`I` — or `V` — the input width `features` declares for that shape's encoding.
+
+    The one statement of a shape's width is the encoder's own `observation_spec`: 329 dense,
+    and a vocabulary of 96 over an 82-long token sequence, on `no-limit-100` against the
+    default shape's 203 and 40 (`docs/L1/shapes.md` §8, ASM-44, `docs/L2/features/
+    capacity.md` §2).  `checkpoint.md` §2.1 records it as `representation.size`, so a case
+    that says what a container records reads the number here rather than writing it down.
+    """
+    spec = features().observation_spec(shape_encoder(representation, shape))
+    if spec["kind"] == "dense-numeric":
+        return int(tuple(spec["shape"])[0])
+    return int(spec["vocabulary"])
 
 
 def files_under(root):
@@ -955,16 +971,41 @@ class ShapeCheckpointTest(AgentsCase):
         position is a real one, and of the shape no default would give: a container read as
         the default shape would report a different head and a different count, so a reading
         that fell back to the default fails here rather than passing anyway (`shapes.md` §5).
+
+        It is handed **that shape's** encoder, because the kind's declared
+        `observation_size` is the default shape's and a learner on another shape takes its
+        input width from that shape's encoder — 329 dense over 66 history slots on
+        `no-limit-100` against the default's 203 over 24 (`docs/L1/shapes.md` §8, ASM-44,
+        `docs/L2/features/capacity.md` §2).  Its anneal therefore runs over observations of
+        that width, which is what `AgentsCase.annealed_learner` builds from the spec's own
+        `game`.
         """
         learner = self.annealed_learner(
             "shape-checkpoint",
-            {"kind": "naive-stack", "width": 6, "depth": 1, "game": OTHER_SHAPE},
+            {
+                "kind": "naive-stack",
+                "width": 6,
+                "depth": 1,
+                "game": OTHER_SHAPE,
+                "encoder": shape_encoder("flat-numeric", OTHER_SHAPE),
+            },
         )
         self.assertEqual(
             getattr(learner, "game", None),
             OTHER_SHAPE,
             "the source member of these cases decides in %r, so a container read as the "
             "default shape differs from what was written (shapes.md §5, D-29)" % (OTHER_SHAPE,),
+        )
+        self.assertEqual(
+            int(getattr(learner, "size", 0)),
+            shape_width("flat-numeric", OTHER_SHAPE),
+            "the source member's input width is not the one that shape's encoder declares, so "
+            "the container below records a width no shape declares (docs/L1/shapes.md §8, "
+            "ASM-44): %r against %r"
+            % (
+                getattr(learner, "size", None),
+                shape_width("flat-numeric", OTHER_SHAPE),
+            ),
         )
         return learner
 
@@ -1004,6 +1045,35 @@ class ShapeCheckpointTest(AgentsCase):
             "the shape is read before either catalogue member (checkpoint.md §2.1, "
             "docs/L3/agents/shapes.md §5); the document's order was %r" % (keys,),
         )
+        # The container carries the shape's **own** width, which is what its reader checks
+        # the geometry against (`checkpoint.md` §2.1, §3, `restore.md` §2, `docs/L1/
+        # shapes.md` §8, ASM-44, `docs/L2/features/capacity.md` §2).
+        width = shape_width("flat-numeric", OTHER_SHAPE)
+        self.assertEqual(
+            plain_int(
+                metadata["representation"]["size"], "metadata['representation']['size']"
+            ),
+            width,
+            "a version-4 container records `representation.size` as the width its learner was "
+            "built at — that shape's encoder's width, %d on %r — and not the kind's declared "
+            "default 203 (checkpoint.md §2.1, §3, docs/L1/shapes.md §8, ASM-44): %r"
+            % (width, OTHER_SHAPE, metadata["representation"]["size"]),
+        )
+        self.assertEqual(
+            metadata["representation"].get("shape"),
+            [width],
+            "a version-4 container records `representation.shape` as that shape's own "
+            "one-element vector, so a reader holds the geometry to it rather than to the "
+            "kind's 203 (checkpoint.md §2.1, docs/L3/agents/checkpoint.md §3): %r"
+            % (metadata["representation"].get("shape"),),
+        )
+        self.assertEqual(
+            plain_int(metadata["params"]["count"], "metadata['params']['count']"),
+            plain_int(package.param_count(learner), "param_count"),
+            "the container's `params.count` is not the count of the head that shape's width "
+            "gives, so a widened container would not restore the head it was written at "
+            "(checkpoint.md §2.1, §3, restore.md §2, ASM-44)",
+        )
         restored = package.load(None, path)
         self.assertEqual(
             getattr(restored, "game", None),
@@ -1024,7 +1094,9 @@ class ShapeCheckpointTest(AgentsCase):
             "the file's shape declares was not the head it was rebuilt on (checkpoint.md §3, "
             "restore.md §2, ASM-40)",
         )
-        policy = package.as_policy(restored, flat_encoder(), LEARNER_SEED)
+        policy = package.as_policy(
+            restored, shape_encoder("flat-numeric", OTHER_SHAPE), LEARNER_SEED
+        )
         self.assertEqual(
             getattr(policy, "game", None),
             OTHER_SHAPE,
@@ -1051,7 +1123,11 @@ class ShapeCheckpointTest(AgentsCase):
                 )
         via_spec = package.load(
             learner_spec(
-                kind="naive-stack", width=6, depth=1, game=OTHER_SHAPE
+                kind="naive-stack",
+                width=6,
+                depth=1,
+                game=OTHER_SHAPE,
+                encoder=shape_encoder("flat-numeric", OTHER_SHAPE),
             ),
             path,
         )
@@ -1254,18 +1330,27 @@ class ShapeCheckpointTest(AgentsCase):
             DEFAULT_SHAPE: self.build(kind="naive-stack", width=6, depth=1),
             OTHER_SHAPE: self.other_shape_member(),
         }
+        # A spec naming a shape carries that shape's own encoder, because the kind's
+        # declared observation size is the default shape's and a learner on another shape
+        # is sized from that shape's encoder (`docs/L1/shapes.md` §8, ASM-44).  `load`
+        # compares the encoder it is handed with the width the file records, so the
+        # agreeing half below says the two agree on that compared key as well.
+        def shaped_spec(shape):
+            return learner_spec(
+                kind="naive-stack",
+                width=6,
+                depth=1,
+                game=shape,
+                encoder=shape_encoder("flat-numeric", shape),
+            )
+
         paths = {}
         for shape, learner in members.items():
             with self.subTest(shape=shape, saved=True):
                 paths[shape] = package.save(
                     learner, self.path("v-%s-8127.pt" % (shape,))
                 )
-                agreed = package.load(
-                    learner_spec(
-                        kind="naive-stack", width=6, depth=1, game=shape
-                    ),
-                    paths[shape],
-                )
+                agreed = package.load(shaped_spec(shape), paths[shape])
                 self.assertEqual(
                     package.param_count(agreed),
                     package.param_count(learner),
@@ -1279,9 +1364,7 @@ class ShapeCheckpointTest(AgentsCase):
             with self.subTest(shape=spec_shape, file=file_shape):
                 self.assert_refused(
                     package.load,
-                    learner_spec(
-                        kind="naive-stack", width=6, depth=1, game=spec_shape
-                    ),
+                    shaped_spec(spec_shape),
                     paths[file_shape],
                     entry="load",
                     groups=(("game",), (spec_shape,), (file_shape,)),

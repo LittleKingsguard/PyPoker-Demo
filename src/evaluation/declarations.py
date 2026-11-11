@@ -7,20 +7,27 @@ rebuilt on every call and equal on two calls, and neither plays a hand, reads a 
 moves Python's global `random` stream.  The numbers are `docs/L1/league.md` §5-§6's and
 no others (ASM-14, ASM-21).
 
-`M`, `BASELINES`, `TABLE_SEED`, `TABLES`, `FAMILIES`, `HEADER_ITEMS`, `RATING` and
-`cell_count` live here (`README.md` §4) and are *not* package-level surface names
-(`e2e-surface.md` §1, D-12).  The game **shape**'s constants and the two validators this
-edge reads a shape name and an exploration mode with live here too -- `SHAPE_NAMES`,
-`DEFAULT_SHAPE`, `EXPLORATION_MODES`, `EXPLORATION_DEFAULT`, `PROBE_SEED`,
-`require_shape` and `require_exploration` (`shape.md` §1-§2, §5, D-29).
+`M`, `BASELINES`, `TABLE_SEED`, `TABLES`, `FAMILIES`, `HEADER_ITEMS`, `RATING`,
+`PAIRWISE_SEATS` and `cell_count` live here (`README.md` §4) and are *not* package-level
+surface names (`e2e-surface.md` §1, D-12).  The game **shape**'s constants and the two
+validators this edge reads a shape name and an exploration mode with live here too --
+`SHAPE_NAMES`, `DEFAULT_SHAPE`, `EXPLORATION_MODES`, `EXPLORATION_DEFAULT`, `PROBE_SEED`,
+`require_shape`, `seat_count` and `require_pairwise` (`shape.md` §1-§2, §5, `seats.md`
+§2-§5, D-29, D-33).
 """
 
 import numbers
 from collections.abc import Mapping
 
 import agents
+import engine
 
-from .errors import InvalidMembership, UnknownExploration, UnknownShape
+from .errors import (
+    InvalidMembership,
+    SeatCountExceeded,
+    UnknownExploration,
+    UnknownShape,
+)
 
 #: M, the window's bound: a pool holds at most this many versions plus the catalogue's
 #: pinned baselines (`league.md` §2, §4, ASM-14, ASM-33).
@@ -42,17 +49,17 @@ CATALOGUE = tuple(_DECLARED)
 #: is neither (`protocol.md` §3, `league.md` §5, ASM-32, `folders.md` §4).
 BASELINES = tuple(name for name in CATALOGUE if _DECLARED[name].get("anchor"))
 
-#: The two declared game shapes' names, in the catalogue's order -- default first
-#: (`docs/L1/shapes.md` §1-§2, `shape.md` §1, D-29).  Only the names and their order are
-#: restated: `module-map.md` §2 grants this module neither `engine.game_shapes` nor
-#: `engine.game_config`, so the arrow it holds is a cell's hands and nothing else (D-13).
-#: The restatement is **deliberate and not a second catalogue**: the join battery
-#: (`tests/integration/evaluation/`) holds `SHAPE_NAMES` equal, in that order, to the
-#: names `engine.game_shapes()` publishes, and `EXPLORATION_MODES` equal to the set
-#: `agents.as_policy` accepts -- the same restatement `agents` and `features` make at
-#: their own edges, so a restatement that drifts is a red join case and never a silent
-#: catalogue of its own (`shape.md` §1, `docs/L1/e2e-surface.md` §3.1).
-SHAPE_NAMES = ("fixed-limit-20", "no-limit-100")
+#: The **three** declared game shapes' names, in the catalogue's order -- default first
+#: (`docs/L1/shapes.md` §1-§2, `seats.md` §2, D-29, D-33).  Only the names and their order
+#: are restated: `module-map.md` §2 grants this module `engine.game_config` and not
+#: `engine.game_shapes` (D-13), so the seat count is read through `seat_count` below and
+#: never written down here.  The restatement is **deliberate and not a second catalogue**:
+#: the join battery (`tests/integration/evaluation/`) holds `SHAPE_NAMES` equal, in that
+#: order, to the names `engine.game_shapes()` publishes, and `EXPLORATION_MODES` equal to
+#: the set `agents.as_policy` accepts -- the same restatement `agents` and `features` make
+#: at their own edges, so a restatement that drifts is a red join case and never a silent
+#: catalogue of its own (`shape.md` §1, `docs/L1/e2e-surface.md` §3.1, `seats.md` §2).
+SHAPE_NAMES = ("fixed-limit-20", "no-limit-100", "six-seat-no-limit-100")
 
 #: The declared default shape: what an **absent** `game` reads as, everywhere -- a pool
 #: declaration, a member record, an offered version, a cell, a matrix, a rating, a
@@ -181,6 +188,46 @@ def require_exploration(value, entry):
         "%s(exploration): the mode must be %r or %r, got %r"
         % (entry, EXPLORATION_MODES[0], EXPLORATION_MODES[1], value)
     )
+
+
+#: The **instrument's** arity and never a game's: a cell is one unordered pair, a rating is
+#: fitted over pairs, and a six-way hand produces a placement rather than a pair, so the
+#: pairwise instrument is a game with this many seats and a shape above it is refused
+#: (`docs/L1/seats.md` §5, `docs/L1/league.md` §4, D-22, D-33).  No game's seat count is
+#: written down here: `seat_count` reads it off `engine.game_config` and nothing else.
+PAIRWISE_SEATS = 2
+
+
+def seat_count(shape=None):
+    """The named shape's seat count, read off `engine.game_config` -- the granted arrow.
+
+    `module-map.md` §2 grants this module `engine.game_config`, and it is the **only**
+    place a seat count comes from, so no literal `2` and no literal `6` is written down as
+    a fact about a game anywhere in this package (`seats.md` §2-§3, §5, D-13, D-33).  An
+    absent name is the default shape, exactly as `require_shape` reads one.
+    """
+    return int(engine.game_config(require_shape(shape, "game_config"))["seats"])
+
+
+def require_pairwise(shape, entry, argument="pool"):
+    """`shape`, when its seat count is the instrument's -- else `SeatCountExceeded`.
+
+    A cell is a pair and the rating is fitted over pairs; a six-way hand produces a
+    placement, so `match`, `matrix`, `rating` and `report` refuse a shape whose seat count
+    is above the pairwise instrument's, **naming the shape and its seat count** and never a
+    shape name alone (`seats.md` §5, `league.md` §4, D-22, D-33).  The count is read through
+    `engine.game_config`, so this edge writes no game's seats down itself; the two-seat
+    shapes pass untouched, which is what keeps every cell, matrix, rating and report they
+    produce today exactly what it was (`seats.md` §5, D-33).
+    """
+    seats = seat_count(shape)
+    if seats > PAIRWISE_SEATS:
+        raise SeatCountExceeded(
+            "%s(%s): the shape %r has %d seats, and a cell is one pair of two seats, so the "
+            "pairwise instrument refuses a shape with more than %d seats"
+            % (entry, argument, shape, seats, PAIRWISE_SEATS)
+        )
+    return shape
 
 
 def cell_count(value):

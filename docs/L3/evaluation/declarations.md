@@ -4,11 +4,14 @@
   and the seven evidence families a report is judged against
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Rev 6:** D-29's second shape — the nine `HEADER_ITEMS` stay nine while `report` writes a tenth key `shape` onto its own copy, and neither declaration takes a shape argument (`shape.md` §2, §4, `report.md` §1–§2)
-- **Read with:** `README.md` §3–§4, `report.md` §1–§3, `tables.md` §1, `errors.md` §2
+- **Rev 7:** D-33's seat count — `SHAPE_NAMES` holds **three** names, and `PAIRWISE_SEATS`, `seat_count` and `require_pairwise` join the constants and validators this `declarations.py` carries beside the two declarations (`seats.md` §1–§3, `shape.md` §1, D-33)
+- **Read with:** `README.md` §3–§4, `report.md` §1–§3, `tables.md` §1, `seats.md` §1–§3, `errors.md` §2
 
 ## 1. What these two are
 
-Both are `fixed` rows: neither takes an argument, so neither has an instance that varies and **no shape can vary either** (`surface.md` §1, §3–§4, `e2e-surface.md` §5). Each is rebuilt on every call and equal on two calls, and each is plain data — except `league()`'s `cell_count`, which is a callable (`surface.md` §1, §4). Neither plays a hand, reads a file or draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-21). The two records are the module's own declaration of itself, so every other document quotes them instead of restating a number: `M` is `league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the family names are `protocol()["families"]`'s keys, the declared shapes are `SHAPE_NAMES`'s (`shape.md` §1), and the refusal word for an absent family is that family's `refusal` value.
+Both are `fixed` rows: neither takes an argument, so neither has an instance that varies and **no shape can vary either** (`surface.md` §1, §3–§4, `e2e-surface.md` §5). Each is rebuilt on every call and equal on two calls, and each is plain data — except `league()`'s `cell_count`, which is a callable (`surface.md` §1, §4). Neither plays a hand, reads a file or draws on any stream; the numbers are `league.md` §5's and no others (ASM-14, ASM-21). The two records are the module's own declaration of itself, so every other document quotes them instead of restating a number: `M` is `league()["m"]`, a cell size is `league()["tables"][budget]["hands_per_cell"]`, the family names are `protocol()["families"]`'s keys, the declared shapes are `SHAPE_NAMES`'s — **three** now, the catalogue's order with the default first (`shape.md` §1, `seats.md` §1) — and the refusal word for an absent family is that family's `refusal` value.
+
+**The three shape constants and the three validators live in the same file, and none of them is surface.** `declarations.py` carries `SHAPE_NAMES`, `DEFAULT_SHAPE` and `EXPLORATION_MODES` with `EXPLORATION_DEFAULT` and `PROBE_SEED` (`shape.md` §1, §5), and beside them `PAIRWISE_SEATS = 2`, `require_shape`, `require_exploration`, `seat_count` and `require_pairwise`, with `cell_count` (§5) — every one of them a private name `tests/evaluation/` imports and no caller of the package reaches (`README.md` §3–§4, `e2e-surface.md` §1). **`PAIRWISE_SEATS` is the pairwise instrument's arity and not a game's seat count:** `seat_count(shape=None)` returns `int(engine.game_config(require_shape(shape, "game_config"))["seats"])`, so a shape's seats are read through the granted arrow and written down nowhere, and `require_pairwise(shape, entry, argument)` returns its `shape` when that count is at most `PAIRWISE_SEATS`, raising `SeatCountExceeded` above it and naming the shape and its seat count (`seats.md` §1, §3, `module-map.md` §2, `errors.md` §2, D-13, D-33). Neither declaration grows a key, a tuple or a budget row for the seat count: `protocol()` keeps its six keys and `league()` its seven (§2, §4).
 
 ## 2. `protocol()` — the evidence contract
 
@@ -135,9 +138,13 @@ and the shipped artefact records it beside its membership (`tables.md` §3) — 
 ## 7. Refusals
 
 Neither entry point refuses anything: both have no argument (`surface.md` §3–§4); the one error either can raise is
-`InvalidMembership` from the `cell_count` callable (§5) — a callable's argument and not a declaration.
+`InvalidMembership` from the `cell_count` callable (§5) — a callable's argument and not a declaration. The three shape
+validators beside them are not these rows' refusals either: `require_shape`'s `UnknownShape`, `require_exploration`'s
+`UnknownExploration` and `require_pairwise`'s `SeatCountExceeded` are raised **by an entry point that hands them a value**, so a
+call of `protocol()` or `league()` never reaches one (`shape.md` §3, `seats.md` §3, `errors.md` §2).
 
 ## 8. What is deliberately free
 
 - the container of `seeds`, `table_budgets`, `baselines`, `catalogue` and `header`: a tuple or a list — a reader compares values and order, never a type; this design builds tuples;
-- the identity of the `cell_count` callable — a closure, a `functools.partial` or a method: only that it has §5's behaviour, so `surface.md` §4's "equal records" is equal value for value, with the callable equal in behaviour and never by identity.
+- the identity of the `cell_count` callable — a closure, a `functools.partial` or a method: only that it has §5's behaviour, so `surface.md` §4's "equal records" is equal value for value, with the callable equal in behaviour and never by identity;
+- how many of the seat count's validators exist — one `require_pairwise` that reads the count, a `seat_count` a battery also calls, or one inline read: only that the count comes from `engine.game_config`, that `PAIRWISE_SEATS` is the instrument's arity, and that the refusal names the shape and its seat count (`seats.md` §1, §3).

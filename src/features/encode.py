@@ -57,15 +57,20 @@ def _street(value, streets):
     )
 
 
-def _seat(value):
-    """The ``(index, button flag)`` of a seat, or the refusal (flat-numeric.md §6)."""
+def _seat(value, seats):
+    """The ``(index, button flag)`` of a seat, or the refusal (flat-numeric.md §6).
+
+    The index is bounded by the **shape's** seat count, which the block's ``params``
+    carry, so a six-seat row accepts 0 to 5 and a two-seat row still accepts exactly the
+    four values it always did (`seats.md` §3, ASM-44).
+    """
     if _is_sequence(value) and len(value) == 2:
         index, flag = value[0], value[1]
-        if _is_count(index) and index in (0, 1) and isinstance(flag, bool):
+        if _is_count(index) and 0 <= index < seats and isinstance(flag, bool):
             return int(index), flag
     raise InvalidReadout(
-        "encode(readout): 'seat' must be a seat index 0 or 1 and a bool button flag, "
-        "got %r" % (value,)
+        "encode(readout): 'seat' must be a seat index in %r and a bool button flag, "
+        "got %r" % (tuple(range(seats)), value)
     )
 
 
@@ -101,14 +106,20 @@ def _count(value, field):
     )
 
 
-def _counts(value, field):
-    """Two non-negative integer chip counts, or the refusal (errors.md §3, §4)."""
-    if _is_sequence(value) and len(value) == 2:
-        first, second = value[0], value[1]
-        if _is_count(first) and _is_count(second) and first >= 0 and second >= 0:
-            return int(first), int(second)
+def _counts(value, field, count=2):
+    """``count`` non-negative integer chip counts, or the refusal (errors.md §3, §4).
+
+    ``count`` is the block's width, which is the shape's seat count for both per-seat
+    blocks and two for the ``limit`` pair -- so a six-seat row refuses a two-entry
+    ``stacks`` and a two-seat row refuses a six-entry one (`seats.md` §3, ASM-44).
+    """
+    if _is_sequence(value) and len(value) == count:
+        counts = tuple(value)
+        if all(_is_count(entry) and entry >= 0 for entry in counts):
+            return tuple(int(entry) for entry in counts)
     raise InvalidReadout(
-        "encode(readout): %r must be two non-negative integers, got %r" % (field, value)
+        "encode(readout): %r must be %d non-negative integers, got %r"
+        % (field, count, value)
     )
 
 
@@ -153,16 +164,40 @@ def _street_id(readout, reads, params):
 
 
 def _seat_index(readout, reads, params):
-    """The acting seat's index, then its button flag (flat-numeric.md §4)."""
-    index, flag = _seat(readout[reads[0]])
-    return [float(index), 1.0 if flag else 0.0]
+    """The acting seat's index and its button flag, or its one-hot over the seats.
+
+    `params` carries the shape row's **declared mode** and its seat count
+    (`declarations.py`): `index-flag` writes the index then the button flag -- the pair the
+    two-seat rows have always carried, which is the acting seat's one-hot over the two
+    seats read in reverse because the declared button seat is seat 0 -- and `one-hot`
+    writes one slot per seat with the acting seat's set (`seats.md` §3, flat-numeric.md §4,
+    ASM-44).
+    """
+    mode, seats = params
+    index, flag = _seat(readout[reads[0]], seats)
+    if mode == "index-flag":
+        return [float(index), 1.0 if flag else 0.0]
+    values = [0.0] * seats
+    values[index] = 1.0
+    return values
 
 
 def _seat_ids(readout, reads, params):
-    """57 + index, then 59 + flag (card-tokens.md §3)."""
-    index_base, flag_base = params
-    index, flag = _seat(readout[reads[0]])
-    return [index_base + index, flag_base + (1 if flag else 0)]
+    """The acting seat's own ids: 57 + index then 59 + flag, or 96 + the seat slot.
+
+    `params` carries the shape row's declared mode, its seat count and the three id bases.
+    `index-flag` is the two-seat rows' pair, unchanged; `one-hot` writes **one slot per
+    seat** holding that seat's own id and the pad everywhere else, over ids 96-101, which
+    sit above every id the other rows use, so no existing id is renamed and no two blocks
+    of one observation can emit one id (`seats.md` §3, card-tokens.md §3, ASM-44).
+    """
+    mode, seats, index_base, flag_base, token_base = params
+    index, flag = _seat(readout[reads[0]], seats)
+    if mode == "index-flag":
+        return [index_base + index, flag_base + (1 if flag else 0)]
+    values = [PAD] * seats
+    values[index] = token_base + index
+    return values
 
 
 def _card_onehot(readout, reads, params):
@@ -188,14 +223,20 @@ def _card_ids(readout, reads, params):
 
 
 def _stacks_scaled(readout, reads, params):
-    """The acting seat's stack, then the other's, each over the fixed divisor.
+    """One stack slot per seat, each over the shape's fixed divisor.
 
-    The one dense block that reads a second fact, and its `reads` says so
-    (flat-numeric.md §4, encoder.md §4).
+    `params` carries the shape's stack normaliser, its **declared stacks order** and its
+    seat count: `actor-first` writes the acting seat's stack then the other's -- the order
+    the two-seat rows have always had, and the one mode that reads a second fact -- and
+    `seat-order` writes one slot per seat in seat order (`seats.md` §3, flat-numeric.md §4,
+    encoder.md §4, ASM-44).
     """
-    stacks = _counts(readout[reads[0]], reads[0])
-    seat, _flag = _seat(readout[reads[1]])
-    return [stacks[seat] / params, stacks[1 - seat] / params]
+    divisor, order, seats = params
+    stacks = _counts(readout[reads[0]], reads[0], seats)
+    if order == "actor-first":
+        seat, _flag = _seat(readout[reads[1]], seats)
+        return [stacks[seat] / divisor, stacks[1 - seat] / divisor]
+    return [amount / divisor for amount in stacks]
 
 
 def _amount_scaled(readout, reads, params):
@@ -213,9 +254,16 @@ def _limit_scaled(readout, reads, params):
 
 
 def _stacks_buckets(readout, reads, params):
-    """One bucket per seat's stack, in the readout's seat order (card-tokens.md §4)."""
+    """One bucket per seat's stack, in the readout's seat order (card-tokens.md §4).
+
+    `params` carries the shape's stacks ladder and its seat count, so the block declares one
+    token per seat on every shape and reads one fact: the token encoding's stack order is
+    the readout's on all three rows (`seats.md` §3, ASM-44).
+    """
+    ladder, seats = params
     field = reads[0]
-    return [_bucket(amount, params) for amount in _counts(readout[field], field)]
+    return [_bucket(amount, ladder)
+            for amount in _counts(readout[field], field, seats)]
 
 
 def _amount_bucket(readout, reads, params):
@@ -233,7 +281,12 @@ def _limit_ids(readout, reads, params):
 
 
 def _history_onehot(readout, reads, params):
-    """24 slots of 3, one per applied action, oldest first (flat-numeric.md §5)."""
+    """The shape's slots of 3, one per applied action, oldest first (flat-numeric.md §5).
+
+    `params` carries the shape's capacity and the slot's three-way width, so the block's
+    length and its refusal threshold are the shape row's and no writer holds either
+    (shapes.md §8, ASM-42).
+    """
     slots, slot_width = params
     field = reads[0]
     entries = _entries(readout[field], field, slots)
@@ -244,7 +297,12 @@ def _history_onehot(readout, reads, params):
 
 
 def _history_ids(readout, reads, params):
-    """One id per applied action, the pad past the end (card-tokens.md §5)."""
+    """One id per applied action, the pad past the end (card-tokens.md §5).
+
+    `params` carries the shape's capacity and the three action-kind ids, so the block's
+    length and its refusal threshold are the shape row's, and the ids do not move between
+    shapes (shapes.md §8, ASM-42, ASM-44).
+    """
     slots, ids = params
     field = reads[0]
     entries = _entries(readout[field], field, slots)

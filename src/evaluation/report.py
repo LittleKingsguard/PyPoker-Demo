@@ -22,6 +22,13 @@ names, and writes it as a **tenth key `shape`** onto its own copy of that family
 (`report.md` §1-§3, `shape.md` §2, §4).  So `HEADER_ITEMS` stays nine, a record that states
 no shape is never refused, and the report's own twelve keys do not grow: there is **no**
 top-level `game` (`declarations.md` §2.1, `shape.md` §4, D-29).
+
+**A report is a report of a table, so it is refused for a six-seat shape.**  The matrix is
+judged as a table through `rating._table_facts`, which refuses a shape whose seat count is
+above the pairwise instrument's, naming the shape and its seat count; a report is therefore
+never assembled for one, and a run on that shape writes its curves, its pool, its
+checkpoints and its greedy pass but no matrix and no report (`docs/L1/seats.md` §5,
+`league.md` §4, `records.md` §12-§13, D-22, D-33).
 """
 
 from collections.abc import Mapping

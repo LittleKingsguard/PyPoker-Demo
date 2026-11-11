@@ -23,6 +23,13 @@ What this family asserts, case by case, is the declaration and the identity:
   shape (`sizing.md` §6, `shapes.md` §5);
 * a learner built in one shape's head is refused another shape's observation, and its
   `param_count` follows the shape's vocabulary (`sizing.md` §6, ASM-40);
+* the width the learner is built from is the shape's too, because a kind's declared
+  `observation_size` is the **default** shape's: the uncapped shape's dense observation is
+  329 wide and its token observation 82 over the same vocabulary of 96, a history of 66
+  entries encodes there and 67 is refused naming the field, the capacity and the count (24
+  and 25 on the default shape), `param_count` is 14,766 at `W = 36`, `D = 2` against the
+  default's unchanged 10,119, and an encoder-less spec naming the uncapped shape is refused
+  by name (`shapes.md` §8, ASM-42, ASM-44, `flat-numeric.md` §5);
 * with **no shape named** the fixed-limit assertions of FAM-2, FAM-5, FAM-7, FAM-14 and
   FAM-16 are unchanged, because absence is the default (`shapes.md` §5, D-29).
 
@@ -47,9 +54,11 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
     import _surface as S  # noqa: E402
 
 
-# shapes.md §2: the two declared rows, default first, as the catalogue states them.  The
-# values are the design's — the row is `fixed` — and the vocabulary is the shape's own
-# index order, `sizing.md` §3's measured price order for the no-cap shape.
+# shapes.md §2 and seats.md §2: the three declared rows, default first, as the catalogue
+# states them.  The values are the design's — the row is `fixed` — and each vocabulary is
+# the shape's own index order, `sizing.md` §3's measured price order for the two no-cap
+# shapes.  The third row is D-33's: six seats, 600 chips in play, and a capacity of 98 that
+# `shapes.md` §8 derives from its own betting.
 DECLARED_ROWS = (
     {
         "name": "fixed-limit-20",
@@ -58,6 +67,7 @@ DECLARED_ROWS = (
         "blinds": (1, 2),
         "starting_stack": 20,
         "chips_in_play": 40,
+        "history": 24,
         "bet_structure": "fixed-limit",
         "small_bet": 2,
         "big_bet": 4,
@@ -73,6 +83,7 @@ DECLARED_ROWS = (
         "blinds": (1, 2),
         "starting_stack": 100,
         "chips_in_play": 200,
+        "history": 66,
         "bet_structure": "no-limit",
         "small_bet": None,
         "big_bet": None,
@@ -80,6 +91,23 @@ DECLARED_ROWS = (
         "actions": S.SIZED_ACTIONS,
         "head_width": 6,
         "normalisers": {"stack": 100, "pot": 200, "to_call": 100,
+                        "amount": 100, "count": 50},
+    },
+    {
+        "name": "six-seat-no-limit-100",
+        "default": False,
+        "seats": 6,
+        "blinds": (1, 2),
+        "starting_stack": 100,
+        "chips_in_play": 600,
+        "history": 98,
+        "bet_structure": "no-limit",
+        "small_bet": None,
+        "big_bet": None,
+        "raise_cap": None,
+        "actions": S.SIZED_ACTIONS,
+        "head_width": 6,
+        "normalisers": {"stack": 100, "pot": 600, "to_call": 100,
                         "amount": 100, "count": 50},
     },
 )
@@ -115,6 +143,12 @@ SHIPPED_VERSION = 1
 # report reads off it (`battery.md` §2, §5, D-15).
 TABLED_HANDS = 13
 TABLED_SEED = 61337
+
+# One entry of the history grammar's documented forms (`flat-numeric.md` §5, ASM-E2): a
+# `calls` entry, whose action kind is neither a fold nor a bet, so the entry is the
+# grammar's and nothing about the amount is under test.  The battery's own spelling of a
+# value the grammar declares (`battery.md` §4).
+HISTORY_ENTRY = "preflop seat 0 calls 2"
 
 
 class FAM19Shapes(S.SurfaceCase):
@@ -159,6 +193,35 @@ class FAM19Shapes(S.SurfaceCase):
         learner = self.learner(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
                                seed=S.SEED_I, game=shape)
         return self.ep("agents", "save")(learner, os.path.join(self.scratch(), name))
+
+    def declared_width(self, shape, representation):
+        """One shape's declared observation width, off ``observation_spec`` (§2, §3.2)."""
+        spec = self.ep("features", "observation_spec")(self.encoder(representation, shape))
+        width = 1
+        for value in S.numbers(
+            S.declared_field(spec, "an observation spec (e2e-surface.md §2)", "shape")
+        ):
+            width *= int(value)
+        return width
+
+    def declared_vocabulary(self, shape, representation):
+        """One shape's declared token vocabulary, off ``observation_spec`` (§2, §3.2)."""
+        spec = self.ep("features", "observation_spec")(self.encoder(representation, shape))
+        return S.declared_field(spec, "an observation spec (e2e-surface.md §2)", "vocabulary")
+
+    def history_readout(self, shape, count):
+        """One shaped readout carrying exactly ``count`` documented history entries.
+
+        The readout is the shape's own — ``engine.readout`` of a hand dealt on it — and the
+        entries are the history grammar's `calls` form repeated, because the block's
+        contract is over the readout it is handed and a shaped hand need not reach its
+        capacity in any walk this battery drives (`flat-numeric.md` §5,
+        `docs/L2/features/capacity.md` §1, §3).  Nothing else about the readout is touched,
+        so the only fact under test is the history's own length.
+        """
+        readout = dict(self.readout(self.hand(S.SEED_I, shape)))
+        readout["history"] = [HISTORY_ENTRY] * count
+        return readout
 
     def no_cap_table(self, shape):
         """A no-cap table in ``records.md`` §10's shape, and its fitted rating.
@@ -221,29 +284,33 @@ class FAM19Shapes(S.SurfaceCase):
         }
 
     # -- the catalogue (§3.1, shapes.md §2) --------------------------------
-    def test_fam19_1_the_catalogue_declares_the_two_shapes_default_first(self):
-        """FAM-19.1 engine.game_shapes declares the two rows, default first, in full.
+    def test_fam19_1_the_catalogue_declares_every_shape_default_first(self):
+        """FAM-19.1 engine.game_shapes declares every declared row, default first, in full.
 
         `shapes.md` §2 makes the catalogue one ordered declaration with `fixed-limit-20`
-        first and the **default**, each row carrying its seats, blinds, starting stack,
-        chips in play, bet structure, action vocabulary, head width and amount
-        normalisers; `e2e-surface.md` §3.1 makes it the tenth `engine` entry point.  A
-        catalogue that declared one shape, in another order, or with a fact missing is
-        caught here, row by row (`e2e-surface.md` §4, D-29).
+        first and the **default**, and `seats.md` §2 adds the third row, each carrying its
+        seats, blinds, starting stack, chips in play, history capacity, bet structure,
+        action vocabulary, head width and amount normalisers; `e2e-surface.md` §3.1 makes it
+        the tenth `engine` entry point.  A catalogue that declared one shape, in another
+        order, or with a fact missing is caught here, row by row — and a third row is
+        asserted exactly as the second was, never in place of it (`e2e-surface.md` §4, §5,
+        `shapes.md` §2, §8, D-29, D-33).
         """
         catalogue = self.declared()
-        self.assertGreater(
+        self.assertGreaterEqual(
             len(catalogue),
-            1,
-            "the catalogue declares **more than one** shape: the second is the whole of "
-            "D-29 (shapes.md §2): %r" % ([name for name, _row in catalogue],),
+            len(DECLARED_ROWS),
+            "the catalogue declares the default shape and the two shapes beside it — the "
+            "second is the whole of D-29 and the third the whole of D-33 (shapes.md §2, "
+            "seats.md §2): %r" % ([name for name, _row in catalogue],),
         )
         names = [name for name, _row in catalogue]
         self.assertEqual(
-            names[:2],
+            names[:3],
             [row["name"] for row in DECLARED_ROWS],
-            "the declared shapes are fixed-limit-20 and no-limit-100, in that order — the "
-            "default first (shapes.md §2, D-29): %r" % (names,),
+            "the declared shapes are fixed-limit-20, no-limit-100 and "
+            "six-seat-no-limit-100, in that order — the default first (shapes.md §2, "
+            "seats.md §2, D-29, D-33): %r" % (names,),
         )
         self.assertEqual(
             names[0],
@@ -309,12 +376,14 @@ class FAM19Shapes(S.SurfaceCase):
 
     # -- game_config (§3.1, shapes.md §2–§3) ------------------------------
     def test_fam19_2_game_config_is_the_named_shape_s_row(self):
-        """FAM-19.2 game_config() is the default row and game_config(name) that shape's.
+        """FAM-19.2 game_config() is the default row and game_config(name) every shape's.
 
         With no argument it returns the mapping it always returned — the default shape's
         row, byte for byte (ASM-6, `shapes.md` §2) — and named it returns the same fifteen
-        keys with that shape's values: a 100-chip stack, no fixed bet, no cap and so no
-        `limit`, and the same seats, blinds and streets (`e2e-surface.md` §3.1).
+        keys with **that** shape's values: a 100-chip stack on both uncapped rows, no fixed
+        bet, no cap and so no `limit`, the same blinds and the same streets, two seats on
+        one and six on the other, whose `starting_stacks` is the six-tuple its seat count
+        makes (`e2e-surface.md` §3.1, `shapes.md` §2, `seats.md` §2, D-29, D-33).
         """
         default = self.game_config()
         named_default = self.game_config(self.shape_names()[0])
@@ -324,48 +393,72 @@ class FAM19Shapes(S.SurfaceCase):
             "game_config() with no argument is the default shape's row, and naming that "
             "row by name is the same mapping (shapes.md §2, §3)",
         )
-        second = self.game_config(self.second_shape())
-        self.assertEqual(
-            {S._family_token(key) for key in default},
-            {S._family_token(key) for key in second},
-            "both shapes declare the same fifteen keys with the same value shapes "
-            "(e2e-surface.md §3.1, shapes.md §2): %r against %r"
-            % (sorted(str(key) for key in default), sorted(str(key) for key in second)),
-        )
-        present = {S._family_token(name) for name in second}
-        missing = [key for key in CONFIG_KEYS if S._family_token(key) not in present]
-        self.assertFalse(
-            missing,
-            "the named shape's config carries the fifteen declared keys; it is missing %r "
-            "and carries %r" % (missing, sorted(str(key) for key in second)),
-        )
-        self.assertEqual(
-            S.starting_stack(second), 100,
-            "the no-cap shape's starting stack is 100 (shapes.md §2): %r" % (second,),
-        )
         self.assertEqual(
             S.starting_stack(default), 20,
             "the default shape's starting stack is 20, unchanged (ASM-6, shapes.md §5)",
         )
-        for key in ("seats", "blinds", "small_blind", "big_blind", "blind_levels"):
-            self.assertEqual(
-                S.canon(self.row_value(default, key)),
-                S.canon(self.row_value(second, key)),
-                "the two shapes share their table: %r differs between them "
-                "(shapes.md §2)" % (key,),
-            )
-        for key in ("small_bet", "big_bet", "raise_cap", "limit"):
-            value = self.row_value(second, key)
-            self.assertIsNone(
-                value,
-                "a shape with no fixed bet and no cap declares %r as None "
-                "(e2e-surface.md §3.1, shapes.md §2): %r" % (key, value),
-            )
         self.assertEqual(
             self.row_value(default, "raise_cap"), 4,
             "the fixed game's raise cap of four is unchanged, and is the default's own "
             "fact now rather than the game's (ASM-6, shapes.md §5)",
         )
+        for shape in self.other_shapes():
+            named = self.game_config(shape)
+            self.assertEqual(
+                {S._family_token(key) for key in default},
+                {S._family_token(key) for key in named},
+                "every declared shape's config carries the same fifteen keys with the same "
+                "value shapes (e2e-surface.md §3.1, shapes.md §2): %r against %r on %r"
+                % (sorted(str(key) for key in default),
+                   sorted(str(key) for key in named), shape),
+            )
+            present = {S._family_token(name) for name in named}
+            missing = [key for key in CONFIG_KEYS if S._family_token(key) not in present]
+            self.assertFalse(
+                missing,
+                "%r's config carries the fifteen declared keys; it is missing %r and "
+                "carries %r" % (shape, missing, sorted(str(key) for key in named)),
+            )
+            self.assertEqual(
+                S.starting_stack(named), 100,
+                "%r's starting stack is 100 (shapes.md §2, seats.md §2): %r"
+                % (shape, named),
+            )
+            seats = self.seats_of(shape)
+            self.assertEqual(
+                seats, S.SHAPE_SEATS[shape],
+                "%r declares the seat count the catalogue states (shapes.md §2, seats.md "
+                "§2): %r" % (shape, seats),
+            )
+            stacks = S.numbers(self.row_value(named, "starting_stacks"))
+            self.assertEqual(
+                len(stacks), seats,
+                "`starting_stacks` is one stack per seat — two on the two-seat rows and six "
+                "on the six-seat one (e2e-surface.md §3.1, seats.md §2): %r" % (stacks,),
+            )
+            self.assertTrue(
+                all(int(value) == 100 for value in stacks),
+                "%r's stacks are 100 chips a seat (shapes.md §2, seats.md §2): %r"
+                % (shape, stacks),
+            )
+            for key in ("seats", "blinds", "small_blind", "big_blind", "blind_levels"):
+                if key == "seats" and seats != self.seats_of():
+                    continue
+                self.assertEqual(
+                    S.canon(self.row_value(default, key)),
+                    S.canon(self.row_value(named, key)),
+                    "the shapes with one seat count share their table: %r differs between "
+                    "the default shape and %r (shapes.md §2, seats.md §2)"
+                    % (key, shape),
+                )
+            for key in ("small_bet", "big_bet", "raise_cap", "limit"):
+                value = self.row_value(named, key)
+                self.assertIsNone(
+                    value,
+                    "a shape with no fixed bet and no cap declares %r as None — a seat "
+                    "count adds no betting fact (e2e-surface.md §3.1, shapes.md §2, "
+                    "seats.md §2): %r on %r" % (key, value, shape),
+                )
 
     def test_fam19_3_a_name_outside_the_catalogue_is_refused_by_name(self):
         """FAM-19.3 engine.game_config refuses an uncatalogued name, naming it and theirs.
@@ -444,49 +537,54 @@ class FAM19Shapes(S.SurfaceCase):
 
     # -- the five carriers (§3, §6) ---------------------------------------
     def test_fam19_5_a_configuration_and_a_run_record_carry_the_shape(self):
-        """FAM-19.5 the configuration's `game` is the run record's, and the default's too.
+        """FAM-19.5 the configuration's `game` is the run record's, on every declared shape.
 
         `shapes.md` §3 makes the configuration the first carrier: it declares `game`, the
         run repeats it under `game`, the run's pool block repeats it, and the record's
         header family is built from that shape's `game_config` and vocabulary — so a run
         says which game its curves are about (`records.md` §12, `e2e-surface.md` §3.5,
-        D-29).  A configuration that names none is trained on the default shape, and its
-        record says **that** (`shapes.md` §3: absence is the default).
+        D-29).  The carrier is asserted for **each** shape the catalogue declares beside
+        the default, the six-seat one included, whose pool holds enough members to seat its
+        hands (`seats.md` §4, §6, D-33); a configuration that names none is trained on the
+        default shape, and its record says **that** (`shapes.md` §3: absence is the
+        default).
         """
-        shape = self.second_shape()
-        configuration = self.shaped_rung(shape=shape, seeds=(S.SEED_A,))
-        record = self.ep("training", "run")(
-            configuration, [S.SEED_A], S.BUDGET_TINY, "cpu"
-        )
-        self.assertEqual(
-            str(S.declared_field(record, "a run record (records.md §12)", "game")),
-            shape,
-            "a run record names the shape it played (records.md §12, shapes.md §3): %r"
-            % (record.get("game"),),
-        )
-        pool_block = S.declared_field(record, "a run record (records.md §12)", "pool")
-        self.assertEqual(
-            str(S.declared_field(pool_block, "a run record's pool block (records.md §12)",
-                                 "game")),
-            shape,
-            "the record's pool block names the same shape as the record (records.md §8, "
-            "§12, shapes.md §3): %r" % (pool_block,),
-        )
-        header = S.declared_field(record, "a run record (records.md §12)", "header")
-        self.assertEqual(
-            S.starting_stack(S.declared_field(header, "a run record's header (§1)",
-                                              "game")),
-            100,
-            "the header's game configuration is the run's shape's, not the default's "
-            "(protocol.md §1, shapes.md §3): %r" % (header.get("game"),),
-        )
-        self.assertEqual(
-            S.action_vocabulary(S.declared_field(header, "a run record's header (§1)",
-                                                 "action space")),
-            set(range(len(S.SIZED_ACTIONS))),
-            "the header's vocabulary is the named shape's six descriptors (protocol.md "
-            "§1, shapes.md §3): %r" % (header.get("action space"),),
-        )
+        samples = S.BUDGET_MICRO
+        for shape in self.other_shapes():
+            configuration = self.seated_rung(shape=shape, seeds=(S.SEED_A,), samples=samples)
+            record = self.ep("training", "run")(
+                configuration, [S.SEED_A], samples, "cpu"
+            )
+            self.assertEqual(
+                str(S.declared_field(record, "a run record (records.md §12)", "game")),
+                shape,
+                "a run record names the shape it played (records.md §12, shapes.md §3): %r "
+                "on %r" % (record.get("game"), shape),
+            )
+            pool_block = S.declared_field(record, "a run record (records.md §12)", "pool")
+            self.assertEqual(
+                str(S.declared_field(
+                    pool_block, "a run record's pool block (records.md §12)", "game")),
+                shape,
+                "the record's pool block names the same shape as the record (records.md §8, "
+                "§12, shapes.md §3): %r on %r" % (pool_block, shape),
+            )
+            header = S.declared_field(record, "a run record (records.md §12)", "header")
+            self.assertEqual(
+                S.starting_stack(S.declared_field(
+                    header, "a run record's header (§1)", "game")),
+                100,
+                "the header's game configuration is the run's shape's, not the default's "
+                "(protocol.md §1, shapes.md §3): %r on %r"
+                % (header.get("game"), shape),
+            )
+            self.assertEqual(
+                S.action_vocabulary(S.declared_field(
+                    header, "a run record's header (§1)", "action space")),
+                set(range(len(S.SIZED_ACTIONS))),
+                "the header's vocabulary is the named shape's six descriptors (protocol.md "
+                "§1, shapes.md §3): %r on %r" % (header.get("action space"), shape),
+            )
         # A configuration that names no shape runs on the default one, and says so.
         plain = self.ep("training", "run")("R1", [S.SEED_A], S.BUDGET_TINY, "cpu")
         self.assertEqual(
@@ -502,64 +600,68 @@ class FAM19Shapes(S.SurfaceCase):
         `records.md` §8 makes a pool record's `game` **required** — the shape every member
         of it plays — and `shapes.md` §3 makes a declaration naming one shape and a member
         of another a refusal **naming both**, because a frozen pool is a pool on one shape
-        and its membership cannot mix two (D-29, D-16).
+        and its membership cannot mix two.  The case holds for every shape declared beside
+        the default: the versions a six-seat pool carries are that shape's containers, and
+        a default-shape version offered to it is refused `(D-29, D-33, D-16)`.
         """
-        shape = self.second_shape()
-        pool = self.shaped_pool(shape, tags=("kestrel",))
-        row = self.members(pool)
-        self.assertEqual(
-            str(S.declared_field(row, "a pool record (records.md §8)", "game")),
-            shape,
-            "a pool record names the one shape its members play (records.md §8, "
-            "shapes.md §3): %r" % (row.get("game"),),
-        )
-        version_members = [member for member in row["members"]
-                           if isinstance(member, dict) and not member.get("baseline")]
-        self.assertTrue(
-            version_members,
-            "the pool holds the version this case declared: %r"
-            % ([member.get("id") for member in row["members"]],),
-        )
-        for member in version_members:
+        for shape in self.other_shapes():
+            pool = self.shaped_pool(shape, tags=("kestrel",))
+            row = self.members(pool)
             self.assertEqual(
-                str(S.declared_field(member, "a version member (records.md §7)", "game")),
+                str(S.declared_field(row, "a pool record (records.md §8)", "game")),
                 shape,
-                "a version member of a non-default shape's pool records that shape as "
-                "**required** (records.md §7, shapes.md §3): %r" % (member,),
+                "a pool record names the one shape its members play (records.md §8, "
+                "shapes.md §3): %r on %r" % (row.get("game"), shape),
             )
-        # A default-shape member in a no-cap pool: refused, naming the member and both.
-        stray = self.version("bramble", game=None)
-        text = S.refusal_text(lambda: self.pool({
-            "members": [stray],
-            "m": S.LEAGUE_BOUND,
-            "frozen": True,
-            "game": shape,
-        }))
-        self.assertIsNotNone(
-            text,
-            "a pool declaration naming one shape and a member of another is refused, not "
-            "windowed (shapes.md §3, records.md §8, D-29)",
-        )
-        self.assertIn(
-            S._family_token(str(stray["id"])),
-            S._family_token(text),
-            "the refusal names the member it refused (shapes.md §3): %r" % (text,),
-        )
-        for named in (shape, self.shape_names()[0]):
+            version_members = [member for member in row["members"]
+                               if isinstance(member, dict) and not member.get("baseline")]
+            self.assertTrue(
+                version_members,
+                "the pool holds the version this case declared: %r"
+                % ([member.get("id") for member in row["members"]],),
+            )
+            for member in version_members:
+                self.assertEqual(
+                    str(S.declared_field(
+                        member, "a version member (records.md §7)", "game")),
+                    shape,
+                    "a version member of %r's pool records that shape as **required** "
+                    "(records.md §7, shapes.md §3): %r" % (shape, member),
+                )
+            # A default-shape member in this shape's pool: refused, naming the member and both.
+            stray = self.version("bramble", game=None)
+            text = S.refusal_text(lambda: self.pool({
+                "members": [stray],
+                "m": S.LEAGUE_BOUND,
+                "frozen": True,
+                "game": shape,
+            }))
+            self.assertIsNotNone(
+                text,
+                "a pool declaration naming %r and a member of another shape is refused, not "
+                "windowed (shapes.md §3, records.md §8, D-29)" % (shape,),
+            )
             self.assertIn(
-                S._family_token(named),
+                S._family_token(str(stray["id"])),
                 S._family_token(text),
-                "the refusal names **both** shapes — the pool's and the member's "
-                "(shapes.md §3): %r" % (text,),
+                "the refusal names the member it refused (shapes.md §3): %r" % (text,),
             )
+            for named in (shape, self.shape_names()[0]):
+                self.assertIn(
+                    S._family_token(named),
+                    S._family_token(text),
+                    "the refusal names **both** shapes — the pool's and the member's "
+                    "(shapes.md §3): %r" % (text,),
+                )
 
     def test_fam19_7_the_container_answers_with_a_format_version(self):
         """FAM-19.7 a version-4 container carries `game` and a default one carries none.
 
         `sizing.md` §6 answers the shape with a format version, not a migration: a learner
         of the default shape writes version **3** with no field — so a fixed-limit save is
-        today's bytes — and a learner of any other declared shape writes version **4** and
-        a `game` field (`shapes.md` §5, ASM-40).  A `load` whose spec names a shape its
+        today's bytes — and a learner of **any** other declared shape writes version **4**
+        and a `game` field, the two-seat uncapped row and D-33's six-seat one alike
+        (`shapes.md` §5, `seats.md` §6, ASM-40).  A `load` whose spec names a shape its
         container contradicts is refused naming both, as a contradictory rule already is.
         """
         default_path = self.saved()
@@ -575,48 +677,52 @@ class FAM19Shapes(S.SurfaceCase):
             "fixed-limit save is byte-identical to today's (sizing.md §6): %r"
             % (sorted(default_meta),),
         )
-        shape = self.second_shape()
-        named_path = self.saved(shape=shape, name="fam19-nocap.ckpt")
-        named_meta = self.container(named_path)
-        self.assertEqual(
-            int(named_meta["format_version"]), 4,
-            "a container of any other declared shape writes version 4 "
-            "(sizing.md §6, ASM-40): %r" % (named_meta.get("format_version"),),
-        )
-        self.assertEqual(
-            str(named_meta.get("game")), shape,
-            "a version-4 container requires the `game` field, naming its shape "
-            "(sizing.md §6): %r" % (named_meta.get("game"),),
-        )
-        # The identity is load-bearing: a spec naming the other shape is refused by name.
-        spec = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
-                                 seed=S.SEED_I, game=self.shape_names()[0])
-        text = S.refusal_text(lambda: self.ep("agents", "load")(spec, named_path))
-        self.assertIsNotNone(
-            text,
-            "agents.load refuses a spec whose shape the container contradicts, naming both "
-            "(e2e-surface.md §3.3, shapes.md §3, sizing.md §6)",
-        )
-        for named in (self.shape_names()[0], shape):
-            self.assertIn(
-                S._family_token(named),
-                S._family_token(text),
-                "the refusal names both shapes (shapes.md §3): %r" % (text,),
+        default = self.shape_names()[0]
+        for shape in self.other_shapes():
+            named_path = self.saved(shape=shape, name="fam19-%s.ckpt" % (shape,))
+            named_meta = self.container(named_path)
+            self.assertEqual(
+                int(named_meta["format_version"]), 4,
+                "a container of %r writes version 4 (sizing.md §6, ASM-40): %r"
+                % (shape, named_meta.get("format_version")),
             )
-        # And the default's container is read as the default: a no-cap spec is refused.
-        spec_named = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
-                                       seed=S.SEED_I, game=shape)
-        text = S.refusal_text(lambda: self.ep("agents", "load")(spec_named, default_path))
-        self.assertIsNotNone(
-            text,
-            "a container of the default shape is read as the default shape, so a spec "
-            "naming the other one is refused (shapes.md §3, §5)",
-        )
-        self.assertIn(
-            S._family_token(shape),
-            S._family_token(text),
-            "the refusal names the shape the spec asked for (shapes.md §3): %r" % (text,),
-        )
+            self.assertEqual(
+                str(named_meta.get("game")), shape,
+                "a version-4 container requires the `game` field, naming its shape "
+                "(sizing.md §6): %r on %r" % (named_meta.get("game"), shape),
+            )
+            # The identity is load-bearing: a spec naming the other shape is refused by name.
+            spec = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
+                                     seed=S.SEED_I, game=default)
+            text = S.refusal_text(lambda: self.ep("agents", "load")(spec, named_path))
+            self.assertIsNotNone(
+                text,
+                "agents.load refuses a spec whose shape the container contradicts, naming "
+                "both (e2e-surface.md §3.3, shapes.md §3, sizing.md §6): %r against %r"
+                % (default, shape),
+            )
+            for named in (default, shape):
+                self.assertIn(
+                    S._family_token(named),
+                    S._family_token(text),
+                    "the refusal names both shapes (shapes.md §3): %r" % (text,),
+                )
+            # And the default's container is read as the default: a spec naming this shape
+            # is refused.
+            spec_named = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
+                                           seed=S.SEED_I, game=shape)
+            text = S.refusal_text(lambda: self.ep("agents", "load")(spec_named, default_path))
+            self.assertIsNotNone(
+                text,
+                "a container of the default shape is read as the default shape, so a spec "
+                "naming %r is refused (shapes.md §3, §5)" % (shape,),
+            )
+            self.assertIn(
+                S._family_token(shape),
+                S._family_token(text),
+                "the refusal names the shape the spec asked for (shapes.md §3): %r"
+                % (text,),
+            )
 
     def test_fam19_8_the_eighteen_shipped_containers_load_as_the_default_shape(self):
         """FAM-19.8 the 18 shipped version-1 containers are read as the default shape.
@@ -690,64 +796,177 @@ class FAM19Shapes(S.SurfaceCase):
     def test_fam19_9_a_learner_refuses_another_shape_s_decision(self):
         """FAM-19.9 a learner built in one shape's head refuses another shape's decision.
 
-        The head is the shape's — three wide on the default shape and six on the no-cap
+        The head is the shape's — three wide on the default shape and six on each uncapped
         one — and an index decodes to a descriptor `engine.apply_action` accepts only in
         the vocabulary that declared it, so a mask carrying a sixth index into a
         three-head learner is refused **naming the shape it decides in** rather than read
         as one of its own indices (`sizing.md` §6, `shapes.md` §3, D-29).
+
+        D-33's widening is the second half of the case, and it is asserted for every shape
+        declared beside the default.  A learner on a shape takes its input width from
+        **that shape's** encoder (`shapes.md` §8, ASM-44), so the observation of the shaped
+        readout is the shaped encoder's 329 values on `no-limit-100` and 433 on the
+        six-seat row, and not the default encoder's 203: a three-head learner refuses it by
+        name of both widths, and the six-head learner built on the shape answers the same
+        decision with one of its own legal indices.
+
+        An **encoder** is the shape's too, and never only the head: the default shape's
+        encoder is 203 values over two seats and over the seat indices `0..1`, so on
+        `no-limit-100` its 203-value observation still carries the named shape's mask and
+        the default-head learner refuses **that mask**, while a six-seat readout is not the
+        default encoder's to encode at all — its `seat` and `stacks` facts are six-wide, and
+        it refuses the readout by name rather than truncate it (`seats.md` §3, ASM-44,
+        `flat-numeric.md` §5).  Both sides of the same fact are asserted here, so the
+        six-seat row loses no assertion the two-seat one makes.
         """
-        shape = self.second_shape()
         learner = self.learner(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH, seed=S.SEED_I)
-        readout = self.readout(self.hand(S.SEED_I, shape))
-        observation = self.ep("features", "encode")(self.encoder(), readout)
-        mask = list(self.ep("features", "legal_indices")(readout["legal"]))
-        self.assertIn(
-            5, mask,
-            "the named shape's first decision offers its sixth index, which is what makes "
-            "the refusal observable (sizing.md §2–§3): %r" % (mask,),
-        )
-        text = S.refusal_text(lambda: self.ep("agents", "act")(learner, observation, mask))
-        self.assertIsNotNone(
-            text,
-            "a learner of one shape's head refuses another shape's observation and mask, "
-            "naming the shape it decides in (sizing.md §6, shapes.md §3)",
-        )
-        self.assertIn(
-            S._family_token(self.shape_names()[0]),
-            S._family_token(text),
-            "the refusal names the shape whose head refused the index (shapes.md §3, "
-            "sizing.md §6): %r" % (text,),
-        )
-        six_learner = self.learner(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
-                                   seed=S.SEED_I, game=shape)
-        result = self.ep("agents", "act")(six_learner, observation, mask)
-        self.assertIn(
-            self.action_index(result), mask,
-            "a learner built in the named shape's head answers that shape's decision with "
-            "one of its legal indices (e2e-surface.md §3.3, sizing.md §6): %r" % (result,),
-        )
+        default = self.shape_names()[0]
+        default_encoder_width = int(S.numbers(
+            S.declared_field(
+                self.ep("features", "observation_spec")(self.encoder()),
+                "an observation spec (e2e-surface.md §2)", "shape",
+            )
+        )[0])
+        for shape in self.other_shapes():
+            seats = self.seats_of(shape)
+            readout = self.readout(self.hand(S.SEED_I, shape))
+            mask = list(self.ep("features", "legal_indices")(readout["legal"]))
+            self.assertIn(
+                5, mask,
+                "%r's first decision offers its sixth index, which is what makes the "
+                "refusal observable (sizing.md §2–§3): %r" % (shape, mask),
+            )
+            # The shape's own observation: its encoder's width, not the default's 203.
+            shaped_encoder = self.encoder(shape=shape)
+            shaped = self.ep("features", "encode")(shaped_encoder, readout)
+            shaped_width = int(S.numbers(
+                S.declared_field(
+                    self.ep("features", "observation_spec")(shaped_encoder),
+                    "an observation spec (e2e-surface.md §2)", "shape",
+                )
+            )[0])
+            self.assertEqual(
+                shaped_width, S.SHAPE_LAYOUTS[shape]["dense"],
+                "%r's shaped observation is its own declared width (shapes.md §8): declared "
+                "%d" % (shape, shaped_width),
+            )
+            self.assertEqual(
+                len(shaped), shaped_width,
+                "the shaped encoder returns one observation of its declared width "
+                "(e2e-surface.md §2, shapes.md §8): %d values, declared %d on %r"
+                % (len(shaped), shaped_width, shape),
+            )
+            text = S.refusal_text(lambda: self.ep("agents", "act")(learner, shaped, mask))
+            self.assertIsNotNone(
+                text,
+                "a learner built in the default shape's head refuses %r's observation, "
+                "because the input width is the shape's (shapes.md §8, ASM-44): %r"
+                % (shape, shaped),
+            )
+            for width_seen in (shaped_width, default_encoder_width):
+                self.assertIn(
+                    str(width_seen),
+                    text,
+                    "the refusal names both widths — the observation's and the learner's "
+                    "(shapes.md §8, ASM-44): %r on %r" % (text, shape),
+                )
+            six_learner = self.learner(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
+                                       seed=S.SEED_I, game=shape)
+            result = self.ep("agents", "act")(six_learner, shaped, mask)
+            self.assertIn(
+                self.action_index(result), mask,
+                "a learner built in %r's head answers that shape's decision with one of its "
+                "legal indices (e2e-surface.md §3.3, sizing.md §6): %r" % (shape, result),
+            )
+            if seats <= 2:
+                # The default encoder still encodes two seats' readout, and the six-index
+                # mask of that readout is what the default-head learner refuses.
+                observation = self.ep("features", "encode")(self.encoder(), readout)
+                self.assertEqual(
+                    len(observation), default_encoder_width,
+                    "the default encoder's observation is the default shape's 203 values "
+                    "(shapes.md §5, §8): %d" % (len(observation),),
+                )
+                text = S.refusal_text(
+                    lambda: self.ep("agents", "act")(learner, observation, mask))
+                self.assertIsNotNone(
+                    text,
+                    "a three-head learner refuses %r's six-index mask, naming the shape it "
+                    "decides in (sizing.md §6, shapes.md §3): %r" % (shape, mask),
+                )
+                self.assertIn(
+                    S._family_token(default), S._family_token(text),
+                    "the refusal names the shape whose head refused the index (shapes.md §3, "
+                    "sizing.md §6): %r" % (text,),
+                )
+            else:
+                # A six-seat readout is not the default encoder's to encode: its seat index
+                # and its six stacks are the shape's, and the block refuses rather than
+                # truncate (`seats.md` §3, ASM-44).
+                text = S.refusal_text(
+                    lambda: self.ep("features", "encode")(self.encoder(), readout))
+                self.assertIsNotNone(
+                    text,
+                    "the default shape's encoder — 203 values over two seats — refuses a "
+                    "six-seat readout by name rather than truncating it (shapes.md §8, "
+                    "seats.md §3, ASM-44): %r" % (readout,),
+                )
 
     def test_fam19_10_param_count_follows_the_shape_s_vocabulary(self):
         """FAM-19.10 param_count's output term is the shape's: `A·W + A`.
 
         `sizing.md` §6 makes the output layer `W → A` with `A` the shape's descriptor
         count, so two learners of **one** architecture under one rule and one utility
-        differ by exactly `ΔA·W + ΔA` — three widths and three more at the second shape —
-        and the default shape keeps today's `3W + 3` (ASM-40, ASM-10).
+        differ by `Δsize·W` from the input block and `ΔA·W + ΔA` from the head — three
+        widths and three more at either uncapped shape — and the default shape keeps
+        today's `3W + 3` (ASM-40, ASM-10).
+
+        D-33 makes both terms the shape's: a kind's declared `observation_size` is the
+        default shape's 203, while a learner on another shape is sized from that shape's
+        encoder — 329 on the two-seat uncapped row and 433 on the six-seat one
+        (`shapes.md` §8, ASM-44).  So the difference is pinned term by term for **each**
+        shape declared beside the default, each width **read** off the declared surface
+        rather than spelled, and the head's own `A·W + A` stays the second term, with the
+        two declared head widths asserted beside it.  The design's absolute counts at
+        `W = 36`, `D = 2` are FAM-19.15's (`shapes.md` §8).
         """
         width = S.SHAPE_WIDTH
         first = self.learner(width=width, depth=S.SHAPE_DEPTH, seed=S.SEED_J)
-        second = self.learner(width=width, depth=S.SHAPE_DEPTH, seed=S.SEED_J,
-                              game=self.second_shape())
         first_count = int(self.ep("agents", "param_count")(first))
-        second_count = int(self.ep("agents", "param_count")(second))
         delta_actions = len(S.SIZED_ACTIONS) - len(S.FIXED_ACTIONS)
-        self.assertEqual(
-            second_count - first_count, delta_actions * width + delta_actions,
-            "the head is the shape's: `A·W + A` at each, so six descriptors against three "
-            "cost %d×%d + %d more parameters (sizing.md §6, ASM-40): %d against %d"
-            % (delta_actions, width, delta_actions, first_count, second_count),
-        )
+        default_width = int(S.numbers(
+            S.declared_field(
+                self.ep("features", "observation_spec")(self.encoder()),
+                "an observation spec (e2e-surface.md §2)", "shape",
+            )
+        )[0])
+        for shape in self.other_shapes():
+            second = self.learner(width=width, depth=S.SHAPE_DEPTH, seed=S.SEED_J,
+                                  game=shape)
+            second_count = int(self.ep("agents", "param_count")(second))
+            named_width = int(S.numbers(
+                S.declared_field(
+                    self.ep("features", "observation_spec")(self.encoder(shape=shape)),
+                    "an observation spec (e2e-surface.md §2)", "shape",
+                )
+            )[0])
+            delta_size = named_width - default_width
+            self.assertGreater(
+                delta_size,
+                0,
+                "%r's history block is wider than the default's, so its observation is wider "
+                "(shapes.md §8): %r against %r" % (shape, named_width, default_width),
+            )
+            self.assertEqual(
+                second_count - first_count,
+                delta_size * width + delta_actions * width + delta_actions,
+                "one architecture, two shapes: the input term is `Δsize·W` and the head's is "
+                "`ΔA·W + ΔA`, so six descriptors and %d more input slots on %r cost %d×%d + "
+                "%d×%d + %d more parameters (shapes.md §8, sizing.md §6, ASM-40, ASM-44): "
+                "%d against %d"
+                % (delta_size, shape, delta_size, width, delta_actions, width,
+                   delta_actions, first_count, second_count),
+            )
         rows = {name: row for name, row in self.declared()}
         self.assertEqual(
             int(self.row_value(rows[self.shape_names()[0]], "head_width")),
@@ -755,14 +974,15 @@ class FAM19Shapes(S.SurfaceCase):
             "the default shape's declared head width is its vocabulary's size "
             "(shapes.md §2, sizing.md §6)",
         )
-        self.assertEqual(
-            int(self.row_value(rows[self.second_shape()], "head_width")),
-            len(S.SIZED_ACTIONS),
-            "the named shape's declared head width is its vocabulary's size "
-            "(shapes.md §2, sizing.md §6)",
-        )
+        for shape in self.other_shapes():
+            self.assertEqual(
+                int(self.row_value(rows[shape], "head_width")),
+                len(S.SIZED_ACTIONS),
+                "%r's declared head width is its vocabulary's size — a seat count adds no "
+                "descriptor (shapes.md §2, sizing.md §6, seats.md §2): %r"
+                % (shape, self.row_value(rows[shape], "head_width")),
+            )
 
-    # -- the report (§6, §13) ---------------------------------------------
     def test_fam19_11_a_report_states_the_shape_and_refuses_a_record_naming_two(self):
         """FAM-19.11 the report's header carries the shape, and two shapes are refused.
 
@@ -771,6 +991,12 @@ class FAM19Shapes(S.SurfaceCase):
         refuse a record whose three do not name one shape — naming **all three** and the
         shape each names, so a reader is told which record to re-derive (`protocol.md` §1,
         `shapes.md` §6, D-29).
+
+        The case is asserted of the catalogue's **second** row, the two-seat uncapped shape,
+        because a report is a report of a table and D-33's six-seat row is a placement: a
+        matrix, and therefore a report, cannot exist on it, and `evaluation.report`'s
+        refusal of that row — naming the shape and its seat count — is FAM-21.9's subject
+        (`docs/L1/seats.md` §5, D-22, D-33).
         """
         shape = self.second_shape()
         configuration = self.shaped_rung(shape=shape, seeds=(S.SEED_A,))
@@ -870,6 +1096,251 @@ class FAM19Shapes(S.SurfaceCase):
             S.canon(self.play(S.SEED_C, shape=default)),
             "engine.play_hand with no shape is the default shape's episode (shapes.md §5)",
         )
+
+    # -- the widened history block (shapes.md §8, D-33) --------------------
+    def test_fam19_13_each_shape_declares_its_own_widened_layout(self):
+        """FAM-19.13 203/40/96 and 329/82/96 and 433/122/102, each row its own.
+
+        `shapes.md` §8 makes the history block's capacity the shape's own data — 24 slots on
+        `fixed-limit-20`, 66 on `no-limit-100` and 98 on `six-seat-no-limit-100` — so each
+        layout follows it: the dense observation is `131 + 3 × capacity` and the token
+        observation `16 + capacity`, 203 and 40 on the default shape, **329** and **82** on
+        the two-seat uncapped one, and **433** and **122** on the six-seat one, over a
+        vocabulary of 96 on the two-seat rows and **102** on the six-seat row, whose six
+        seat ids sit above every id the others use (`flat-numeric.md` §5,
+        `card-tokens.md` §2, §6, `seats.md` §3, ASM-42, ASM-44).  What
+        `features.observation_spec` declares and what `features.encode` returns are two
+        statements of one layout, so each is held to the other here, on **every** declared
+        shape and both encodings (`e2e-surface.md` §2, §3.2).
+        """
+        shapes = self.shape_names()
+        self.assertEqual(
+            list(shapes[:3]),
+            [S.SHAPE_DEFAULT, S.SHAPE_SECOND, S.SHAPE_THIRD],
+            "the catalogue declares the default shape and two beside it, in that order "
+            "(shapes.md §2, seats.md §2, D-29, D-33): %r" % (shapes,),
+        )
+        for shape in shapes[:3]:
+            layout = S.SHAPE_LAYOUTS[shape]
+            readout = self.readout(self.hand(S.SEED_B, shape))
+            for representation, key in ((S.FLAT, "dense"), (S.TOKENS, "tokens")):
+                width = self.declared_width(shape, representation)
+                self.assertEqual(
+                    width, layout[key],
+                    "%r's %r observation is %d wide — the shape's own capacity of %d behind "
+                    "it (shapes.md §2, §8, D-33): declared %d"
+                    % (shape, representation, layout[key], layout["history"], width),
+                )
+                observation = self.ep("features", "encode")(
+                    self.encoder(representation, shape), readout)
+                self.assertEqual(
+                    len(observation), width,
+                    "%r's %r encoder returns one observation of its declared width "
+                    "(e2e-surface.md §2): %d values, declared %d"
+                    % (shape, representation, len(observation), width),
+                )
+            vocabulary = self.declared_vocabulary(shape, S.TOKENS)
+            self.assertEqual(
+                int(vocabulary), layout["vocabulary"],
+                "%r's token vocabulary is its own — 96 on the two-seat rows, where a history "
+                "slot is one id wide and the widening adds no id, and 102 on the six-seat "
+                "row, whose six seat ids sit above them (card-tokens.md §6, shapes.md §8, "
+                "seats.md §3): %r" % (shape, vocabulary),
+            )
+
+    def test_fam19_14_a_history_past_the_shapes_capacity_is_refused(self):
+        """FAM-19.14 each shape's capacity encodes whole and one more is refused by name.
+
+        `shapes.md` §8 derives the capacity of each row from that row's own betting and
+        `flat-numeric.md` §5 makes it the block's refusal threshold as well as its length:
+        a history of exactly the capacity encodes whole, one entry more is refused naming
+        the field, the capacity and the count, and nothing is truncated
+        (`docs/L2/features/capacity.md` §1, §3, ASM-42, D-33).  The case holds for every
+        declared row — 24 and 25 on the default shape, 66 and 67 on the two-seat uncapped
+        one, **98 and 99** on the six-seat one — and both encodings answer to the same
+        number, because the dense block is `3 × capacity` wide and the token block one slot
+        per action over it (`flat-numeric.md` §5, `card-tokens.md` §5), so a shape whose two
+        blocks disagreed would be caught at either one.
+        """
+        for shape in self.shape_names()[:3]:
+            layout = S.SHAPE_LAYOUTS[shape]
+            capacity = layout["history"]
+            self.assertEqual(
+                S.history_capacity_of(self.shape_row(shape)), capacity,
+                "%r declares the capacity its own betting gives it (shapes.md §8): %r"
+                % (shape, S.history_capacity_of(self.shape_row(shape))),
+            )
+            fits = self.history_readout(shape, capacity)
+            over = self.history_readout(shape, capacity + 1)
+            for representation, key in ((S.FLAT, "dense"), (S.TOKENS, "tokens")):
+                encoder = self.encoder(representation, shape)
+                encoded = self.ep("features", "encode")(encoder, fits)
+                self.assertEqual(
+                    len(encoded), layout[key],
+                    "a history of exactly %d entries — the whole of %r's capacity — encodes "
+                    "in full on %r, and is never truncated (flat-numeric.md §5, shapes.md "
+                    "§8, ASM-42): %d values"
+                    % (capacity, shape, representation, len(encoded)),
+                )
+                text = S.refusal_text(
+                    lambda: self.ep("features", "encode")(encoder, over)
+                )
+                self.assertIsNotNone(
+                    text,
+                    "a history longer than %r's capacity of %d is refused, not truncated "
+                    "(shapes.md §8, ASM-42, D-33): %d entries"
+                    % (shape, capacity, capacity + 1),
+                )
+                self.assertIn(
+                    "history", S._family_token(text),
+                    "the refusal names the field it refused — the history block "
+                    "(flat-numeric.md §5): %r" % (text,),
+                )
+                for number in (capacity, capacity + 1):
+                    self.assertIn(
+                        str(number), text,
+                        "the refusal names the capacity %d and the count that crossed it "
+                        "(docs/L2/features/capacity.md §1, §3): %r" % (number, text),
+                    )
+
+    def test_fam19_15_param_count_is_each_shapes_own_at_the_declared_size(self):
+        """FAM-19.15 14,766 and 18,510 at W = 36, D = 2; the default's 10,119 unchanged.
+
+        `shapes.md` §8's table fixes the counts at **one** architecture: input + trunk +
+        `A·W + A`, which is **14,766** on `no-limit-100` from its 329-wide input block and
+        its six-wide head, **18,510** on `six-seat-no-limit-100` from its 433-wide block and
+        the same six-wide head, and today's **10,119** on `fixed-limit-20`, unchanged
+        (`shapes.md` §5, §8, ASM-40, ASM-44).  The default build carries no encoder and is
+        sized from the kind's declared `observation_size`; every shaped build is handed that
+        shape's own encoder, which is the declared way to build a learner on a non-default
+        shape (`e2e-surface.md` §3.3) — and the widths the differences are made of are read
+        off the encoders rather than spelled here, so the case states the design's counts
+        and derives the design's arithmetic for each row.
+        """
+        kind = self.architecture_kind("naive")
+        default = self.shape_names()[0]
+        plain = int(self.ep("agents", "param_count")(
+            self.learner(width=S.PARAM_WIDTH, depth=S.PARAM_DEPTH, seed=S.SEED_I, kind=kind)
+        ))
+        self.assertEqual(
+            plain, S.PARAM_COUNTS[default],
+            "the default shape's count at W = %d, D = %d is today's %d, unchanged "
+            "(shapes.md §5, §8, ASM-40): %d"
+            % (S.PARAM_WIDTH, S.PARAM_DEPTH, S.PARAM_COUNTS[default], plain),
+        )
+        delta_actions = len(S.SIZED_ACTIONS) - len(S.FIXED_ACTIONS)
+        for shape in self.other_shapes():
+            shaped = int(self.ep("agents", "param_count")(
+                self.learner(width=S.PARAM_WIDTH, depth=S.PARAM_DEPTH, seed=S.SEED_I,
+                             kind=kind, game=shape)
+            ))
+            self.assertEqual(
+                shaped, S.PARAM_COUNTS[shape],
+                "%r's count at the same architecture is %d, its own input block and its "
+                "six-wide head (shapes.md §8, ASM-44): %d"
+                % (shape, S.PARAM_COUNTS[shape], shaped),
+            )
+            delta_size = (
+                self.declared_width(shape, S.FLAT) - self.declared_width(default, S.FLAT)
+            )
+            self.assertEqual(
+                shaped - plain,
+                delta_size * S.PARAM_WIDTH + delta_actions * S.PARAM_WIDTH + delta_actions,
+                "the two counts differ by the two shape terms and nothing else — the input "
+                "block's `Δsize·W` and the head's `ΔA·W + ΔA` on %r (shapes.md §8, "
+                "sizing.md §6): %d more from %d, against %d"
+                % (shape, shaped - plain, delta_size * S.PARAM_WIDTH
+                   + delta_actions * S.PARAM_WIDTH + delta_actions, plain),
+            )
+
+    def test_fam19_16_an_encoder_less_spec_naming_another_shape_is_refused(self):
+        """FAM-19.16 a spec naming a shape beside the default and carrying no encoder is refused.
+
+        A kind's declared `observation_size` is the **default** shape's — `naive-stack`'s
+        203 and the token kinds' 96 — so there is no width to build a learner on another
+        shape at, and `agents.build_learner` refuses the spec by name instead of sizing it
+        from a number that is not that shape's (`shapes.md` §8, ASM-44,
+        `e2e-surface.md` §3.3).  The case holds for **each** shape declared beside the
+        default, D-33's six-seat row included.  The refusal names the shape it was given,
+        the missing `encoder` key, the default shape whose size it declined to use and the
+        entry point that refused, so a reader is told both why and what to pass instead.
+
+        The two controls are the builds that **are** legal: the same shaped spec beside that
+        shape's encoder — which is what `learner_spec` hands a shaped build, and which
+        differs from the refused spec in that one key alone — and the same spec on the
+        default shape, which is today's encoder-less build and carries no `encoder` key at
+        all (`shapes.md` §5).  No case asserts the private class of the refusal: L2 may
+        refine error classes (`e2e-surface.md` §1) and a battery asserts the behaviour and
+        never the class (`docs/L3/agents/errors.md` §2).
+        """
+        default = self.shape_names()[0]
+        for shape in self.other_shapes():
+            refused = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
+                                        seed=S.SEED_I, game=shape, encoder=None)
+            self.assertNotIn(
+                "encoder", refused,
+                "this spec is deliberately encoder-less, which is the only thing that makes "
+                "the refusal observable (shapes.md §8, ASM-44): %r" % (sorted(refused),),
+            )
+            self.assertEqual(
+                str(refused["game"]), shape,
+                "the spec names %r (shapes.md §2, §3): %r" % (shape, refused["game"]),
+            )
+            text = S.refusal_text(lambda: self.ep("agents", "build_learner")(refused))
+            self.assertIsNotNone(
+                text,
+                "an encoder-less spec naming %r is refused by name, never sized at the "
+                "default shape's 203 (shapes.md §8, ASM-44): %r"
+                % (shape, sorted(refused)),
+            )
+            for needle, why in (
+                (S._family_token("build_learner"),
+                 "the entry point that refused (docs/L3/agents/errors.md §3)"),
+                (S._family_token(shape),
+                 "the shape the spec named (shapes.md §8, ASM-44)"),
+                ("encoder", "the key that is missing (shapes.md §8, ASM-44)"),
+                (S._family_token(default),
+                 "the default shape whose width it declined to use (shapes.md §8)"),
+            ):
+                self.assertIn(
+                    needle, S._family_token(text),
+                    "the refusal names %s on %r: %r" % (why, shape, text),
+                )
+            # The declared way to build it: the same spec beside that shape's encoder.
+            accepted = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
+                                         seed=S.SEED_I, game=shape)
+            self.assertIn(
+                "encoder", accepted,
+                "a shaped learner spec carries the shape's encoder, which is the declared way "
+                "to size one (shapes.md §8, e2e-surface.md §3.3): %r" % (sorted(accepted),),
+            )
+            beside = dict(accepted)
+            del beside["encoder"]
+            self.assertEqual(
+                S.canon(beside), S.canon(refused),
+                "the accepted spec and the refused one differ in the `encoder` key alone, so "
+                "the refusal is that key's and nothing else's (shapes.md §8, ASM-44)",
+            )
+            learner = self.ep("agents", "build_learner")(accepted)
+            self.assertGreater(
+                int(self.ep("agents", "param_count")(learner)), 0,
+                "the spec carrying %r's encoder builds a learner (e2e-surface.md §3.3)"
+                % (shape,),
+            )
+        # ... and the default shape's encoder-less spec is today's, unchanged.
+        plain = self.learner_spec(width=S.SHAPE_WIDTH, depth=S.SHAPE_DEPTH,
+                                  seed=S.SEED_I, game=default, encoder=None)
+        self.assertNotIn(
+            "encoder", plain,
+            "naming the default shape is today's encoder-less spec, so it carries no "
+            "`encoder` key (shapes.md §5): %r" % (sorted(plain),),
+        )
+        self.assertIsNotNone(
+            self.ep("agents", "build_learner")(plain),
+            "an encoder-less spec on the default shape is sized from the kind's declared "
+            "`observation_size` and still builds (shapes.md §5, §8)",
+        )
+
 
 
 if __name__ == "__main__":

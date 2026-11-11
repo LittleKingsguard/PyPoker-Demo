@@ -19,7 +19,7 @@ from pokerkit.lookups import Label
 
 from .actions import legal_actions
 from .cards import card_spelling
-from .config import SEAT_COUNT, STREETS
+from .config import BUTTON_SEAT, STREETS, seat_count
 from .hand import Hand, player_index, require_live_hand, seat_of
 
 #: The nine hand classes, keyed by `pokerkit`'s own `Label` in its declaration order:
@@ -58,11 +58,15 @@ def facts(hand: Hand) -> dict:
     """The eleven-key mapping, derived from the state (readout.md §2).
 
     The caller has already established that the handle is live; this derivation
-    reads the state and adds nothing (D-3).
+    reads the state and adds nothing (D-3).  The **seat count** is the hand's shape's,
+    so `stacks` holds one entry per seat in seat order — six on the six-seat shape, two
+    elsewhere — and `seat`'s index ranges over `0 .. seats − 1`; the number of facts does
+    not move (seats.md §3, e2e-surface.md §2).
     """
     state = hand._state
-    seat = seat_of(state.actor_index)
-    hole_cards = state.hole_cards[player_index(seat)]
+    seats = seat_count(hand._shape)
+    seat = seat_of(state.actor_index, seats)
+    hole_cards = state.hole_cards[player_index(seat, seats)]
     # The board is `get_board_cards(0)`, never `board_cards[0]`, which is one row per
     # dealing operation (platform.md §2, readout.md §2).  It is materialised once, because
     # the library yields it as an iterator and two facts read it: the `board` spelling and
@@ -72,11 +76,16 @@ def facts(hand: Hand) -> dict:
         # The street is `STREETS[street_index]`, never `streets.index(state.street)`:
         # the turn and river `Street` values are equal by value (platform.md §3).
         "street": STREETS[state.street_index],
-        "seat": (seat, seat == 0),
+        # The button is seat 0 in every declared shape, so the flag is `seat == 0`; it is
+        # carried as a fact and not implied, because records.md §5 and the encoder read it
+        # (readout.md §2, seats.md §3).
+        "seat": (seat, seat == BUTTON_SEAT),
         "hole": tuple(card_spelling(card) for card in hole_cards),
         "board": tuple(card_spelling(card) for card in board_cards),
+        # One entry per seat, in seat order: `pot + sum(stacks)` is the shape's chips in
+        # play at every decision, 40, 200 or 600 (seats.md §3, config.md §4).
         "stacks": tuple(
-            state.stacks[player_index(index)] for index in range(SEAT_COUNT)
+            state.stacks[player_index(index, seats)] for index in range(seats)
         ),
         "pot": state.total_pot_amount,
         "to_call": state.checking_or_calling_amount,

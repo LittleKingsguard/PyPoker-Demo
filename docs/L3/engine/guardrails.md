@@ -1,7 +1,7 @@
 # engine — L4 guardrails
 
 - **Owner:** one note per risk this design identified, in the order they bite, each with the rule L4 must hold and the symptom of getting it wrong
-- **Ceiling:** 152 lines — raised from 120 for the four guardrails the second shape adds (G12–G15). At the ceiling, split by owner — never append
+- **Ceiling:** 190 lines — raised from 152 for the third seat count: G2 restated as the general map and its blind vector, G16 for the multi-way equity range, and the seat-count clauses in G5, G8, G9 and G14. At the ceiling, split by owner — never append
 - **Read with:** `hand.md`, `actions.md`, `readout.md`, `episode.md`, `equity.md`, `errors.md`, `layout.md`
 
 These are not suggestions. Each one is a place where a plausible, tidy-looking implementation breaks a
@@ -17,17 +17,27 @@ e2e case that drives a hand and then asks an old handle passes only by luck. Rel
 returns fresh containers, so a caller’s edit of `hole`, `board`, `stacks`, `legal` or `history`
 cannot reach the handle.
 
-## G2 — The seat map: `pokerkit`’s heads-up blinds are reversed, twice
+## G2 — The seat map: the blinds are per player index above two seats, and reversed twice at two
 
-`create_state(..., raw_blinds_or_straddles=(1, 2), ..., player_count=2)` makes **pokerkit player 0**
-post the 2 and **player 1** post the 1, and `_begin_betting` reverses the blinds again for the
-pre-flop opener (`state.py:3336-3339`, `4203-4212`). So the engine’s seat 0 — the button, post 1, act
-first pre-flop, act second afterwards — is pokerkit’s index **1**, and the translation is
-`SEAT_TO_PLAYER = (1, 0)` (`hand.md` §3). Two wrong fixes that look right and are not: passing
-`(2, 1)` to `create_state` (the library reverses an already-reversed pair and the button moves back
-to where you started), and sorting the stacks (chips are per seat, not ascending). Symptom of getting
-it wrong: the first decision reads `stacks == (18, 19)` or `seat == (1, False)`, `payoffs` is keyed
-by the wrong seat, and every per-seat fact in the project is mirrored.
+At `player_count == 2` the library reads the blind through `not player_index` (`state.py:3336-3339`)
+and reverses the pair again when it computes the pre-flop opener (`state.py:4203-4212`), so
+`raw_blinds_or_straddles=(1, 2)` makes **player 0** post the 2 and **player 1** the 1. Above two seats it
+reads `blinds_or_straddles[player_index]` (`state.py:3338-3339`), so the padded vector
+`(1, 2, 0, 0, 0, 0)` gives player 0 the 1 and player 1 the 2. In both cases `collect_bets` zeroes every
+bet before the next street opens (`state.py:3266-3267`, `:3621-3627`), so the post-flop opener is player
+0 for **every** player count and the button — the seat that acts last post-flop — is player
+`player_count − 1`. Engine seat 0 holds the button on every shape, so the one translation is
+
+    seat_map(seats)    = tuple((s - 1) % seats for s in range(seats))    # (1, 0) | (5, 0, 1, 2, 3, 4)
+    blind_vector(row)  = tuple(row["blinds"]) + (0,) * (row["seats"] - 2)  # (1, 2) | (1, 2, 0, 0, 0, 0)
+
+(`hand.md` §3, `seats.md` §2). Two wrong fixes that look right and are not: passing `(2, 1)` to
+`create_state` (the library reverses an already-reversed pair and the button moves back to where you
+started), and sorting the stacks (chips are per seat, not ascending). Symptom of getting it wrong: the
+first decision reads `stacks == (18, 19)` or `seat == (1, False)` on a two-seat shape, or reads
+`seat == (0, True)` on the six-seat one where it must read `seat == (3, False)` and
+`stacks == (100, 99, 98, 100, 100, 100)` — and `payoffs` is keyed by the wrong seat, so every per-seat
+fact in the project is mirrored (`hand.md` §4).
 
 ## G3 — The one spelling: a card is a two-character `str`, an action is one of its shape's `str`s
 
@@ -55,8 +65,8 @@ two `new_hand(SAME_SEED)` calls followed by `random.random()` disagree, or an as
 ## G5 — The 200-decision bound, and the hand that must end
 
 Every hand must reach `is_terminal` within 200 applied actions — measured at 8 under always-check-or-call
-and 12 under always-raise-if-legal in the default shape, at 8 and 2 in the no-cap row, all far below
-(`platform.md` §1, `config.md` §6). A property of the declared rows plus the automations, not something to
+and 12 under always-raise-if-legal in the default shape, at 8 and 2 in the no-cap row, and at 24 on the
+six-seat shape under always-check-or-call, all far below (`platform.md` §1, `config.md` §6, `seats.md` §2). A property of the declared rows plus the automations, not something to
 force; it is a *test* of the automations being complete. Symptom: a `while not is_terminal(hand)` loop in
 `play_hand` spins because an un-automated operation (a missing `HAND_KILLING`, or an un-dealt board) stalls
 the state. Do not add a decision cap to `play_hand` as a "safety": a hand that does not end is a defect to
@@ -77,19 +87,22 @@ A battery may pass any valid instance and a superfluous refusal turns a valid ca
 
 ## G8 — `play_hand` is a driver, not a guard
 
-It calls the seat’s policy as `policy(readout, legal)`, applies what comes back, and lets the policy’s
-own exception propagate (`episode.md` §1). It does not retry, does not fall back to `check-call`, does
-not inspect the signature, and does not catch `Exception` around the policy call. It also does not
-call the policy for a hand that is over, and does not call `readout` on a terminal hand — the loop
-condition is checked first (`readout` refuses a finished hand).
+It calls the seat’s policy as `seating[readout["seat"][0]](readout, legal)`, applies what comes back, and
+lets the policy’s own exception propagate (`episode.md` §1, §2). It does not retry, does not fall back to
+`check-call`, does not inspect the signature, and does not catch `Exception` around the policy call. It
+also does not call the policy for a hand that is over, and does not call `readout` on a terminal hand —
+the loop condition is checked first (`readout` refuses a finished hand). The seating is a sequence of
+callables and nothing else: it is not padded, truncated, re-ordered or inferred from the positional pair
+(`seats.md` §4).
 
 ## G9 — The reward is the hand’s outcome, placed at each seat’s last decision
 
 Every decision starts at reward 0; at the end, each seat’s last decision carries that seat’s net chip
 delta and no other decision changes (`episode.md` §3, ASM-12). Two ways to get it wrong: shaping the
-reward per decision, and awarding it to the seat’s *first* decision. A split deliberately leaves both
-rewards 0; a seat that never acted has no decision to carry one. `records.md` §5 is exact: at most one
-non-zero reward per seat, equal to that seat’s payoff.
+reward per decision, and awarding it to the seat’s *first* decision. A split deliberately leaves every
+seat’s reward 0; a seat that never acted has no decision to carry one. `records.md` §5 is exact: at most
+one non-zero reward per seat, equal to that seat’s payoff — one rule per seat, so a six-seat hand carries
+at most six non-zero rewards (`seats.md` §3, ASM-43).
 
 ## G10 — Two facts `pokerkit` spells in a way that reads right and is wrong
 
@@ -136,12 +149,18 @@ integer in it is **absent from `legal_actions`**, never collapsed onto a neighbo
 
 ## G14 — The fixed-limit path is byte-identical
 
-The second shape may not move the first: `game_config()` with no argument returns the same fifteen keys and
-values, and a fixed-limit hand's deal, history entries, payoffs and episode record's five existing facts are
-unchanged — the only change is the three keys added beside them (`episode.md` §3, `shapes.md` §5). Two ways
-to break it: threading an amount into the fixed-limit step, turning `complete_bet_or_raise_to()` from a
-no-argument call into a one-argument one, and re-deriving the row inside `new_hand` **after** `random.seed`,
-which moves the stream and so the deal. Symptom: a `history` entry or a `game_config()` key differs.
+Neither later shape may move the first: `game_config()` with no argument returns the same fifteen keys
+and values, and a fixed-limit hand's deal, history entries, payoffs and episode record's five existing
+facts are unchanged — the only change is the three keys added beside them (`episode.md` §3, `shapes.md`
+§5). The six-seat row may not move the two-seat ones either: `seat_map(2)` and `blind_vector` at two
+seats are the arguments this module always passed, and both two-seat first decisions still read `pot 3`,
+`stacks == (19, 18)` and `(99, 98)`, `to_call == 1`, `seat == (0, True)` (`hand.md` §3–§4, `seats.md` §2).
+Three ways to break it: threading an amount into the fixed-limit step, turning
+`complete_bet_or_raise_to()` from a no-argument call into a one-argument one, and moving the row's
+derivation inside `new_hand` **after** `random.seed` — where nothing fails today, because `shape_row`
+re-canonicalises a name that is already canonical, but where the next helper that can refuse would move
+the stream before refusing instead of after (`hand.md` §2, `errors.md` §1). Symptom: a `history`
+entry, a `game_config()` key or a two-seat stack tuple differs.
 
 ## G15 — The index order is the shape's declaration, never a sort
 
@@ -150,3 +169,19 @@ order, worst first, so the all-in sits **before** the minimum (`config.md` §6, 
 not sort a legal set, must not re-order for readability, and must never derive an index from an amount.
 Symptom: `features.legal_indices` lands a descriptor on the wrong head position, or a tie-break resolves
 toward the cheapest band and manufactures a PASS (`sizing.md` §3, D-29).
+
+## G16 — The multi-way equity range is one empty selection, `[[]]`, and never a bare `[]`
+
+`calculate_equities` builds its selections with `product(*hole_ranges)` (`analysis.py:311`), so a **bare**
+empty range contributes no selection at all: the product comes out empty, `choices(range(0), ...)` raises
+`IndexError: range object index out of range` at `analysis.py:328`, and the call fails before a single
+sample is drawn. The form the library's own `calculate_hand_strength` builds for its opponents is a range
+holding **one empty combination** — `[[]]` — which `__calculate_equities_0` completes by dealing that
+player's cards from the sampled deck (`analysis.py:404-406`, `:157-169`, `:225-337`). Measured on the
+six-seat row: `[[[Kd, 2d]], [[]], [[]], [[]], [[]], [[]]]` returns six shares summing to 1.0 with the
+acting seat's equal to `calculate_hand_strength(6, ...)`, while `[[[Kd, 2d]], [], [], [], [], []]` raises
+that `IndexError` (`equity.md` §2.1, `seats.md` §2). Two ways to get it wrong: writing the bare `[]` per
+opponent, which empties the product and raises, and extending the two-seat enumeration to five opponents,
+which enumerates a product of five combinations before sampling once. `src/engine/equity.py` writes the
+one-empty-range form; the two-seat path is untouched by either mistake — it enumerates the unseen two-card
+combinations and is bit-identical to a direct call on that enumeration (`equity.md` §2.1, `shapes.md` §5).

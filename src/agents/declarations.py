@@ -11,10 +11,12 @@ mutate the catalogue through a returned mapping.
 
 It also carries the module's two **axes of absence** -- the declared game shapes, default
 first, and the two exploration modes a policy may be built with (`shapes.md` §1, §4).
-Only the shape **names and their order** are restated here; the head width is *read* off
-the shape's descriptor count by `actions_for`, so no table and no backend writes a `3` or
-a `6` down and one shape's head is never a second spelling of the other's (`shapes.md`
-§2, `sizing.md` §6, ASM-40).
+Only the shape **names, their order and their seat counts** are restated here; the head
+width is *read* off the shape's descriptor count by `actions_for`, so no table and no
+backend writes a `3` or a `6` down and one shape's head is never a second spelling of
+another's (`shapes.md` §2, `sizing.md` §6, ASM-40).  The seat count is restated because a
+readout's `stacks` fact is one entry per seat and nothing this module is granted for the
+seated question says how many seats a name has (`seats.md` §3, ASM-44).
 """
 
 from __future__ import annotations
@@ -32,8 +34,11 @@ FLAT_ENCODING = "flat-numeric"
 TOKEN_ENCODING = "card-tokens"
 
 #: The seven kinds in `architecture.md` §1's order, each row carrying the family it
-#: consumes, the size an encoder-less build is sized from and the encoding its rungs
-#: declare.  `KINDS` is the key order of this table, so the two cannot drift.
+#: consumes, the size an encoder-less build **on the default shape** is sized from and the
+#: encoding its rungs declare.  The two sizes are the default shape's -- 203 and 96 -- and
+#: they stay so: a learner on another shape is sized from that shape's encoder, which is
+#: what `sized_by_kind` below is the statement of (`shapes.md` §8, ASM-44).  `KINDS` is the
+#: key order of this table, so the two cannot drift.
 KIND_ROWS = {
     "naive-stack": {
         "observation": DENSE_FAMILY,
@@ -143,11 +148,25 @@ HYPER = {
 }
 
 
-#: The two declared game shapes' names, in `engine.game_shapes()`'s order -- default
-#: first (`shapes.md` §1, D-29).  Only the names and their order are restated: the join
-#: battery holds them equal to the catalogue `engine` publishes, which this module is not
-#: granted (`module-map.md` §2, D-13).
-SHAPE_NAMES = ("fixed-limit-20", "no-limit-100")
+#: The three declared game shapes' names, in `engine.game_shapes()`'s order -- default
+#: first (`shapes.md` §2, `seats.md` §2, D-29, D-33).  Only the names and their order are
+#: restated: the join battery holds them equal to the catalogue `engine` publishes, which
+#: this module is not granted (`module-map.md` §2, D-13).
+SHAPE_NAMES = ("fixed-limit-20", "no-limit-100", "six-seat-no-limit-100")
+
+#: Each declared name's **seat count**, in `SHAPE_NAMES`'s own order, and the distinct
+#: counts as one sequence.  A readout's `stacks` fact is one entry per seat in seat order
+#: and its `seat` fact's index runs `0 .. seats − 1`, so a validator that accepted a
+#: length or an index no declared row can produce would be checking nothing; the count is
+#: a row's data and `engine.game_shapes()` publishes it beside the name (`seats.md` §2-§3,
+#: `e2e-surface.md` §2, ASM-44).  Two seats on D-2's and D-29's rows, six on D-33's, so the
+#: catalogue's distinct counts are `(2, 6)` (`shapes.md` §2, `seats.md` §2).
+SHAPE_SEATS = (2, 2, 6)
+
+#: The distinct seat counts the declared rows carry, in the catalogue's order: the two
+#: lengths a readout's `stacks` may have and the two ranges its `seat` index may run
+#: (`seats.md` §3, ASM-44).
+SEAT_COUNTS = tuple(dict.fromkeys(SHAPE_SEATS))
 
 #: The declared default: the first shape, which is what a spec naming none is built on
 #: and what a version-1, version-2 or version-3 container is read as (`shapes.md` §1, §5).
@@ -211,6 +230,25 @@ def actions_for(shape=None):
     import features
 
     return len(features.action_space(shape=require_game(shape, "actions_for")))
+
+
+def sized_by_kind(shape=None):
+    """Whether a learner on `shape` is sized from the kind's declared `observation_size`.
+
+    A kind's declared `observation_size` is the **default** shape's size -- `naive-stack`'s
+    203 and the six token kinds' 96 -- and the catalogue keeps publishing exactly those
+    two, because a per-shape table of widths would be a second statement of what each
+    shape's encoder already declares (`shapes.md` §8, ASM-44). So the declared size is the
+    default shape's and nothing else's, while a learner on any other shape takes its input
+    width from that shape's own encoder: 329 dense and a vocabulary of 96 on
+    `no-limit-100`, 433 dense and a vocabulary of 102 on `six-seat-no-limit-100`
+    (`docs/L2/features/capacity.md` §2, ASM-44).
+
+    This is the one statement of which of the two a build -- or a container -- is sized by,
+    so `build_learner` and `checkpoint.load` read it rather than each comparing a size of
+    their own (`surface.md` §4, `checkpoint.md` §3, D-13).
+    """
+    return require_game(shape, "sized_by_kind") == DEFAULT_SHAPE
 
 
 def require_exploration(value, entry):

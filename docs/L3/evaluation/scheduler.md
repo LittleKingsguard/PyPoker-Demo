@@ -5,9 +5,9 @@
   side becomes a policy, the **seven** facts a side carries (§5), the **three facts a checkpoint records** (§5.1), and
   every refusal (§6) (`surface.md` §9, §12, `league.md`, `shape.md` §3–§5, D-19, D-20, D-29)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — a cell is played on the one shape its two sides name (§1), a side carries seven facts (§5), a checkpoint records three (§5.1), and `policy_from` takes the mode `off` (§6–§7, `shape.md` §3–§5) — and that one shape is the **deal's**, handed to `play_hand` (§1)
+- **Rev 6:** D-29's second shape — a cell is played on the one shape its two sides name (§1), a side carries seven facts (§5), a checkpoint records three (§5.1), and `policy_from` takes the mode `off` (§6–§7, `shape.md` §3–§5) — and that one shape is the **deal's**, handed to `play_hand` (§1) · **Rev 7:** D-33's third shape — the seeds are **six** derivations, the counted draw's `_draw_order` among them (§3), and `match` refuses a shape whose seat count is above the pairwise instrument's after the cell's one shape is resolved and before the first hand (§1, §6, `seats.md` §1–§3, §5, D-22, D-33)
 - **Read with:** `shape.md` §2–§5, `pool.md` §7, `families.md` §6, `utility.md` §1–§4, `matrix.md` §3–§4, `rating.md` §4,
-  `errors.md` §2–§4
+  `errors.md` §2–§4, `seats.md` §1–§3, §5
 
 ## 1. The cell, and the one shape it is played on
 
@@ -19,13 +19,15 @@ A cell is one unordered pair of members, played at one hand count and on **one s
 
 One call per hand, so a cell costs its hand count and not twice it, and **two cells are never interleaved**: concurrency is no cost fix, because one global `random` stream deals every hand (`league.md` §2, ASM-2). The shape is a fact about **the deal**: every hand of the cell is dealt on the cell's one shape, its fourth argument, so a version member of `no-limit-100` decodes its six-index vocabulary against that shape's legal descriptors and never a fixed-limit deal's three — and since `engine` reads an absent shape as the default, passing the default's own name and passing none deal identically, which is why no default-shape number moved.
 
+**A cell is two seats', and that is checked here.** The seat count is read through `engine.game_config` — the granted arrow, never a literal — and a shape whose count is above the pairwise instrument's is refused as `SeatCountExceeded`, naming the shape and its seat count, because a cell is one unordered pair and a six-way hand produces a placement (`module-map.md` §2, `seats.md` §1, §3, §5, `league.md` §4, D-22, D-33). The check sits **after `_cell_shape` has resolved the cell's one shape and before the first hand**: no hand is dealt for a game a pair cannot express, and nothing is repaired. Both two-seat shapes are unaffected — the refusal's condition is the instrument's own `declarations.PAIRWISE_SEATS`, an arity and not a game's — so every cell, matrix, rating and report they produce today is exactly what it produced before (`seats.md` §3, §5, `league.md` §4, D-33).
+
 ## 2. Seats alternate, and the split says so
 
 Seat 0 holds the button and posts the small blind in every hand (`engine/surface.md` §4), so alternating which member is handed seat 0 alternates the button: `left` holds it `ceil(hands/2)` times and `right` `floor(hands/2)`, and one member holding it throughout would be a positional artefact (D-16). Each direction reports its own `seat_split`: that member's hands in seat 0 and seat 1, summing to `hands` and never `button`/`big blind` (`features/surface.md` §5).
 
-## 3. The seeds — five derivations, and no stream
+## 3. The seeds — six derivations, and no stream
 
-Four are `hashlib.sha256` digests of a fixed payload — the idiom `docs/L3/agents/rule.md` §4 uses for a keyed draw — and the fifth is one modulo, so one seed and one position give one result on any host, whatever was played before:
+Five are `hashlib.sha256` digests of a fixed payload — the idiom `docs/L3/agents/rule.md` §4 uses for a keyed draw — and the sixth is one modulo, so one seed and one position give one result on any host, whatever was played before:
 
     def _seed(tag, *parts):                    # the tag and the parts joined by \x1f, UTF-8, none trailing
         payload = tag + b"\x1f" + b"\x1f".join(str(p).encode("utf-8") for p in parts)
@@ -37,9 +39,10 @@ Four are `hashlib.sha256` digests of a fixed payload — the idiom `docs/L3/agen
 | `_cell_seed(table_seed, i, j)` | `b"pypoker-evaluation/cell/v1"` | `(table_seed, i, j)` | one cell's own seed (`matrix.md` §3) |
 | `_member_seed(table_seed, position)` | `b"pypoker-evaluation/member/v1"` | `(table_seed, position)` | one of the three **baselines**' policies, and nothing else (`matrix.md` §4) |
 | `_bootstrap_seed(table_seed)` | `b"pypoker-evaluation/bootstrap/v1"` | `(table_seed,)` | the rating's bootstrap (`rating.md` §4) |
-| `_draw_index(seed, n)` | — | `(seed,)` | the opponent draw, `seed % n` (`pool.md` §7) — arithmetic, not a digest |
+| `_draw_index(seed, n)` | — | `(seed,)` | the uncounted opponent draw, `seed % n` (`pool.md` §7) — arithmetic, not a digest — and the **first** position of the counted one |
+| `_draw_order(seed, n)` | `b"pypoker-evaluation/draw/v1"` | `(seed, position)` | the **counted** draw's order: `_draw_index`'s member first, then the rest ascending by the digest with ties broken by **position**, so it is a permutation of `0 .. n-1` and never one member twice (`pool.md` §7, `seats.md` §2) |
 
-**No shape reaches any of them**: every derivation is a function of the table seed and the pair or the position alone, so a table on the second shape is played from the same seeds as one on the default (`shape.md` §4, `matrix.md` §3). **A checkpoint's policy seed is derived here in no way at all**: its container records it (§5.1, `records.md` §7).
+**No shape reaches any of them**: every derivation is a function of the table seed and the pair or the position alone, so a table on any other declared shape is played from the same seeds as one on the default (`shape.md` §4, `matrix.md` §3, `seats.md` §2). **A checkpoint's policy seed is derived here in no way at all**: its container records it (§5.1, `records.md` §7).
 
 ## 4. What a hand was, and what the two directions are
 
@@ -74,8 +77,7 @@ A cell carries `records.md` §9's seven required keys — `members`, `hands`, `d
 that version's shape; and a pair whose two sides name **two shapes** is refused naming both sides and both shapes (`ShapeMismatch`),
 because a cell is played on one game (`shape.md` §3, `docs/L1/shapes.md` §6). A baseline named in a call is built **at that call's
 seed**; a version is built by `_member_policy(record)` at the **seed its checkpoint records** (§5.1) — the only seed at which it
-decides as its learner did (`protocol.md` §5) — and a record whose own `seed` disagrees is **not** refused: the container decides
-(`errors.md` §5).
+decides as its learner did (`protocol.md` §5) — and a record whose own `seed` disagrees is not refused: the container decides (`errors.md` §5).
 
     def _checkpoint_policy(member_id, path, exploration="schedule"):
         seed, encodings, game = _checkpoint_facts(path)         # §5.1 — the three recorded facts
@@ -95,8 +97,7 @@ and with the mode it was handed (`shape.md` §5).
 `surface.md` §12 makes the checkpoint's own container the source of the seed, the encoding name and **the shape**; this module
 reads **exactly those three and nothing else** — not the learner, its parameters, its rule, its utility or its format version,
 which are `agents.load`'s alone (`agents/surface.md` §9–§10, ASM-20) — and it never substitutes a seed, a path digest included
-(§3). The **rule and the utility** are the attributes of the policy `agents.as_policy` built and are not parsed here; the **shape**
-is read by the walk, because a container's shape has no attribute to read it back from.
+(§3). The **rule and the utility** are the policy's own attributes and are not parsed here; the **shape** is read by the walk, because a container's shape has no attribute to read it back from.
 
 The container was established **empirically** — a learner built through the declared entry points, saved, and the file
 inspected, never `agents`' source — and it is a plain **zip** of `metadata.json` then `parameters.npy`, a bare `.npy` carrying
@@ -115,14 +116,13 @@ read (`module-map.md` §2) — a name it refuses is `UnknownEncoding`, and a see
 
 | Class | Raised when | Named in the message |
 |---|---|---|
-| `InvalidHandCount` | `hands` is not a positive integer, or is a `bool` | the count |
-| `InvalidSeed` | `seed` is not an integer (a `bool` included) | the seed |
+| `InvalidHandCount`, `InvalidSeed` | `hands` is not a positive integer, or is a `bool`; `seed` is not an integer (a `bool` included) | the count, the seed |
 | `MemberInvalid` | a side is neither a callable nor a §7 record nor a baseline name; a record carries no `id` | the value and the three contracts |
 | `MemberUnloadable` | a §7 record carries no `path`, or its `path` names no readable file | the member and the path |
 | `UnknownRule`, `UnknownUtility` | a §7 record's declared `rule` or `utility` is not one its catalogue carries | the member, the name and the catalogue (`families.md` §6, `utility.md` §4) |
 | `RuleMismatch`, `UtilityMismatch`, `ShapeMismatch` | a §7 record's declared `rule`, `utility` or `game` disagrees with the one its policy carries — after the load, before a hand | the member, both values and the path (`utility.md` §4, `shape.md` §3) |
 | `SameMemberPair` | the two sides carry one id — a cell pairs two **distinct** members | the id |
-| `ShapeMismatch` | the pair's two sides name **two shapes** — a cell is played on one game | both sides and both shapes (`shape.md` §3) |
+| `ShapeMismatch`, `SeatCountExceeded` | the pair's two sides name **two shapes**, or the one shape's seat count is above the pairwise instrument's — a cell is one pair of two seats — raised after `_cell_shape` resolves the cell's shape and before the first hand | both sides and both shapes; the shape and its seat count (`shape.md` §3, `seats.md` §5, `league.md` §4, D-22, D-33) |
 | `CheckpointUnreadable` | `policy_from`'s path names no readable file, or no readable zip | the path |
 | `CheckpointRecordMissing` | the container records no seed or no encoding name, **or records it in a form this module does not read** | the fact and the path |
 | `UnknownEncoding` | the recorded encoding name `features.build_encoder` refuses for the recorded shape, or `agents.as_policy` refuses the encoder it builds | the path, the name and the shape |

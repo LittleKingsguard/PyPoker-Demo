@@ -72,10 +72,12 @@ def observation_spec(encoder):
 
     Every value is plain data -- a `str`, an `int`, a `tuple` of those or `None` -- so
     a report's header may quote the record and a caller's mutation of the mapping
-    cannot reach the declaration table (guardrails.md G11).  The record is the
-    **shape-invariant** part of a declaration: the slot counts, the block widths, the
-    dtype and the token vocabulary are the same on every declared shape, so no seventh
-    key names the shape or the normalisers (sizing.md §5, encoder.md §3).
+    cannot reach the declaration table (guardrails.md G11).  Four of the six keys are the
+    shape-invariant part of a declaration; `shape` is the shape's, because one
+    observation's width follows its history block's capacity and its seat count, and
+    `vocabulary` is the shape's too, because the six-seat row declares six seat ids of its
+    own above every id the two-seat rows use (`shapes.md` §8, `seats.md` §3, ASM-42,
+    ASM-44).  No seventh key names the shape, the normalisers or the capacity.
     """
     record = require_encoder(encoder, "observation_spec")._declaration
     return {
@@ -93,8 +95,12 @@ def encodings():
 
     The catalogue is rebuilt from the declaration table on every call, and each
     entry is equal to `observation_spec(build_encoder(name))` (surface.md §3).  It takes
-    no shape because a spec record does not depend on one: the two shapes declare the
-    same slot counts, widths, dtype and vocabulary, which is what keeps every
-    fixed-limit observation and every embedding table where it is (sizing.md §5).
+    no shape because it publishes the **default** shape's record for each name: the two
+    encodings declare the same representation, kind, fields and dtype on every row, and the
+    width `shape` reports and the `vocabulary` it declares are the default row's -- 203 and
+    40, over 96 ids.  That is what keeps every fixed-limit observation and every embedding
+    table where they are, and what makes an encoder-less build on a non-default shape
+    refuse rather than be sized from a number that is not that shape's (`shapes.md` §8,
+    ASM-44, sizing.md §5).
     """
     return {name: spec(name) for name in ENCODING_NAMES}

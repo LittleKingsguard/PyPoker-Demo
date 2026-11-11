@@ -491,6 +491,29 @@ def bootstrap_seed(table_seed):
     return _digest(b"pypoker-evaluation/bootstrap/v1", table_seed)
 
 
+def draw_order(seed, size):
+    """The counted draw's order: `size` positions, first `seed % size`, then the digest.
+
+    `docs/L3/evaluation/seats.md` §2 and `docs/L2/evaluation/seats.md` §2 fix the
+    derivation: the first position is `_draw_index(seed, n) == seed % n` -- the member the
+    uncounted draw names -- and the remaining positions ascend by
+    ``_digest(b"pypoker-evaluation/draw/v1", seed, position)``, ties broken by position, so
+    the result is a permutation of ``0 .. size-1`` and a draw is without replacement
+    (`docs/L1/seats.md` §4, `league.md` §2, ASM-43).  Re-derived here, never imported: a
+    case compares the module's draw against this and not against itself.
+    """
+    count = int(size)
+    first = int(seed) % count
+    rest = [position for position in range(count) if position != first]
+    rest.sort(
+        key=lambda position: (
+            _digest(b"pypoker-evaluation/draw/v1", seed, position),
+            position,
+        )
+    )
+    return (first,) + tuple(rest)
+
+
 def pool_id(members):
     """A pool's id: one line per member, a baseline's id alone and a version's with its two members.
 

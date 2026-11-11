@@ -7,11 +7,27 @@ readers, the container surgery a case needs to build a file this module did not
 write (`container_document`, `write_container`, `version_container`,
 `game_container`) and the base `unittest.TestCase` every case derives from.
 
-It also carries the two declared game shapes' names and the six-index vocabulary
-of the second one, the decisions a case reads on that shape (`shape_decisions`)
-and the submodule reader a monkey-patch of one declared internal needs
-(`declared_module`), so a shape case reaches the same readers every other case
-does (`docs/L2/agents/shapes.md` §1, §3, `docs/L3/agents/shapes.md` §1-§4).
+It also carries the three declared game shapes' names, the six-index vocabulary of the two
+uncapped ones, the decisions a case reads on one of them (`shape_decisions`) and the
+submodule reader a monkey-patch of one declared internal needs (`declared_module`), so a
+shape case reaches the same readers every other case does (`docs/L2/agents/shapes.md`
+§1, §3, `docs/L3/agents/shapes.md` §1-§4).  The third name is D-33's six-seat row, which
+`declarations.SHAPE_NAMES` restates third and which `engine.game_shapes()` publishes
+third, so a case that walks the shapes walks that row too and no list here states a
+count (`docs/L1/shapes.md` §2, §8, `docs/L1/seats.md` §2, ASM-44).
+
+A shape's own width is the shape's, and `shape_encoder` is how a case asks
+`features` for it: a kind's declared `observation_size` is the **default** shape's
+203 or 96, while `no-limit-100` declares a 329-wide dense observation and a
+vocabulary of 96 over an 82-long token sequence, and `six-seat-no-limit-100` a 433-wide
+one and a vocabulary of 102 over 122 tokens, so a learner on one of those shapes is
+handed that shape's encoder and an encoder-less build on it is refused by name
+(`docs/L1/shapes.md` §8, ASM-44, `docs/L2/features/capacity.md` §2, §5,
+`docs/L2/agents/shapes.md` §2).  `observation_template`, `invented_observations`,
+`anneal_batch` and `quiet_batch` all take that shape as a trailing optional and
+answer the default shape's when it is absent, which is the size an encoder-less
+build is given; `shape_decisions` encodes each hand with its own shape's encoders
+for the same reason.
 
 Everything asserted here is stated in `docs/L3/agents/` and `docs/L2/agents/`;
 the two consumed edges are read through `docs/L2/features/surface.md` §5, §8, §9
@@ -94,11 +110,21 @@ TIE_SEEDS = tuple(range(6413, 6428))
 ALL_MASK = (0, 1, 2)
 NONEMPTY_MASKS = ((0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2))
 
-#: The two declared game shapes' names, default first (`shapes.md` §1, D-29): the names
-#: are the catalogue's restatement in `declarations.SHAPE_NAMES`, and the default is
-#: first, so the fixed game is the shape a spec naming none is built on.
+#: The three declared game shapes' names, default first (`shapes.md` §2, `seats.md` §2,
+#: D-29, D-33): the names are the catalogue's restatement in `declarations.SHAPE_NAMES`,
+#: and the default is first, so the fixed game is the shape a spec naming none is built
+#: on.  The third row is the six-seat no-limit shape, which differs from the other two in
+#: its **seat count** as well as in its width: six seats, six `stacks` entries, a seat
+#: index in `0..5` and a head of the same six descriptors the two-seat uncapped row
+#: declares (`shapes.md` §2, §8, `seats.md` §2-§3, ASM-44).
 DEFAULT_SHAPE = "fixed-limit-20"
 OTHER_SHAPE = "no-limit-100"
+SIX_SEAT_SHAPE = "six-seat-no-limit-100"
+
+#: Invented seat counts a readout may be given: a `stacks` whose length is no declared
+#: shape's (three) and a seat index past the six a declared shape has (`seats.md` §3).
+UNDECLARED_SEATS = 3
+SEAT_PAST_SIX = 6
 
 #: The second shape's whole index space and a spread of masks over it (`shapes.md` §3,
 #: `sizing.md` §3, ASM-37): one-, two-, three- and six-member masks, some carrying the
@@ -189,6 +215,25 @@ def token_encoder():
     return features().build_encoder("card-tokens")
 
 
+def shape_encoder(representation="flat-numeric", shape=None):
+    """One declared shape's encoder: the width a learner on that shape is sized from.
+
+    `features.build_encoder(name, shape=...)` is the granted call `docs/L2/features/
+    shapes.md` §1-§4 declares, and the `observation_spec` it answers is the one
+    statement of a shape's own width: 329 dense, and a vocabulary of 96 over an 82-long
+    token sequence, on `no-limit-100` against the default shape's 203 and 40
+    (`docs/L1/shapes.md` §8, ASM-44, `docs/L2/features/capacity.md` §2).  So a case that
+    builds a learner on a non-default shape hands *that* shape's encoder, because the
+    kind's declared `observation_size` is the default shape's and an encoder-less build
+    on another shape is refused (`surface.md` §4, `docs/L2/agents/shapes.md` §2).
+
+    `shape=None` is the **default** shape's, so this helper answers the same encoder
+    `flat_encoder` and `token_encoder` do for that absence — the size an encoder-less
+    build is sized from.
+    """
+    return features().build_encoder(representation, shape=shape)
+
+
 _DECISIONS = None
 
 
@@ -232,14 +277,18 @@ def shape_decisions(shape, count=14):
     is that shape's and the mask is its own `legal_indices` sequence — three indices on the
     default shape and six on the other, in that shape's declared order (`shapes.md` §3,
     `sizing.md` §3, `features/surface.md` §6, §8; `engine/surface.md` §4).  Both encodings
-    are the ones the ladder declares, since the shape moves the amount normalisers and the
-    index order and never an encoding's slot count (`docs/L2/agents/shapes.md` §7).
+    are built **on that shape**, because a shape's history capacity is its own and so is
+    its observation's width: a `no-limit-100` decision's `"dense"` is 329 wide and its
+    `"tokens"` 82 long, against the default shape's 203 and 40 (`docs/L1/shapes.md` §8,
+    ASM-44, `docs/L2/features/capacity.md` §2).  A `shape` of the default — or `None` —
+    gives exactly the default shape's encodings, so `decisions` and
+    `shape_decisions(<default>)` are one record set.
     """
     if shape not in _SHAPE_DECISIONS:
         feats = features()
         eng = engine()
-        flat = feats.build_encoder("flat-numeric")
-        tokens = feats.build_encoder("card-tokens")
+        flat = shape_encoder("flat-numeric", shape)
+        tokens = shape_encoder("card-tokens", shape)
         rows = []
         for hand_seed in range(9300, 9300 + 24):
             hand = eng.new_hand(hand_seed, shape=shape)
@@ -357,51 +406,61 @@ def family_of(kind):
     return "dense-numeric" if kind == DENSE_KIND else "token-sequence"
 
 
-def observation_template(family):
+def observation_template(family, shape=None):
     """A zero observation of a family's declared shape and dtype, and that spec.
 
     The shape and dtype come from `features.observation_spec`, which is the
     declaration `architecture.md` §6 sizes every learner against
-    (`features/surface.md` §5).
+    (`features/surface.md` §5).  `shape` names one declared game shape and the
+    observation is **that shape's** declared size — 329 dense and an 82-long token
+    sequence on `no-limit-100`, against the default shape's 203 and 40, because the
+    history block's capacity is the shape's (`docs/L1/shapes.md` §8, ASM-44,
+    `docs/L2/features/capacity.md` §2).  Absent, it is the default shape's, which is the
+    size an encoder-less build is sized from (`docs/L2/agents/shapes.md` §2).
     """
     import numpy as np
 
-    encoder = flat_encoder() if family == "dense-numeric" else token_encoder()
+    encoder = shape_encoder(
+        "flat-numeric" if family == "dense-numeric" else "card-tokens", shape
+    )
     spec = features().observation_spec(encoder)
     return np.zeros(tuple(spec["shape"]), dtype=spec["dtype"]), spec
 
 
-def invented_observations(kind, count, seed):
+def invented_observations(kind, count, seed, shape=None):
     """`count` invented observations for a learner of `kind`, random but seeded.
 
     Dense observations are uniform on `[-1, 1]`; token ones are ids inside the
     declared vocabulary. Nothing here is a design number: the shape, the dtype
-    and the vocabulary are read from `features.observation_spec`.
+    and the vocabulary are read from `features.observation_spec`, at the declared
+    game shape `shape` names or at the default one when it is absent (`docs/L1/
+    shapes.md` §8, ASM-44).
     """
     import numpy as np
 
     family = family_of(kind)
-    _zero, spec = observation_template(family)
+    _zero, spec = observation_template(family, shape)
     rng = np.random.default_rng(seed)
-    shape = (count,) + tuple(spec["shape"])
+    shape_ = (count,) + tuple(spec["shape"])
     if family == "dense-numeric":
-        return rng.uniform(-1.0, 1.0, size=shape).astype(spec["dtype"])
+        return rng.uniform(-1.0, 1.0, size=shape_).astype(spec["dtype"])
     return rng.integers(
-        0, int(spec["vocabulary"]), size=shape, dtype=spec["dtype"]
+        0, int(spec["vocabulary"]), size=shape_, dtype=spec["dtype"]
     )
 
 
-def anneal_batch(kind, seed=ANNEAL_SEED, reward_scale=5.0):
+def anneal_batch(kind, seed=ANNEAL_SEED, reward_scale=5.0, shape=None):
     """A batch of the schedule's own length: one anneal's worth of transitions.
 
     The length is `learners()['hyper']['exploration']['samples']`, read and never
     hardcoded, so one `learn` call moves the schedule position to the annealed
     end of `rule.md` §4. The records are invented, valid and seeded; the rewards
     sit on terminal records only, because ASM-12 delivers the reward at that
-    seat's terminal decision and zero at every other one (`rule.md` §2).
+    seat's terminal decision and zero at every other one (`rule.md` §2).  The
+    observations are of the declared shape `shape` names, or of the default one.
     """
     samples = int(schedule()["samples"])
-    values = invented_observations(kind, samples, seed)
+    values = invented_observations(kind, samples, seed, shape)
     records = []
     for step in range(samples):
         terminal = step % 7 == 0
@@ -423,7 +482,7 @@ def anneal_batch(kind, seed=ANNEAL_SEED, reward_scale=5.0):
     return records
 
 
-def quiet_batch(kind):
+def quiet_batch(kind, shape=None):
     """A batch of the schedule's length that leaves every parameter exactly as it was.
 
     A zero observation makes every masked value `0.0` (`architecture.md` §4's
@@ -431,9 +490,12 @@ def quiet_batch(kind):
     TD error `0.0`, so `rule.md` §3's semi-gradient step adds nothing — while §4's
     position still advances by the batch's length. That is the only way to hold a
     learner at the annealed rate without moving the values its tie-break reads.
+    The zero observation is of the declared shape's size, the shape `shape` names or
+    the default one, so a learner built on a widened shape is handed observations of
+    its own width (`docs/L1/shapes.md` §8, ASM-44).
     """
     samples = int(schedule()["samples"])
-    zero, _spec = observation_template(family_of(kind))
+    zero, _spec = observation_template(family_of(kind), shape)
     return [
         transition(zero, action=1, reward=0.0, terminal=False, next_observation=zero)
         for _ in range(samples)
@@ -705,7 +767,9 @@ class AgentsCase(unittest.TestCase):
         dominates; `quiet=True` uses `quiet_batch` instead, which reaches the same
         position without moving a value. `key` names the cache slot, so two cases
         that need different learners (or one case that needs two learners from one
-        spec) each pay for their own anneal once.
+        spec) each pay for their own anneal once.  The batch is built on the spec's
+        own declared shape, so a learner built on a widened shape is handed
+        observations of that shape's width (`docs/L1/shapes.md` §8, ASM-44).
         """
         package = self.agents()
         cache = type(self)._annealed
@@ -713,8 +777,13 @@ class AgentsCase(unittest.TestCase):
             spec_kwargs = dict(build_kwargs or {})
             learner = package.build_learner(learner_spec(**spec_kwargs))
             kind = spec_kwargs.get("kind", "deep")
+            shape = spec_kwargs.get("game")
             if records is None:
-                records = quiet_batch(kind) if quiet else anneal_batch(kind)
+                records = (
+                    quiet_batch(kind, shape)
+                    if quiet
+                    else anneal_batch(kind, shape=shape)
+                )
             package.learn(learner, records)
             cache[key] = learner
         return cache[key]
@@ -756,7 +825,8 @@ class AgentsCase(unittest.TestCase):
 
         `groups` is a tuple of alternatives-tuples: every group must have one
         member which the message contains. The exception *class* is tolerated
-        (`errors.md` §1, §3).
+        (`errors.md` §1, §3).  The message rides back, so a case can go on to assert
+        what else it names without repeating the call.
         """
         where = label or entry
         try:
@@ -781,6 +851,7 @@ class AgentsCase(unittest.TestCase):
                         "%s was refused without naming any of %r: %r"
                         % (where, tuple(group), message)
                     )
+            return message
         else:
             self.fail(
                 "%s accepted %r, which the contract refuses" % (where, value)
@@ -795,7 +866,8 @@ class AgentsCase(unittest.TestCase):
         mistyped record key, a `KeyError`, a `numpy` or an `engine` error that
         escapes a policy is an internal decision leaking as a crash, and a caller
         cannot catch it (`errors.md` §1-§3). The subclass is never asserted; the
-        root `refusal_class` reads is (`errors.md` §2).
+        root `refusal_class` reads is (`errors.md` §2).  The message rides back, as
+        `assert_refused`'s does.
         """
         where = label or entry
         root = refusal_class()
@@ -828,6 +900,7 @@ class AgentsCase(unittest.TestCase):
                         "%s was refused without naming any of %r: %r"
                         % (where, tuple(group), message)
                     )
+            return message
         else:
             self.fail(
                 "%s accepted %r, which the contract refuses" % (where, value)

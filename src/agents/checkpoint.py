@@ -25,6 +25,14 @@ byte-for-byte today's; a learner of any other declared shape writes version **4*
 container is read as the default shape and must not carry a `game`; a version-4 one
 requires it, refuses the default shape's own name, and refuses a name outside the module's
 catalogue (`shapes.md` §5, `sizing.md` §6, ASM-40).
+
+**The container carries the shape's own width.**  `representation.size` is the width the
+learner was built at: 203 on the default shape and **329** on `no-limit-100`, whose encoder
+declares it (`shapes.md` §8, ASM-44).  A reader checks the geometry against that record --
+`params.count` and `params.length` must be the layout it implies -- rather than against the
+kind's declared 203, so a widened container restores to the head it was written at; a
+version-1, 2 or 3 container records the default shape's size and is read as it
+(`restore.md` §2, `docs/L2/features/capacity.md` §2).
 """
 
 from __future__ import annotations
@@ -588,10 +596,19 @@ def _declared(text, metadata):
         raise _wrong(text, "settings.sparsity", "in [0, 1]", sparsity)
     row = declarations.KIND_ROWS[kind]
     representation = metadata["representation"]
+    # The **family** and the **encoding** are the kind's own row's on every version.  The
+    # **size** is too wherever the file is read as the default shape -- a version-1, 2 or
+    # 3 container is one, and its 203 (or a token kind's 96) is that shape's size -- while
+    # a version-4 container carries the shape's **own** width, 329 on `no-limit-100`, so
+    # its geometry is checked against what the file records and never against the kind's
+    # 203: `_rebuild` holds `params.count` and `params.length` to the layout that record
+    # gives it, and refuses a container whose size and whose count disagree naming both
+    # (`shapes.md` §8, ASM-44, `sizing.md` §6, `restore.md` §2).  A version-1-to-3
+    # container carries no `game` yet at this point and is read as the default, which is
+    # why `sized_by_kind` is asked with the absence rather than with a name.
     for key, declared in (
         ("family", row["observation"]),
         ("encoding", row["encoding"]),
-        ("size", row["observation_size"]),
     ):
         if representation[key] != declared:
             raise _wrong(
@@ -600,6 +617,18 @@ def _declared(text, metadata):
                 "%r, the kind %r's own row" % (declared, kind),
                 representation[key],
             )
+    if declarations.sized_by_kind(metadata.get("game")):
+        if representation["size"] != row["observation_size"]:
+            raise _wrong(
+                text,
+                "representation.size",
+                "%r, the kind %r's own row" % (row["observation_size"], kind),
+                representation["size"],
+            )
+    elif int(representation["size"]) < 1:
+        raise _wrong(
+            text, "representation.size", "a positive integer", representation["size"]
+        )
     position = metadata["exploration"]["position"]
     if int(position) < 0:
         raise _wrong(text, "exploration.position", "a non-negative integer", position)
@@ -802,6 +831,10 @@ def _rebuild(text, metadata, array):
     kind = metadata["kind"]
     settings = metadata["settings"]
     recorded = metadata["representation"]
+    # The container's **own** input width, which is the shape's: 329 on `no-limit-100`
+    # and, on a version-1-to-3 container, the default shape's 203 (`shapes.md` §8,
+    # ASM-44).  `model.layout_for` is handed it, so every count below is checked against
+    # the geometry the file records rather than against the kind's declared size.
     size = recorded["size"]
     # The shape the file is read as, and `A` — that shape's descriptor count, **read**
     # off `features.action_space` and never a constant.  The layout is rebuilt on that

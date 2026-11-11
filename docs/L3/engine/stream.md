@@ -1,7 +1,7 @@
 # engine — the global `random` stream
 
 - **Owner:** the seeding rule of the whole project as this module holds it — one seeding point, the two save/seed/restore sites, and what the measured cost implies for ASM-15
-- **Ceiling:** 70 lines. At the ceiling, split by owner — never append
+- **Ceiling:** 74 lines — raised from 70 for the third shape: §3 now states what the opponent range is on a two-seat shape and what it is on one with more seats. At the ceiling, split by owner — never append
 
 ## 1. The rule
 
@@ -60,11 +60,14 @@ stream advanced, and a caller must be able to retry after a refusal.
 
 ## 3. Cost (ASM-15)
 
-Per decision the engine pays one `deepcopy` and one predicate-and-method pair; per hand it pays 8 to 12
-of those (measured under always-check-or-call and always-raise-if-legal, `platform.md` §1). The one
+Per decision the engine pays one `deepcopy` and one predicate-and-method pair; how many decisions a hand holds
+is the row's and the policy's — 8 to 12 in the default shape, 2 to 8 on the two-seat no-cap row, 24 at six
+seats under always-check-or-call (`platform.md` §1, `guardrails.md` G5, `seats.md` §2). The one
 call whose cost is not negligible is `equity`: it is asked once per decision by the oracle, it is
-linear in `samples`, and its opponent range is 1225 combinations pre-flop, 1081 on the flop, 1035 on
-the turn and 990 on the river. ASM-15 states the per-hand cost as a measurement in ASM-21’s band,
+linear in `samples`, and on a two-seat shape its opponent range is the explicit enumeration — 1225
+combinations pre-flop, 1081 on the flop, 1035 on the turn and 990 on the river — while a shape with more
+seats gives each opponent one empty selection instead and leaves `samples` as the whole knob
+(`equity.md` §2.1, `seats.md` §2). ASM-15 states the per-hand cost as a measurement in ASM-21’s band,
 never a bound, and gives `harness.timings` the measuring job; what this design must not do is hide the
 question — so it fixes no sample count, caches no estimate, and rounds no number. The sample count is
 `agents`’ parameter (`cost.md` G6).

@@ -230,8 +230,15 @@ def baselines():
     return mod("agents").baselines()
 
 
-def build_baseline(name, seed):
-    return mod("agents").build_baseline(name, seed)
+def build_baseline(name, seed, shape=None):
+    """One baseline as a policy, on one declared shape or on the default by absence.
+
+    The third argument is D-33's optional shape (`docs/L2/agents/baselines.md` §2,
+    `e2e-surface.md` §3.3, `docs/L1/seats.md` §6): absent, it is the default shape and the
+    two-argument call this battery has always made, so no case below that passes two
+    arguments moves (`shapes.md` §2, D-33).
+    """
+    return mod("agents").build_baseline(name, seed, shape=shape)
 
 
 def build_encoder(name):
@@ -432,22 +439,30 @@ def shaped_learner(kind="naive-stack", width=WIDTH_SHAPE, depth=DEPTH_SHAPE,
     )
 
 
-def declared_param_count(kind, width, depth, sparsity, actions):
-    """`architecture.md` §5's sum arithmetic, from the kind's row and a shape's `A`.
+def declared_param_count(kind, width, depth, sparsity, actions, size=None):
+    """`architecture.md` §5's sum arithmetic, from the kind's row, a shape's `A` and its `I`.
 
-    The input block first (`I·W + W` for the dense family, `V·W` for a token one, `I`
-    and `V` being the kind's declared `observation_size`), then `D·(W² + W)` —
-    `D·(k + W)` for `sparse`, `k = round((1 − s)·W²)` — then the head's `A·W + A`
-    (`docs/L2/agents/shapes.md` §2, `docs/L3/agents/shapes.md` §2, `sizing.md` §6,
-    ASM-40).  Nothing here is a copied count: the caller states the width, the depth,
+    The input block first (`I·W + W` for the dense family, `V·W` for a token one), then
+    `D·(W² + W)` — `D·(k + W)` for `sparse`, `k = round((1 − s)·W²)` — then the head's
+    `A·W + A` (`docs/L2/agents/shapes.md` §2, `docs/L3/agents/shapes.md` §2, `sizing.md`
+    §6, ASM-40).  Nothing here is a copied count: the caller states the width, the depth,
     the sparsity and the shape's `A`, so the head's width is a parameter and never a
     literal of this battery's.
+
+    `size` is `I` — or `V`, the token vocabulary — and `None` means the kind's declared
+    `observation_size`, which is the **default** shape's and the only size an encoder-less
+    build is ever given (`docs/L1/shapes.md` §8, ASM-44).  A caller on any other shape
+    passes that shape's encoder's width or vocabulary out of
+    `features.observation_spec`, because the input term is the shape's too: 329 dense over
+    66 history slots on `no-limit-100` against the default's 203 over 24
+    (`docs/L2/features/capacity.md` §2, ASM-44).
     """
     row = learners()["architectures"][kind]
-    size = int(row["observation_size"])
+    if size is None:
+        size = int(row["observation_size"])
     dense = row["observation"] == "dense-numeric"
     layer_width = int(width)
-    input_term = size * layer_width + (layer_width if dense else 0)
+    input_term = int(size) * layer_width + (layer_width if dense else 0)
     if kind == "sparse":
         kept = round((1.0 - float(sparsity)) * layer_width * layer_width)
         trunk_term = int(depth) * (kept + layer_width)
@@ -465,6 +480,23 @@ def head_width(shape=None):
     `sizing.md` §6, ASM-40).
     """
     return len(shaped_action_space(shape))
+
+
+def shaped_input_size(kind, shape=None):
+    """`I` — or `V` — the input width a learner of `kind` on `shape` is built at.
+
+    Read off **that shape's** encoder, which is the one statement of it: a dense
+    encoding's width is `observation_spec(...)["shape"][0]` and a token encoding's size
+    is its `["vocabulary"]`, never its sequence length — 329 dense and a vocabulary of
+    96 over an 82-long sequence on `no-limit-100`, against the default shape's 203 and 40
+    (`docs/L1/shapes.md` §8, ASM-44, `docs/L2/agents/shapes.md` §2, `docs/L2/features/
+    capacity.md` §2).  `shape=None` is the default shape's, which is the size the kind's
+    declared `observation_size` names and the only one an encoder-less build is given.
+    """
+    spec = observation_spec(shaped_encoder(encoding_for(kind), shape))
+    if spec["kind"] == "dense-numeric":
+        return int(tuple(spec["shape"])[0])
+    return int(spec["vocabulary"])
 
 
 def exploration_samples():

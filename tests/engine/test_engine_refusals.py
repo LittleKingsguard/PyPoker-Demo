@@ -210,5 +210,82 @@ class ENG11Refusals(S.EngineCase):
         self.assertEqual(self.readout(hand), before, "the refusals changed nothing")
 
 
+    def test_eng11_9_play_hand_refuses_a_seating_that_is_not_the_shapes(self):
+        """ENG-11.9 play_hand refuses a `seats` sequence whose length is not the shape's
+        seat count, a seating handed beside a positional policy, the two positional
+        policies on a shape with more than two seats, and a policy that is not callable --
+        positionally or inside the seating -- naming the violated contract, as an error of
+        this module's own refusal tree, before the deal, so no refusal moves the global
+        stream (surface.md §1, §10, episode.md §1, seats.md §4, errors.md §2,
+        e2e-surface.md §3.1)."""
+        six = self.seating(S.SIX_SEAT_SHAPE)
+        two = self.seating(S.DEFAULT_SHAPE)
+        self.assertEqual(
+            [len(six), len(two)], [6, 2],
+            "the premise: the two seatings are the two shapes' own seat counts "
+            "(seats.md §2): %r and %r" % (len(six), len(two)),
+        )
+        refusals = (
+            ("a seating of two policies on the six-seat shape",
+             lambda: S.ep("play_hand")(S.SIX_SEED_A, seats=two, shape=S.SIX_SEAT_SHAPE),
+             ("seat",)),
+            ("a seating of six policies on a two-seat shape",
+             lambda: S.ep("play_hand")(S.SIX_SEED_A, seats=six),
+             ("seat",)),
+            ("a seating beside the first positional policy",
+             lambda: S.ep("play_hand")(S.SIX_SEED_A, S.always_call, None,
+                                       S.SIX_SEAT_SHAPE, six),
+             ("seat", "policy")),
+            ("a seating beside the second positional policy",
+             lambda: S.ep("play_hand")(S.SIX_SEED_A, None, S.always_call,
+                                       S.SIX_SEAT_SHAPE, six),
+             ("seat", "policy")),
+            ("the two positional policies on the six-seat shape",
+             lambda: S.ep("play_hand")(S.SIX_SEED_A, S.always_call, S.always_call,
+                                       S.SIX_SEAT_SHAPE),
+             ("seat", "policy")),
+            ("a non-callable first positional policy",
+             lambda: S.ep("play_hand")(S.SIX_SEED_A, "always-call", S.always_call),
+             ("policy",)),
+            ("a non-callable second positional policy",
+             lambda: S.ep("play_hand")(S.SIX_SEED_C, S.always_call, 7),
+             ("policy",)),
+            ("a non-callable policy inside a six-seat seating",
+             lambda: S.ep("play_hand")(S.SIX_SEED_C, seats=six[:5] + (None,),
+                                       shape=S.SIX_SEAT_SHAPE),
+             ("policy",)),
+            ("a non-callable policy inside a two-seat seating",
+             lambda: S.ep("play_hand")(S.SIX_SEED_C, seats=(S.always_call, "check-call")),
+             ("policy",)),
+        )
+        stream = random.getstate()
+        for label, call, words in refusals:
+            with self.subTest(refusal=label):
+                exc = self.refusal(call)
+                self.assert_mentions(exc, *words)
+                self.assertEqual(
+                    type(exc).__module__.split(".")[0], "engine",
+                    "the refusal is this module's own -- an error of the engine package's "
+                    "refusal tree, never Python's TypeError from the call itself and never "
+                    "a battery failure (errors.md §2, seats.md §4): %s(%s)"
+                    % (type(exc).__name__, exc),
+                )
+                self.assertEqual(
+                    random.getstate(), stream,
+                    "the seating is checked before the deal, so a refused call cannot move "
+                    "the global random stream (episode.md §1, seats.md §4): %r moved it"
+                    % (label,),
+                )
+        self.assertEqual(
+            random.getstate(), stream,
+            "every one of the four refusals happened before a deal (episode.md §1)",
+        )
+        self.assertTrue(
+            self.episode(S.SIX_SEED_D, S.always_call, S.always_call)["decisions"],
+            "and the two-policy path is still accepted after the refusals: a refusal is an "
+            "outcome and not a state the engine keeps (surface.md §1, seats.md §4)",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -35,7 +35,7 @@ Calls go one way along the arrow; the direction is fixed so that no pair of modu
 | `training` | `engine` | `game_config`, `new_hand`, `play_hand`, `payoffs` | the loop needs hands (D-2) |
 | `evaluation` | `agents` | `baselines`, `build_baseline`, `as_policy`, `load`, `param_count`, `learners` | a table needs the catalogue's baselines as members — including which of them anchor the fit — each arm's parameter count, and the catalogues a member's rule and utility are checked against (D-6, D-16, D-19, D-20, ASM-32) |
 | `evaluation` | `features` | `build_encoder`, `encode` | a checkpoint becomes a policy only over an observation, so the league builds an encoder to load a member (D-16, D-3) |
-| `evaluation` | `engine` | `new_hand`, `readout`, `legal_actions`, `play_hand`, `payoffs` | a cell is a run of hands (D-2, D-16) |
+| `evaluation` | `engine` | `new_hand`, `readout`, `legal_actions`, `play_hand`, `payoffs`, `game_config` | a cell is a run of hands (D-2, D-16), and `game_config` is how the scheduler and the matrix read a shape's seat count before they refuse a table that is not two seats' (`seats.md` §5, D-33) |
 | `agents` | `features` | `encode`, `observation_spec`, `action_space`, `legal_indices`, `decode_action` | a learner consumes an observation and is sized by the encoding, and `as_policy` must encode the readouts its policy receives (D-3) |
 | `agents` | `engine` | `readout`, `equity`, `game_config` | the oracle baseline reads pot and equity (ASM-4), and `fold-large-bet` reads the declared starting stack rather than holding a copy of it (`folders.md` §2, ASM-31, D-21) |
 | `features` | `engine` | the readout facts of `e2e-surface.md` §2 | an encoder encodes a readout (D-3) |
@@ -60,7 +60,7 @@ One job per module, and each "never" is what keeps the module independently test
 
 ## 4. Endpoints and the harness ceiling
 
-`modules.json` declares, per module, its owned paths and its entry-point count `N`. The harness ceiling is `50 + 10×N` lines for that module's harness files, computed by `strata-lint` and never asserted by a harness author (brief §5): a harness over its ceiling means the surface is too large, not that the harness may grow. The declared counts are `engine` 10, `features` 7, `agents` 10, `evaluation` 11, `training` 6, `harness` 6 — 50 endpoints across the map, the second game shape having added `engine.game_shapes` to the 49 (D-29, `shapes.md` §4). `modules.json` still carries 9 for `engine` and must be re-declared with this revision; that file is not this layer's to edit.
+`modules.json` declares, per module, its owned paths and its entry-point count `N`. The harness ceiling is `50 + 10×N` lines for that module's harness files, computed by `strata-lint` and never asserted by a harness author (brief §5): a harness over its ceiling means the surface is too large, not that the harness may grow. The declared counts are `engine` 10, `features` 7, `agents` 10, `evaluation` 11, `training` 6, `harness` 6 — 50 endpoints across the map, the second game shape having added `engine.game_shapes` to the 49 (D-29, `shapes.md` §4) — and D-33's seat count adds no name, so `modules.json` is unchanged by it (`seats.md` §6, D-33).
 
 The authoritative list of entry points per module is `e2e-surface.md` §3, and its row count must equal the `endpoints` value here for every module. `strata-lint` prints one ceiling per module, so no ceiling in this map is implicit.
 
@@ -86,8 +86,11 @@ with ASM-19.
 
 ## 7. Deliberately absent from the map
 
-No game-expansion module, no attention or opponent-modelling module, no multi-player seat handling and
-no web UI: they are Phase 2 or later (D-4, D-9). No module is declared for work the brief does not
-name, and no module carries a Phase 2 seam in anticipation (D-4). The **second game shape is not an
-exception and not a module**: it is a row of `engine`'s catalogue and a vocabulary in `features`, so the map
-is still six modules and a shape costs one entry point rather than a subtree (`shapes.md` §1, §4, D-29).
+No game-expansion module, no attention or opponent-modelling module and no web UI: they are Phase 2 or later
+(D-4, D-9). No module is declared for work the brief does not name, and no module carries a Phase 2 seam in
+anticipation (D-4). The **second game shape is not an exception and not a module**: it is a row of `engine`'s
+catalogue and a vocabulary in `features`, so the map is still six modules and a shape costs one entry point
+rather than a subtree (`shapes.md` §1, §4, D-29). The **seat count is not one either**: D-33's six-seat shape is
+a third row of the same catalogue, a seating argument on `engine.play_hand`, a draw count on
+`evaluation.opponent` and a set of widths in `features`' block table, so no module's responsibility moves and no
+seventh subtree appears (`seats.md` §2, §6, D-33).

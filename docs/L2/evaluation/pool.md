@@ -1,30 +1,23 @@
 # evaluation — the pool at the surface
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-09
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-10
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** the four pool entry points of `e2e-surface.md` §3.4 — `build_pool`,
   `pool_members`, `offer` and `opponent`: each one's arguments, its returned record, its refusals and its
   determinism, and the **families** a heterogeneous window is grouped into (D-16, ASM-18, ASM-26, ASM-27)
-- **Rev 3:** D-19's rule reaches the pool — a member declares `rule`, a window is grouped into families and
-  evicts fair-share, the id digests each version's rule, and the read-back states the `rules` it holds
-  (§2–§5, `rules.md` §2–§3)
-- **Rev 4:** D-20's utility reaches all four — a member declares `utility` beside `rule`, a family declares one
-  rule and one utility, the id digests both, and the read-back states the `utilities` it holds
-  (§1–§5, `utilities.md` §5–§8)
-- **Rev 5:** L1's "required means required" reaches this edge — a version declaration that names no `utility` is
-  **refused by name** (`MemberInvalid`, the missing key), never read as the catalogue's first; the declared default
-  speaks only for a variant entry and a learner spec, and only a bare §7 record handed to `match` or `_side` is
-  still read as silence, the container being the witness there (§1, §3, `utilities.md` §5, `records.md` §7, D-20)
-- **Rev 6:** D-21 reaches the declaration — an **optional** `baselines` key names the catalogue baselines a configuration
-  admits beyond the pinned three, a name outside the catalogue is `UnknownBaseline`, a declared folder joins pinned
-  **after** the three and in the catalogue's order, and `offer` reads its own baselines back so a window rolls and no
-  baseline moves (§1, §3, `records.md` §8, ASM-32)
-- **Rev 7:** D-29's second shape reaches all four — `game` is the declaration's optional shape key and the record's required
-  one, a member or pinned baseline of another shape is refused naming both (`ShapeMismatch`), an unknown name by
-  `UnknownShape`, and the **id still digests the membership alone**, so two shapes of one membership share one id (§1–§4).
+- **Rev 3–4:** D-19's rule and D-20's utility reach the pool — a member declares `rule` and `utility`, a window is grouped into families
+  that evict fair-share, the id digests each version's rule and utility, and the read-back states the `rules` and `utilities` it holds
+  (§1–§5, `rules.md` §2–§3, `utilities.md` §5–§8)
+- **Rev 5–6:** a version declaration naming no `utility` is **refused by name**, never read as the catalogue's first — the declared
+  default speaks for a variant entry and a learner spec only, while a bare §7 record handed to `match`/`_side` is read as silence (§1,
+  §3); and D-21 adds the **optional** `baselines` key, a name outside the catalogue being `UnknownBaseline`, a declared folder joining
+  pinned after the three and in the catalogue's order, with `offer` reading its own baselines back (§1, §3, ASM-32)
+- **Rev 7–8:** D-29's second shape makes `game` the declaration's optional key and the record's required one — another shape's member
+  refused naming both, an unknown name `UnknownShape`, the id still digesting the membership alone; and D-33 adds `opponent`'s
+  **optional draw count** and builds every baseline the pool pins and draws for **the pool's own shape** (§1, §4, `seats.md` §2, §4, D-33)
 - **Read with:** `surface.md` §1–§2 (the shared rules and the member at this edge), `surface.md` §10 and
-  §12 (`matrix`, `policy_from`), `rules.md` §2–§3 (the rule and the fair-share window), `docs/L3/evaluation/utility.md`
-  (the utility rule at this edge) and `docs/L1/utilities.md` §5–§7
+  §12 (`matrix`, `policy_from`), `seats.md` §2 and §4 (the counted draw and the pool's own shape), `rules.md` §2–§3 (the rule and the
+  fair-share window), `docs/L3/evaluation/utility.md` (the utility rule at this edge) and `docs/L1/utilities.md` §5–§7
 
 These four sections were `surface.md` §5–§8 until D-19 added the rule to all four and D-20 its utility; they moved
 here, one owner per document, and `surface.md` §5–§8 keeps a redirect naming this file (`surface.md` §1, D-12).
@@ -132,19 +125,24 @@ here, one owner per document, and `surface.md` §5–§8 keeps a redirect naming
 
 ## 4. `opponent` — the training loop's draw (`general` row)
 
-- **Signature:** `opponent(pool, seed)`.
-- **Arguments:** a pool, and an integer seed.
-- **Returns:** one policy in the sense of `surface.md` §2, drawn from the pool's ordered membership by the
-  seed: a baseline is `agents.build_baseline(name, seed)`, and a version is `policy_from` of its checkpoint
-  beside its member record (`docs/L1/league.md` §3, D-16, `module-map.md` §2). A drawn version's policy
-  carries the rule, the utility and the **shape** its container records, and the record's own `rule`, `utility` and `game`
-  are held to them (`rules.md` §6, `utilities.md` §6, `shapes.md` §3, `surface.md` §12). A baseline is shape-silent and
-  plays the shape the hands it is dealt are on, so a pool on the second shape draws opponents for that shape and none
-  for the default (`shapes.md` §3, §6).
-- **Refusals:** a value that is not a pool; a seed that is not an integer (ASM-2); a pool whose drawn member carries no
-  `path`, naming the member, because a version that cannot be loaded cannot be an opponent (`records.md` §7, `protocol.md`
-  §5); a drawn member record whose declared `rule`, `utility` or `game` contradicts what its checkpoint records, naming the
-  member and both values (`utility.md` §4, `shapes.md` §3, D-19, D-20, D-29).
-- **Determinism:** one pool and one seed draw one opponent, and the draw is the seed reduced modulo the
-  membership's size, so a spread of seeds samples the whole pool and not one fixed policy (ASM-2, FAM-7);
-  the drawn policy answers one decision one way, because only the deal uses the global stream (ASM-2).
+- **Signature:** `opponent(pool, seed, count=None)` — the count is optional and its absence is today's call (`seats.md` §2).
+- **Arguments:** a pool, an integer seed, and — optionally — the **draw count**: a positive integer of distinct members, or none.
+- **Returns:** **without a count**, one policy in the sense of `surface.md` §2, drawn from the pool's ordered membership by the
+  seed: a baseline is `agents.build_baseline(name, seed, pool.game)`, and a version is `policy_from` of its checkpoint beside its
+  member record (`docs/L1/league.md` §3, D-16, `module-map.md` §2). A drawn version's policy carries the rule, the utility and the
+  **shape** its container records, and the record's own `rule`, `utility` and `game` are held to them (`rules.md` §6, `utilities.md`
+  §6, `shapes.md` §3, `surface.md` §12); a drawn baseline is built for the **pool's** shape, so a six-seat pool's `fold-large-bet`
+  reads 100 and its `oracle` is asked a six-way question (`seats.md` §4, `docs/L1/seats.md` §4, §6, ASM-31, D-33). **With a count**,
+  a tuple of that many policies: the members at the draw's positions, **distinct**, drawn without replacement and in the draw's
+  order, so a six-seat hand never seats one member twice, the first being the member the uncounted draw names
+  (`seats.md` §2, `docs/L1/seats.md` §4, ASM-43).
+- **Refusals:** a value that is not a pool; a seed that is not an integer (ASM-2); a count that is not a positive integer, naming it
+  (`InvalidDrawCount`); a count larger than the membership, naming **both counts** (`DrawExceedsMembership`), because a substitute
+  seat would be an opponent the membership does not carry (`records.md` §8, `seats.md` §2, ASM-43); a pool whose drawn member carries
+  no `path`, naming the member, because a version that cannot be loaded cannot be an opponent (`records.md` §7, `protocol.md` §5); a
+  drawn member record whose declared `rule`, `utility` or `game` contradicts what its checkpoint records, naming the member and both
+  values (`utility.md` §4, `shapes.md` §3, D-19, D-20, D-29).
+- **Determinism:** one pool and one seed draw one opponent, and the draw is the seed reduced modulo the membership's size, so a
+  spread of seeds samples the whole pool and not one fixed policy (ASM-2, FAM-7); a counted draw is a function of the seed and the
+  pool's own ordered membership, two calls at one seed agreeing on the same members in the same order (`seats.md` §2, ASM-43); the
+  drawn policy answers one decision one way, because only the deal uses the global stream (ASM-2).

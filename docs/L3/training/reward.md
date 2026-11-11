@@ -1,6 +1,6 @@
 # training — the terminal reward, and the one place a utility is applied
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-09 · **Rev 2** reads the two quantities the transform needs — `s_0` and `T` — from the **run's own shape** through `engine.game_config(shape)` and `_chips_in_play(..., shape)`, so the arithmetic normalises against that shape's chips in play and a readout of one shape read against the other is refused by name (`shapes.md` §2–§3, `episode.md` §3, D-29)
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-10 · **Rev 2** reads the two quantities the transform needs — `s_0` and `T` — from the **run's own shape** through `engine.game_config(shape)` and `_chips_in_play(..., shape)`, so the arithmetic normalises against that shape's chips in play and a readout of one shape read against the other is refused by name (`shapes.md` §2–§3, `episode.md` §3, D-29); **Rev 3** reads a catalogue of three shapes, so the totals are that shape's own at 40, 200 and 600 and the six-seat row normalises against the 600 chips in play its seat count makes (`seats.md` §2, §5, `shapes.md` §8, ASM-42, ASM-44, D-33)
 - **Owner:** the utility axis this module applies — where the transform sits and why (§1), the catalogue's **reward token** as the
   selector and never a member name copied here (§2), the two arithmetics and the four scores (§3), the chips-in-play guard and the
   class it raises (§4), what every other decision keeps and what this module never touches (§5), and what is left to L4 (§6);
@@ -64,11 +64,10 @@ with, where `s_before = s_0` is the stack a hand is dealt from, `s_after = s_0 +
 
 Both quantities the transform needs are read and never assumed (`utilities.md` §4, ASM-28):
 
-- `s_0` is `engine.game_config(shape)["starting_stack"]`, the stack **the run's own shape** deals every hand from — **20** on the default shape and **100** on the no-cap one (D-2, ASM-6, `shapes.md` §2, D-29);
-- `T` is `sum(readout["stacks"]) + readout["pot"]` at the decision, the pot being un-awarded and the chips conserved, so the two
-  seats' stacks and the pot together are all the chips the hand holds — **40 at every decision of the default shape** and **200 on the six-descriptor one** (§4, ASM-6, D-29).
+- `s_0` is `engine.game_config(shape)["starting_stack"]`, the stack **the run's own shape** deals every hand from — **20** on the default shape and **100** on either uncapped one (D-2, ASM-6, `shapes.md` §2, D-29);
+- `T` is `sum(readout["stacks"]) + readout["pot"]` at the decision, the pot being un-awarded and the chips conserved, so the seats' stacks and the pot together are all the chips the hand holds — **40 at every decision of the default shape**, **200 on `no-limit-100`** and **600 on `six-seat-no-limit-100`**, each its seats × its starting stack (§4, ASM-6, `seats.md` §2, ASM-42, D-29, D-33).
 
-At the fixed-limit shape the four scores are therefore exact, and they are the arithmetic D-20 chose this utility for; the same four are the second shape's own around its 200 chips in play (D-20, ASM-28, D-29):
+At the fixed-limit shape the four scores are therefore exact, and they are the arithmetic D-20 chose this utility for; the same four are each uncapped shape's own around its chips in play — 200 on `no-limit-100` and 600 on the six-seat row, where the pot divisor is the 600 in play and not the two-seat row's 200 (`sizing.md` §5, ASM-39, D-20, ASM-28, D-29, D-33):
 
 | `delta` | `U(s_0) = (40 − 20)²` | `U(s_after)` | `r` |
 |---|---|---|---|
@@ -88,7 +87,8 @@ asymmetry is arithmetic and no claim about play: it prefers the cheaper variance
 `T` is read from one decision's readout and checked against the stacks **the run's own shape** declares: it must equal
 `engine.game_config(shape)["seats"] × starting_stack`, or the hand is refused by name with **the hand's seed and both totals**, because a
 normaliser that is not the game's own would make one reward incommensurable with the next — and a 200-chip readout read against the
-default shape's 40 is exactly that case (ASM-6, ASM-28, `utilities.md` §4, `shapes.md` §2, D-29).
+default shape's 40, or a 600-chip one against either two-seat row's 200, is exactly that case (ASM-6, ASM-28, `utilities.md` §4,
+`shapes.md` §2, §8, ASM-42, D-29, D-33).
 
 Both refusals are `errors.ChipConservationBroken`, a `training` class and not a called module's (`errors.md` §2):
 

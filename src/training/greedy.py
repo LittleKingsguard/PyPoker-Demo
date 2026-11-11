@@ -25,23 +25,25 @@ function of the model and of the hands and not of a seed (`sizing.md` §4,
 `docs/L3/agents/rule.md` §4, §7, D-19).
 
 **The bound is refused and never truncated.**  A pass is at most 2,000 hands and at most
-24,000 decision records per variant per seed, and a pass that would exceed either is
-refused naming both counts, because a truncated log silently reports a different sample
-(`sizing.md` §4, `records.md` §15, ASM-38, `docs/L3/features/flat-numeric.md` §5's rule for
-the history block).  The hand bound is checked before the first hand of the run is dealt —
-the pass's hand count *is* the budget, so it is known up front and nothing is written for a
-run that cannot produce its own record — while the record bound can only be known as the
-pass accumulates and is therefore refused the moment a decision record would cross it.
+1,000 decision records **per slot of the shape's history capacity**, per variant per seed —
+24,000 at the default shape, 66,000 and 98,000 on the uncapped ones — and a pass that would
+exceed either is refused naming both counts and the shape's capacity, because a truncated
+log silently reports a different sample (`sizing.md` §4, `records.md` §15, `shapes.md` §8,
+ASM-38, ASM-42, `docs/L3/features/flat-numeric.md` §5's rule for the history block).  The
+hand bound is checked before the first hand of the run is dealt — the pass's hand count
+*is* the budget, so it is known up front and nothing is written for a run that cannot
+produce its own record — while the record bound can only be known as the pass accumulates
+and is therefore refused the moment a decision record would cross it.
 """
 
-import engine
-import evaluation
 import features
 
-from . import declarations, episode, errors, seeds as seeds_module
+from . import declarations, episode, errors
 
 #: The two bounds one pass must stay inside, read off the module's declaration so the
 #: refusal and the check cannot drift apart (`sizing.md` §4, `records.md` §15, ASM-38).
+#: `DECISIONS_BOUND` is the **default shape's** record bound; a pass on another shape reads
+#: its own through `declarations.greedy_decisions(shape)` (`shapes.md` §8).
 HANDS_BOUND = declarations.GREEDY_HANDS
 DECISIONS_BOUND = declarations.GREEDY_DECISIONS
 
@@ -69,19 +71,29 @@ def _check_hands(hands, where):
         )
 
 
-def _check_decisions(recorded, where):
+def _check_decisions(recorded, where, shape=None):
     """Refuse the moment one more decision record would cross the record bound.
 
-    The record bound is a property of the sample and not of the budget — a hand holds a
-    handful of decisions and the fixed game's own ceiling is 23 applied actions — so it is
-    checked as the pass accumulates and never guessed from the hand count
-    (`sizing.md` §4, `records.md` §15).
+    The record bound is a property of the sample and of the run's **own** shape: a hand
+    holds a handful of decisions, the shape's history capacity bounds how many the learner
+    can have made before the block overflowed, and `records.md` §15 makes the pass's bound
+    1,000 × that capacity — so it is read through `declarations.greedy_decisions(shape)` and
+    checked as the pass accumulates, never guessed from the hand count (`sizing.md` §4,
+    `records.md` §15, `shapes.md` §8, ASM-38, ASM-42).
     """
-    if recorded > DECISIONS_BOUND:
+    bound = declarations.greedy_decisions(shape)
+    if recorded > bound:
         raise errors.GreedyPassRefused(
-            "%s refused the greedy pass: it would record %d decisions, and one pass "
-            "records at most %d (sizing.md §4, records.md §15, ASM-38)"
-            % (where, int(recorded), DECISIONS_BOUND)
+            "%s refused the greedy pass: it would record %d decisions, and one pass on "
+            "the shape %r records at most %d — 1,000 × its history capacity of %d slots "
+            "(sizing.md §4, records.md §15, shapes.md §8, ASM-38, ASM-42)"
+            % (
+                where,
+                int(recorded),
+                declarations.require_game(shape, "greedy._check_decisions"),
+                bound,
+                declarations.shape_history(shape),
+            )
         )
 
 
@@ -125,12 +137,16 @@ def _pass(pool, shape, seed, budget, policy, where):
     """One variant's greedy pass at one seed: `records.md` §15's block, bounded.
 
     The learner's side is `policy` — `agents.as_policy` at `exploration="off"` — and the
-    other side is `evaluation.opponent(pool, _opponent_seed(seed, i))`, the same draw
-    training made at the same hand (`evaluation/surface.md` §8, ASM-16).  The hand is
-    `engine.play_hand(hand_seed, seat0, seat1, shape=shape)`, so both sides play **the
-    run's own shape** and a six-descriptor learner's decisions are six-descriptor ones
-    (`engine/surface.md` §10, `shapes.md` §2, D-29).  Seats alternate by swapping the two
-    policies, exactly as training alternates them (`episode.md` §1).
+    other side is the hand's opposition, drawn by `episode._hand` from
+    `evaluation.opponent(pool, _opponent_seed(seed, i))` exactly as training drew it at the
+    same (evaluation/surface.md §8, ASM-16, `seats.md` §4).  The hand is
+    `engine.play_hand(hand_seed, seat0, seat1, shape=shape)` on a two-seat shape and
+    `engine.play_hand(hand_seed, seats=(...), shape=shape)` on a shape with more seats, so
+    both sides play **the run's own shape** and a six-descriptor learner's decisions are
+    six-descriptor ones (`engine/surface.md` §10, `shapes.md` §2, D-29).  The learner's seat
+    is `episode._seat(i, shape)` — `i mod seats` — and the pass therefore rotates through
+    the shape's seats exactly as training does, which is why a six-seat run's block is the
+    same sample training played (`episode.md` §1, `seats.md` §4, ASM-43).
 
     **On `tie`, and the one thing this module cannot observe.**  `records.md` §15 makes
     `tie` "whether the tie-break, and not a strict maximum, chose the index".  The
@@ -151,21 +167,13 @@ def _pass(pool, shape, seed, budget, policy, where):
     net_chips = []
     decisions = []
     for index in range(hands):
-        hand_seed = seeds_module._deal_seed(int(seed), index)
-        opponent = evaluation.opponent(
-            pool, seeds_module._opponent_seed(int(seed), index)
-        )
-        seat = episode._seat(index)
-        if seat == 0:
-            played = engine.play_hand(hand_seed, policy, opponent, shape=shape)
-        else:
-            played = engine.play_hand(hand_seed, opponent, policy, shape=shape)
+        played, seat = episode._hand(pool, shape, int(seed), index, policy)
         net_chips.append(_net_chips(played.get("payoffs") or {}, seat))
         for decision in played["decisions"]:
             if episode._decision_seat(decision) != int(seat):
                 continue
             decisions.append(_decision_record(decision, shape))
-            _check_decisions(len(decisions), where)
+            _check_decisions(len(decisions), where, shape)
     return {
         "mode": MODE,
         "seed": int(seed),

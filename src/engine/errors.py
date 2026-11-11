@@ -36,5 +36,17 @@ class InvalidPolicy(EngineError):
     """A `play_hand` policy that is not callable (errors.md §2, episode.md §1)."""
 
 
+class InvalidSeating(EngineError):
+    """A `play_hand` seating of the wrong length, or beside the positional policies.
+
+    A shape seats its own number of policies, so a seating that is not one policy per
+    seat — a sequence of the wrong length, a sequence handed beside the two positional
+    policies, or two positional policies on a shape with more seats — is refused naming
+    the shape, its seat count and the count it was handed (errors.md §2, episode.md §1,
+    seats.md §4).  It sits beside `InvalidPolicy` because both are `play_hand`'s: one is
+    a seat with no policy, the other a policy with no seat.
+    """
+
+
 class UnknownShape(EngineError):
     """A shape name outside the catalogue (errors.md §2, config.md §1, D-29)."""
