@@ -989,3 +989,36 @@ the gate must settle before implementation. It is not implemented in the product
 Rejected: implementing it as a *fold-only* reward (measured to do nothing, for the circularity above);
 and rewarding folding with the savings it produced, which would put the fold's value on a different scale
 from every other action and make the comparison meaningless.
+
+---
+
+## D-40 — Reveal-only counterfactual, multi-seat mixed pools: measured, and it is the estimator
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Use counterfactual regret for all actions only on cases where the cards are
+revealed into public knowledge, use the previous reward scaling otherwise. I know it won't reward folding
+in two-player games, we're not training for two-player any more. Use mixed pools of folders, raisers, and
+callers in multi-seat tables"
+
+**Measured** in the probe at the configuration the user named — six seats, mixed folder/caller/raiser
+pool, the learner seated at random, counterfactual applied only at showdowns and the ordinary net-chip
+reward elsewhere:
+
+- **Folding appears**: the tabular learner folds **87 %** at six seats with a mixed pool. The product's
+  six-seat run folds **0 %** on the same kind of table, so the zero-fold rate is confirmed as an
+  **estimator** failure, not a game or pool property (D-38).
+- **The signal works exactly as specified** — 19,889 exact counterfactual updates across 7,978 showdowns,
+  no privileged sampling — and it changes little where the learner is already correct (+0.362 → +0.297
+  chips/hand, inside noise).
+- **Its product value is repair**: D-39 measured +6.4 chips/hand from the same correction against an
+  overestimating learner, which is the failure the product exhibits.
+
+**Decision:** the reveal-only form is the one to build, with the net-chip reward retained for every
+hand without a showdown; the multi-seat mixed pool is the configuration to train in. Recorded limitation:
+one revealed board gives **one sample** per decision, so the signal is high-variance and needs many
+showdowns; lowering variance by averaging over holdings would abandon the reveal and is refused.
+
+**Next:** implement in the product as a gated change (D-39's open items: definition, mixing rule,
+per-shape cost, record fields), then re-run the six-seat mixed-pool test whose 0 % fold rate motivated
+this line of enquiry.
