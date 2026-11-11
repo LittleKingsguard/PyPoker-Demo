@@ -1022,3 +1022,40 @@ showdowns; lowering variance by averaging over holdings would abandon the reveal
 **Next:** implement in the product as a gated change (D-39's open items: definition, mixing rule,
 per-shape cost, record fields), then re-run the six-seat mixed-pool test whose 0 % fold rate motivated
 this line of enquiry.
+
+---
+
+## D-41 — The reveal-counterfactual rule cannot be built as stated; Double-Q is spent first
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed" — proceeding with the reveal-only counterfactual.
+
+**Gate result:** `FAIL` (validity) and `ADJUDICATION` (critique), and the findings are structural rather
+than fixable-in-passing:
+
+- **The rule axis cannot carry it.** "A rule owns the **bootstrap** and nothing else"; `rules.md` §5
+  already declined a returns-based member because a transition carries one decision and no episode
+  boundary, and "giving the transition record an episode field is a surface change this decision does not
+  make". A per-hand, per-action target needs exactly that surface change first.
+- **The reveal is not an observable.** `learn` drops any transition key beyond the declared seven, the
+  episode record names no card outside a readout, and the readout never carries another seat's hole
+  cards — so "the cards were revealed" and "who won" exist in no declared record.
+- **The arithmetic is not one quantity.** `v_call` charges `to_call` on the loss branch and not on the
+  win branch and omits later-street commitments, which *overstates* the call arm — the direction of the
+  bias this change exists to remove.
+- **A rule swap would move the budget**, contradicting the axis's own promise, because writing two
+  actions' values at a decision the learner raised at needs extra steps per transition.
+- **It cannot answer the question.** Its own measured arm moved nothing (87 % both arms), the +6.4 that
+  motivates it belongs to the two-seat form the user excluded, and the reveal is conditional on reaching
+  showdown — so a learner that folds more receives fewer updates, the fold-only circularity in weaker form.
+- **D-40 reverses D-34 and D-35 without naming them**, which this log forbids.
+
+**Decision:** the reveal-counterfactual rule is **not built**. The next experiment is **Double-Q at 20,000
+hands** against the raiser pool — catalogued since D-19, implemented, capacity-matched, never trained
+against this question, and the direct test of D-38's overestimation finding. It needs no new axis, no new
+record and no new surface, and the cap fix (D-37) has made the budget possible.
+
+D-40 is **superseded as an implementation plan** and retained as a measurement: its five eliminations and
+its 87 %-both-arms result stand. D-34 and D-35 are named here as the rows this decision follows rather
+than reverses.
