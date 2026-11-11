@@ -1059,3 +1059,29 @@ record and no new surface, and the cap fix (D-37) has made the budget possible.
 D-40 is **superseded as an implementation plan** and retained as a measurement: its five eliminations and
 its 87 %-both-arms result stand. D-34 and D-35 are named here as the rows this decision follows rather
 than reverses.
+
+---
+
+## D-42 — Double-Q moves nothing; the RCA's attribution is not confirmed
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Proceed" — with D-41 selecting Double-Q as the experiment spent.
+
+**Result:** `double-q-learning` at 20,000 hands per seed, two seeds: **0 folds in 21,858 decisions**, fold
+legal in 14,046, and the same **98 % raise-minimum** as masked-Q produces in that configuration. The
+classical remedy for the overestimation D-38 named changes nothing.
+
+**Consequence:** D-38's conclusion is **not confirmed**. Overestimation is not excluded — function
+approximation can bias values in ways decoupled selection does not remove — but the remedy it named fails,
+so the attribution cannot stand as written. The RCA's elimination table now reads: reward, `hand_class`,
+pool composition, budget and the max-operator remedy all tested, none explaining the zero fold rate.
+
+**Decision:** the next experiment is the **matched-configuration** test — the six-seat mixed table, the
+product learner, 20,000 hands, now possible after D-37 — because that is the only cell where a tabular
+learner folds 87 % and the product folds 0 % on the same table. If the product still does not fold there,
+the finding is about its **representation**; if it does, the earlier six-seat zero was its 1,000-hand
+budget and the two-seat zeros were a configuration not to generalise from.
+
+Rejected: building the reveal-counterfactual rule (D-41: no carrier on either axis), and reading Double-Q's
+null as evidence that folding is not worth pursuing (it is a null about one remedy, not about the cause).
