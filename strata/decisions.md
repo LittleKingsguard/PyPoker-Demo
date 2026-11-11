@@ -958,3 +958,34 @@ change; no new shape or game is involved.
 2,000-hand bound" is false on both counts (the sample is `min(budget, 2,000)` and no run is refused);
 D-36's blocking clause is resolved. And the RCA record's earlier "any budget above 2,000 hands is
 refused" is corrected to what was true — it was refused until D-37.
+
+---
+
+## D-39 — Counterfactual regret is a measured repair to the estimator, and is gated for the product
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Change the reward function to use counterfactual regret if the reveal shows
+that calling would have lost more money than folding"
+
+**Measured first in the probe**, because it is a paradigm change (a privileged signal the opponent cannot
+see) and the project's rule is to prove the mechanism before touching six modules:
+
+- **The signal must be estimated for the arm not taken.** Firing it only at folds yields **zero**
+  updates — the learner never folds, so the signal never exists. Estimating the *call* arm at every
+  decision removes that circularity.
+- **It repairs the estimator**: against D-21's folder, chips/hand move **−2.89 → +3.49** and over-betting
+  collapses (pot-size 35 % → 2 %). That is precisely the overestimation D-38 identified as the cause of
+  the zero-fold rate.
+- **It is not a fold generator**: against a raiser the baseline already folded 100 %, and the
+  counterfactual traded most of that for calling at equal EV (+0.73 against +0.75). Expected product
+  effect: **calibration**, not more folding.
+
+**Decision:** the counterfactual signal is **gated for the product** (D-10) as a privileged-reward
+change: its definition, its mixing rule against the TD target, its per-shape cost (equity sampling per
+decision), its record fields, and whether it is a reward or an estimator correction are design questions
+the gate must settle before implementation. It is not implemented in the product by this row.
+
+Rejected: implementing it as a *fold-only* reward (measured to do nothing, for the circularity above);
+and rewarding folding with the savings it produced, which would put the fold's value on a different scale
+from every other action and make the comparison meaningless.
