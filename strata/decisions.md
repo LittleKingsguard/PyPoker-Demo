@@ -847,3 +847,30 @@ no-limit shape with a raiser in the pool**, where the earlier probe already show
 values, so a learner whose curve reaches 4e79 passes it (two of five seeds did); the retained record
 carries no seat, so the rotation cannot be verified; and `engine.equity` is process-dependent through a
 set-ordered sampling deck, contradicting `docs/L3/engine/stream.md` (D-6).
+
+---
+
+## D-35 — The zero fold rate is a learner failure, not the pool's answer
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Are you testing an entire hand, played to the reveal, or only the pocket?
+Folding is absolutely the correct decision for junk hands in a seven-seat game, but not before the flop"
+
+**Finding:** the census could not answer that — the retained decision record carries no street — so it was
+measured directly. At a six-seat table against five always-raisers the trained learner faced a bet on
+**200 of 200 preflop decisions and folded none**, choosing check-call 62 % and raise-minimum 38 %.
+
+**Correction:** D-34's "six seats make folding less correct" holds post-flop, where a six-way pot is a
+cheap price, and **not pre-flop facing a raise**, where junk is a clear fold. The learner's zero fold
+rate is therefore not the pool's answer; against raisers it declines a fold that is correct every time
+it is offered one.
+
+**Decision:** the cause is now the question, and it is separable in one cheap test — the **two-seat
+no-limit shape against a raiser**, where a tabular learner with the same terminal reward folded 100 %
+(`fold-when-correct.md`). If the product learner folds there, the cause is exposure or budget; if it does
+not, the cause is its value estimate or its representation, and that is a design finding about the
+learner rather than about the game.
+
+Rejected: reading the six-seat run as decisive on folding, which the missing street fact made impossible
+(D-34), and changing the game again before that test is run (D-6).
