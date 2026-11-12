@@ -1146,3 +1146,31 @@ result.
 **Also recorded for the next run**: the reveal resolves 27–28 % of training transitions, so three
 quarters of the learner's updates are unchanged, and a member that covers more hands would need the
 no-showdown case to be resolvable — the replay the cost analysis rejected.
+
+---
+
+## D-45 — The counterfactual cannot be measured across seeds yet; the deep run takes the budget
+
+**Status:** ACTIVE · **Date:** 2026-11-07
+
+**Source (user, verbatim):** "Try the run, and prepare to close out the first rung with whatever is the
+best performing deep run, we need to move on to the later rungs while there is still time for deep runs
+(Talk is on next Tuesday)"
+
+**Result of the run:** seeds 2–6 of the revealed counterfactual **died on the first transition** of the
+first new seed — `LearningDiverged … got -inf`. The guard refused it by name, so this is a loud failure
+and not a silent corruption; the same configuration completed at seeds 0 and 1, so the cause is a target
+the member produced on a particular hand, and the build's own mean-aggregation remedy is insufficient at
+every seed. What it needs is a **finiteness argument** — bound the target to the chips a hand can produce,
+or refuse the branch by name — not another aggregation rate.
+
+**Decision:** with the talk a week away, the counterfactual is **set aside**: kept, recorded, not part of
+the first rung's close-out and not runnable across seeds until the finiteness argument exists. The spend
+goes to **the deep run at the best-measured configuration** — two-seat no-limit, 100-chip stacks, the
+folders pool, masked-Q, net chips, 200,000 hands × seeds 0–2 — which measured **+2.361 ± 0.448 chips/hand**
+at the live budget and is the strongest behavioural result the project has. It is in flight.
+
+**Close-out plan for the first rung**, to be written when the run lands: R1's evidence is the deep run's
+curves, chip rate with intervals and greedy census, beside the published rungs and the measurements that
+justify its configuration (the sizing ladder, the steal result, the fold eliminations). Later rungs then
+inherit the same shape so their deep runs can start while time remains.
