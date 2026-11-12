@@ -1227,3 +1227,30 @@ its first exception rather than an absence.
 
 **No action taken on the runs**: none was restarted, retuned or filtered (the user's instruction to wait
 for confirmation on runs stands).
+
+---
+
+## D-48 — The utility axis folds, consistently; D-47's "one run of twelve" is corrected
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "What about the stack-shortfall runs?"
+
+**Correction:** D-47 omitted the utility axis and overstated the pattern as never-fold. From the ablation
+artefact, two-seat no-limit, folder pool, 1,000 training hands × 3 seeds: **`stack-shortfall` folds
+0.82 / 3.33 / 3.48 %** where **`net-chips` folds 0.10 / 0.10 / 0.28 %** on the same pool — a
+ten-to-thirty-fold difference **consistent across all three seeds**, at a twentieth of the
+counterfactual's budget. The net-chip arms are therefore *effectively* never-folding, not literally.
+
+**Consequence for the record:** folding appears in **two** places in the product, not one — the utility
+axis at every seed, and the counterfactual member at seed 1 only. The utility's rate is smaller in
+absolute terms (3.5 % against 40 %) but **reproducible across seeds**, which the counterfactual's is not.
+Neither establishes a chip advantage: both arms' intervals overlap.
+
+**Decision:** the **utilities axis is the cheapest deep run left** — one variable, no surface change, and
+already runnable — and it is the natural next spend after the encoding rung. No run is started without the
+user's confirmation (which stands from the previous instruction).
+
+**Also recorded, my defect:** the attractor sweep labelled its modes by raise and call shares alone, so its
+"mixed" bucket hid the fold share — the quantity this entire line of enquiry turns on. Future sweeps count
+folds as a first-class column.
