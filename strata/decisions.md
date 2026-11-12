@@ -1254,3 +1254,29 @@ user's confirmation (which stands from the previous instruction).
 **Also recorded, my defect:** the attractor sweep labelled its modes by raise and call shares alone, so its
 "mixed" bucket hid the fold share — the quantity this entire line of enquiry turns on. Future sweeps count
 folds as a first-class column.
+
+---
+
+## D-49 — Deep runs reduced, and the counterfactual is combined with the shortfall utility
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Reduce the deep run length, then try a run that combines reveal-counterfactual
+with the stack-shortfall loss/reward calculation"
+
+**Reduced length:** a deep run is now **15,000 hands × 3 seeds** for six-seat shapes and **50,000 × 3** for
+two-seat ones, chosen so either lands in **3–4 h** instead of the 11.5 h a 200,000-hand run costs. The
+reduction is a budget decision under the talk deadline, not a claim that 200,000 hands is unnecessary —
+R1's deep run showed the policy converged long before it, and the plateau it measured is what licenses a
+shorter default.
+
+**The combined run:** six-seat no-limit, the mixed pool `raiser-seed-six-seat-s0` plus three anchors and
+D-21's three folders, **`reveal-counterfactual` + `stack-shortfall`**, paired against
+**`counterfactual: none` + `stack-shortfall`** on the same pool, seeds and budget, so the only difference is
+the member. Both halves have measured, opposite characters — the utility folds **reliably but weakly**
+(0.82 / 3.33 / 3.48 % across seeds, D-48) and the counterfactual folds **strongly but at one seed of two**
+(40.01 %, D-44) — so the pairing asks whether the reliable half makes the strong half reproducible.
+
+**Attribution:** the two arms differ in exactly one key (D-3); chips and fold shares are reported per seed
+and never thresholded, since no criterion is pinned for this combination and none is being invented after
+the fact.
