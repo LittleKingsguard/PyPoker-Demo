@@ -1174,3 +1174,30 @@ at the live budget and is the strongest behavioural result the project has. It i
 curves, chip rate with intervals and greedy census, beside the published rungs and the measurements that
 justify its configuration (the sizing ladder, the steal result, the fold eliminations). Later rungs then
 inherit the same shape so their deep runs can start while time remains.
+
+---
+
+## D-46 — R1 closes on a converged steal; R3 takes the machine
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Check if deep run is going, there's no background job shown" — answered,
+then "Has it resolved yet?"
+
+**Result:** the deep run resolved. **200,000 hands × three seeds in 11.5 h**, pool
+`pool-11b03e0a5ff07c13`: **98.46 % raise-minimum, 1.54 % check-call, 0 folds, +1.188 ± 0.466 chips/hand**
+against a folding opponent, identical across seeds because the policies are behaviourally identical.
+
+**R1 is closed** on a converged steal: 200× the live budget reproduces the live-budget policy within a
+point (98.46 % against 96.8 %), so the rung's claim — a flat numeric encoding and a naive stack learn to
+steal from opponents that fold — holds at the deepest budget the project runs. The curve was not captured
+(the launcher's formatting bug and a missing record dump), which is recorded as owed rather than implied.
+
+**Decision:** with six days to the talk and ~11.5 h per three-seed deep run, the machine goes to **R3,
+`card-tokens`** — the encoding axis and the talk's "tokenising cards into embeddings" beat — at the same
+configuration (two-seat no-limit, 100-chip stacks, the folder pool, 200,000 hands × seeds 0–2), so the
+only variable against R1 is the encoding (D-3). Launched as a tracked job this time.
+
+**Queue after R3**, in this order, as time allows: **R6 `residual`** (the beat the user asked for
+explicitly at intake: residual streaming per `llm-arch-kb`), then **R4 `wide`** or **R5 `dense`/`sparse`**
+if a rung still fits. Every deep run inherits R1's shape so the table compares rung to rung.
