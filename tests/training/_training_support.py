@@ -296,6 +296,20 @@ INVENTED_UTILITY_POOL = "pool-invented-5523"
 #: name and never about a catalogue member this battery misread.
 IGNORED_UTILITY = "progress-5524"
 
+#: A counterfactual name the catalogue in force nowhere carries (`counterfactual.md` §6,
+#: D-43). The battery's own, for the reason `IGNORED_UTILITY` gives.
+IGNORED_COUNTERFACTUAL = "replay-counterfactual-5531"
+
+#: The invented configuration that declares D-43's **second** counterfactual member: one
+#: rung name, one arm name, one pool id and one seed, none of which a design document
+#: carries and none of which collides with a shipped seed (`battery.md` §4,
+#: `counterfactual.md` §6, D-43).  One seed and the battery's ten-hand budget, so a run of
+#: it costs ten hands and its record is the record `records.md` §12 declares.
+INVENTED_COUNTERFACTUAL_RUNG = "rung-invented-5532"
+INVENTED_COUNTERFACTUAL_VARIANT = "variant-invented-5532"
+INVENTED_COUNTERFACTUAL_POOL = "pool-invented-5532"
+COUNTERFACTUAL_SEED = 5532
+
 #: The second declared shape's invented instances: a configuration, its one variant and
 #: its pool, one seed and a twelve-hand budget (`shapes.md` §2, `sizing.md` §4, D-29).
 INVENTED_SHAPE_RUNG = "rung-invented-5525"
@@ -671,6 +685,66 @@ def utility_set(value):
     return {
         as_text(utility, "a utility name")
         for utility in as_sequence(value, "a utilities row")
+    }
+
+
+def counterfactual_catalogue():
+    """The counterfactual catalogue `agents.learners()` publishes, as name → member record.
+
+    `counterfactual.md` §6 makes `learners()["counterfactuals"]` the third catalogue: its
+    members in a declared order whose first is the default of §6, each stating its `name`,
+    the `reads` it takes its residual from and its `steps`. A case reads the vocabulary from
+    that call and never restates a member name, because the catalogue is what a
+    `counterfactual` declaration is judged against (`counterfactual.md` §6, D-43).
+    """
+    published = agents().learners()["counterfactuals"]
+    catalogue = {}
+    if hasattr(published, "keys"):
+        for name in published:
+            entry = published[name]
+            catalogue[str(name)] = dict(entry) if hasattr(entry, "items") else entry
+        return catalogue
+    for entry in published:
+        if hasattr(entry, "get"):
+            catalogue[str(entry.get("name", entry.get("id")))] = dict(entry)
+        else:
+            catalogue[str(entry)] = {}
+    return catalogue
+
+
+def counterfactual_names():
+    """The catalogue's counterfactual names, in the order `agents.learners()` publishes them."""
+    return tuple(counterfactual_catalogue())
+
+
+def two_counterfactual_names():
+    """The two catalogue members an invented two-member configuration declares, in order.
+
+    D-43 makes the member a parameter a variant names, so a configuration may train two
+    arms under two of them (`counterfactual.md` §6); this reader says which two, from the
+    catalogue itself, and refuses to invent a name the catalogue does not carry
+    (`counterfactual.md` §6, §9).
+    """
+    catalogue = counterfactual_names()
+    if len(catalogue) < 2:
+        raise SurfaceAbsent(
+            "agents.learners() publishes %d counterfactual member(s) and D-43 ratifies two, "
+            "so a configuration cannot be shown training two: %r" % (len(catalogue), catalogue)
+        )
+    return catalogue[0], catalogue[1]
+
+
+def counterfactual_set(value):
+    """A `counterfactuals` row read as the **set** of members it names.
+
+    The counterfactual side of :func:`rule_set` and :func:`utility_set`: `records.md` §12
+    makes the row the set of members the run declared and trained, so a case compares it as
+    a set and never as one side's value, and whether the row is a `list` or a `set` is a
+    shape the design leaves free (`counterfactual.md` §6, D-43).
+    """
+    return {
+        as_text(member, "a counterfactual name")
+        for member in as_sequence(value, "a counterfactuals row")
     }
 
 
@@ -1070,6 +1144,33 @@ def two_utility_configuration(name=INVENTED_UTILITY_RUNG, left=INVENTED_UTILITY_
     return configuration
 
 
+def counterfactual_configuration(name=INVENTED_COUNTERFACTUAL_RUNG,
+                                 variant=INVENTED_COUNTERFACTUAL_VARIANT,
+                                 pool_id=INVENTED_COUNTERFACTUAL_POOL,
+                                 member=None, seeds=None, samples=TINY_BUDGET):
+    """A one-entry configuration that declares a non-default counterfactual member (D-43).
+
+    `custom_configuration`'s entry with one key added — the catalogue's **second**
+    counterfactual member, read from `agents.learners()` and never restated — so the run is
+    the invented one on every other axis and the only difference is the training target the
+    learner takes (`counterfactual.md` §6, `records.md` §12, D-43).  A configuration whose
+    member is the catalogue's first is the control: it is `custom_configuration` itself,
+    which declares no such key at all.
+    """
+    chosen = member
+    if chosen is None:
+        chosen = two_counterfactual_names()[1]
+    configuration = custom_configuration(
+        name=name, variant=variant, pool_id=pool_id, seeds=seeds, samples=samples
+    )
+    configuration["variants"] = [
+        with_setting(variant_entries(configuration)[0], counterfactual=chosen)
+    ]
+    configuration["primary"] = variant
+    configuration["axis"] = "the counterfactual member, at one architecture"
+    return configuration
+
+
 def with_setting(entry, **settings):
     """A copy of a variant entry with top-level settings replaced."""
     copy = dict(entry)
@@ -1182,6 +1283,23 @@ def two_utility_run():
         return training().run(configuration)
 
     return run_once(("two-utility", INVENTED_UTILITY_RUNG), thunk)
+
+
+def counterfactual_run():
+    """`run` of the invented configuration declaring the catalogue's second member (D-43).
+
+    One seed and ten hands per arm, so `budget // 10` is one and the curve closes with ten
+    points.  Its record names the member in the variant's row and in the run's
+    `counterfactuals` set, and the container it writes is a version-5 one carrying the same
+    name — which is what a paired arm differs in (`counterfactual.md` §6, §9, `records.md`
+    §12, D-43).
+    """
+    configuration = counterfactual_configuration()
+
+    def thunk():
+        return training().run(configuration)
+
+    return run_once(("counterfactual", INVENTED_COUNTERFACTUAL_RUNG), thunk)
 
 
 def fallback_configuration():

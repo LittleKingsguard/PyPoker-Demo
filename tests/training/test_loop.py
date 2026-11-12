@@ -32,6 +32,7 @@ from _training_support import (
     CHECKPOINT_ROOT,
     CUSTOM_SEED,
     FALLBACK_SEED,
+    IGNORED_COUNTERFACTUAL,
     IGNORED_UTILITY,
     INVENTED_BUDGET_POOL,
     INVENTED_BUDGET_RUNG,
@@ -63,6 +64,10 @@ from _training_support import (
     as_text,
     baseline_names,
     checkpoint_block,
+    counterfactual_configuration,
+    counterfactual_names,
+    counterfactual_run,
+    counterfactual_set,
     custom_configuration,
     custom_run,
     curve_block,
@@ -82,6 +87,7 @@ from _training_support import (
     seed_set,
     sixty_hand_run,
     training,
+    two_counterfactual_names,
     two_rule_configuration,
     two_rule_run,
     two_seed_run,
@@ -1284,6 +1290,88 @@ class RunTest(TrainingCase):
             "and the catalogued second member reaches the record it trained, which is "
             "what an uncatalogued name never does (records.md §12, utilities.md §7, "
             "D-20): %r" % (second_utility,),
+        )
+
+    def test_trn_2_21_a_counterfactual_member_is_recorded_only_when_it_is_not_the_default(self):
+        """TRN-2.21 a variant declaring a non-default counterfactual member forwards it to the learner, records it in its `variants` row and in the run's `counterfactuals` set, while a run declaring nothing writes **neither** — no phantom `"none"` row and no empty set — and a name the catalogue does not carry is refused before a hand is dealt (records.md §12, loop.md §1 step 3, §3-§4, counterfactual.md §6, §9, declarations.md §2, D-43)."""
+        first_member, second_member = two_counterfactual_names()
+        self.assertEqual(
+            counterfactual_names()[0],
+            first_member,
+            "the catalogue's first member is the declared default of counterfactual.md §6, "
+            "so the run's conditionality is `not the first`: %r" % (counterfactual_names(),),
+        )
+        default = as_mapping(custom_run(), "the invented configuration's run record")
+        self.assertNotIn(
+            "counterfactuals",
+            default,
+            "a run whose every variant is on the catalogue's first member writes no "
+            "`counterfactuals` key at all, which is what keeps a default record field for "
+            "field at its capture (records.md §12, counterfactual.md §6, §9, D-43): %r"
+            % (sorted(default),),
+        )
+        for row in self.rows_of(default):
+            with self.subTest(variant=row.get("name")):
+                self.assertNotIn(
+                    "counterfactual",
+                    row,
+                    "and no `variants` row names the default either: a row naming "
+                    "`none` would be a key the capture does not carry "
+                    "(counterfactual.md §6, §9, D-43): %r" % (sorted(row),),
+                )
+        declared = as_mapping(
+            counterfactual_run(),
+            "a run record of the invented configuration declaring a member",
+        )
+        self.assertEqual(
+            counterfactual_set(declared["counterfactuals"]),
+            {second_member},
+            "a variant declaring a non-default member writes it into the run's "
+            "`counterfactuals` set — the set the run declared and trained "
+            "(records.md §12, counterfactual.md §6, D-43): %r"
+            % (declared.get("counterfactuals"),),
+        )
+        rows = self.rows_of(declared)
+        self.assertEqual(
+            [as_text(row.get("counterfactual"), "a row's member") for row in rows],
+            [second_member],
+            "and its own `variants` row names the member it was built under, so a run "
+            "says which targets produced which curve (records.md §12, loop.md §4, "
+            "D-43): %r" % ([row.get("counterfactual") for row in rows],),
+        )
+        for row in rows:
+            with self.subTest(row=row.get("name")):
+                self.assertEqual(
+                    set(row),
+                    set(VARIANT_ROW_KEYS) | {"counterfactual"},
+                    "the row is §4's eight keys plus the one conditional ninth and "
+                    "nothing else, so the conditional key is the only growth a declaring "
+                    "run's row carries (loop.md §4, counterfactual.md §6, D-43): %r"
+                    % (sorted(row),),
+                )
+        doctored = counterfactual_configuration(member=IGNORED_COUNTERFACTUAL)
+        refused = self.refuse(
+            lambda: training().run(doctored),
+            "IgnoredDeclaration",
+            groups=((IGNORED_COUNTERFACTUAL,), ("counterfactual",)),
+            label="run of a variant entry naming an uncatalogued counterfactual member",
+        )
+        for name in counterfactual_names():
+            self.assertIn(
+                name,
+                str(refused),
+                "the refusal names every member the catalogue carries, so a reader sees "
+                "the vocabulary it may name instead (counterfactual.md §6, "
+                "declarations.md §2, D-43): %r" % (str(refused),),
+            )
+        at_configuration = counterfactual_configuration()
+        at_configuration["variants"][0].pop("counterfactual")
+        at_configuration["counterfactual"] = IGNORED_COUNTERFACTUAL
+        self.refuse(
+            lambda: training().run(at_configuration),
+            "IgnoredDeclaration",
+            groups=((IGNORED_COUNTERFACTUAL,), ("counterfactual",), ("configuration",)),
+            label="run of a configuration declaring an uncatalogued member at its level",
         )
 
 

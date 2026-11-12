@@ -98,6 +98,12 @@ SECOND_BASELINE_SEED = 7314
 EXTRA_LEARNER_SEED = 8128
 CHECKPOINT_NAMES = ("v-8127-a.pt", "v-8127-b.pth", "v-8127-c.ckpt")
 
+#: The invented episode boundary every fixture transition carries (`records.md` §4, D-43).
+EPISODE_SEED = 5150
+
+#: The sentinel a caller passes to mean "leave the optional key out of the record entirely".
+_ABSENT = object()
+
 #: Invented instances for the annealed batteries. A learner at schedule position
 #: 0 explores at the schedule's `start` (1.0), so no case that only builds one
 #: reaches the greedy arm of `rule.md` §4; these drive the annealed end instead.
@@ -365,9 +371,18 @@ def transition(
     legal=ALL_MASK,
     next_legal=ALL_MASK,
     next_observation=None,
+    episode=EPISODE_SEED,
+    counterfactual=_ABSENT,
 ):
-    """One invented transition record with all seven required keys (`records.md` §4)."""
-    return {
+    """One invented transition record: eight required keys, and `counterfactual` when named.
+
+    `episode` is D-43's required episode boundary — one number per hand — and every
+    fixture transition carries the invented one; `counterfactual`, D-43's optional
+    resolution, is written **only** when the caller passes one, so a record is the old
+    seven keys plus `episode` when it is absent (`records.md` §4, `counterfactual.md` §2,
+    D-43).
+    """
+    record = {
         "observation": observation,
         "next_observation": observation if next_observation is None else next_observation,
         "action": action,
@@ -375,13 +390,29 @@ def transition(
         "terminal": terminal,
         "legal": legal,
         "next_legal": next_legal,
+        "episode": episode,
     }
+    if counterfactual is not _ABSENT:
+        record["counterfactual"] = counterfactual
+    return record
 
 
-def batch(observations, next_observation=None, reward=0.0, terminal=False):
+def batch(
+    observations,
+    next_observation=None,
+    reward=0.0,
+    terminal=False,
+    episode=EPISODE_SEED,
+):
     """A batch of one step per observation, in the order handed."""
     return [
-        transition(observation, next_observation=next_observation, reward=reward, terminal=terminal)
+        transition(
+            observation,
+            next_observation=next_observation,
+            reward=reward,
+            terminal=terminal,
+            episode=episode,
+        )
         for observation in observations
     ]
 

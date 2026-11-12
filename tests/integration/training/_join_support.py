@@ -154,6 +154,11 @@ UTILITY_RUNG = "rung-invented-utility-9"        # its rung label, invented
 UTILITY_LEFT = "chips-arm-invented-9"           # its two arms' names, invented
 UTILITY_RIGHT = "shortfall-arm-invented-9"
 UTILITY_POOL = "pool-invented-utility-9"        # the pool id it declares, invented
+COUNTERFACTUAL_RUNG = "rung-invented-counterfactual-11"   # D-43's run's invented labels
+COUNTERFACTUAL_VARIANT = "member-arm-invented-11"
+COUNTERFACTUAL_POOL = "pool-invented-counterfactual-11"
+COUNTERFACTUAL_SEED = 4411                      # its one seed, invented
+SHOWDOWN_SEED = 4412                           # D-43's showdown hand's deal seed, invented
 SIX_SEAT_RUNG = "rung-invented-shape-12"        # the third shape's invented labels
 SIX_SEAT_POOL = "pool-invented-shape-12"
 
@@ -198,6 +203,29 @@ def opponent_seed(seed, index):
 def transitions(episode, seat, encoder):
     """`episode._transitions` -- one episode's batch for one seat (`episode.md` §3)."""
     return list(mod("training.episode")._transitions(episode, seat, encoder))
+
+
+def transitions_under(episode, seat, encoder, utility):
+    """`episode._transitions(..., utility)` -- the same batch on one utility's reward.
+
+    The utility is the catalogue member the variant is trained on, and the transition step
+    is the one place it is applied (`episode.md` §3, `reward.md` §1-§3, D-20).  D-43's
+    resolution is transformed by the same function, so a case reads both utilities through
+    this door and holds the two arithmetics side by side (`counterfactual.md` §4, D-43).
+    """
+    return list(
+        mod("training.episode")._transitions(episode, seat, encoder, utility)
+    )
+
+
+def descriptor_count(shape=None):
+    """`A`, one declared shape's descriptor count, read off `features.action_space` (§6).
+
+    The battery may ask the catalogue directly, so the length of that shape's action space is
+    the number a resolution must carry -- three on the default shape, six on either uncapped
+    one -- and no literal is written down here (`sizing.md` §3, §6, `shapes.md` §2, D-13).
+    """
+    return len(mod("features").action_space(shape=shape))
 
 
 def protocol():
@@ -710,6 +738,30 @@ def policy_utility(policy):
     return getattr(policy, "utility", None)
 
 
+def container_counterfactual(path):
+    """The counterfactual member a checkpoint records, read off the loaded learner (§6).
+
+    `agents.load` restores the learner a container holds, and a learner carries the name of
+    the catalogue member its targets came from, so a case reads a version's training targets
+    off the artefact itself and never off the record that claims them
+    (`counterfactual.md` §6, `records.md` §7, D-43).  It is the learner and not the policy
+    that is asked, because the pairwise instrument's member policy is `evaluation`'s and this
+    pass is not the one that names the member there (`counterfactual.md` §6's scope bound,
+    D-33, D-43).
+    """
+    return getattr(load(None, path), "counterfactual", None)
+
+
+def counterfactual_names():
+    """The counterfactual catalogue `agents.learners()` publishes, in its declared order.
+
+    The third catalogue of `counterfactual.md` §6, read from the call and never restated:
+    its first member is the default a spec naming none is built under (`D-43`).
+    """
+    published = learners()["counterfactuals"]
+    return [str(name) for name in published]
+
+
 def baseline_members(pool_record):
     return [m for m in pool_record["members"] if is_baseline(m)]
 
@@ -1042,6 +1094,55 @@ def two_utility_run():
     return _SHARED["utility"]
 
 
+def counterfactual_configuration():
+    """A one-variant configuration declaring the catalogue's **second** counterfactual member.
+
+    The registry's own R1 entry, declared on the invented budget and seed with one key added
+    — the member `counterfactual.md` §6 puts second, read from `agents.learners()` and never
+    restated — so the run is the registry's own arm on every other axis and the only
+    difference is what its learner takes its training targets from (`counterfactual.md` §6,
+    `records.md` §12, `docs/L1/battery.md` §4, D-43).
+    """
+    template = clone(variant_entry(rung("R1"), "naive-numeric"))
+    template["samples"] = UTILITY_BUDGET
+    template["snapshot_every"] = max(1, UTILITY_BUDGET // SNAPSHOT_POINTS)
+    template["name"] = COUNTERFACTUAL_VARIANT
+    template["counterfactual"] = counterfactual_names()[1]
+    return {
+        "name": COUNTERFACTUAL_RUNG,
+        "axis": "the counterfactual member, at one architecture",
+        "carried_from": None,
+        "primary": COUNTERFACTUAL_VARIANT,
+        "variants": [template],
+        "pool": {
+            "id": COUNTERFACTUAL_POOL,
+            "lineage": None,
+            "m": 5,
+            "frozen": True,
+            "members": [],
+        },
+        "seeds": [COUNTERFACTUAL_SEED],
+        "samples": UTILITY_BUDGET,
+        "param_budget": int(template["param_budget"]),
+        "table": "live",
+        "device": "cpu",
+        "snapshot_every": max(1, UTILITY_BUDGET // SNAPSHOT_POINTS),
+    }
+
+
+def counterfactual_run():
+    """One run of it, built once per process: one arm, one member, one run record.
+
+    The record is the observable this join reads — a `variants` row naming the member and a
+    `counterfactuals` set holding it — and the container beside it is the artefact a table
+    would name, so the member reaches a pool only through a file that records it
+    (`counterfactual.md` §6, `records.md` §7, §12, D-43).
+    """
+    if "counterfactual" not in _SHARED:
+        _SHARED["counterfactual"] = run(counterfactual_configuration())
+    return _SHARED["counterfactual"]
+
+
 def episode():
     """One real episode: two declared baselines playing one seeded hand."""
     if "episode" not in _SHARED:
@@ -1051,6 +1152,23 @@ def episode():
             build_baseline("random", EPISODE_BASELINE_B),
         )
     return _SHARED["episode"]
+
+
+def showdown_episode():
+    """One real episode two always-call baselines play to a river showdown.
+
+    The hand D-43's resolution is observable on: nobody folds, so two seats show and the
+    reveal resolves every decision of it (`counterfactual.md` §4, `episode.md` §5).  It is
+    the battery's own invented seed and two fresh baseline objects, built once per process
+    because a baseline is stateful (`battery.md` §4, `docs/L3/training/episode.md` §1).
+    """
+    if "showdown" not in _SHARED:
+        _SHARED["showdown"] = play_hand(
+            SHOWDOWN_SEED,
+            build_baseline("always-call", EPISODE_BASELINE_A),
+            build_baseline("always-call", EPISODE_BASELINE_B),
+        )
+    return _SHARED["showdown"]
 
 
 def flat_encoder():

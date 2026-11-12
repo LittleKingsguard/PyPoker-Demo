@@ -217,6 +217,11 @@ class BlindInstances(J.JoinCase):
             "terminal": True,
             "legal": list(mask),
             "next_legal": list(mask),
+            # D-43's boundary is required of every transition (`records.md` §4,
+            # `counterfactual.md` §2), so this record carries one: the case's subject is
+            # the `action` outside the mask, and a record missing the boundary would be
+            # refused for that instead, naming a key this case does not ask about.
+            "episode": int(J.DEAL_DECISION_A),
         }
         self.assert_refusal(
             "learn",

@@ -22,6 +22,18 @@ catalogue's own description of what a member delivers — so no member name is c
 this module: `net-chip-delta` is the delta itself and `squared-stack-shortfall-delta` is
 `(U(s_before) − U(s_after)) / U(s_0)` with `U(s) = (T − s)²` (`utilities.md` §2, §4).
 
+**This is also where D-43's two transition facts are written** (`counterfactual.md` §2, §4,
+§6).  Every record carries `episode`, the episode's own `seed`, so two transitions of one hand
+carry one number and the batch's episodes are in the order the hands were played — the
+boundary `learn` requires of every catalogue member (`records.md` §4, §5).  A record carries
+`counterfactual` only when its hand **resolved**: a length-`A` tuple whose entry at each of
+that transition's legal indices is the branch's whole-hand chip delta put through **the same
+arithmetic the terminal reward is put through**, `None` at every index that was not legal, and
+**no key at all** in a hand `counterfactual.md` §4 refuses (no showdown, a split pot, a pot
+built in levels, or any legal index the engine left unvalued), which is the fallback D-40
+pinned.  So at the descriptor the hand applied the value is `Δ` — the number that seat's
+terminal `reward` carries — for every transition of a resolved hand.
+
 **This is also where one hand is seated** (`seats.md` §4, ASM-43).  `_hand` is the loop's
 and the greedy pass's one way of dealing hand *i*: it derives the two seeds, puts the
 learner in `_seat(i, shape)` — `i mod seats`, with the seat count read from
@@ -34,12 +46,14 @@ order in seat order and played through `play_hand`'s `seats` argument (`seats.md
 drift into two samples.
 """
 
+from collections.abc import Mapping
+
 import agents
 import engine
 import evaluation
 import features
 
-from . import errors, seeds as seeds_module
+from . import declarations, errors, seeds as seeds_module
 
 #: `U(s) = (T − s)²`: the squared shortfall of one seat's stack from all the chips in play.
 def _shortfall(total, stack):
@@ -102,25 +116,36 @@ def _chips_in_play(decision, seed, seat, shape=None):
     return total, starting_stack
 
 
-def _net_chips(decision, seed, seat, shape=None):
-    """`r = delta`: the decision's own reward, unshaped (`utilities.md` §2, ASM-12)."""
+def _net_chips(decision, seed, seat, shape=None, delta=None):
+    """`r = delta`: the decision's own reward, unshaped (`utilities.md` §2, ASM-12).
+
+    `delta` is the number the arithmetic is applied to, and its absence is the terminal
+    decision's own `reward` — which is what makes one function serve both the terminal
+    reward and the counterfactual branch values `counterfactual.md` §4 requires them to be
+    transformed by (`episode.md` §5, reward.md §3).
+    """
     del seed, seat, shape  # the net chip delta needs neither the hand nor the readout
-    return float(decision["reward"])
+    if delta is None:
+        return float(decision["reward"])
+    return float(delta)
 
 
-def _stack_shortfall(decision, seed, seat, shape=None):
+def _stack_shortfall(decision, seed, seat, shape=None, delta=None):
     """`r = (U(s_0) − U(s_0 + delta)) / U(s_0)`: the shortfall delta, normalised (§4, D-20).
 
     `s_before` is the stack the run's shape deals every hand from and `s_after` is that
-    stack plus the decision's own reward, the hand's net chip delta for the seat (D-2,
-    ASM-6, `shapes.md` §2).  The normaliser is the shortfall a hand begins with, which is
-    what keeps the objective on the scale the learner was tuned for: a ±2-chip hand scores
-    +0.190 / −0.210 and an all-in +1.000 / −3.000 in the default shape, and the same
-    arithmetic on the shape's own chips in play elsewhere (`utilities.md` §2, D-20).
+    stack plus the number the arithmetic is applied to — the decision's own reward, or the
+    `delta` a counterfactual branch resolved, which is the same transform by the same `T`
+    and the same `s_0` (`counterfactual.md` §4, §6).  The normaliser is the shortfall a hand
+    begins with, which is what keeps the objective on the scale the learner was tuned for:
+    a ±2-chip hand scores +0.190 / −0.210 and an all-in +1.000 / −3.000 in the default shape,
+    and the same arithmetic on the shape's own chips in play elsewhere (`utilities.md` §2,
+    D-20).
     """
     total, starting_stack = _chips_in_play(decision, seed, seat, shape)
     before = _shortfall(total, starting_stack)
-    after = _shortfall(total, starting_stack + float(decision["reward"]))
+    realised = float(decision["reward"]) if delta is None else float(delta)
+    after = _shortfall(total, starting_stack + realised)
     if before == 0.0:
         raise errors.ChipConservationBroken(
             "training.run refused the hand at seed %r: the shortfall a hand begins with "
@@ -257,6 +282,61 @@ def _index(legal, action):
     )
 
 
+def _boundary(episode):
+    """`records.md` §4's `episode`: the episode's own `seed`, as an `int` (`counterfactual.md` §2).
+
+    The boundary is the one fact that makes an episode-scoped target expressible for every
+    catalogue member, so it is required of a transition and never inferred from a batch's
+    position: two transitions of one hand carry one number and two hands of one run carry
+    two (`records.md` §4, §5).  An episode that carries no integer seed cannot supply it and
+    is refused by name rather than handed a placeholder.
+    """
+    value = episode.get("seed")
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise errors.ConfigurationInvalid(
+            "training.run refused the episode %r: records.md §4 makes a transition's "
+            "'episode' the episode's own seed, which records.md §5 makes an integer, and "
+            "this episode carries %r (counterfactual.md §2)"
+            % (value, value)
+        )
+    return int(value)
+
+
+def _branch_values(decision, indices, arithmetic, seed, seat, shape, count):
+    """One decision's `counterfactual` as a transition's length-`A` tuple, or `None`.
+
+    The values are the engine's, not this module's: `decision["counterfactual"]` maps every
+    **legal** descriptor of that decision to its whole-hand net chip delta, or is `None`
+    throughout a hand `counterfactual.md` §4 refuses to resolve (`engine/episode.md` §5,
+    `records.md` §5).  This function does the one thing the transition step adds — it puts
+    each delta through **the same function the terminal reward is put through**, by the same
+    call and with the same `T` and `s_0`, so at the descriptor the hand applied the value is
+    that seat's terminal `reward` under either utility (`counterfactual.md` §4, §6).
+
+    A tuple of length `A`, the shape's descriptor count, with a value at each of the
+    decision's own legal indices and `None` at every other, because a masked action is never
+    valued and never updated (`counterfactual.md` §5, `agents/rule.md` §2).  A hand that did
+    not resolve — no showdown, a split pot, a pot built in levels, or **any** legal index the
+    engine left unvalued — answers `None`, and the transition then carries no key at all
+    rather than a partial resolution (`counterfactual.md` §4, D-40).
+    """
+    values = decision.get("counterfactual")
+    if not isinstance(values, Mapping):
+        return None
+    resolved = [None] * int(count)
+    for position, descriptor in enumerate(decision["legal"]):
+        try:
+            delta = values[descriptor]
+        except (KeyError, IndexError, TypeError):
+            return None
+        if delta is None:
+            return None
+        resolved[int(indices[position])] = arithmetic(
+            decision, seed, seat, shape, delta
+        )
+    return tuple(resolved)
+
+
 def _transitions(episode, seat, encoder, utility=None, shape=None):
     """The learner's transitions for one hand, in decision order (records.md §4).
 
@@ -270,15 +350,26 @@ def _transitions(episode, seat, encoder, utility=None, shape=None):
     decision is normal (`docs/L3/training/episode.md` §4).  A hand in which the seat never
     acted yields `[]`: no update, and no empty batch handed to `agents.learn`.
 
+    **Two of D-43's keys are written here and nowhere else.**  `episode` is the episode's
+    own seed, required of every record (`_boundary`).  `counterfactual` is conditional: it
+    is present exactly when this hand resolved, a tuple over the shape's `A` descriptors
+    with the utility applied to each legal branch's chip delta — the terminal reward's own
+    transform by the terminal reward's own function — and absent in a hand the reveal could
+    not resolve, which is the fallback `counterfactual.md` §4 and D-40 pin (`_branch_values`,
+    `counterfactual.md` §2, §4, §6).
+
     `shape` is the run's own shape and reaches the arithmetic that reads the game — the
     chips in play and the starting stack a shortfall is normalised against — so a run on
     the six-descriptor shape normalises against that shape's 200 chips and never against
     the default shape's 40 (`shapes.md` §2, `reward.md` §4, D-29).  The transitions
-    themselves hold indices and observations only, and both are the shape's own.
+    themselves hold indices and observations only, and both are the shape's own; `A` — the
+    length of a resolution — is that shape's descriptor count, read off
+    `declarations.shape_actions` and never written down here (`sizing.md` §6).
     """
     resolved, arithmetic = _reward_function(utility)
     del resolved  # the member's name is checked, its reward token is what the step reads
-    hand_seed = episode.get("seed")
+    hand_seed = _boundary(episode)
+    count = declarations.shape_actions(shape)
     own = [
         decision
         for decision in episode["decisions"]
@@ -300,15 +391,20 @@ def _transitions(episode, seat, encoder, utility=None, shape=None):
             next_observation = features.encode(encoder, successor["readout"])
             next_legal = list(features.legal_indices(successor["legal"]))
             reward = float(decision["reward"])
-        records.append(
-            {
-                "observation": observation,
-                "next_observation": next_observation,
-                "action": _index(decision["legal"], decision["action"]),
-                "reward": reward,
-                "terminal": terminal,
-                "legal": legal,
-                "next_legal": next_legal,
-            }
+        record = {
+            "observation": observation,
+            "next_observation": next_observation,
+            "action": _index(decision["legal"], decision["action"]),
+            "reward": reward,
+            "terminal": terminal,
+            "legal": legal,
+            "next_legal": next_legal,
+            "episode": hand_seed,
+        }
+        values = _branch_values(
+            decision, legal, arithmetic, hand_seed, seat, shape, count
         )
+        if values is not None:
+            record["counterfactual"] = values
+        records.append(record)
     return records

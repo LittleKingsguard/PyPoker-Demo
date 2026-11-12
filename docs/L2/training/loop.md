@@ -1,6 +1,6 @@
 # training — the rung registry as data, the one loop, and the edges
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-11
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 10 · **Date:** 2026-11-11
 - **Owner of this file:** the registry as data (§1, §2), the one loop (§3), what a comparison holds constant and
   the R1/R2 parity rung (§4), budgets and devices (§5), the notebooks this module owns (§6), the checkpoints that
   ship (§7), the contracts at this edge (§8) and the battery invariants it carries (§9)
@@ -8,7 +8,8 @@
 - **Rev 3:** §1's step 1 and §2 refuse a declaration the run would not honour — `declarations.md` §1–§4 owns it (ASM-7). **Rev 5:** §1 step 9 and §9's FAM-12 row name the `rules`, and `checkpoints()`'s entries carry each artefact's `rule` (D-19). **Rev 6:** §1 step 2 forwards a `pool` entry's `baselines`, §3 reads the pinned set through `evaluation.league` and §9 gains a D-21 row (ASM-32, D-21). **Rev 7:** D-29 reaches §1's steps 2, 3, 5 and 8 (the shape through the pool, the encoder, the learner, the hand and the pass), §4's fairness list and shape refusal, §5's pass budget and §8–§9 — the pass itself is `docs/L3/training/greedy.md`'s, its bound `declarations.md` §2's (D-29, ASM-38, D-28)
   **Rev 8:** D-33's third shape reaches §3's steps 4–5 (the hand `episode._hand` deals, the seat `index % seats`, the
   distinct draw), §4's held constants, §5's shape-own record bound, and §9, a pointer to `invariants.md` (D-33,
-  `seats.md` §2–§5, `shapes.md` §8). **Rev 9:** D-36 reaches §5 — the pass is a bounded **sample**, never a refusal (D-36)
+  `seats.md` §2–§5, `shapes.md` §8). **Rev 9:** D-36 reaches §5 — the pass is a bounded **sample**, never a refusal (D-36).
+  **Rev 10:** D-43's third axis reaches §2 and §3's steps 3 and 9 — a variant may name a `counterfactual` member, it is forwarded only when it is named, and the record's `counterfactuals` set and its `variants` row carry it only when it is not the catalogue's first; §4 lists the three sets it reads as axes (`counterfactual.md` §6, §9, D-43)
 - **Ceiling:** 220 lines. At the ceiling, split by owner — never append
 
 ## 1. The registry is data (D-3)
@@ -52,8 +53,8 @@ here, and each is what a battery can assert:
 
 `snapshot_every` is the declared budget ÷ 10 hands and omitting it is recorded at that interval; another number is
 refused (`declarations.md` §2, ASM-18); omitting `table` is recorded at `live`, the budget a talk produces
-(`league.md` §6). A variant's `learning_rule` and its `utility` are read and forwarded to `build_learner`, and a name
-either catalogue `agents.learners()` publishes does not carry is refused (`declarations.md` §1–§2, `rules.md` §2, `utility.md` §1, D-19, D-20).
+(`league.md` §6). A variant's `learning_rule`, its `utility` and its `counterfactual` are read and forwarded to `build_learner`,
+and a name those three catalogues `agents.learners()` publishes does not carry is refused (`declarations.md` §1–§2, `rules.md` §2, `utility.md` §1, `counterfactual.md` §6, D-19, D-20, D-43).
 
 ## 3. The one loop every rung is a configuration of (D-3, D-16)
 
@@ -71,9 +72,8 @@ One pass of `run`, in this order, for any configuration:
    and a pool never pretends a version it could not load (`protocol.md` §5, `records.md` §8, ASM-32, D-21, `shapes.md` §3, D-29). It is frozen and never
    advanced during a run — rolling is `evaluation.offer` between runs (D-16, ASM-16, `evaluation/surface.md` §7).
 3. **Build the variant.** `features.build_encoder` for the entry's `encoding` **and the run's shape**, cross-checked against its kind by
-   `features.observation_spec`, and, per seed, `agents.build_learner` with the entry's `backend`, `architecture`,
-   `learning_rule` and `utility`, the run's seed as the learner's own seed, that encoder and that shape — so its head is
-   the shape's width and a six-descriptor learner trains without a branch on the game (`agents/surface.md` §4, `utility.md` §1, `e2e-surface.md` §3.3, `utilities.md` §5, `protocol.md` §4, `sizing.md` §6, D-20, D-29).
+   `features.observation_spec`, and, per seed, `agents.build_learner` with the entry's `backend`, `architecture`, `learning_rule`, `utility` and — only when it names one — its `counterfactual` member, the run's seed as the learner's own seed, that encoder and that shape — so its head is
+   the shape's width and a six-descriptor learner trains without a branch on the game (`agents/surface.md` §4, `utility.md` §1, `counterfactual.md` §6, `e2e-surface.md` §3.3, `utilities.md` §5, `protocol.md` §4, `sizing.md` §6, D-20, D-29, D-43).
 4. **Seed the work, not the arm.** Hand *i*'s deal seed and its opponent seed are functions of the run seed and *i*
    alone, so both arms of a pair play the same hands in the same order against the same opponents and differ only on
    their declared axis (`ladder.md` §5, ASM-8, D-7); the derivation is L3's and draws from no stream
@@ -108,7 +108,7 @@ One pass of `run`, in this order, for any configuration:
    tie-break alone, no generator drawn from — recorded under `greedy`. It is **the one decision stream a run retains**,
    and the block is a function of the checkpoint the record names (`sizing.md` §4, §7, ASM-38, `greedy.md` §1–§3, D-28).
 9. **Assemble and return `records.md` §12's record** — curves, pool, checkpoints, seeds, budget, device, parameter
-   budget, table, timings, `game` and `greedy`, plus `variants`, `rules` and `utilities`, which name each variant's rule and utility and the run's two sets (D-19, D-20, D-29) —
+   budget, table, timings, `game` and `greedy`, plus `variants`, `rules` and `utilities`, which name each variant's rule and utility and the run's two sets (D-19, D-20, D-29), plus `counterfactuals` **only when a variant declares a member that is not the catalogue's first** (`counterfactual.md` §6, §9, D-43) —
    and nothing beyond it: a run claims no table position and fits no rating (`module-map.md` §3, `records.md` §13, `surface.md` §4).
 
 The nine steps are the same for R1 and for a configuration written to no design document; only the data differs, and that is the whole of D-3 (`ladder.md` §1, FAM-15).
@@ -125,7 +125,7 @@ inherits — because R4's primary and R5's dense arm may declare one stack and t
 - the readout facts, identical for every encoding: the ladder changes how the information set is represented and
   never what the agent may know (D-3, `e2e-surface.md` §2);
 - the reward: each side's declared utility's reward at the terminal decision, applied in the transition step (`utility.md` §2, ASM-12, D-20);
-- the **sets** of learning rules and of utilities the two sides declare, every hyperparameter, the optimiser family and the schedule (`rules.md` §8, `utilities.md` §8, ASM-7, D-20);
+- the **sets** of learning rules, of utilities and of counterfactual members the two sides declare — one of any of the three is an axis a pair may differ on, never a held setting — every hyperparameter, the optimiser family and the schedule (`rules.md` §8, `utilities.md` §8, `counterfactual.md` §6, §9, ASM-7, D-20, D-43);
 - the sample budget in hands and the parameter budget within ±2% (ASM-8, ASM-10);
 - **the frozen pool**: the same id, the same members and the same window for both arms of a pair (D-16, ASM-16);
 - the seed set, and the table budget with its hand count per cell and its **seat rotation**, `index % seats` (D-16, ASM-14, ASM-43, `seats.md` §4);

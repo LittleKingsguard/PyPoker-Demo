@@ -189,6 +189,15 @@ DEFAULT_UTILITY = "net-chips"
 OTHER_UTILITY = "stack-shortfall"
 UTILITIES = (DEFAULT_UTILITY, OTHER_UTILITY)
 
+#: The counterfactual catalogue's two members (`counterfactual.md` §2, §6, D-43), on the
+#: same terms: the names the battery asserts against, with the third catalogue always read
+#: off `agents.learners()` and never copied from a document.  `none` is its first member
+#: and the declared default -- the rule's own target, unchanged -- and a member trained
+#: under it carries no field of its own, which is what makes the field conditional.
+DEFAULT_COUNTERFACTUAL = "none"
+OTHER_COUNTERFACTUAL = "reveal-counterfactual"
+COUNTERFACTUALS = (DEFAULT_COUNTERFACTUAL, OTHER_COUNTERFACTUAL)
+
 #: The invented configuration label an unregistered rung carries (`ladder.md` §1).
 RUNG_NAME = "R7-heron-ladder"
 
@@ -522,11 +531,17 @@ def pool_digest(members):
     """`families.md` §4's id: one line per member, SHA-256, 16 hex, prefixed.
 
     A baseline contributes its id alone and a version contributes its `id`, ``\\x1f``,
-    its `rule`, ``\\x1f``, then its `utility`; the lines are joined by one ``\\n`` with no
-    trailing separator.  Recomputed in the case so a digest over member records, a `repr`
-    or a salted `hash()` is red, so a digest of the ids alone is red for a version, and so
-    a digest that leaves the utility out is red for a membership under two objectives
-    (`guardrails.md` G2, ASM-27, D-19, D-20).
+    its `rule`, ``\\x1f``, then its `utility`, and then ``\\x1f`` and its `counterfactual`
+    **only when** the member carries one that is not the catalogue's first, `none`: a
+    record carrying no such key -- or carrying `none` -- contributes exactly the line it
+    contributed before the third catalogue existed, which is what keeps every `none`
+    membership's id, R1's among them, exactly as it was (`counterfactual.md` §6, §9,
+    `families.md` §4, ASM-27, D-43).  The lines are joined by one ``\\n`` with no trailing
+    separator.  Recomputed in the case so a digest over member records, a `repr` or a
+    salted `hash()` is red, so a digest of the ids alone is red for a version, so a digest
+    that leaves the utility out is red for a membership under two objectives, and so a
+    digest that leaves the counterfactual member out is red for one membership declared
+    under two of them (`guardrails.md` G2, ASM-27, D-19, D-20, D-43).
     """
     lines = []
     for member in members:
@@ -535,10 +550,15 @@ def pool_digest(members):
         elif member.get("baseline"):
             lines.append(str(member["id"]))
         else:
-            lines.append(
-                "%s\x1f%s\x1f%s"
-                % (member["id"], member["rule"], member["utility"])
+            line = "%s\x1f%s\x1f%s" % (
+                member["id"],
+                member["rule"],
+                member["utility"],
             )
+            declared = member.get("counterfactual")
+            if isinstance(declared, str) and declared != DEFAULT_COUNTERFACTUAL:
+                line = "%s\x1f%s" % (line, declared)
+            lines.append(line)
     payload = "\n".join(lines).encode("utf-8")
     return "pool-" + hashlib.sha256(payload).hexdigest()[:16]
 
@@ -836,6 +856,7 @@ def version_record(
     rule=DEFAULT_RULE,
     utility=DEFAULT_UTILITY,
     game=None,
+    counterfactual=None,
 ):
     """One `records.md` §7 version record, with the `path` only when the battery has one.
 
@@ -853,6 +874,13 @@ def version_record(
     default shape and not a defaulting of a name (`shape.md` §2), so a record built with
     no `game` carries no such key and reads back with none -- a record that declared no
     shape is never given one (`pool.md` §5, `shape.md` §4, D-29).
+
+    `counterfactual` is D-43's **conditional** key and is written on the same terms: a
+    record built with no name carries no such key, which is a member trained under the
+    third catalogue's first member, `none` -- absence is that default and not a
+    substitution of it -- and a record built with a name carries it, so a case can hand
+    `build_pool` or `offer` either the silence or the declaration (`counterfactual.md`
+    §6, `records.md` §7, `pool.md` §5, D-43).
     """
     record = {
         "id": member_id_value,
@@ -869,11 +897,13 @@ def version_record(
         record["path"] = path
     if game is not None:
         record["game"] = game
+    if counterfactual is not None:
+        record["counterfactual"] = counterfactual
     return record
 
 
 def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
-                  utility=DEFAULT_UTILITY, game=None):
+                  utility=DEFAULT_UTILITY, game=None, counterfactual=None):
     """A single lineage chain, oldest first, declared in lineage order.
 
     The first member descends from `start`, the i-th from the (i-1)-th, which is how a
@@ -883,7 +913,10 @@ def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
     a member that named none would be refused by name rather than read under one
     (`records.md` §7, `utilities.md` §5, D-20).  `game`, when a case names one, is
     declared on every member of the chain, which is what a non-default pool's members
-    carry (`shape.md` §3-§4, D-29).
+    carry (`shape.md` §3-§4, D-29).  `counterfactual`, when a case names one, is declared
+    on every member of the chain -- the members of one chain trained under one
+    counterfactual member -- and left off every member of it when a case names none, so
+    the chain is the silent one (`counterfactual.md` §6, `records.md` §7, D-43).
     """
     records = []
     for index, member in enumerate(ids):
@@ -900,6 +933,7 @@ def version_chain(ids, start=START_LABEL, paths=None, rule=DEFAULT_RULE,
                 rule=rule,
                 utility=utility,
                 game=game,
+                counterfactual=counterfactual,
             )
         )
     return records
@@ -935,7 +969,7 @@ def baseline_members():
 
 
 def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities=(),
-                game=None):
+                game=None, counterfactuals=None):
     """A hand-built `records.md` §8 pool record: baselines first, then the versions.
 
     `report` reads its `pool` family as this shape (`report.md` §2, `surface.md` §13),
@@ -946,7 +980,11 @@ def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities
     and is derived from the members when a case hands over versions without stating it.
     `game` is written only when a case names one, so a hand-built pool block that states
     no shape is the shape-silent record every case before D-29 built and reads as the
-    default (`shape.md` §2-§4, D-29).
+    default (`shape.md` §2-§4, D-29).  `counterfactuals` is the third, **conditional**
+    key and is written only when a case names one, so a hand-built block states it
+    exactly where the record under test would and carries no key where a pool of
+    `none`-trained members carries none (`records.md` §8, `counterfactual.md` §6, §9,
+    D-43).
     """
     ordered = baseline_members() + [dict(entry) for entry in members]
     ids = [member_id(entry) for entry in ordered]
@@ -964,6 +1002,8 @@ def pool_record(members=(), m=5, frozen=True, identity=None, rules=(), utilities
     }
     if game is not None:
         record["game"] = game
+    if counterfactuals is not None:
+        record["counterfactuals"] = tuple(counterfactuals)
     return record
 
 
@@ -991,6 +1031,29 @@ def declared_utilities(members):
     return tuple(seen)
 
 
+def declared_counterfactuals(members):
+    """The distinct counterfactual members a members sequence declares, in its order (§8).
+
+    The third side of :func:`declared_rules` and :func:`declared_utilities`, on the same
+    terms -- a baseline declares none -- but **conditional**: a version carrying no such
+    key was trained under the catalogue's first member, `none`, so it contributes that
+    name here, and the record omits the key altogether when every name collected is it
+    (`records.md` §7-§8, `counterfactual.md` §6, §9, D-43).  A case that expects the key
+    **absent** asserts it absent with `assertNotIn`; this reader is for the tuples a
+    mixed or a non-default window carries.
+    """
+    seen = []
+    for entry in members:
+        if isinstance(entry, Mapping) and entry.get("baseline"):
+            continue
+        name = entry.get("counterfactual") if isinstance(entry, Mapping) else None
+        if not isinstance(name, str) or not name:
+            name = DEFAULT_COUNTERFACTUAL
+        if name not in seen:
+            seen.append(name)
+    return tuple(seen)
+
+
 def pool_utilities(record):
     """The `utilities` a pool record declares — a **required** key of `records.md` §8."""
     if not isinstance(record, Mapping) or "utilities" not in record:
@@ -999,6 +1062,24 @@ def pool_utilities(record):
             "declare (records.md §8, D-20): %r" % (record,)
         )
     return record["utilities"]
+
+
+def pool_counterfactuals(record):
+    """The `counterfactuals` a pool record declares — its **conditional** key (§8, D-43).
+
+    Read for a window that carries it; a caller that expects it **absent** -- a
+    baselines-only pool's record, or a pool of versions every one of which was trained
+    under `none` -- asserts that with `assertNotIn("counterfactuals", record)` and never
+    through this reader, because absence is the contract there and not a missing key
+    (`records.md` §8, `counterfactual.md` §6, §9, D-43).
+    """
+    if not isinstance(record, Mapping) or "counterfactuals" not in record:
+        raise AssertionError(
+            "a pool record whose versions were not all trained under the catalogue's first "
+            "counterfactual member carries `counterfactuals`, the distinct members they "
+            "declare (records.md §8, counterfactual.md §6, D-43): %r" % (record,)
+        )
+    return record["counterfactuals"]
 
 
 def pool_rules(record):
@@ -1765,6 +1846,26 @@ class EvaluationCase(unittest.TestCase):
         raise AssertionError(
             "agents.learners() publishes the utility catalogue (utilities.md §2, D-20): "
             "%r carries none" % (sorted(str(key) for key in declared),)
+        )
+
+    def catalogue_counterfactuals(self):
+        """The counterfactual catalogue `agents.learners()` publishes, in declared order.
+
+        `counterfactual.md` §6 makes `counterfactuals` the **third** catalogue a learner
+        spec selects from -- neither a rule nor a utility, owning the whole-hand targets
+        `learn` reads -- and makes its first member, `none`, the declared default.  As
+        with the other two, the names are read off the granted arrow on every call and
+        never copied from a document or a module constant, so a battery asserts against
+        the catalogue the implementation reads, in the order it declares
+        (`module-map.md` §2, `counterfactual.md` §6, D-43).
+        """
+        declared = agents().learners()
+        catalogue = declared.get("counterfactuals") if isinstance(declared, Mapping) else None
+        if isinstance(catalogue, Mapping):
+            return tuple(str(name) for name in catalogue)
+        raise AssertionError(
+            "agents.learners() publishes the counterfactual catalogue (counterfactual.md "
+            "§6, D-43): %r carries none" % (sorted(str(key) for key in declared),)
         )
 
     def stream_state(self):

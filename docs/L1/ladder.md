@@ -64,6 +64,7 @@ One rung configuration is a mapping; `training.rung(name)` resolves it, and `tra
 - the readout facts of `e2e-surface.md` §2 — the information set, identical for every encoding (D-3);
 - the reward: the seat's net chip delta for the completed hand, delivered at the terminal decision, with no shaping (ASM-12), re-expressed by the utility both sides are trained under — the **set** of utilities the two sides declare, one utility for every rung of §2 (`utilities.md` §2, §8, D-20);
 - the **set** of learning rules the two sides declare, with every hyperparameter above, the optimiser family, the exploration schedule and the discount — the set, not one rule, is what a rung holds constant, and a pair may differ on the rule itself when that is its declared axis (ASM-7, D-19, `rules.md` §8);
+- the **counterfactual** member each side declares, which is a third axis beside the rule and the utility, is `none` for every rung of §2, and is the one axis a paired configuration of this change differs on without a rung changing (`rules.md` §7, §8, `counterfactual.md` §6, D-43);
 - the sample budget, counted in hands, and the parameter budget within ±2% as measured by `agents.param_count` (ASM-8, ASM-10);
 - the frozen pool: the same pool id, the same members and the same window, recorded by both arms' run records (D-16, ASM-16);
 - the seed set, and the table budget with its hand count per cell and its seat alternation (D-16);

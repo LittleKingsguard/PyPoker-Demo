@@ -24,9 +24,9 @@ keeps a one-line pointer here, so a record's keys and this axis have one owner e
 - **`utilities()` reads the catalogue, never a copy of it.** `tuple(agents.learners()["utilities"])`, the mirror of
   `learning_rules()`, so the names a run refuses an unknown value against are the names `agents` publishes
   (`module-map.md` §2, `utilities.md` §2, D-20).
-- **`utility` is an axis, not a shared setting.** It is in `AXES` (seven axes: `backend`, `encoding`,
-  `architecture`, `connectivity`, `residual`, `rule`, `utility`) and **not** in `PAIR_SETTINGS`, because two arms may
-  declare two utilities and every variant is trained (`declarations.md` §4, `utilities.md` §8, D-19, D-20).
+- **`utility` is an axis, not a shared setting.** It is in `AXES` (eight axes: `backend`, `encoding`,
+  `architecture`, `connectivity`, `residual`, `rule`, `utility`, and D-43's `counterfactual` beside it) and **not** in
+  `PAIR_SETTINGS`, because two arms may declare two utilities and every variant is trained (`declarations.md` §4, `utilities.md` §8, `counterfactual.md` §6, D-19, D-20, D-43).
 - **`_check_utility` refuses an uncatalogued name**, at the configuration and at each entry, naming the value and the
   catalogue and raising `IgnoredDeclaration` — the mirror of `_check_learning_rule`, and like it a refusal of a name
   no learner can be built under, never of a *second catalogued* utility (`declarations.md` §2–§3, D-20).

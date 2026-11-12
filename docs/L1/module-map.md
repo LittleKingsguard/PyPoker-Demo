@@ -30,9 +30,9 @@ Calls go one way along the arrow; the direction is fixed so that no pair of modu
 | From | To | Through | Why it may call |
 |---|---|---|---|
 | `training` | `evaluation` | `protocol`, `league`, `build_pool`, `pool_members`, `opponent` | the loop freezes one pool before it trains and draws every hand's opponent from it (D-16, ASM-16) |
-| `training` | `agents` | `build_learner`, `act`, `learn`, `save`, `learners` | the loop drives one learner per declared variant, and reads the rule and utility catalogues it refuses an unknown name against (D-7, D-19, D-20) |
+| `training` | `agents` | `build_learner`, `act`, `learn`, `save`, `learners` | the loop drives one learner per declared variant, and reads the rule, utility and counterfactual catalogues it refuses an unknown name against; the resolution itself is the **engine's** — `training` forwards the values `engine.play_hand` placed at each decision and applies the utility to them, and it reads no card and imports no `pokerkit` (D-7, D-19, D-20, D-43, `counterfactual.md` §2, §4) |
 | `training` | `features` | `build_encoder`, `encode`, `observation_spec`, `legal_indices`, `decode_action` | the loop encodes readouts (D-3) |
-| `training` | `engine` | `game_config`, `new_hand`, `play_hand`, `payoffs` | the loop needs hands (D-2) |
+| `training` | `engine` | `game_config`, `new_hand`, `play_hand`, `payoffs` | the loop needs hands, and `play_hand`'s episode record is where the reveal and each decision's whole-hand values arrive (D-2, D-43, `counterfactual.md` §2) |
 | `evaluation` | `agents` | `baselines`, `build_baseline`, `as_policy`, `load`, `param_count`, `learners` | a table needs the catalogue's baselines as members — including which of them anchor the fit — each arm's parameter count, and the catalogues a member's rule and utility are checked against (D-6, D-16, D-19, D-20, ASM-32) |
 | `evaluation` | `features` | `build_encoder`, `encode` | a checkpoint becomes a policy only over an observation, so the league builds an encoder to load a member (D-16, D-3) |
 | `evaluation` | `engine` | `new_hand`, `readout`, `legal_actions`, `play_hand`, `payoffs`, `game_config` | a cell is a run of hands (D-2, D-16), and `game_config` is how the scheduler and the matrix read a shape's seat count before they refuse a table that is not two seats' (`seats.md` §5, D-33) |

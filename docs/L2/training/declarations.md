@@ -1,6 +1,6 @@
 # training — what a configuration declares, and what the run honours
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-11
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-11
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 - **Owner of this file:** every key of `ladder.md` §3's schema read against the one loop's own behaviour (§1, whose table
   is `audit.md`'s), the rule that keeps a discarded declaration out of a run (§2), the refusals it raises and what each
@@ -10,7 +10,7 @@
   with them (§2, `docs/L3/training/greedy.md` §4, ASM-38). **Rev 5:** D-33 makes the catalogue **three** rows and that
   shape declaration **three** tables — the names, the descriptor counts and each shape's history capacity — and the
   pass's record bound the run's own shape's, 1,000 records a slot; the seat count is none of them, being read from
-  `engine.game_config` (§1–§2, `shapes.md` §2, §8, ASM-42, ASM-44, `seats.md` §2–§5, D-33). **Rev 6:** D-36 makes the hand bound the **sample's** (`min(budget, 2,000)`) and no run's, so a pass is refused for a request and never a run for its budget (§2, `greedy.md` §4, D-36)
+  `engine.game_config` (§1–§2, `shapes.md` §2, §8, ASM-42, ASM-44, `seats.md` §2–§5, D-33). **Rev 6:** D-36 makes the hand bound the **sample's** (`min(budget, 2,000)`) and no run's, so a pass is refused for a request and never a run for its budget (§2, `greedy.md` §4, D-36). **Rev 7:** D-43's `counterfactual` member is a declaration of a **third** catalogue — read and forwarded into the learner spec only when it is named, refused by name when uncatalogued, recorded only when it is not the catalogue's first, and **never** one of §4's held settings but an axis a pair may differ on (§2, §4–§5, `counterfactual.md` §6, §9, D-43)
 - **Reads:** `ladder.md` §3–§4, `records.md` §2, `loop.md` §2–§3, `surface.md` §4–§5, `agents/surface.md` §3–§4,
   `shapes.md` §2–§3, §8, `seats.md` §2–§5
 
@@ -36,9 +36,9 @@ honour rather than replacing it — four of them, before the first hand and befo
   no claim and is accepted; a key it names must carry the value the run will use, in the shape the run will use
   (`agents/surface.md` §3). A differently typed `exploration` — a sentence where the schedule record is declared — is a
   disagreement, not a tolerance.
-- **a `learning_rule` or a `utility` a catalogue does not carry**, at either level: each is read and forwarded (§1), so
-  what is refused is a name no learner can be built under — not a second rule or a second utility, because a configuration
-  may declare two of either and train two (`rules.md` §2, §7, `utilities.md` §5, §8, D-19, D-20).
+- **a `learning_rule`, a `utility` or a `counterfactual` a catalogue does not carry**, at either level: each is read and
+  forwarded (§1), so what is refused is a name no learner can be built under — not a second member of any of the three,
+  because a configuration may declare two of any and train two (`rules.md` §2, §7, `utilities.md` §5, `counterfactual.md` §6, D-19, D-20, D-43).
 - **a `snapshot_every` that is not the declared budget ÷ 10**, naming both numbers: honouring it would write fewer than
   ten snapshots and leave ASM-18's retained window unobservable (`loop.md` §3 step 7, guardrails G4). The declared budget
   is resolved as the run resolves the budget itself — the configuration's, else its first entry's — so the number the
@@ -85,26 +85,26 @@ Two entries of one configuration are the two arms of one comparison, so they dec
 — eight settings, and a second value for any of them is refused, because both arms train against one frozen pool on one
 shape at one budget (`surface.md` §4, ASM-16, `shapes.md` §1). Six are refused by `PairDeclarationsDiffer` naming both
 arms; `hyper` and `snapshot_every` are refused earlier and per arm by `IgnoredDeclaration` (§2). `learning_rule`,
-`utility` and the shape are never an axis: `fairness` reports the sets it read, not one side's (`rules.md` §8,
-`utilities.md` §8, `utility.md` §5, `shapes.md` §1, D-19, D-20, D-29).
+`utility` and `counterfactual` are **axes** and never settings a pair must share — two arms may declare two of any and train two — while
+the shape is no axis at all: `fairness` reports the sets it read, not one side's (`rules.md` §8, `utilities.md` §8, `utility.md` §5, `counterfactual.md` §6, §9, `shapes.md` §1, D-19, D-20, D-29, D-43).
 
 ## 5. Why the rule, the utility and the shape are forwarded and the hyper refused
 
 The three answers differ because the register does. D-19 makes the estimator a parameter a variant names, D-20 makes the
-objective one and D-29 the game one, so the run reads `learning_rule`, `utility` and `game` and hands each on: the first
-two to `agents.build_learner`, which builds them and refuses an uncatalogued name itself (`rules.md` §2, §4,
-`utilities.md` §5, D-20), and the shape to the encoder, the learner's head, the hand and the pool — because a shape
-names no behaviour of this module's and changing it changes what every downstream call is built from (`shapes.md`
-§2–§3, `sizing.md` §5–§6, D-29). The hyper declaration is not per rule — both rules consume the same six values — so
-honouring a per-configuration `hyper` would make "every hyperparameter held fixed across the ladder" a convention
-nothing enforces, and a rung-to-rung difference no longer attributable to the representation it is named for
-(`rules.md` §2, D-3, ASM-7); it would also mean another module's learner reading it, designed there and not here
-(D-13, `module-map.md` §2). The caller's sweep moves to the one auditable place, the module's declared hyper
-(`src/training/declarations.py`), changed once and visibly for every rung after it (ASM-7, `r2-plateau-diagnosis.md`).
+objective one, D-43 the training targets one and D-29 the game one, so the run reads `learning_rule`, `utility`,
+`counterfactual` and `game` and hands each on: the first three to `agents.build_learner`, which builds them and refuses an
+uncatalogued name itself (`rules.md` §2, §4, `utilities.md` §5, `counterfactual.md` §6, D-20, D-43), and the shape to the
+encoder, the learner's head, the hand and the pool — because a shape names no behaviour of this module's and changing it
+changes what every downstream call is built from (`shapes.md` §2–§3, `sizing.md` §5–§6, D-29). The hyper declaration is not
+per rule — both rules consume the same six values — so honouring a per-configuration `hyper` would make "every
+hyperparameter held fixed across the ladder" a convention nothing enforces, and a rung-to-rung difference no longer
+attributable to the representation it is named for (`rules.md` §2, D-3, ASM-7); it would also mean another module's
+learner reading it, designed there and not here (D-13, `module-map.md` §2). The caller's sweep moves to the one auditable
+place, the module's declared hyper (`src/training/declarations.py`), changed once and visibly for every rung after it (ASM-7, `r2-plateau-diagnosis.md`).
 
 ## 6. What is left to L3
 
 The class names' definitions and their docstrings, the message texts and their order, where each check sits inside the
 resolve step, and the shape of the comparison (`docs/L3/training/errors.md`, `docs/L3/training/loop.md` §1, §6). Not
-L3's: that these declarations are refused, that a message names both values, the pair's eight settings, the two axis
+L3's: that these declarations are refused, that a message names both values, the pair's eight settings, the three axis
 exceptions and the pass's two bounds (§1–§5, G16, D-20, ASM-38).

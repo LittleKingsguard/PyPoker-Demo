@@ -496,6 +496,12 @@ class ShapeDecisionSpace(J.JoinCase):
             "terminal": False,
             "legal": list(foreign),
             "next_legal": list(foreign),
+            # D-43's boundary is **required** of every transition (`records.md` §4,
+            # `counterfactual.md` §2), so this hand-built record carries the seed of the
+            # deal it was read off: without it `learn` would refuse the record for the
+            # missing key and the shape's indices would never be reached, which is a
+            # weaker case than the one this note states.
+            "episode": int(J.DEAL_SHAPE_C),
         }
         self.assert_refusal(
             "learn",

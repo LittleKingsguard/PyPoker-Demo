@@ -429,10 +429,11 @@ class ENG8Episode(S.EngineCase):
             "path is unchanged (shapes.md §5, surface.md §10)",
         )
         self.assertEqual(
-            set(absent), {"seed", "decisions", "payoffs"},
-            "the record carries the three keys it has always carried -- the seed, the "
-            "decisions and the payoffs -- and the shape is an argument, never a key "
-            "(surface.md §10, episode.md §3): got %r" % (sorted(absent),),
+            set(absent), {"seed", "decisions", "payoffs", "reveal"},
+            "the record carries the four keys records.md §5 requires -- the seed, the "
+            "decisions, the payoffs and, since D-43, the reveal -- and the shape is an "
+            "argument, never a key (surface.md §10, episode.md §3): got %r"
+            % (sorted(absent),),
         )
         self.assertEqual(
             absent["seed"], seed,

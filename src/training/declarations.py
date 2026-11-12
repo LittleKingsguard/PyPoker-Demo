@@ -47,11 +47,19 @@ TABLE_BUDGETS = ("live", "full")
 DEVICE = "cpu"
 
 #: What the six rows below declare: the catalogue's first member of each axis (rules.md
-#: §2, §4, utilities.md §2, §5, D-19, D-20).  Not a rule or a utility the run is fixed to
-#: — a variant may name another catalogued member of either axis, and `learning_rules()`
-#: and `utilities()` are how the run learns which names exist.
+#: §2, §4, utilities.md §2, §5, counterfactual.md §6, D-19, D-20, D-43).  Not a rule, a
+#: utility or a counterfactual the run is fixed to — a variant may name another catalogued
+#: member of any axis, and `learning_rules()`, `utilities()` and `counterfactuals()` are how
+#: the run learns which names exist.
 LEARNING_RULE = "masked-q-learning"
 UTILITY = "net-chips"
+
+#: The counterfactual member the six rows declare, which is the catalogue's first: the
+#: rule's own bootstrap target, unchanged (`counterfactual.md` §6).  The run records a
+#: variant's member only when it is **not** this one, and a variant trained under it writes
+#: a version-4 container exactly as before, so no shipped artefact moves (`counterfactual.md`
+#: §6, §9, D-43).
+COUNTERFACTUAL = "none"
 
 #: The three declared game shapes' names, in `engine.game_shapes()`'s order — default
 #: first (`shapes.md` §2, D-29, D-33).  Only the names, their order, their descriptor
@@ -143,9 +151,10 @@ KIND_FAMILY = {
     "plain": "token-sequence",
 }
 
-#: The seven axes a comparison is read on (`docs/L2/training/surface.md` §5,
-#: `docs/L3/training/fairness.md` §2, D-19, which makes the rule an axis, and D-20, which
-#: makes the utility the seventh).
+#: The eight axes a comparison is read on (`docs/L2/training/surface.md` §5,
+#: `docs/L3/training/fairness.md` §2, D-19, which makes the rule an axis, D-20, which
+#: makes the utility the seventh, and D-43, which makes the counterfactual the eighth —
+#: a third catalogue and neither a rule nor a utility, `counterfactual.md` §6).
 AXES = (
     "backend",
     "encoding",
@@ -154,6 +163,7 @@ AXES = (
     "residual",
     "rule",
     "utility",
+    "counterfactual",
 )
 
 #: The **pinned** anchor baselines — the catalogue's `anchor: True` members — in the
@@ -207,6 +217,19 @@ def utilities():
     `learning_rules()` gives (`utilities.md` §2, §5, D-20, `agents/surface.md` §3).
     """
     return tuple(agents.learners()["utilities"])
+
+
+def counterfactuals():
+    """The catalogue's counterfactual names, in `agents.learners()`'s order (`counterfactual.md` §6).
+
+    The third catalogue's reader, on the same terms as :func:`learning_rules` and
+    :func:`utilities`: `agents.learners()["counterfactuals"]` is keyed by its members in
+    `counterfactual.md` §6's order — `none` first, the rule's own target, then
+    `reveal-counterfactual` — so a reader learns which members exist and which one is the
+    declared default `agents.build_learner` applies to a spec naming none, without a second
+    copy of the names here (`counterfactual.md` §6, D-43, `agents/surface.py` §3).
+    """
+    return tuple(agents.learners()["counterfactuals"])
 
 
 def require_game(value, entry, argument="game"):
@@ -733,6 +756,41 @@ def _check_utility(where, configuration, entries):
         )
 
 
+def _check_counterfactual(where, configuration, entries):
+    """Refuse a `counterfactual` the catalogue does not carry, at either level (D-43).
+
+    The third axis' side of :func:`_check_learning_rule` and :func:`_check_utility`, on the
+    same terms and named with them: the catalogue `agents.learners()` publishes — read once
+    through `counterfactuals()` — is the whole vocabulary a counterfactual member is judged
+    against, at the configuration first and then at each entry.  A declared name no member
+    carries, or a name that is not a string, is a member no learner can be built under; a
+    **second catalogued** member is read, forwarded and trained, so what is refused here is
+    an uncatalogued name and never a member the run is not fixed to.  A level that declares
+    no counterfactual — or declares `None` — is no claim and is accepted
+    (`counterfactual.md` §6, D-43, `docs/L2/training/declarations.md` §2).
+    """
+    catalogue = counterfactuals()
+    own = configuration.get("counterfactual")
+    if own is not None and own not in catalogue:
+        raise errors.IgnoredDeclaration(
+            "training.run refused the configuration %r: 'counterfactual' is %r, and the "
+            "catalogue agents.learners() publishes (src/agents/declarations.py) carries "
+            "%s — name one of those, or name none for the catalogue's first "
+            "(counterfactual.md §6, D-43)" % (where, own, ", ".join(catalogue))
+        )
+    for entry in entries:
+        member = entry.get("counterfactual") if isinstance(entry, Mapping) else None
+        if member is None or member in catalogue:
+            continue
+        raise errors.IgnoredDeclaration(
+            "training.run refused the variant %r of the configuration %r: 'counterfactual' "
+            "is %r, and the catalogue agents.learners() publishes (src/agents/"
+            "declarations.py) carries %s — name one of those, or name none for the "
+            "catalogue's first (counterfactual.md §6, D-43)"
+            % (entry.get("name"), where, member, ", ".join(catalogue))
+        )
+
+
 def _check_snapshot_every(configuration, where, entries):
     """Refuse a `snapshot_every`, at either level, that is not the declared samples ÷ 10.
 
@@ -774,20 +832,21 @@ def check_declarations(configuration):
     """Refuse every declaration a run would not use, before the pool is built.
 
     One place for the rule `docs/L2/training/declarations.md` §2–§4 states: a `hyper` key
-    that is unknown or disagrees with `HYPER`, a `learning_rule` or a `utility` the
-    catalogues `agents.learners()` publishes do not carry, and a `game` the catalogue
-    `engine.game_shapes()` publishes does not carry — each **at the configuration and at
-    each entry** — and a `snapshot_every` at either level that is not the declared samples
-    ÷ 10, plus, for a two-entry configuration, the eight settings both arms must share.
-    Every refusal is raised before the first hand is dealt and before anything is written
-    (ASM-7, ASM-8, ASM-18, utilities.md §5, D-19, D-20, shapes.md §2, D-29,
-    docs/L3/training/loop.md §1 step 1).
+    that is unknown or disagrees with `HYPER`, a `learning_rule`, a `utility` or a
+    `counterfactual` the catalogues `agents.learners()` publishes do not carry, and a `game`
+    the catalogue `engine.game_shapes()` publishes does not carry — each **at the
+    configuration and at each entry** — and a `snapshot_every` at either level that is not
+    the declared samples ÷ 10, plus, for a two-entry configuration, the eight settings both
+    arms must share.  Every refusal is raised before the first hand is dealt and before
+    anything is written (ASM-7, ASM-8, ASM-18, utilities.md §5, counterfactual.md §6, D-19,
+    D-20, D-43, shapes.md §2, D-29, docs/L3/training/loop.md §1 step 1).
     """
     where = configuration.get("name")
     entries = list(configuration["variants"])
     _check_hyper(where, configuration, entries)
     _check_learning_rule(where, configuration, entries)
     _check_utility(where, configuration, entries)
+    _check_counterfactual(where, configuration, entries)
     _check_game(where, configuration, entries)
     _check_snapshot_every(configuration, where, entries)
     if len(entries) != 2:

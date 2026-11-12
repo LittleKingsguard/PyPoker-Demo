@@ -4,9 +4,10 @@
 more than one axis is refused and never gets that far. It plays no hand, builds no learner,
 writes nothing and moves no stream (`docs/L2/training/surface.md` §5).
 
-**The one rule that is this design's own.** The seven axes are `backend`, `encoding`,
+**The one rule that is this design's own.** The eight axes are `backend`, `encoding`,
 `architecture` (width and depth), `connectivity` (sparsity), `residual`, `rule` (the rule a
-variant is trained under) and `utility` (the reward its training target carries). A pair
+variant is trained under), `utility` (the reward its training target carries) and
+`counterfactual` (the catalogue member it takes its training targets from, D-43). A pair
 compares `architecture` only when its two sides agree on the representation family *and* on
 `sparsity`: where they differ, the width is the capacity match's compensation — ASM-10
 requires a `sparse` arm to be declared wider than its dense mate, and a token encoding to
@@ -167,6 +168,24 @@ def _utility(entry, configuration=None):
     return declarations.utilities()[0]
 
 
+def _counterfactual(entry, configuration=None):
+    """The counterfactual member a side is trained under: its own, its configuration's, else the first.
+
+    The third axis' side of :func:`_rule` and :func:`_utility`, on the same terms: a side
+    that names no `counterfactual` is trained under the catalogue's **first** member — the
+    rule's own target, `none` — so it is resolved through
+    `declarations.counterfactuals()` and a side spelling the default out and a side leaving
+    it unsaid are one member and never a phantom difference (`counterfactual.md` §6, D-43,
+    `fairness.md` §2, §7).
+    """
+    declared = entry.get("counterfactual") if isinstance(entry, Mapping) else None
+    if declared is None and isinstance(configuration, Mapping):
+        declared = configuration.get("counterfactual")
+    if declared is not None:
+        return declared
+    return declarations.counterfactuals()[0]
+
+
 def _shape(entry, configuration=None):
     """The shape a side names: its own, else its configuration's, else the default.
 
@@ -231,12 +250,14 @@ def _utility_set(utilities):
     return distinct
 
 
-def _differences(left, right, rules=None, utilities=None):
+def _differences(left, right, rules=None, utilities=None, counterfactuals=None):
     """The axes two variant entries differ on, and the field names that differ."""
     if rules is None:
         rules = (_rule(left), _rule(right))
     if utilities is None:
         utilities = (_utility(left), _utility(right))
+    if counterfactuals is None:
+        counterfactuals = (_counterfactual(left), _counterfactual(right))
     axes = []
     fields = []
     if left.get("backend") != right.get("backend"):
@@ -268,12 +289,18 @@ def _differences(left, right, rules=None, utilities=None):
     if utilities[0] != utilities[1]:
         axes.append("utility")
         fields.append("utility")
+    # D-43's axis, one word in both places as the utility's is: two counterfactual members
+    # are what a pair differing in its training targets differs in, and the axis is
+    # reported rather than held constant (`counterfactual.md` §6, D-43, `fairness.md` §2).
+    if counterfactuals[0] != counterfactuals[1]:
+        axes.append("counterfactual")
+        fields.append("counterfactual")
     return axes, fields
 
 
-def _axis(left, right, later=None, rules=None, utilities=None):
+def _axis(left, right, later=None, rules=None, utilities=None, counterfactuals=None):
     """`{of, differs, declared}` for two entries, or for two primaries and their rung."""
-    axes, fields = _differences(left, right, rules, utilities)
+    axes, fields = _differences(left, right, rules, utilities, counterfactuals)
     if len(axes) > 1:
         raise errors.MultipleAxes(
             "training.fairness refused the pair: it differs on %d axes, %s, and a reportable "
@@ -484,6 +511,10 @@ def fairness(left, right):
             _utility(left_entry, left_value),
             _utility(right_entry, right_value),
         )
+        counterfactuals = (
+            _counterfactual(left_entry, left_value),
+            _counterfactual(right_entry, right_value),
+        )
         shapes = (
             _shape(left_entry, left_value),
             _shape(right_entry, right_value),
@@ -494,6 +525,7 @@ def fairness(left, right):
         pair = [str(left_entry.get("name")), str(right_entry.get("name"))]
         rules = (_rule(left_entry), _rule(right_entry))
         utilities = (_utility(left_entry), _utility(right_entry))
+        counterfactuals = (_counterfactual(left_entry), _counterfactual(right_entry))
         shapes = (_shape(left_entry), _shape(right_entry))
     # The shape is refused **before** the axes are read: a pair on two shapes is not a
     # comparison that differs on an axis, it is not a comparison at all, and reporting one
@@ -510,9 +542,10 @@ def fairness(left, right):
         )
     if kind == "configuration":
         axis = _axis(left_entry, right_entry, later=right_value, rules=rules,
-                     utilities=utilities)
+                     utilities=utilities, counterfactuals=counterfactuals)
     else:
-        axis = _axis(left_entry, right_entry, rules=rules, utilities=utilities)
+        axis = _axis(left_entry, right_entry, rules=rules, utilities=utilities,
+                     counterfactuals=counterfactuals)
     left_id = _declared_pool(left_value)
     right_id = _declared_pool(right_value)
     if kind == "entry" and left_id is not None and right_id is not None:

@@ -19,6 +19,15 @@ the `0.0` every non-terminal decision keeps under either utility, `TRN-4.11` the
 catalogue's **reward token** as the selector. The four hands are the battery's own invented
 seeds, and each case asserts the payoff the seed actually produced before it asserts the
 reward that payoff scores (`battery.md` §4, §5, D-20).
+
+D-43's two facts are `docs/L3/training/episode.md` §5's and `docs/L1/counterfactual.md` §2,
+§4 and §6's: `TRN-4.14` the episode boundary every transition carries, `TRN-4.15` the
+resolution — one entry per legal descriptor, the utility applied to each branch's chip delta
+by the terminal reward's own function, `None` elsewhere, and `counterfactual.md` §4's
+invariant at the descriptor the hand applied — and `TRN-4.16` the hand the reveal cannot
+resolve, whose transitions carry no such key at all. `TRN-4.2` reads `records.md` §4's
+**eight** required keys, the conditional ninth being the only key either case may find
+beside them.
 """
 
 import copy
@@ -48,6 +57,7 @@ from _training_support import (
     payoff_of,
     same_observation,
     seat_decisions,
+    shaped_vocabulary,
     two_utility_names,
     utility_catalogue,
     utility_names,
@@ -61,7 +71,8 @@ from _training_support import (
 #: seed produced, and holds the two together.
 D_20_NUMBERS = {2.0: 0.190, -2.0: -0.210, 20.0: 1.000, -20.0: -3.000}
 
-#: `records.md` §4's seven required keys of one transition record.
+#: `records.md` §4's **eight** required keys of one transition record — D-43's `episode`
+#: boundary being the eighth (`records.md` §4, §5, `counterfactual.md` §2).
 TRANSITION_KEYS = {
     "observation",
     "next_observation",
@@ -70,7 +81,13 @@ TRANSITION_KEYS = {
     "terminal",
     "legal",
     "next_legal",
+    "episode",
 }
+
+#: The one **conditional** key `records.md` §4 declares: present exactly when the hand
+#: resolved and absent — not `None` — in a hand `counterfactual.md` §4 refuses to value
+#: (`counterfactual.md` §2, §4, §6, D-43).
+OPTIONAL_KEYS = {"counterfactual"}
 
 
 class EpisodeTest(TrainingCase):
@@ -126,7 +143,7 @@ class EpisodeTest(TrainingCase):
                 self.assertIn(seat, (0, 1), "a seat is 0 or 1 and nothing else")
 
     def test_trn_4_2_one_transition_per_decision_of_one_seat_in_order(self):
-        """TRN-4.2 `_transitions` returns one record per decision the seat made, in the order the hand played them, each carrying `records.md` §4's seven keys (episode.md §3, records.md §4)."""
+        """TRN-4.2 `_transitions` returns one record per decision the seat made, in the order the hand played them, each carrying `records.md` §4's eight keys and, when the hand resolved, its ninth (episode.md §3, §5, records.md §4, counterfactual.md §2, D-43)."""
         record = episode()
         for seat in (0, 1):
             expected = seat_decisions(record, seat)
@@ -141,10 +158,19 @@ class EpisodeTest(TrainingCase):
                 )
                 for transition in transitions:
                     self.assertEqual(
-                        set(transition),
+                        set(transition) - OPTIONAL_KEYS,
                         TRANSITION_KEYS,
-                        "a transition carries records.md §4's seven keys "
-                        "(episode.md §3-§4): %r" % (sorted(transition),),
+                        "a transition carries records.md §4's eight required keys — "
+                        "D-43's `episode` among them — and no key of its own "
+                        "(episode.md §3-§4, records.md §4, counterfactual.md §2): %r"
+                        % (sorted(transition),),
+                    )
+                    self.assertIn(
+                        set(transition),
+                        (TRANSITION_KEYS, TRANSITION_KEYS | OPTIONAL_KEYS),
+                        "the ninth key is the one conditional one `records.md` §4 "
+                        "declares, `counterfactual`, and nothing else: %r"
+                        % (sorted(transition),),
                     )
 
     def test_trn_4_3_the_state_and_the_mask_are_the_decision_s_own(self):
@@ -688,6 +714,219 @@ class EpisodeTest(TrainingCase):
             "the control: the same call naming a catalogued member is accepted, so the "
             "refusal is about the name and not about the argument (utilities.md §5, "
             "reward.md §2): %r" % (utility_names(),),
+        )
+
+    # -- D-43: the episode boundary and the resolution ----------------------
+    def branch_deltas(self, decision):
+        """One decision's resolved chip deltas, `{descriptor: delta}` (records.md §5)."""
+        return as_mapping(
+            decision["counterfactual"], "a decision's resolved chip deltas"
+        )
+
+    def shortfall(self, total, starting_stack, delta):
+        """`(U(s_0) − U(s_0 + delta)) / U(s_0)`, derived from the hand's own `T` (§4)."""
+        before = (total - starting_stack) ** 2
+        after = (total - (starting_stack + delta)) ** 2
+        return (before - after) / before
+
+    def test_trn_4_14_every_transition_carries_the_episodes_own_seed(self):
+        """TRN-4.14 every transition carries `episode`, the episode's own `seed` as a plain `int`: one hand's transitions carry one number, two hands of one run carry two, and the boundary is the episode's and never a position in a batch (episode.md §3, §5, records.md §4, §5, counterfactual.md §2, D-43)."""
+        first = episode()
+        second = episode(WIN_TWO_SEED)
+        self.assertNotEqual(
+            as_int(first["seed"], "the first hand's seed"),
+            as_int(second["seed"], "the second hand's seed"),
+            "the two invented hands are dealt at two seeds, which is what makes the "
+            "boundary observable across hands (seeds.md §2, records.md §5): %r"
+            % ([first.get("seed"), second.get("seed")],),
+        )
+        seen = set()
+        for record in (first, second):
+            seed = as_int(record["seed"], "the episode's seed")
+            for seat in (0, 1):
+                transitions = self.transitions(record, seat)
+                if not transitions:
+                    continue  # a seat that never acted files no signal (episode.md §3)
+                numbers = {
+                    as_int(transition["episode"], "a transition's 'episode'")
+                    for transition in transitions
+                }
+                with self.subTest(seed=seed, seat=seat):
+                    self.assertEqual(
+                        numbers,
+                        {seed},
+                        "every transition of one hand carries that episode's own seed "
+                        "and no other number, so one episode's transitions are one "
+                        "episode's (records.md §4, counterfactual.md §2): %r against %r"
+                        % (sorted(numbers), seed),
+                    )
+                seen |= numbers
+        self.assertEqual(
+            seen,
+            {as_int(first["seed"], "a seed"), as_int(second["seed"], "a seed")},
+            "two hands of one run carry two numbers, which is the whole of what the "
+            "boundary says: the batch is a sequence of episodes and not one episode "
+            "(records.md §4, §5, counterfactual.md §2): %r" % (sorted(seen),),
+        )
+
+    def test_trn_4_15_each_legal_branch_is_the_utility_s_transform_and_the_applied_one_is_the_delta(self):
+        """TRN-4.15 `counterfactual` is a tuple of length `A` holding, at each of that decision's legal indices, the branch's whole-hand chip delta put through the **same** function the terminal `reward` is — the delta itself under `net-chips`, the shortfall delta under `stack-shortfall` — `None` at every other index, and at the descriptor the hand applied it is the seat's realised delta, which the terminal transition carries as its `reward` (episode.md §5, counterfactual.md §4, §6, records.md §4, D-43)."""
+        first, second = two_utility_names()
+        record = episode()
+        reveal = as_mapping(record["reveal"], "the episode's 'reveal'")
+        self.assertTrue(
+            bool(reveal["showdown"]),
+            "the invented hand reaches a showdown, which is what makes it a hand the "
+            "reveal can resolve (counterfactual.md §4, records.md §5): %r" % (reveal,),
+        )
+        self.assertFalse(
+            bool(reveal["split"]),
+            "and it is not a split pot, so it carries values rather than falling back "
+            "(counterfactual.md §4): %r" % (reveal,),
+        )
+        count = len(shaped_vocabulary())
+        for seat in (0, 1):
+            decisions = seat_decisions(record, seat)
+            total, starting_stack, payoff = self.chip_counts(record, seat)
+            for utility in (first, second):
+                transitions = self.transitions(record, seat, utility=utility)
+                with self.subTest(seat=seat, utility=utility):
+                    self.assertEqual(
+                        len(transitions),
+                        len(decisions),
+                        "one transition per decision of the seat (episode.md §3)",
+                    )
+                    for decision, transition in zip(decisions, transitions):
+                        indices = [
+                            as_int(index, "a legal index")
+                            for index in features().legal_indices(decision["legal"])
+                        ]
+                        self.assertIn(
+                            "counterfactual",
+                            transition,
+                            "a hand the reveal resolved gives every one of its "
+                            "transitions a `counterfactual`, the terminal one included "
+                            "(counterfactual.md §4, §6, records.md §4): %r"
+                            % (sorted(transition),),
+                        )
+                        values = as_sequence(
+                            transition["counterfactual"], "a resolution"
+                        )
+                        self.assertEqual(
+                            len(values),
+                            count,
+                            "a resolution is one entry per descriptor of the run's "
+                            "shape — `A`, the head's width and the number of indices the "
+                            "vocabulary declares (sizing.md §6, counterfactual.md §5, §6): "
+                            "%d against %d" % (len(values), count),
+                        )
+                        deltas = self.branch_deltas(decision)
+                        for position, descriptor in enumerate(decision["legal"]):
+                            index = indices[position]
+                            delta = as_float(
+                                deltas[descriptor], "a branch's chip delta"
+                            )
+                            expected = (
+                                delta if utility == first
+                                else self.shortfall(total, starting_stack, delta)
+                            )
+                            self.assertAlmostEqual(
+                                as_float(values[index], "a branch's value"),
+                                expected,
+                                places=12,
+                                msg="the entry at a legal index is that branch's "
+                                "whole-hand chip delta put through the utility's own "
+                                "function — the terminal reward's, by the same call and "
+                                "with the same `T` = %r and `s_0` = %r — so the two "
+                                "arithmetics are one arithmetic under two units "
+                                "(counterfactual.md §4, utilities.md §2, §4, D-20): "
+                                "action %r under %r"
+                                % (total, starting_stack, descriptor, utility),
+                            )
+                        for index in range(count):
+                            if index in indices:
+                                continue
+                            self.assertIsNone(
+                                values[index],
+                                "an index that was not legal at that decision carries "
+                                "`None`, so a masked action is never valued and never "
+                                "updated (counterfactual.md §5, agents/rule.md §2): "
+                                "index %d of %r" % (index, indices),
+                            )
+                        applied = as_int(transition["action"], "a transition's action")
+                        self.assertAlmostEqual(
+                            as_float(values[applied], "the applied branch's value"),
+                            payoff if utility == first
+                            else self.shortfall(total, starting_stack, payoff),
+                            places=9,
+                            msg="the invariant `counterfactual.md` §4 proves: at the "
+                            "descriptor the hand **applied**, the value is the seat's "
+                            "realised net chip delta, %r, under either utility — the "
+                            "closure charges that branch exactly what the hand "
+                            "committed and pays it exactly what it won (%r under %r)"
+                            % (payoff, values, utility),
+                        )
+                    terminal = transitions[-1]
+                    self.assertAlmostEqual(
+                        as_float(
+                            as_sequence(terminal["counterfactual"], "a resolution")[
+                                as_int(terminal["action"], "the terminal action")
+                            ],
+                            "the terminal resolution's applied value",
+                        ),
+                        as_float(terminal["reward"], "the terminal reward"),
+                        places=12,
+                        msg="at the seat's terminal decision the resolution's value at "
+                        "the applied descriptor **is** that transition's `reward`, "
+                        "because the utility is applied to both sides by the same "
+                        "function (counterfactual.md §4, ASM-12): %r against %r"
+                        % (terminal["counterfactual"], terminal["reward"]),
+                    )
+
+    def test_trn_4_16_a_hand_the_reveal_cannot_resolve_carries_no_counterfactual_key(self):
+        """TRN-4.16 a hand without a showdown carries **no** `counterfactual` key at all — not `None`, and not a partial tuple — while its eight required keys stand, which is the fallback `counterfactual.md` §4 and D-40 pin; the control: the resolved hand of TRN-4.15 does carry one (episode.md §5, counterfactual.md §2, §4, records.md §4, D-43)."""
+        record = fold_episode()
+        reveal = as_mapping(record["reveal"], "the episode's 'reveal'")
+        self.assertFalse(
+            bool(reveal["showdown"]),
+            "the invented hand ends on the button's pre-flop fold, so no seat shows and "
+            "the reveal cannot resolve it (counterfactual.md §4, episode.md §5): %r"
+            % (reveal,),
+        )
+        for decision in decisions_of(record):
+            self.assertIsNone(
+                decision["counterfactual"],
+                "the engine values no decision of an unresolved hand (engine/episode.md "
+                "§5, records.md §5): %r" % (decision.get("counterfactual"),),
+            )
+        acted = self.transitions(record, 0)
+        self.assertEqual(
+            len(acted),
+            1,
+            "the button acted once and that decision is its terminal one "
+            "(episode.md §4): %r" % (len(acted),),
+        )
+        self.assertNotIn(
+            "counterfactual",
+            acted[0],
+            "a hand the reveal cannot resolve carries no `counterfactual` key at all: "
+            "`None` and a partial resolution are both refused, because the member then "
+            "falls back to the rule's own target exactly as D-40 pinned "
+            "(counterfactual.md §4, §6): %r" % (sorted(acted[0]),),
+        )
+        self.assertEqual(
+            set(acted[0]),
+            TRANSITION_KEYS,
+            "and nothing else is missing: the eight required keys are on an unresolved "
+            "hand's transition too, `episode` among them (records.md §4): %r"
+            % (sorted(acted[0]),),
+        )
+        resolved = self.transitions(episode(), 0)
+        self.assertTrue(
+            any("counterfactual" in transition for transition in resolved),
+            "the control: the resolved hand of the battery's own episode does carry the "
+            "key, so the absence above is about that hand and not about the step "
+            "(counterfactual.md §4): %r" % ([sorted(t) for t in resolved],),
         )
 
 

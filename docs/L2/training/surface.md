@@ -1,11 +1,11 @@
 # training — the callable surface
 
-- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 12 · **Date:** 2026-11-11
+- **Layer:** L2 · **Module:** `training` · **Unit:** phase1 · **Rev:** 13 · **Date:** 2026-11-11
 - **Owner of this file:** the surface — the six module-level names of `src/training/`, each with its argument
   contract, its returned record, its refusals and its determinism (D-12, `e2e-surface.md` §1, §3.5)
 - **Rev 3:** §4's `checkpoints` row states where a run writes and how it spells a written path (`write-root.md`, split out
   because this file reached its ceiling). **Rev 4:** §6's probe rule is the sibling `devices.md`. **Rev 5:** §4's and §5's
-  refusals include the declarations a run would discard (`declarations.md` §1–§4). **Rev 7:** the rule reaches §4's `pool` row and §7 (D-19). **Rev 8:** D-20 reaches §4's `pool`, `variants` and `rules` rows, §5's seventh axis, §7's index entry and `declarations.md`'s utility check — `utility.md`. **Rev 9:** D-21 reaches §1's granted calls, §3.1's id, §4's `pool` row, refusals and `baselines` block — the pinned set read off the catalogue's flag, and one row per baseline the pool holds. **Rev 10:** D-29 reaches §1's granted calls (`agents.as_policy` at `exploration="off"`), §4's `game` and `greedy` rows with the `UnknownShape` and `GreedyPassRefused` refusals, §4.1's shape-aware header and §5's `shape` constant — the pass is `greedy.md`'s, the bound `declarations.md` §5's (D-29, ASM-38, D-28). **Rev 11:** D-33's third shape reaches §1's restated tables, §4's `game` row and §4.2 — three names, three descriptor counts and three history capacities, the seat rotation `index % seats`, the shape's own record bound, and no table row from a shape whose seat count is not two (`seats.md` §2–§5, `shapes.md` §8, ASM-42, ASM-43, D-33). **Rev 12:** D-36 reaches §4's `greedy` row and §4's refusals — a **budget is never refused for the pass**: a run above the pass's 2,000-hand bound completes, and its pass plays a 2,000-hand **sample of the run's own hands**, the run's first `hands` hands at the run's seed, so `budget`, `hands` and `seed` state the sample exactly and a third party replays it; a **pass request** above the bound is still `GreedyPassRefused`, naming the count and the bound (`sizing.md` §4, `records.md` §15, `greedy.md` §1, §4, ASM-38)
+  refusals include the declarations a run would discard (`declarations.md` §1–§4). **Rev 7:** the rule reaches §4's `pool` row and §7 (D-19). **Rev 8:** D-20 reaches §4's `pool`, `variants` and `rules` rows, §5's seventh axis, §7's index entry and `declarations.md`'s utility check — `utility.md`. **Rev 9:** D-21 reaches §1's granted calls, §3.1's id, §4's `pool` row, refusals and `baselines` block — the pinned set read off the catalogue's flag, and one row per baseline the pool holds. **Rev 10:** D-29 reaches §1's granted calls (`agents.as_policy` at `exploration="off"`), §4's `game` and `greedy` rows with the `UnknownShape` and `GreedyPassRefused` refusals, §4.1's shape-aware header and §5's `shape` constant — the pass is `greedy.md`'s, the bound `declarations.md` §5's (D-29, ASM-38, D-28). **Rev 11:** D-33's third shape reaches §1's restated tables, §4's `game` row and §4.2 — three names, three descriptor counts and three history capacities, the seat rotation `index % seats`, the shape's own record bound, and no table row from a shape whose seat count is not two (`seats.md` §2–§5, `shapes.md` §8, ASM-42, ASM-43, D-33). **Rev 12:** D-36 reaches §4's `greedy` row and §4's refusals — a **budget is never refused for the pass**: a run above the pass's 2,000-hand bound completes, and its pass plays a 2,000-hand **sample of the run's own hands**, the run's first `hands` hands at the run's seed, so `budget`, `hands` and `seed` state the sample exactly and a third party replays it; a **pass request** above the bound is still `GreedyPassRefused`, naming the count and the bound (`sizing.md` §4, `records.md` §15, `greedy.md` §1, §4, ASM-38). **Rev 13:** D-43 reaches §4's `variants` and sets rows and §5's eighth axis — a variant may declare a `counterfactual` member of the **third** catalogue, the run forwards it only when it is named and records it in the `variants` row and the `counterfactuals` set **only** when it is not the catalogue's first, so a run declaring nothing writes neither and its record keeps the shape a capture took; the member is an axis a pair may differ on and never a held setting (`counterfactual.md` §6, §9, `declarations.md` §4, D-43)
 - **Ceiling:** 225 lines. At the ceiling, split by owner — never append
 
 ## 1. Rules that hold of every entry point
@@ -99,8 +99,8 @@ The run record's keys (`records.md` §12's **required** set, D-19's rule set inc
 | `params` | per variant, the declared parameter budget and its ±2% bound (ASM-10): a run measures no capacity, because `agents.param_count` is not among the four `agents` calls this module is granted (`module-map.md` §2, `records.md` §12) |
 | `table` | the configuration's declared table budget the variant's row is measured at, `live` or `full`; a configuration that declares none is recorded at `live`, the budget a talk produces (`ladder.md` §3, `league.md` §6) |
 | `timings` | the cost record: hands played, wall clock, seconds per hand and the throughput, per variant and per seed — the facts `harness.timings` reports, measured by the run itself because no `harness` edge reaches this module (`records.md` §12, `e2e-surface.md` §3.6, D-7, ASM-15) |
-| `variants` | this module's own: each variant's backend, encoding, architecture, **its learning rule and its utility**, declared samples and the snapshot interval it used (`records.md` §12, `rules.md` §7, `utility.md` §3, D-20) |
-| `rules`, `utilities` | the two sets the run declared and trained, so a configuration whose two arms name two estimators or two objectives says so (`records.md` §12, `rules.md` §7, `utility.md` §3, D-19, D-20) |
+| `variants` | this module's own: each variant's backend, encoding, architecture, **its learning rule and its utility**, its `counterfactual` member **only when it is not the catalogue's first**, declared samples and the snapshot interval it used (`records.md` §12, `rules.md` §7, `utility.md` §3, `counterfactual.md` §6, D-20, D-43) |
+| `rules`, `utilities` | the two sets the run declared and trained, so a configuration whose two arms name two estimators or two objectives says so (`records.md` §12, `rules.md` §7, `utility.md` §3, D-19, D-20) — and, on the third axis, the `counterfactuals` set, present **only when at least one variant declares a member that is not the catalogue's first** (`counterfactual.md` §6, §9, D-43) |
 
 ### 4.1 The three further keys a complete report needs (Rev 2, measured)
 
@@ -153,16 +153,16 @@ the table carries a count and never a spelling, and a seat count is in none of t
     from the **later** one's declared axis — the rung that varies against the lineage — so a pair whose two primaries
     declare one stack still names the axis the rung is for; for two entries it is the one axis the difference falls
     in, and a pair that differs on nothing reports `differs: []` and invents no axis (D-3, `ladder.md` §2, D-6).
-  - `constants` — the `ladder.md` §4 list under the key names of `loop.md` §4, and the **sets** of rules and of
-    utilities the two sides declare, never one side's, and a `reward` row stating each side's utility's reward
-    (`rules.md` §8, `utility.md` §5, D-19, D-20). Its first row is `shape`: the one shape both sides name, which is what
-    its `game` and `action vocabulary` rows are read for — the shape's `game_config` and its three or six descriptors —
-    and what makes a pair of two shapes not a pair at all (`shapes.md` §1–§2, §6, `loop.md` §4, D-29).
+  - `constants` — the `ladder.md` §4 list under the key names of `loop.md` §4, the **sets** of rules and of utilities
+    the two sides declare, never one side's, and a `reward` row stating each side's utility's reward (`rules.md` §8,
+    `utility.md` §5, D-19, D-20) — and **no row** for the counterfactual member, which is an axis a pair differs on and
+    never a constant (`counterfactual.md` §6, D-43). Its first row is `shape`, the one shape both sides name, which is
+    what its `game` and `action vocabulary` rows read and what makes a pair of two shapes no pair (`shapes.md` §1–§2, §6, `loop.md` §4, D-29).
   - `pool` — `m`, `frozen`, the catalogue's `baselines` either side's pool holds (the anchors in every pool, plus any declared
     folder), each arm's declared `id`, `same` (the one id both declare, or `None`), and, for the parity pair, the membership the same-work check is played against (ASM-16, ASM-32, `loop.md` §4, D-21).
-- **The seven axes.** A pair is compared on exactly these dimensions; the architecture *kind* contributes only
+- **The eight axes.** A pair is compared on exactly these dimensions; the architecture *kind* contributes only
   through the representation family it consumes, because `dense`, `deep` and `residual` are one stack under
-  different settings (`agents/surface.md` §3, D-3):
+  different settings (`agents/surface.md` §3, D-3). The eighth, `counterfactual`, is an axis and never a held setting (`counterfactual.md` §6, D-43):
 
 | Axis | The compared value |
 |---|---|
@@ -172,7 +172,7 @@ the table carries a count and never a spelling, and a seat count is in none of t
 | `connectivity` | architecture `sparsity` (D-3) |
 | `residual` | architecture `residual` (D-3) |
 | `rule` | variant `learning_rule` — an axis a pair may differ on, since D-19 makes the estimator a parameter (`rules.md` §8, D-19) |
-| `utility` | variant `utility` — the seventh axis, and its token **and** field are one word, unlike `rule`/`learning_rule` (`utility.md` §5, `utilities.md` §8, D-20) |
+| `utility` | variant `utility` — the seventh axis, and its token **and** field are one word, unlike `rule`/`learning_rule` (`utility.md` §5, `utilities.md` §8, D-20); the eighth, `counterfactual`, is a `variants` row's member on the same terms, and it is an axis a pair may differ on and never one of §4's held settings (`counterfactual.md` §6, `declarations.md` §4, D-43) |
 
 - **A differing pair is refused when its differences are not one axis**, naming every axis it differs on, because the
   one thing a reportable comparison may differ on is the axis it declares (D-3, D-6, `ladder.md` §4). A pair of two
@@ -194,7 +194,7 @@ for; R5–R6 `residual`; R4's, R5's and R6's own pairs `architecture`, `connecti
 - **Refusals:** a side that is neither a configuration nor a variant entry; two sides of different kinds; a
   configuration missing a key the comparison reads; more than one differing axis, naming them; two variants of one
   configuration declaring different pool ids (D-3, ASM-16), or different `hyper` blocks — a constant one side only
-  declares is no constant (`declarations.md` §3, ASM-7); a differing `learning_rule` or `utility` is the pair's axis instead (D-19, D-20).
+  declares is no constant (`declarations.md` §3, ASM-7); a differing `learning_rule`, `utility` or `counterfactual` is the pair's axis instead (D-19, D-20, D-43).
 - **Determinism:** one pair gives one record, and `fairness` plays no hand, builds no learner, writes nothing
   and moves no stream (D-3, ASM-2, `battery.md` §3 FAM-3, FAM-15). It reports what it holds and what differs;
   it never asserts that a pair is fair, because a non-reportable pair never gets that far (D-3, D-6, `rules.md` §8).

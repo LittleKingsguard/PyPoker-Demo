@@ -169,7 +169,7 @@ class EngineJoin(J.JoinCase):
         )
 
     def test_trnj_1_3_the_terminal_reward_is_the_engines_chip_delta_unshaped(self):
-        """TRNJ-1.3 the terminal reward is the seat's net chip delta, unshaped.
+        """TRNJ-1.3 the terminal reward is the seat's net chip delta, unshaped, and the hand's batch carries D-43's boundary and its conditional resolution.
 
         `docs/L3/training/episode.md` §4: `terminal` is positional -- the last
         transition of the seat's list -- `reward` is `0.0` at every decision but the
@@ -177,6 +177,15 @@ class EngineJoin(J.JoinCase):
         is read as given from `records.md` §5's episode record, which is what
         `engine.play_hand` returns, and no term is added, clipped or shaped
         (ASM-12, `docs/L2/engine/surface.md` §9-§10).
+
+        **D-43 adds two facts to that batch and moves neither** (`records.md` §4,
+        `counterfactual.md` §2, §4): every transition carries `episode`, the episode's own
+        seed, and a transition carries `counterfactual` -- a tuple of the shape's
+        descriptor count holding the utility applied to each legal branch's chip delta --
+        exactly when its hand resolved.  At the descriptor the hand applied the value is
+        the seat's realised delta, which is the number the seat's terminal transition
+        carries as its `reward`; a hand the reveal cannot resolve carries no such key at
+        all, and the terminal reward is unchanged in both cases (FAM-22, D-43).
         """
         episode = J.episode()
         payoffs = J.episode_payoffs(episode)
@@ -194,6 +203,7 @@ class EngineJoin(J.JoinCase):
                 "cannot carry a shaped term (ASM-12, "
                 "docs/L2/engine/surface.md §9)",
         )
+        boundary = int(J.episode_seed(episode))
         checked = 0
         for seat in (0, 1):
             batch = J.transitions(episode, seat, J.flat_encoder())
@@ -201,13 +211,22 @@ class EngineJoin(J.JoinCase):
                 continue  # a hand the seat never acted in files no signal (§3)
             for item in batch:
                 for key in ("observation", "next_observation", "action", "reward",
-                            "terminal", "legal", "next_legal"):
+                            "terminal", "legal", "next_legal", "episode"):
                     self.assertIn(
                         key,
                         item,
-                        "a transition carries the seven keys of records.md §4; the "
-                        "batch for seat %r is missing %r" % (seat, key),
+                        "a transition carries the eight required keys of records.md §4 "
+                        "— D-43's `episode` among them — and the ninth only when the "
+                        "hand resolved; the batch for seat %r is missing %r"
+                        % (seat, key),
                     )
+                self.assertEqual(
+                    int(item["episode"]),
+                    boundary,
+                    "every transition of one hand carries that episode's own seed "
+                    "(records.md §4, §5, counterfactual.md §2, D-43): %r against %r"
+                    % (item["episode"], boundary),
+                )
                 self.assertIn(
                     item["action"],
                     list(item["legal"]),
@@ -215,6 +234,34 @@ class EngineJoin(J.JoinCase):
                     "masked update re-derives nothing (records.md §4, "
                     "docs/L3/training/episode.md §3)",
                 )
+                if "counterfactual" in item:
+                    values = list(item["counterfactual"])
+                    self.assertEqual(
+                        len(values),
+                        J.descriptor_count(),
+                        "a resolution is one entry per descriptor of the run's shape, "
+                        "`A` and no other count (counterfactual.md §5, §6, "
+                        "sizing.md §6): %r" % (values,),
+                    )
+                    legal = [int(index) for index in item["legal"]]
+                    for index, value in enumerate(values):
+                        if index in legal:
+                            continue
+                        self.assertIsNone(
+                            value,
+                            "an index that was not legal at the decision carries "
+                            "`None`, so a masked action is never valued and never "
+                            "updated (counterfactual.md §5, agents/rule.md §2): %r"
+                            % (values,),
+                        )
+            self.assertEqual(
+                len({("counterfactual" in item) for item in batch}),
+                1,
+                "a hand either resolved for every one of its transitions or for none of "
+                "them — the resolution is a property of the completed hand and never of "
+                "one decision (counterfactual.md §4, D-43): %r"
+                % ([sorted(item) for item in batch],),
+            )
             self.assertEqual(
                 [bool(item["terminal"]) for item in batch],
                 [False] * (len(batch) - 1) + [True],
@@ -244,6 +291,127 @@ class EngineJoin(J.JoinCase):
             "at least one seat of a hand acts, so at least one batch exists to carry "
             "the hand's terminal chip delta (records.md §5, "
             "docs/L3/training/episode.md §3)",
+        )
+
+        # The invariant itself, on a hand that certainly reaches a showdown and under
+        # **both** catalogue utilities: at the descriptor the hand applied, the resolution
+        # is the seat's realised delta -- the number its terminal transition carries as
+        # `reward` (`counterfactual.md` §4, ASM-12, FAM-22, D-43).
+        resolved_hand = J.showdown_episode()
+        for utility in J.utility_names():
+            for seat in (0, 1):
+                batch = J.transitions_under(
+                    resolved_hand, seat, J.flat_encoder(), utility
+                )
+                if not batch:
+                    continue
+                for item in batch:
+                    self.assertIn(
+                        "counterfactual",
+                        item,
+                        "a hand with a showdown and no split resolves every decision of "
+                        "it, so every transition of it carries the key "
+                        "(counterfactual.md §4, §5, D-43): %r under %r"
+                        % (sorted(item), utility),
+                    )
+                    values = list(item["counterfactual"])
+                    applied = int(item["action"])
+                    self.assertAlmostEqual(
+                        float(values[applied]),
+                        float(batch[-1]["reward"]),
+                        places=9,
+                        msg="at the descriptor the hand applied, the resolution is the "
+                        "seat's realised net chip delta — the number that seat's "
+                        "**terminal** transition carries as its `reward`, which is the "
+                        "delta under %r put through the utility, by the same function, so "
+                        "the equality survives the transform (counterfactual.md §4, "
+                        "utilities.md §2, §4, D-20, D-43): %r against %r"
+                        % (utility, values, batch[-1]["reward"]),
+                    )
+                terminal = batch[-1]
+                self.assertAlmostEqual(
+                    float(list(terminal["counterfactual"])[int(terminal["action"])]),
+                    float(terminal["reward"]),
+                    places=9,
+                    msg="and at the seat's terminal decision the resolution's applied "
+                    "value **is** that transition's `reward`, under %r "
+                    "(counterfactual.md §4, ASM-12, FAM-22, D-43): %r against %r"
+                    % (utility, terminal["counterfactual"], terminal["reward"]),
+                )
+
+    def test_trnj_3_5_a_counterfactual_member_reaches_the_record_and_the_container(self):
+        """TRNJ-3.5 a run declaring a non-default counterfactual member records it in its `variants` row and its `counterfactuals` set, and the checkpoint it writes records it too, while a run declaring nothing records neither and writes the container it always wrote.
+
+        D-43 makes the member a third axis: `agents.learn` takes its targets from it,
+        `training` forwards the declaration into the learner spec and records what it built,
+        and the container a run saves carries the name in a **version-5** field
+        (`counterfactual.md` §6, §9, `records.md` §4, §7, §12, `agents/checkpoint.md` §3).
+        The conditional half is what keeps a default run's record and its container exactly
+        what they were: no `counterfactuals` key, no `variants` `counterfactual`, and a
+        version-4 file (D-43, `shapes.md` §5).
+        """
+        catalogue = J.counterfactual_names()
+        self.assertGreaterEqual(
+            len(catalogue),
+            2,
+            "the catalogue publishes the member D-43 adds beside the default, so a run can "
+            "be shown declaring one (counterfactual.md §6, D-43): %r" % (catalogue,),
+        )
+        member = catalogue[1]
+        record = J.counterfactual_run()
+        variant = str(record["variants"][0]["name"])
+        seed = int(record["seeds"][0])
+        self.assertEqual(
+            [str(row.get("counterfactual")) for row in record["variants"]],
+            [member],
+            "a variant declaring a member is recorded under it, so a run says which "
+            "targets produced which curve (records.md §12, counterfactual.md §6, D-43): "
+            "%r" % ([row.get("counterfactual") for row in record["variants"]],),
+        )
+        self.assertEqual(
+            {str(item) for item in record.get("counterfactuals") or ()},
+            {member},
+            "and the run's `counterfactuals` set names the member it declared and trained "
+            "(records.md §12, counterfactual.md §6, D-43): %r"
+            % (record.get("counterfactuals"),),
+        )
+        final = str(J.checkpoints_of(record, variant, seed)["final"])
+        self.assertTrue(
+            os.path.exists(J.resolve(final)),
+            "the run writes that pair's final model at the path its record names "
+            "(records.md §12, ASM-18): %r" % (final,),
+        )
+        reported = J.container_counterfactual(final)
+        self.assertEqual(
+            reported,
+            member,
+            "the container records the member its learner was trained under, so a pool "
+            "certifies the targets a version took as it certifies its rule and its "
+            "utility (counterfactual.md §6, records.md §7, D-43): %r" % (reported,),
+        )
+        default = J.small_run()
+        self.assertNotIn(
+            "counterfactuals",
+            default,
+            "a run whose variants declare nothing writes no `counterfactuals` key, which "
+            "is the conditionality D-43 pins (records.md §12, counterfactual.md §6, §9): "
+            "%r" % (sorted(default),),
+        )
+        for row in default["variants"]:
+            self.assertNotIn(
+                "counterfactual",
+                row,
+                "and no `variants` row of it names the default either "
+                "(counterfactual.md §6, §9, D-43): %r" % (sorted(row),),
+            )
+        plain = J.checkpoints_of(default, str(default["variants"][0]["name"]),
+                                 int(default["seeds"][0]))["final"]
+        self.assertEqual(
+            J.container_counterfactual(str(plain)),
+            catalogue[0],
+            "and the control: that run's container records the catalogue's first member, "
+            "because absence is the default and never an unnamed state "
+            "(counterfactual.md §6, D-43): %r" % (catalogue[0],),
         )
 
     def test_trnj_1_4_every_td_error_is_finite_and_non_negative(self):

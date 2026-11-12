@@ -5,7 +5,7 @@
   `offer`'s eviction are `families.md`'s (§3, §4, §6), the utility a member declares is `utility.md`'s and the
   shape it declares is `shape.md`'s (`surface.md` §5–§8, `league.md` §1–§2, `shape.md` §2–§4)
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
-- **Rev 6:** D-29's second shape — a `Pool` carries the one shape it is on, the declaration's `game` key and each member's `game` are held to it, each pinned baseline is probed once, and the read-back's `game` is required (`shape.md` §2–§4) · **Rev 7:** D-33's third shape — the probe and every drawn baseline are built for **the pool's own shape** (§2, §7), and `opponent` gains the counted arm `count`, whose two refusals name both counts (§7–§8, `seats.md` §2–§4, ASM-43, D-33)
+- **Rev 6:** D-29's second shape — a `Pool` carries the one shape it is on, the declaration's `game` key and each member's `game` are held to it, each pinned baseline is probed once, and the read-back's `game` is required (`shape.md` §2–§4) · **Rev 7:** D-33's third shape — the probe and every drawn baseline are built for **the pool's own shape** (§2, §7), and `opponent` gains the counted arm `count`, whose two refusals name both counts (§7–§8, `seats.md` §2–§4, ASM-43, D-33) · **Rev 8:** D-43's third catalogue — a version member's `counterfactual` is read and **conditional**, a name outside the catalogue being refused by name (§2), the read-back states the `counterfactuals` set those members declare and states **no key** when every one of them is `none` (§5), and the digest appends the member after the utility only then, so every existing pool id stands (§4, `counterfactual.md` §6, `records.md` §7–§8)
 - **Read with:** `shape.md` §1–§4, `families.md` §1–§6, `utility.md` §1–§4, `declarations.md` §4, `scheduler.md` §5,
   `matrix.md` §1, `errors.md` §2–§4, `seats.md` §2–§4
 
@@ -32,7 +32,7 @@ caches, registers or mutates (`surface.md` §7), and no pool is ever a window of
 1. `game` is read **first**, before a member is looked at: absent it is `DEFAULT_SHAPE` and a name the restated
    catalogue does not carry is `UnknownShape`, naming the entry point, the field, the name and `SHAPE_NAMES` — never
    mapped onto the default (`shape.md` §2–§3). The pool's shape is then the fact every following step is checked against.
-2. `members` is a sequence of member records, possibly empty: R1's pool is the three anchor baselines alone (`league.md` §2), and each record must carry an `id`, a `lineage`, a `rule` and a `utility`, all four non-empty `str` and required by the shape as `utility.md` §2 states (`records.md` §7, §8, `utility.md` §1–§2). An `id` that **is one of the pinned baselines' names** — the three anchors plus any folder this declaration admits — is refused, naming the member: the baselines are pinned in every pool, so such a version would name one member twice (`surface.md` §5, `errors.md` §4, ASM-32, D-21). A `rule` the catalogue does not carry is `UnknownRule`, naming the member, the name and the catalogue — never mapped onto the declared default (`families.md` §6, D-19); a `utility` the catalogue does not carry is `UnknownUtility` on the same terms, and a member naming **none** is refused as a missing required key — `MemberInvalid`, naming the member and the key — never read as the catalogue's first member, because the pool is the only witness of what its member was trained under (`utility.md` §2, `records.md` §7, ASM-27, D-20). A member's `game` is `records.md` §7's key — **required of a non-default member, absent for a default-shape one** — and it is held to step 1's: a member whose shape, read with an absent `game` as the default, is not the pool's is `ShapeMismatch`, naming the member and both shapes, and a member naming an uncatalogued shape is `UnknownShape` (`records.md` §7, `shape.md` §2–§3, D-29).
+2. `members` is a sequence of member records, possibly empty: R1's pool is the three anchor baselines alone (`league.md` §2), and each record must carry an `id`, a `lineage`, a `rule` and a `utility`, all four non-empty `str` and required by the shape as `utility.md` §2 states (`records.md` §7, §8, `utility.md` §1–§2). An `id` that **is one of the pinned baselines' names** — the three anchors plus any folder this declaration admits — is refused, naming the member: the baselines are pinned in every pool, so such a version would name one member twice (`surface.md` §5, `errors.md` §4, ASM-32, D-21). A `rule` the catalogue does not carry is `UnknownRule`, naming the member, the name and the catalogue — never mapped onto the declared default (`families.md` §6, D-19); a `utility` the catalogue does not carry is `UnknownUtility` on the same terms, and a member naming **none** is refused as a missing required key — `MemberInvalid`, naming the member and the key — never read as the catalogue's first member, because the pool is the only witness of what its member was trained under (`utility.md` §2, `records.md` §7, ASM-27, D-20). A member's `counterfactual` is `records.md` §7's **conditional** key — required of a member trained under a counterfactual member other than the catalogue's first and **absent** for one trained under that first, `none` — and it is read on the same terms where the record declares one: a name the **third** catalogue does not carry (or one that is empty, or holds a newline or the digest's separator) is refused by name, `MemberInvalid` naming `build_pool`, the member, the name and the catalogue, while a record that declares none is a member under `none` and gains no key at all (`counterfactual.md` §6, `records.md` §7, `errors.md` §4, D-43). A member's `game` is `records.md` §7's key — **required of a non-default member, absent for a default-shape one** — and it is held to step 1's: a member whose shape, read with an absent `game` as the default, is not the pool's is `ShapeMismatch`, naming the member and both shapes, and a member naming an uncatalogued shape is `UnknownShape` (`records.md` §7, `shape.md` §2–§3, D-29).
 3. `m` is a positive integer no larger than `league()["m"]`: a declaration may be **tighter** than M and never wider (`league.md` §2, D-16). A `bool` is refused — a flag is not a bound.
 4. `frozen` is a boolean flag (`bool` or the NumPy scalar `bool_`). It is stored, not interpreted: `offer` refuses a frozen pool and `matrix` refuses an unfrozen one (`surface.md` §7, §10).
 5. The versions are grouped into **families** and ordered, then **windowed to `m`** by the fair-share eviction rule `offer` uses: a declaration richer than the bound is windowed, never refused, unless it holds more than `m` families (`families.md` §2–§3, `league.md` §2, ASM-18, ASM-26).
@@ -54,7 +54,7 @@ The order that stood here is now the **families** — one lineage chain each, ev
 
 ## 4. The id digest — `families.md` §4
 
-The payload is one line per member — a baseline's `id` alone, a version's `id`, `"\x1f"`, its `rule`, `"\x1f"` and its `utility` — joined by `"\n"`, and the id is `"pool-" + sha256(payload).hexdigest()[:16]`. `families.md` §4 owns the digest, why the rule and the utility are inside it, why the **shape is not** — two pools of one membership on two shapes wear one id (`ASM-27`, `D-20`, `shape.md` §4, `records.md` §8).
+The payload is one line per member — a baseline's `id` alone, a version's `id`, `"\x1f"`, its `rule`, `"\x1f"` and its `utility` — joined by `"\n"`, and the id is `"pool-" + sha256(payload).hexdigest()[:16]`. `families.md` §4 owns the digest, why the rule and the utility are inside it, why the **shape is not** — two pools of one membership on two shapes wear one id (`ASM-27`, `D-20`, `shape.md` §4, `records.md` §8). D-43 appends the third catalogue's member to a version's line — `"\x1f"` and its `counterfactual`, after its utility — **only when it is not `none`**: a version trained under the catalogue's first member contributes exactly the line it contributed before the catalogue existed, so R1's pool and every pool of `none` members wear the id they wore, and two pools of one membership under two counterfactual members do not (`counterfactual.md` §6, §9, ASM-27, D-43).
 
 ## 5. `pool_members` — the read-back
 
@@ -63,7 +63,8 @@ changes nothing:
 
     {"id": <families.md §4's id>, "m": <the bound>, "frozen": <the flag>, "game": <the pool's shape>,
      "members": (<the ordered records>,), "rules": (<the distinct rules the versions declare>,),
-     "utilities": (<the distinct utilities the versions declare>,)}
+     "utilities": (<the distinct utilities the versions declare>,),
+     "counterfactuals": (<the distinct counterfactual members they declare>,)}   # absent when all are `none`
 
 `game` is **required** and names the one shape every member of the pool plays — an absent declaration key reads as the
 default, and a record that names it is the fact a table and a report read (`records.md` §8, §10, `shape.md` §2, §4).
@@ -73,7 +74,10 @@ declaration carried — its `rule`, its `utility` and its `game` the declaration
 nothing filled in — with its own keys and values otherwise untouched. `rules` is the **distinct** rules its version members declare, in the
 window's order, and `utilities` their counterpart on the same terms; both are the **empty tuple** for R1's pool, because
 a baseline is a fixed policy and not a trained member, so it contributes neither, and the pair is the two populations a
-table over this pool measured (`records.md` §8, `families.md` §2, `utility.md` §3, D-19, D-20, ASM-16, D-21). A frozen pool's
+table over this pool measured (`records.md` §8, `families.md` §2, `utility.md` §3, D-19, D-20, ASM-16, D-21). `counterfactuals` is
+the third of them — the **distinct** counterfactual members those versions declare, in the window's order, `none` included where
+a version declares it — and **absent** when every one of them is `none`, so a baselines-only pool and a pool of versions all
+trained under `none` read back exactly the record they read back before the third catalogue existed (`records.md` §8, `counterfactual.md` §6, §9, D-43). A frozen pool's
 read-back does not change while it is used, which is how a pair's parity is read (`surface.md` §6).
 
 ## 6. `offer`'s rolling — `families.md` §3, §5
@@ -84,7 +88,9 @@ oldest member of the family that holds the most, so no family is emptied while a
 (`families.md` §3, §5, ASM-26), and the returned pool keeps the **pool's** shape (`shape.md` §4). `families.md` §5 owns
 the four outcomes and §6 their refusals. What this section keeps is §2's guarantee at the pool's surface: the baselines are
 pinned and never evicted, the argument pool is unchanged, the version's own `rule` and `utility` are required and checked
-exactly as §2 step 2 checks a declared member's (`league.md` §2, `surface.md` §7, `utility.md` §4), and a version whose `game` — or
+exactly as §2 step 2 checks a declared member's (`league.md` §2, `surface.md` §7, `utility.md` §4), its `counterfactual` is read
+on that same conditional rule — declared where the version was trained under one and absent where it was trained under `none`,
+a name the third catalogue does not carry refused by name (`counterfactual.md` §6, `records.md` §7, D-43), and a version whose `game` — or
 whose absent `game`, read as the default — is **not the pool's** is `ShapeMismatch`, naming the member and both shapes,
 because a pool is one shape's and no window mixes two (`shape.md` §3, §4).
 
@@ -111,7 +117,7 @@ member, returned as one policy (`surface.md` §8, D-16):
 |---|---|---|
 | `build_pool` | `PoolDeclarationInvalid` | the argument is not a mapping, or is missing `members`, `m` or `frozen`, or `frozen` is not a boolean — the key is named |
 | `build_pool` | `PoolBoundInvalid` | `m` is not a positive integer, is a `bool`, or exceeds `league()["m"]` — the bound is named |
-| `build_pool`, `offer` | `MemberInvalid` | a member is not a mapping, or its `id`, `lineage`, `rule` or `utility` is missing, empty, or holds a newline or the digest's separator — the absent key named, and the `utility`'s absence refused like the other three (`utility.md` §2, `families.md` §6) |
+| `build_pool`, `offer` | `MemberInvalid` | a member is not a mapping, or its `id`, `lineage`, `rule` or `utility` is missing, empty, or holds a newline or the digest's separator — the absent key named, and the `utility`'s absence refused like the other three (`utility.md` §2, `families.md` §6); a `counterfactual` that is declared but empty or holds one of those, and one the **third** catalogue does not carry, refused by name on the same terms — while a record declaring none is admitted and gains no key (`counterfactual.md` §6, `records.md` §7, D-43) |
 | `build_pool`, `offer` | `UnknownRule`, `UnknownUtility` | the `rule` or the `utility` is not one its catalogue carries — the member, the name and the catalogue (`families.md` §6, `utility.md` §4, D-19, D-20) |
 | `build_pool`, `offer`, `opponent` | `UnknownShape` | a `game` the restated catalogue does not carry — the declaration's, a member's, an offered version's or a drawn record's — naming the field, the name and `SHAPE_NAMES`, never the default (`shape.md` §2–§3) |
 | `build_pool`, `offer`, `opponent` | `ShapeMismatch` | two declarations of one shape disagree — a member's or an offered version's `game` against the pool's, or a drawn record's against its container's — naming the member and both shapes (`shape.md` §3, §4) |
@@ -130,7 +136,7 @@ member, returned as one policy (`surface.md` §8, D-16):
 | `opponent` | `DrawExceedsMembership` | the count is above the membership — **naming both counts**, because a draw is without replacement and a substitute seat would be an opponent the membership does not carry (`records.md` §8, `seats.md` §3, ASM-43) |
 | `opponent` | `MemberUnloadable`, `CheckpointRecordMissing`, `RuleMismatch`, `UtilityMismatch` | the drawn version carries no `path`, its container records no seed or no encoding name, or records either in a form this module does not read, or its policy contradicts the record's `rule`, `utility` or `game` — `scheduler.md` §5–§6's classes |
 
-The order is §2's: the declaration's shape, then a member's `path`, `rule`, `utility` and `game`, then the families and the
+The order is §2's: the declaration's shape, then a member's `path`, `rule`, `utility`, `counterfactual` and `game`, then the families and the
 window — so an uncatalogued shape is reported before a single member is windowed and no pool is built for a window that
 will be refused. In `opponent` the order is the pool, the seed, then the count's two refusals, so a pool that is not this
 module's is reported before a draw is attempted (`§8`, `seats.md` §3). Each message follows `errors.md` §3's grammar and is

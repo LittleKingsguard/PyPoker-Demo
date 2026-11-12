@@ -164,6 +164,15 @@ DEFAULT_UTILITY = "net-chips"
 OTHER_UTILITY = "stack-shortfall"
 UTILITIES = (DEFAULT_UTILITY, OTHER_UTILITY)
 
+#: The counterfactual catalogue's two members, on the same terms (`counterfactual.md` §2, §6,
+#: D-43): the names this battery asserts against, with the third catalogue itself always read
+#: off `agents.learners()`.  `none` is its first member and the declared default -- the rule's
+#: own target, unchanged -- and a member trained under it carries no container field and
+#: appends nothing to a pool's id.
+DEFAULT_COUNTERFACTUAL = "none"
+OTHER_COUNTERFACTUAL = "reveal-counterfactual"
+COUNTERFACTUALS = (DEFAULT_COUNTERFACTUAL, OTHER_COUNTERFACTUAL)
+
 HAND_BUILT_MEMBERS = (
     "random",
     "always-call",
@@ -515,13 +524,18 @@ def draw_order(seed, size):
 
 
 def pool_id(members):
-    """A pool's id: one line per member, a baseline's id alone and a version's with its two members.
+    """A pool's id: one line per member, a baseline's id alone and a version's with its members.
 
-    `docs/L3/evaluation/families.md` §4, ASM-27 and D-20: the payload is a baseline's id
-    alone and a version's `id`, ``\\x1f``, then its `rule`, ``\\x1f``, then its `utility`,
-    one line per member, joined by one ``\\n``; SHA-256, truncated to sixteen hex
-    characters and prefixed `pool-`.  A sequence of bare ids is read as a baselines-only
-    membership, which is what a caller holding only names can mean.
+    `docs/L3/evaluation/families.md` §4, ASM-27, D-20 and D-43: the payload is a baseline's
+    id alone and a version's `id`, ``\\x1f``, then its `rule`, ``\\x1f``, then its
+    `utility`, then ``\\x1f`` and its `counterfactual` **only when** the record carries one
+    that is not the catalogue's first, `none` -- so a member trained under `none`, or one
+    whose record names no such key, contributes exactly the line it contributed before the
+    third catalogue existed, and every shipped id stays as it was (`docs/L1/
+    counterfactual.md` §6, §9, D-43).  One line per member, joined by one ``\\n``; SHA-256,
+    truncated to sixteen hex characters and prefixed `pool-`.  A sequence of bare ids is
+    read as a baselines-only membership, which is what a caller holding only names can
+    mean.
     """
     lines = []
     for member in members:
@@ -529,10 +543,13 @@ def pool_id(members):
             if member.get("baseline"):
                 lines.append(str(member["id"]))
             else:
-                lines.append(
-                    "%s\x1f%s\x1f%s"
-                    % (member["id"], member["rule"], member["utility"])
+                line = "%s\x1f%s\x1f%s" % (
+                    member["id"], member["rule"], member["utility"]
                 )
+                declared = member.get("counterfactual")
+                if isinstance(declared, str) and declared != DEFAULT_COUNTERFACTUAL:
+                    line = "%s\x1f%s" % (line, declared)
+                lines.append(line)
         else:
             lines.append(str(member))
     payload = "\n".join(lines).encode("utf-8")

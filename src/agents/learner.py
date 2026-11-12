@@ -35,6 +35,7 @@ from .errors import (
     LearningDiverged,
     UnknownArchitecture,
     UnknownBackend,
+    UnknownCounterfactual,
     UnknownRule,
     UnknownUtility,
 )
@@ -47,6 +48,7 @@ TRANSITION_KEYS = (
     "terminal",
     "legal",
     "next_legal",
+    "episode",
 )
 
 
@@ -282,6 +284,25 @@ def utility(value, entry):
     return value
 
 
+def counterfactual(value, entry):
+    """One counterfactual catalogue member's name, or the refusal (`counterfactual.md` §6, D-43).
+
+    A learner takes its targets from one of `learners()['counterfactuals']`'s members,
+    named by the catalogue's own spelling: a value that is not a string, or a string no
+    member carries, is refused naming the value and the catalogue's names, and is never
+    mapped onto the declared default.  It is not a rule and not a utility -- it is the
+    axis that decides whether a residual is the rule's bootstrap or the transition's own
+    whole-hand value -- and a silent substitution would train a model on targets its spec
+    does not name (`counterfactual.md` §6, D-43; `errors.md` §3).
+    """
+    if not isinstance(value, str) or value not in declarations.COUNTERFACTUALS:
+        raise UnknownCounterfactual(
+            "%s(spec): 'counterfactual' must be one of %r, got %r"
+            % (entry, tuple(declarations.COUNTERFACTUALS), value)
+        )
+    return value
+
+
 def _backend(name):
     """The one module that performs this backend's arithmetic (`backends.md` §4).
 
@@ -314,13 +335,18 @@ class Learner:
     It holds the backend's state — the online parameters, their target copy and the
     sparse masks — the sizing record a caller's arguments are checked against, the
     seed its exploration is keyed by, the catalogue member it learns under, the
-    catalogue member whose reward its training target carries, the schedule position
-    `learn` advances and the target copy's consumed-transition counter (`rule.md` §2-§4,
-    `checkpoint.md` §1, D-19, D-20).  `rule` is the only field a learner's arithmetic
-    reads and nothing else does: `act`, `param_count`, `as_policy` and the two
-    checkpoints' members are rule-free; `utility` is read by no arithmetic here at all,
-    because the reward is the caller's and the transform is `training`'s
-    (`utilities.md` §4, `surface.md` §4-§7, D-19, D-20).
+    catalogue member whose reward its training target carries, the catalogue member it
+    takes its targets from, the schedule position `learn` advances and the target
+    copy's consumed-transition counter (`rule.md` §2-§4, `checkpoint.md` §1, D-19,
+    D-20, D-43).  `counterfactual` is the catalogue member the learner takes its targets
+    from — `none` being the rule's own bootstrap target, unchanged — read by `learn`
+    alone and carried by every container it writes and by every policy `as_policy`
+    builds; `act`, `param_count` and `as_policy`'s arithmetic are counterfactual-free
+    (`counterfactual.md` §6, D-43).  `rule` and `counterfactual` are the only fields a
+    learner's arithmetic reads and nothing else does: `act`, `param_count`,
+    `as_policy` and the two checkpoints' members are rule-free; `utility` is read by no
+    arithmetic here at all, because the reward is the caller's and the transform is
+    `training`'s (`utilities.md` §4, `surface.md` §4-§7, D-19, D-20).
 
     `game` and `actions` are the shape it decides in and that shape's descriptor count
     `A` — the identity a container records and the width its head is built at.  They are
@@ -347,6 +373,7 @@ class Learner:
         "dtype",
         "rule",
         "utility",
+        "counterfactual",
         "game",
         "actions",
         "position",
@@ -375,6 +402,7 @@ class Learner:
         counter=0,
         game=None,
         actions=None,
+        counterfactual=None,
     ):
         self.backend_name = backend_name
         self.backend = _backend(backend_name)
@@ -393,6 +421,12 @@ class Learner:
         self.dtype = dtype
         self.rule = rule
         self.utility = utility
+        # The catalogue member it takes its targets from: absent, the declared default,
+        # which is the rule's own bootstrap target and today's arithmetic unchanged
+        # (`counterfactual.md` §6, D-43).
+        self.counterfactual = (
+            declarations.DEFAULT_COUNTERFACTUAL if counterfactual is None else counterfactual
+        )
         # The shape it decides in, and that shape's descriptor count: absent, the
         # declared default's -- a reading through `features.action_space`, never a
         # constant (`shapes.md` §1–§2, ASM-40).
@@ -439,10 +473,12 @@ def _resolve_kind(architecture, sizes):
 def build_learner(spec):
     """One learner from one spec, under the rule and utility the spec names (`surface.md` §4).
 
-    `learning_rule` and `utility` are optional: absent, the learner is built under the
-    catalogue's **first** member of each, the declared defaults of `rules.md` §4 and
-    `utilities.md` §5.  A named member the catalogue does not carry is refused before
-    anything is built (`errors.md` §4, D-19, D-20).
+    `learning_rule`, `utility` and `counterfactual` are optional: absent, the learner is
+    built under the catalogue's **first** member of each, the declared defaults of
+    `rules.md` §4, `utilities.md` §5 and `counterfactual.md` §6 -- `counterfactual` being
+    the third optional catalogue key, the axis the learner takes its targets from
+    (D-19, D-20, D-43).  A named member the catalogue does not carry is refused before
+    anything is built (`errors.md` §4).
 
     **Which size the learner is built at is the shape's question.**  `encoder` is
     optional too: with one, the learner is sized from its `observation_spec` -- a dense
@@ -482,7 +518,9 @@ def build_learner(spec):
     # The catalogue members are read here, before any setting is resolved and before a
     # parameter is drawn, so a refused name leaves nothing built (`errors.md` §1).
     # Absent, each is the declared default and not a value inferred from the caller's
-    # silence (`rules.md` §4, `utilities.md` §5, `records.md` §3).
+    # silence (`rules.md` §4, `utilities.md` §5, `records.md` §3).  A third member is
+    # read here on the same rule: absent, the catalogue's first; named and uncarried,
+    # refused before anything is built (`counterfactual.md` §6, D-43).
     under = (
         learning_rule(spec["learning_rule"], "build_learner")
         if "learning_rule" in spec
@@ -492,6 +530,11 @@ def build_learner(spec):
         utility(spec["utility"], "build_learner")
         if "utility" in spec
         else declarations.DEFAULT_UTILITY
+    )
+    targets_from = (
+        counterfactual(spec["counterfactual"], "build_learner")
+        if "counterfactual" in spec
+        else declarations.DEFAULT_COUNTERFACTUAL
     )
     # The shape the learner decides in, read beside the two catalogue members and before
     # a parameter is drawn: absent it is the declared default, and a name the catalogue
@@ -607,6 +650,10 @@ def build_learner(spec):
         # (`shapes.md` §1–§2, §5, ASM-40).
         game=game,
         actions=actions,
+        # The catalogue member the learner takes its targets from: the spec's or the
+        # declared default `none`, recorded by every checkpoint it writes
+        # (`counterfactual.md` §6, D-43).
+        counterfactual=targets_from,
     )
 
 
@@ -650,6 +697,16 @@ def _transition(learner, record):
     )
     legal = _mask(record["legal"], "learn", "legal", learner)
     next_legal = _mask(record["next_legal"], "learn", "next_legal", learner)
+    # The episode boundary, which D-43 makes required of every transition: the episode's
+    # own seed, so two transitions of one hand carry one number and two hands of one run
+    # carry two (`records.md` §4, §5, `counterfactual.md` §2).  A missing one was already
+    # refused by the required-key loop above, which names the key.
+    episode = record["episode"]
+    if not is_count(episode):
+        raise InvalidBatch(
+            "learn(transitions): 'episode' must be an episode's integer seed, got %r"
+            % (episode,)
+        )
     # The index range is the learner's shape's, on `action`, `legal` and `next_legal`
     # alike, so a transition recorded on another shape is refused rather than read as one
     # of this learner's indices (`shapes.md` §3, `surface.md` §7).
@@ -677,6 +734,55 @@ def _transition(learner, record):
         raise InvalidBatch(
             "learn(terminal): the terminal flag must be a bool, got %r" % (terminal,)
         )
+    # The optional resolution D-43 adds: absent or `None` is a hand the member falls back
+    # from, and otherwise one value per descriptor of the shape, a number where the action
+    # was legal and `None` where it was not, so a masked action is never valued and never
+    # updated (`records.md` §4, `counterfactual.md` §4-§5).
+    supplied = record["counterfactual"] if "counterfactual" in record else None
+    if supplied is None:
+        resolution = None
+    else:
+        if isinstance(supplied, (str, bytes, Mapping)) or not isinstance(
+            supplied, Iterable
+        ):
+            raise InvalidBatch(
+                "learn(transitions): 'counterfactual' must be None or a sequence over "
+                "the shape %r's %d descriptors, got %s"
+                % (learner.game, span, type(supplied).__name__)
+            )
+        entries = list(supplied)
+        if len(entries) != span:
+            raise InvalidBatch(
+                "learn(transitions): 'counterfactual' carries %d entries and the shape "
+                "%r declares %d descriptors, over the transition's legal mask %r"
+                % (len(entries), learner.game, span, legal)
+            )
+        stored = []
+        for position, entry in enumerate(entries):
+            # `None` in any slot is an action this episode did not resolve, and it is
+            # **stored** rather than refused: a sequence carrying one at an index of its
+            # own legal mask is the partial resolution `learn` falls back from, taking the
+            # ordinary single step instead of a fraction of one (`counterfactual.md` §4,
+            # §6).
+            if entry is None:
+                stored.append(None)
+                continue
+            if position not in legal:
+                raise InvalidBatch(
+                    "learn(transitions): 'counterfactual' carries a value at index "
+                    "%d, which is outside the transition's legal mask %r"
+                    % (position, legal)
+                )
+            if isinstance(entry, bool) or not isinstance(
+                entry, (int, float, numpy.integer, numpy.floating)
+            ):
+                raise InvalidBatch(
+                    "learn(transitions): 'counterfactual' carries %r at index %d over "
+                    "the transition's legal mask %r, and an entry of a resolution is a "
+                    "number or None" % (entry, position, legal)
+                )
+            stored.append(float(entry))
+        resolution = tuple(stored)
     return {
         "observation": observation,
         "next_observation": successor,
@@ -685,6 +791,8 @@ def _transition(learner, record):
         "terminal": bool(terminal),
         "legal": legal,
         "next_legal": next_legal,
+        "episode": int(episode),
+        "counterfactual": resolution,
     }
 
 
@@ -706,13 +814,85 @@ def _batch(transitions):
     return records
 
 
+def _step(held, backend, cache, action, delta, site, rate, interval, total, divisor=1):
+    """One guarded semi-gradient step, and the batch's total with the raw `|delta|` added.
+
+    `delta` is one transition's **raw** residual -- the rule's td_error under `none`, and
+    one legal action's `value − q[action]` under `reveal-counterfactual` -- and the step
+    applies `delta / divisor`, `divisor` being the number of steps that transition takes
+    (`counterfactual.md` §6: one transition's movement is the **mean** over the steps it
+    takes, and `1` is the one step of the ordinary path).  The magnitude accumulated is the
+    raw one, **before** the division, so the figure `learn` returns keeps the scale of the
+    values the member learns (`rule.md` §3).  `site` names the transition, and on the
+    member's path the action too, in both refusals (`divergence.md` §2).
+    """
+    # GUARD 1 (`divergence.md` §2): a non-finite td_error refuses **before** |td| is
+    # accumulated and before the step, naming the transition -- and, on the member's
+    # path, the action too -- and the value.
+    if not numpy.isfinite(delta):
+        raise LearningDiverged(
+            "learn(transitions): %s computed a non-finite td_error and the learner has "
+            "diverged, got %r" % (site, float(delta))
+        )
+    total += abs(delta)
+    backend.apply(held.state, held.layout, cache, action, delta / divisor, rate)
+    # GUARD 2 (`divergence.md` §2): a step that left any of the whole 2·P array
+    # non-finite refuses **after** it and before the counter moves, naming the
+    # transition -- and, on the member's path, the action too -- and the first parameter
+    # index out of range.
+    values = backend.parameters(held.state)
+    finite = numpy.isfinite(values)
+    if not finite.all():
+        slot = int(numpy.argmax(~finite))
+        raise LearningDiverged(
+            "learn(transitions): %s drove parameter index %d out of finite range and "
+            "the learner has diverged, got %r" % (site, slot, float(values[slot]))
+        )
+    held.counter += 1
+    if held.counter >= interval:
+        backend.copy_online_to_target(held.state, held.layout)
+        held.counter = 0
+    return total
+
+
 def learn(learner, transitions):
     """`rule.md` §3: one semi-gradient step per transition, in the caller's order.
 
-    The two catalogue members differ in the target's arithmetic and nowhere else: the
+    The two learning rules differ in the target's arithmetic and nowhere else: the
     terminal target, the validation order, the per-transition loop, the td-error
     accumulation, the SGD step, the refresh counter, the schedule position and the two
     returned keys are one shared path (`rule.md` §2-§3, `rules.md` §3, D-19).
+
+    The third catalogue's `none` member **is** that path: the residual is the rule's own
+    bootstrap target and one step is taken per transition.  `reveal-counterfactual`
+    replaces the target with the transition's own resolved whole-hand values and takes one
+    semi-gradient step **per legal action**, all of them computed from one forward pass, so
+    no step of a transition is visible to a later residual of the same transition -- and it
+    reads no successor and no discount at all (`counterfactual.md` §4-§6, D-43).  A
+    **terminal** transition is **not** exempt: the seat's last decision of a hand carries
+    the whole-hand value of every legal action and the realised one equals that transition's
+    `reward`, so the terminal one is where the outcome is known and it takes its steps
+    exactly as any other transition does (`counterfactual.md` §4, §6).  Two transitions fall
+    back to the ordinary path and take exactly one step: one whose `counterfactual` is
+    `None`, and one whose sequence carries `None` at an index of its own legal mask -- a
+    partial resolution is not a resolution, and a fraction of a step is never taken
+    (`rule.md` §2-§3, D-43).
+
+    **One transition's movement is the mean over the steps it takes**, so each step applies
+    `(v_i - q[i]) / A` where `A` is **the number of steps that transition takes**.  That is
+    how §6's sentence is read here: `A = len(record["legal"])`, the count of *the
+    transition's own* legal actions, and not the shape's descriptor count -- a transition
+    with 3 of a six-descriptor shape's actions legal takes 3 steps and divides by 3, while
+    dividing by the shape's full count would be a fraction of a step and not a mean over the
+    steps taken (`counterfactual.md` §6).
+
+    `td_error` is the batch's mean absolute **raw** residual over its **steps**: the
+    magnitude `|v_i - q[i]|` is accumulated **before** the divisor, so the statistic keeps
+    the scale of the values the member learns, and under `none` it is unchanged, where steps
+    and transitions are one number; a batch that produced no step at all answers `0.0`
+    rather than dividing by zero.  `transitions` is the record count, and the schedule
+    position advances by it -- the number of transitions, never the number of steps
+    (`counterfactual.md` §6, `rule.md` §4).
     """
     held = _require_learner(learner, "learn")
     records = [_transition(held, record) for record in _batch(transitions)]
@@ -721,11 +901,51 @@ def learn(learner, transitions):
     rate = float(declarations.HYPER["learning_rate"])
     discount = float(declarations.HYPER["discount"])
     interval = int(declarations.HYPER["target_update_interval"])
+    revealed = held.counterfactual != declarations.DEFAULT_COUNTERFACTUAL
     total = 0.0
+    steps = 0
     for index, record in enumerate(records):
         scored, cache = backend.forward(
             held.state, held.layout, record["observation"], need_cache=True
         )
+        if revealed and record["counterfactual"] is not None:
+            # every index of the transition's own legal mask is resolved, or this is not
+            # a resolution at all and the transition falls back to the ordinary path
+            # below -- a partial resolution is not a resolution, and a fraction of a step
+            # is never taken (`counterfactual.md` §4, §6, D-43).  A **terminal** transition
+            # is not exempt: the seat's last decision carries the whole-hand value of every
+            # legal action and the realised one is that transition's `reward`, so it takes
+            # its steps here exactly as any other transition does (`counterfactual.md` §4).
+            if all(
+                record["counterfactual"][member] is not None
+                for member in record["legal"]
+            ):
+                # `A`, the divisor of every step of this transition: the **number of steps
+                # it takes**, which is the count of its own legal actions and not the
+                # shape's descriptor count -- 3 legal actions take 3 steps and divide by 3,
+                # so one transition's movement is the mean over its steps
+                # (`counterfactual.md` §6, `rule.md` §2).
+                count = len(record["legal"])
+                # All the residuals are read off the one forward pass before **any** step
+                # of this transition is taken, in the legal mask's ascending order, which
+                # is `_mask`'s own, so no step of a transition is visible to a later
+                # residual of that transition (`counterfactual.md` §6, `rule.md` §2).
+                residual_of = [
+                    (member, float(record["counterfactual"][member]) - float(scored[member]))
+                    for member in record["legal"]
+                ]
+                # One semi-gradient step per legal index, each on that same cache and each
+                # applying its raw residual over `count`, so the member's step count is the
+                # transition's legal-action count where a rule's is one (`rule.md` §2-§3,
+                # D-43).
+                for member, residual in residual_of:
+                    total = _step(
+                        held, backend, cache, member, residual,
+                        "transition index %d at action index %d" % (index, member),
+                        rate, interval, total, count,
+                    )
+                    steps += 1
+                continue
         if record["terminal"]:
             target = record["reward"]
         else:
@@ -757,34 +977,13 @@ def learn(learner, transitions):
                 )
             target = record["reward"] + discount * bootstrap
         delta = target - float(scored[record["action"]])
-        # GUARD 1 (`divergence.md` §2): a non-finite td_error refuses **before** |td|
-        # is accumulated and before the step, naming the transition and the value.
-        if not numpy.isfinite(delta):
-            raise LearningDiverged(
-                "learn(transitions): transition index %d computed a non-finite "
-                "td_error and the learner has diverged, got %r"
-                % (index, float(delta))
-            )
-        total += abs(delta)
-        backend.apply(held.state, held.layout, cache, record["action"], delta, rate)
-        # GUARD 2 (`divergence.md` §2): a step that left any of the whole 2·P array
-        # non-finite refuses **after** it and before the counter moves, naming the
-        # transition and the first parameter index out of range.
-        values = backend.parameters(held.state)
-        finite = numpy.isfinite(values)
-        if not finite.all():
-            slot = int(numpy.argmax(~finite))
-            raise LearningDiverged(
-                "learn(transitions): transition index %d drove parameter index %d out "
-                "of finite range and the learner has diverged, got %r"
-                % (index, slot, float(values[slot]))
-            )
-        held.counter += 1
-        if held.counter >= interval:
-            backend.copy_online_to_target(held.state, held.layout)
-            held.counter = 0
+        total = _step(
+            held, backend, cache, record["action"], delta,
+            "transition index %d" % (index,), rate, interval, total,
+        )
+        steps += 1
     held.position += len(records)
     return {
-        "td_error": float(total / len(records)),
+        "td_error": float(total / steps) if steps else 0.0,
         "transitions": int(len(records)),
     }

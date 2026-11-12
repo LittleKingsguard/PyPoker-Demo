@@ -251,6 +251,13 @@ UNKNOWN_BASELINE = "always-raise-battery"
 RANKS = "23456789TJQKA"
 FACE_RANKS = ("J", "Q", "K", "A")
 
+# The suit alphabet of the same spelling, in the design's own order
+# (`docs/L3/engine/readout.md` §3): one card is one rank character and one suit
+# character, so a case that checks a spelling of the reveal's `board` and `hole` — or that
+# reads a hand's strength off those spellings — holds no copy of a suit either
+# (`counterfactual.md` §2, D-43).
+SUITS = "cdhs"
+
 # The invented seeds a folder case drives its hands at: one hand per (opponent, seat, seed)
 # (`folders.md` §2, §6, `battery.md` §4).
 FOLDER_SEEDS = (SEED_A, SEED_B, SEED_C, SEED_D, SEED_E, SEED_F, SEED_G, SEED_H)
@@ -277,6 +284,25 @@ UTILITIES = (UTILITY_DEFAULT, UTILITY_SECOND)
 # the default).
 UNKNOWN_UTILITY = "tournament-payout-battery"
 UNKNOWN_ENTRY_UTILITY = "chips-per-hour-battery"
+
+# The counterfactual catalogue `counterfactual.md` §6 publishes beside the rule and the
+# utility ones: `agents.learners()["counterfactuals"]`, in the declared order, with `none`
+# first — the declared default, the rule's own target unchanged — and
+# `reveal-counterfactual` second, whose residual is the transition's whole-hand value and
+# which reads no successor (`counterfactual.md` §4, §6, e2e-surface.md §2, D-43).  A case
+# reads the catalogue off `agents.learners()`; these are the design's names for the
+# members a case has to *name* (a spec, a variant entry, a container).
+COUNTERFACTUAL_DEFAULT = "none"
+COUNTERFACTUAL_SECOND = "reveal-counterfactual"
+COUNTERFACTUALS = (COUNTERFACTUAL_DEFAULT, COUNTERFACTUAL_SECOND)
+
+#: The two invented counterfactual names the catalogue does not carry — the battery's own,
+#: one driving the three refusal sites that read a member from a caller's declaration (a
+#: learner spec, a pool member and a `load` spec) and one a variant entry (`counterfactual.md`
+#: §6: a name outside the catalogue is refused where it is declared, by name, and never
+#: mapped onto `none`).  Neither appears in any document under `docs/L1/` (`battery.md` §4).
+UNKNOWN_COUNTERFACTUAL = "fold-equity-battery"
+UNKNOWN_ENTRY_COUNTERFACTUAL = "one-step-return-battery"
 
 # One architecture, two utilities: the size both learners of a utility pair are built at,
 # so a utility swap is one axis and no capacity moves with it (`utilities.md` §3, ASM-10,
@@ -1470,6 +1496,167 @@ def member_normaliser(member):
 
 
 # --------------------------------------------------------------------------
+# The third catalogue (counterfactual.md §6, e2e-surface.md §2 "Counterfactual", D-43)
+#
+# `agents.learners()` publishes `counterfactuals` beside `learning_rules` and `utilities`:
+# `none` first and the declared default, `reveal-counterfactual` second.  Each member
+# states **what it reads** and its **step count** — the corrected promise of `rules.md` §2
+# — so a case reads those two fields by what they name and never by a spelling this
+# battery invented.  The member a spec names is written into a version-5 container, a run
+# record's per-variant row and `counterfactuals` set, and a pool member's own record — each
+# of them absent when the member is `none` (`counterfactual.md` §6, §9, `records.md` §12).
+# --------------------------------------------------------------------------
+def counterfactual_catalogue(declared):
+    """The counterfactual catalogue ``agents.learners()`` publishes, as ordered pairs.
+
+    The mirror of :func:`rule_catalogue` and :func:`utility_catalogue`, read under the same
+    rule: the catalogue is the value published under a key whose letters name the
+    counterfactuals, and its container is the implementation's freedom — a mapping keyed by
+    member name, or a sequence of members each stating its own name.  Returns
+    ``[(name, member), ...]`` in the order the catalogue declares, so a case can read the
+    first member — ``none``, the declared default — without spelling a name of its own.
+    """
+    if not isinstance(declared, Mapping):
+        raise AssertionError(
+            "agents.learners() must return a mapping in the sense of e2e-surface.md §3.3; "
+            "it returned %r" % (type(declared).__name__,)
+        )
+    found = None
+    keyed = False
+    for key, value in declared.items():
+        if "counterfactual" not in _family_token(key):
+            continue
+        if isinstance(value, Mapping):
+            found, keyed = value, True
+            break
+        if isinstance(value, (list, tuple)) and value:
+            found, keyed = list(value), False
+            break
+    if found is None:
+        raise AssertionError(
+            "agents.learners() publishes the counterfactual catalogue — the members of "
+            "counterfactual.md §6 under the key `counterfactuals`, with `none` first and "
+            "`reveal-counterfactual` second, each stating what it reads and its step count "
+            "(e2e-surface.md §2 'Counterfactual', D-43): it publishes %r"
+            % (sorted(str(key) for key in declared),)
+        )
+    pairs = []
+    for key, value in (found.items() if keyed else enumerate(found)):
+        if isinstance(value, Mapping):
+            pairs.append((str(key), value))
+            continue
+        name = str(key) if keyed else str(value)
+        pairs.append((name, {"name": name}))
+    return pairs
+
+
+def counterfactual_names(declared):
+    """The catalogue's member names, in the order it declares them (``counterfactual.md`` §6)."""
+    return [name for name, _member in counterfactual_catalogue(declared)]
+
+
+def member_counterfactual(member):
+    """The counterfactual name one catalogue member carries, or ``None``."""
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if token in ("name", "counterfactual", "id") and isinstance(value, str):
+            return value
+    for key, value in member.items():
+        if "name" in _family_token(key) and isinstance(value, str):
+            return value
+    return None
+
+
+def member_reads(member):
+    """What one catalogue member states it **reads**, under whatever key declares it.
+
+    ``counterfactual.md`` §6 makes the member's contract carry what it reads: `none` reads
+    the rule's own target, `reveal-counterfactual` the transition's whole-hand
+    `counterfactual` values and no successor.  The design fixes the fact and leaves the
+    field's spelling to the implementation, so the field is read by what it names.
+    """
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if "read" in token or token in ("target", "aim", "aims", "bootstrap", "source",
+                                        "uses", "residual"):
+            if isinstance(value, (str, Mapping, list, tuple)) and value:
+                return value
+            if value and _is_number(value):
+                return value
+    return None
+
+
+def member_steps(member):
+    """The **step count** one catalogue member states, under whatever key declares it.
+
+    ``counterfactual.md`` §6 corrects `rules.md` §2's budget promise: a member of this
+    axis states its own step count in its contract — `reveal-counterfactual` takes `A`
+    semi-gradient steps per transition, `A` the shape's descriptor count — so the field is
+    read here by what it names and never as a number this battery assumes.
+    """
+    if not isinstance(member, Mapping):
+        return None
+    for key, value in member.items():
+        token = _family_token(key)
+        if "step" in token or token in ("updates", "count", "pertransition", "sample"):
+            if isinstance(value, (str, Mapping, list, tuple)) and value:
+                return value
+            if value and _is_number(value):
+                return value
+    return None
+
+
+def counterfactual_names_of(value):
+    """The distinct counterfactual names a set-shaped container states, in first-seen order.
+
+    ``records.md`` §12 makes a run record's ``counterfactuals`` *the set* of members the run
+    declared and trained, and §8 makes a pool record's the distinct members its versions
+    declare.  The container may be a sequence of names or a mapping whose entries name
+    themselves, so both are read one name per entry.
+    """
+    if isinstance(value, (str, bytes)):
+        return [str(value)]
+    out = []
+    items = value.values() if isinstance(value, Mapping) else value
+    for item in items or ():
+        name = None
+        if isinstance(item, (str, bytes)):
+            name = str(item)
+        elif isinstance(item, Mapping):
+            for key, inner in item.items():
+                if _family_token(key) in ("name", "counterfactual", "member", "id") \
+                        and isinstance(inner, str):
+                    name = inner
+                    break
+        if name is not None and name not in out:
+            out.append(name)
+    return out
+
+
+def run_counterfactuals(record):
+    """The ``counterfactuals`` set a run record declares — a **required** key of §12.
+
+    Required by the **conditional** rule of ``counterfactual.md`` §6: §12 makes it the set
+    of members the run declared and trained, **absent** when every variant declares
+    `none`, so a default declaration's record keeps the shape its capture took.  A record
+    that carries no such key has declared no non-default member, which is what a case
+    reading a default declaration asserts.
+    """
+    return declared_field(record, "a run record (records.md §12)", "counterfactuals")
+
+
+def variant_counterfactual(entry):
+    """The ``counterfactual`` one variant entry of a run record names (§12, D-43)."""
+    return declared_field(
+        entry, "a variant entry of a run record (records.md §12)", "counterfactual"
+    )
+
+
+# --------------------------------------------------------------------------
 # The utility a record names (records.md §7, §8, §9, §10, §12; utilities.md §6, §7)
 #
 # D-20 puts one fact in five records, exactly as D-19 does for the rule: a version carries
@@ -2484,7 +2671,7 @@ class SurfaceCase(unittest.TestCase):
 
     def learner_spec(self, width=96, depth=3, seed=SEED_A, backend="numpy",
                      kind=None, sparsity=0.0, residual=False, learning_rule=None,
-                     utility=None, game=None, encoder=SHAPE_ENCODER):
+                     utility=None, counterfactual=None, game=None, encoder=SHAPE_ENCODER):
         """The battery's learner spec: the four names §3.3 gives, plus the settings.
 
         ``docs/L1/e2e-surface.md`` §3.3 declares ``backend, architecture, sizes,
@@ -2507,6 +2694,13 @@ class SurfaceCase(unittest.TestCase):
         ``game`` is D-29's third optional selection: the shape whose vocabulary sets the
         learner's head, absent meaning the default shape, so a spec that names none is
         exactly the spec every caller before FAM-19 passed (`shapes.md` §2–§3, §6).
+
+        ``counterfactual`` is D-43's fourth: the catalogue member whose whole-hand values
+        the learner's targets are read from, absent meaning the catalogue's first member,
+        `none` — the rule's own target unchanged (`counterfactual.md` §6, `records.md` §3).
+        The key is added only when a case names a member, so a caller that names none
+        passes exactly the spec it passed before D-43 and is built under the declared
+        default (FAM-22).
 
         ``encoder`` is how a shaped build gets its input width, and it defaults to
         :data:`SHAPE_ENCODER`: when the spec names a declared shape other than the
@@ -2539,6 +2733,8 @@ class SurfaceCase(unittest.TestCase):
             spec["learning_rule"] = learning_rule
         if utility is not None:
             spec["utility"] = utility
+        if counterfactual is not None:
+            spec["counterfactual"] = counterfactual
         if game is not None:
             spec["game"] = game
         if encoder is SHAPE_ENCODER:
@@ -2739,6 +2935,70 @@ class SurfaceCase(unittest.TestCase):
             "axis": "the utility at one architecture",
             "carried_from": "residual",
             "primary": "chips-arm",
+            "pool": {
+                "id": pool_id,
+                "lineage": "R6 residual",
+                "m": bound,
+                "frozen": True,
+                "members": [dict(member) for member in members],
+            },
+            "variants": variants,
+        }
+
+    def two_counterfactual_rung(self, seeds=(SEED_A, SEED_B), members=(), bound=None,
+                                pool_id="pool-r12-dual-counterfactual"):
+        """The battery's own two-counterfactual configuration: one architecture, two members.
+
+        The sibling of :meth:`two_rule_rung` and :meth:`two_utility_rung` on D-43's axis.
+        It appears in no design document: its name, its two variant names, its width and
+        depth, its seed set, its pool id and the membership declaration it carries are the
+        battery's own (``battery.md`` §4).  What it declares is exactly what
+        ``counterfactual.md`` §6 makes legal and nothing else — two variant entries that
+        agree on ``backend``, ``encoding``, ``architecture``, ``learning_rule``,
+        ``utility``, ``param_budget``, ``samples``, ``seeds`` and ``device`` and differ on
+        ``counterfactual`` alone, the first arm naming the catalogue's first member
+        explicitly and the second naming ``reveal-counterfactual`` — so a run of it must
+        train **both** variants against **one** frozen pool and a table reports the
+        `counterfactual` axis (D-3, D-43, ``counterfactual.md`` §6, §7).
+
+        The pool is the baselines alone, as in the two-rule and two-utility rungs: a case
+        that only needs the loop to train two members pays for no version it does not read
+        (``battery.md`` §2).  ``members`` lets a case hand it a real checkpoint it built.
+        """
+        if bound is None:
+            bound = LEAGUE_BOUND
+        kind = self.architecture_kind("naive")
+        architecture = {
+            "kind": kind,
+            "width": UTILITY_WIDTH,
+            "depth": UTILITY_DEPTH,
+            "sparsity": 0.0,
+            "residual": False,
+        }
+        variants = []
+        for name, member in (("plain-arm", COUNTERFACTUAL_DEFAULT),
+                             ("reveal-arm", COUNTERFACTUAL_SECOND)):
+            variants.append(
+                {
+                    "name": name,
+                    "backend": "numpy",
+                    "encoding": FLAT,
+                    "architecture": dict(architecture),
+                    "learning_rule": RULE_DEFAULT,
+                    "utility": UTILITY_DEFAULT,
+                    "counterfactual": member,
+                    "param_budget": 10000,
+                    "samples": BUDGET_TINY,
+                    "seeds": list(seeds),
+                    "device": "cpu",
+                    "table": "live",
+                }
+            )
+        return {
+            "name": "R12-dual-counterfactual",
+            "axis": "the counterfactual member at one architecture",
+            "carried_from": "residual",
+            "primary": "plain-arm",
             "pool": {
                 "id": pool_id,
                 "lineage": "R6 residual",
@@ -3011,8 +3271,13 @@ class SurfaceCase(unittest.TestCase):
         """Transition records for ``agents.learn``, built from a driven hand.
 
         The record's shape is the battery's invention; it carries the two encoded
-        observations, the chosen index, the reward, the terminal flag and the two
-        legal masks, which is the least a masked Q-learning update needs.
+        observations, the chosen index, the reward, the terminal flag, the two
+        legal masks — the least a masked Q-learning update needs — and, **required since
+        D-43**, the episode boundary: ``episode``, the episode's own seed, so two
+        transitions of one hand carry one number and two hands carry two
+        (``records.md`` §4, ``counterfactual.md`` §2).  The hand is dealt from ``seed`` by
+        ``engine.new_hand``, which is the episode's own seed, so the boundary is the record
+        ``engine.play_hand`` would write for the same hand (``records.md`` §5).
         """
         encoder = self.encoder()
         walk = self.decision_walk(seed, self.baseline("random", SEED_D), limit=limit)
@@ -3030,6 +3295,7 @@ class SurfaceCase(unittest.TestCase):
                     "terminal": terminal,
                     "legal": list(self.ep("features", "legal_indices")(legal)),
                     "next_legal": list(self.ep("features", "legal_indices")(next_legal)),
+                    "episode": int(seed),
                 }
             )
         return out

@@ -1,6 +1,6 @@
 # engine — module design (L3)
 
-- **Layer:** L3 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-10
+- **Layer:** L3 · **Module:** `engine` · **Unit:** phase1 · **Rev:** 5 · **Date:** 2026-11-11 — **Rev 5** adds D-43's resolution to `episode.md` (`amounts`, `reveal`, `counterfactual`) and the page `episode-battery.md` it vacates, and nothing else (`counterfactual.md` §2, §4, `records.md` §5, D-43)
 - **Realises:** `docs/L2/engine/surface.md` (the ten entry points) and `docs/L2/engine/environment.md` (the hand's life, the eleven facts, the episode, `equity`, seeding) — on all three declared game shapes (D-29, D-33)
 - **Reads:** `docs/L1/e2e-surface.md` §2–§3.1, §5, `docs/L1/shapes.md` §1–§5, §8, `docs/L1/seats.md` §2–§6, `docs/L1/sizing.md` §2–§3, §5, `docs/L1/folders.md` §3, `docs/L1/records.md` §1, §5, `docs/L1/module-map.md` §2–§4, `docs/L1/battery.md` §2–§5, `docs/L1/assumptions.md` (ASM-6, ASM-12, ASM-15, ASM-30, ASM-42, ASM-43, ASM-44), `strata/decisions.md` (D-2, D-3, D-6, D-11, D-12, D-13, D-16, D-21, D-25, D-26, D-29, D-30, D-33), `strata/platform.md`
 - **Ceiling:** 104 lines — raised from 85 for the third declared shape: a seventh row in the document table's sense of a shape, the seat count as shape data, the `seats` argument of `play_hand`, and the general seat map. At the ceiling, split by owner — never append
@@ -35,7 +35,8 @@ nothing below this module may assume two seats (`seats.md` §2–§4, ASM-44).
 | `actions.md` | the action vocabulary | the shape's descriptors: their type, value equality, stable text, how each raise resolves to an amount, and why a seat count adds none |
 | `stepping.md` | legality and the step | `legal_actions`' order and refusals, `apply_action`'s validation and its three-method idiom |
 | `readout.md` | the eleven facts | each fact's derivation and type, the card spelling, the per-seat `stacks` and the seat fact's range, the derived hand-class fact, what the readout may never expose |
-| `episode.md` | `play_hand` | the policy protocol, the shape's seating and its refusals, the episode record, the decision records, where the reward lands |
+| `episode.md` | `play_hand` | the policy protocol, the shape's seating and its refusals, the episode record, the decision records, where the reward lands, and the three post-hand facts D-43 adds (`amounts`, `reveal`, `counterfactual`) with their bounds, their cost and the mucking capture |
+| `episode-battery.md` | the episode's battery | what a battery may assert of one episode: the refusals and their measured messages, the keys and decision facts, the replay, the six-seat readings, and D-43's bounds, reveal agreement and the per-decision invariant |
 | `equity.md` | the equity question | what the answer is conditional on, where the seat count comes from, the opposition on a shape with more seats, and hand-or-readout equivalence |
 | `equity-sample.md` | the equity sample | the unseen deck, the `calculate_equities` call, the two range forms, the library's tie share, and the five things that bind the implementation |
 | `stream.md` | the global `random` stream | one seeding point, `equity`'s save/seed/restore, and the measured cost |

@@ -13,6 +13,12 @@ The instances below — the two invented rules' refusals (`n-step-returns-batter
 width and depth — appear in no design document; they are the battery's own, invented
 from the surface alone (``battery.md`` §4, D-15).
 
+Since D-43 the catalogue record carries a **third**, sibling catalogue under
+`counterfactuals` — the member whose residual is the transition's resolved whole-hand
+values (`counterfactual.md` §4, §6, FAM-22) — so FAM-17.1 asserts that the rule catalogue
+is still exactly the two estimators of `rules.md` §2 while the record's key set admits
+that one, and that the two catalogues share no member.
+
 **Red is the expected state of this file** until D-19's implementation lands: each case
 asserts an observable outcome of the declared surface (`e2e-surface.md` §3.3, §3.4,
 §3.5), and one of them is deliberately the attribute a policy carries — `learning_rule`
@@ -97,7 +103,15 @@ class FAM17Rules(S.SurfaceCase):
 
     # -- the catalogue -----------------------------------------------------
     def test_fam17_1_agents_learners_publishes_the_rule_catalogue(self):
-        """FAM-17.1 learners() publishes a catalogue of more than one named rule."""
+        """FAM-17.1 learners() publishes a catalogue of more than one named rule.
+
+        The catalogue is exactly the two rules of `rules.md` §2 and no third.  D-43's
+        counterfactual member is a **sibling** catalogue under `learners()`'s
+        `counterfactuals` key and never a third rule — it reads no successor, so it would
+        leave §2's table describing a member with no bootstrap (`counterfactual.md` §6,
+        `rules.md` §2, §5, D-43) — so the catalogue's key set now admits that third
+        catalogue while the estimator axis stays two members, each stated with its target.
+        """
         pairs = self.catalogue()
         self.assertGreaterEqual(
             len(pairs),
@@ -107,6 +121,32 @@ class FAM17Rules(S.SurfaceCase):
             "rule', D-19): it publishes %r" % ([name for name, _ in pairs],),
         )
         names = [name for name, _member in pairs]
+        self.assertEqual(
+            sorted(names),
+            sorted(S.RULES),
+            "the rule catalogue holds the two rules of rules.md §2 and no third: D-43's "
+            "counterfactual member is a catalogue of its own under a key beside this one and "
+            "is never a third estimator (rules.md §2, §5, counterfactual.md §6, D-43): it "
+            "holds %r" % (names,),
+        )
+        declared = self.ep("agents", "learners")()
+        counterfactuals = S.counterfactual_names(declared)
+        self.assertTrue(
+            counterfactuals,
+            "D-43's member reaches agents.learners() as a third catalogue under its own key, "
+            "which is why this record's key set now admits it and why the rule catalogue "
+            "above is unchanged (e2e-surface.md §2 'Counterfactual', counterfactual.md §6, "
+            "D-43): learners() publishes %r"
+            % (sorted(str(key) for key in declared),),
+        )
+        for name in names:
+            self.assertNotIn(
+                name,
+                counterfactuals,
+                "the two catalogues name two axes and share no member: the rule %r is not a "
+                "counterfactual member (rules.md §2, counterfactual.md §6, D-43): the "
+                "counterfactual catalogue holds %r" % (name, counterfactuals),
+            )
         for wanted in (S.RULE_DEFAULT, S.RULE_SECOND):
             self.assertIn(
                 wanted,

@@ -1,9 +1,9 @@
 # evaluation — the league: pool, scheduler, matrix, rating, tables, report
 
-- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-10 · §5, §7: the band and the
+- **Layer:** L2 · **Module:** `evaluation` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-10 · §5, §7: the band and the
   direction, not the figure (ASM-23) · **Rev 4–5:** the id certifies each version's rule **and utility**, the matrix states two
   populations, and D-21's pinned set is the catalogue's `anchor: True` members with a declaration's folders beside them (§1, §3–§5)
-  · **Rev 6:** D-33's seat count — the draw gains a count, and a matrix, a rating and a report stay two seats' (§2–§4, §8, D-33)
+  · **Rev 6:** D-33's seat count — the draw gains a count, and a matrix, a rating and a report stay two seats' (§2–§4, §8, D-33) · **Rev 7:** D-43's third catalogue — the id certifies a version's `counterfactual` **only when it is not `none`**, so every existing pool id stands (§1, `counterfactual.md` §6, D-43)
 - **Owner of this file:** the league itself — the bounded pool and its rolling window, the scheduler, the
   matrix, the rating, the two tables and the shipped `full` one, the seven evidence families the report is
   judged against, the contracts this module holds at its edge, and the battery invariants it carries
@@ -39,11 +39,11 @@ and the table the agent is measured in — one object, one owner, no second eval
   a frozen pool, and `matrix` refuses one that is not frozen (`pool.md` §1, §3, `surface.md` §10). It builds each baseline it
   pins for **the pool's own shape**, so a six-seat pool's folders read that row's stack and its oracle a six-way question
   (`seats.md` §4, `docs/L1/seats.md` §4, §6, ASM-31, D-33).
-- **The pool is deterministic and its id certifies both populations**: the id is a digest of one line per
-  member — a baseline's bare id, a version's `id`, its `rule` and its `utility` — so it changes when and only when
+- **The pool is deterministic and its id certifies every population a version declares**: the id is a digest of one line per
+  member — a baseline's bare id, a version's `id`, its `rule`, its `utility` and, **only when it is not `none`**, its `counterfactual` — so it changes when and only when
   the membership does, a corrected seed or step does not rename it, two pools of one membership under two
-  estimators or two objectives do not wear one id, and a declaration naming no folder keeps the id it has today
-  (D-16, ASM-2, ASM-27, `records.md` §8, `utilities.md` §7, D-19, D-20, ASM-32, D-21).
+  estimators, two objectives or two counterfactual members do not wear one id, and a declaration naming no folder, or one whose versions were all trained under `none`, keeps the id it has today (record: `rules`, `utilities` and `counterfactuals`, the last absent when every version is `none`)
+  (D-16, ASM-2, ASM-27, `records.md` §8, `utilities.md` §7, `counterfactual.md` §6, §9, D-19, D-20, D-43, ASM-32, D-21).
 
 ## 2. The scheduler
 

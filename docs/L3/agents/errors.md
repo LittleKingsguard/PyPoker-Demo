@@ -3,6 +3,8 @@
 - **Owner:** the error classes and the message grammar every refusal of this module follows, the canonical message per
   refusal of `docs/L2/agents/surface.md` §4–§12 and of `divergence.md`'s, and what is deliberately *not* refused
 - **Ceiling:** 130 lines. At the ceiling, split by owner — never append
+- **Rev:** 2 · **Date:** 2026-11-11 — D-43 adds `UnknownCounterfactual` and the record's `episode` and
+  `counterfactual` refusals (§2–§4)
 
 ## 1. Why a hierarchy
 
@@ -22,6 +24,7 @@ lets a caller catch "this module refused me" without catching a `TypeError` from
     class UnknownArchitecture(AgentsError)   # build_learner: not one of learners()['architectures']
     class UnknownRule(AgentsError)           # build_learner, load: not one of learners()['learning_rules']
     class UnknownUtility(AgentsError)        # build_learner, load: not one of learners()['utilities']
+    class UnknownCounterfactual(AgentsError) # build_learner, load: not one of learners()['counterfactuals'] (D-43)
     class UnknownShape(AgentsError)          # build_learner, build_baseline, load: not one of declarations.SHAPE_NAMES (shapes.md §6)
     class UnknownExploration(AgentsError)    # as_policy: a mode outside {"schedule", "off"} (shapes.md §4, §6)
     class InvalidSetting(AgentsError)        # build_learner: width/depth not positive integers, sparsity outside [0,1]
@@ -39,9 +42,9 @@ lets a caller catch "this module refused me" without catching a `TypeError` from
     class LearningDiverged(AgentsError)      # learn, act, a policy: the state went non-finite, raised by decide/
                                              #   decide_greedy/_tie_break (divergence.md §2)
 
-Twenty-one subclasses, one per refusal family of `surface.md` §4–§12, `shapes.md` §6 and `divergence.md` §1. They are
-**not** module-level names of the `agents` package — below an entry point is not surface (`README.md` §3,
-`e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class (`docs/L3/features/errors.md` §2).
+Twenty-two subclasses, one per refusal family of `surface.md` §4–§12, `shapes.md` §6, `counterfactual.md` §6 and
+`divergence.md` §1. They are **not** module-level names of the `agents` package — below an entry point is not surface
+(`README.md` §3, `e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class (`docs/L3/features/errors.md` §2).
 
 ## 3. The message grammar
 
@@ -59,6 +62,7 @@ and the unit battery matches them tolerantly (the raising site's name, the key's
 | `build_learner` kind | `build_learner(spec): the kind must be one of ('naive-stack', 'token-embedding', 'wide', 'deep', 'sparse', 'residual', 'plain'), got 'naivestack'` |
 | `build_learner` learning rule | `build_learner(spec): 'learning_rule' must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'` |
 | `build_learner` utility | `build_learner(spec): 'utility' must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'` |
+| `build_learner` counterfactual | `build_learner(spec): 'counterfactual' must be one of ('none', 'reveal-counterfactual'), got 'monte-carlo'` (`counterfactual.md` §6, D-43) |
 | `build_learner` game (shape) | `build_learner('game'): 'no-limit-6' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), and a shape name is never defaulted` (`seats.md` §6) |
 | `as_policy` exploration | `as_policy(exploration): the mode must be one of ('schedule', 'off'), got 'greedy'` |
 | `build_learner` seed | `build_learner(spec): the seed must be an integer, got '6174'` |
@@ -72,16 +76,17 @@ and the unit battery matches them tolerantly (the raising site's name, the key's
 | `act`/`learn` observation | `act(observation): the observation is (40,) int32 token-sequence and the learner is (203,) float32 dense-numeric` |
 | `act`/`learn` mask | `act(legal_mask): the mask names the index 3, which is outside the index range 0..2 of the shape 'fixed-limit-20' the learner decides in, got (0, 1, 3)`; and `act(legal_mask): the mask must be non-empty, distinct indices of 0..2 on the shape 'fixed-limit-20', got (0, 1, 1)` |
 | `learn` empty batch | `learn(transitions): a batch holds at least one transition, got ()` |
-| `learn` missing key | `learn(transitions): the transition is missing the required key 'next_legal'` |
+| `learn` missing key | `learn(transitions): the transition is missing the required key 'next_legal'`; and, since D-43, `… the required key 'episode'`, which sits last so the seven older messages do not move |
+| `learn` episode and counterfactual | `learn(transitions): 'episode' must be an episode's integer seed, got 1.5`; `learn(transitions): 'counterfactual' carries 2 entries and the shape 'fixed-limit-20' declares 3 descriptors, over the transition's legal mask (0, 1, 2)`; `learn(transitions): 'counterfactual' carries a value at index 2, which is outside the transition's legal mask (0, 1)` — one value per descriptor, `None` where the action was not legal and `None` where the episode did not resolve it (`counterfactual.md` §4–§6, D-43) |
 | `learn` action | `learn(transitions): 'action' 2 is not in that transition's legal mask (0, 1)`; and `'action' 5 is outside the index range 0..2 of the shape 'fixed-limit-20'` (shapes.md §3) |
 | `param_count` baseline | `param_count(learner): a baseline is not a learner, and its parameter count is the 0 baselines() declares` |
 | `save` path | `save(path): the path '/ckpt/missing/x.pt' is not a writable file location` |
 | `load` path | `load(path): '/ckpt/x.pt' cannot be read: No such file or directory` |
 | `load` form | `load(path): '/ckpt/x.pt' is not a pypoker-agents-checkpoint of format version 1, 2, 3 or 4` |
 | `load` version | `load(path): '/ckpt/x.pt' records the field 'format_version', which must be 1, 2, 3 or 4, got 4242` |
-| `load` rule, utility and game | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'`; and for the utility: `… has a metadata.json without the field 'utility'`, `… which must be absent from a format version 2 container, got 'net-chips'`, and `… which must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'`; and for the shape: `… has a metadata.json without the field 'game'`, `… records the field 'game', which must be one of ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), got 'no-limit-6'`, and `… which must be absent from a format version 3 container, got 'no-limit-100'` |
+| `load` rule, utility, counterfactual and game | `load(path): '/ckpt/x.pt' has a metadata.json without the field 'learning_rule'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be absent from a format version 1 container, got 'masked-q-learning'`; `load(path): '/ckpt/x.pt' records the field 'learning_rule', which must be one of ('masked-q-learning', 'double-q-learning'), got 'monte-carlo'`; and for the utility: `… has a metadata.json without the field 'utility'`, `… which must be absent from a format version 2 container, got 'net-chips'`, and `… which must be one of ('net-chips', 'stack-shortfall'), got 'sharpe'`; for the counterfactual: `… has a metadata.json without the field 'counterfactual'`, `… which must be absent from a format version 3 container, got 'reveal-counterfactual'`, `… which must be one of ('none', 'reveal-counterfactual'), got 'monte-carlo'`, and `… which must be a member other than the declared default 'none', whose container is a format version 3 or 4 one, got 'none'`; and for the shape: `… has a metadata.json without the field 'game'`, `… records the field 'game', which must be one of ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), got 'no-limit-6'`, and `… which must be absent from a format version 3 container, got 'no-limit-100'` |
 | `load` field value | `load(path): '/ckpt/x.pt' records the field 'backend', which must be one of ('numpy', 'torch'), got 'jax'` |
-| `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174`; a rule: `load(spec): the spec's learning_rule 'masked-q-learning' is not the checkpoint's learning_rule 'double-q-learning'`; a utility: `load(spec): the spec's utility 'net-chips' is not the checkpoint's utility 'stack-shortfall'`; a shape: `load(spec): the spec's game 'no-limit-100' is not the shape 'fixed-limit-20' the checkpoint is read as` |
+| `load` mismatch | `load(spec): the spec's seed 4711 is not the checkpoint's seed 6174`; a rule: `load(spec): the spec's learning_rule 'masked-q-learning' is not the checkpoint's learning_rule 'double-q-learning'`; a utility: `load(spec): the spec's utility 'net-chips' is not the checkpoint's utility 'stack-shortfall'`; a counterfactual: `load(spec): the spec's counterfactual 'reveal-counterfactual' is not the checkpoint's counterfactual 'none'`; a shape: `load(spec): the spec's game 'no-limit-100' is not the shape 'fixed-limit-20' the checkpoint is read as` |
 | `as_policy` seed | `as_policy(seed): the seed must be an integer, got None` |
 | `as_policy` encoder | `as_policy(encoder): the encoder declares vocabulary 96 and the learner is dense-numeric at 203` |
 | a policy's readout | `policy(readout): the readout is missing 'to_call', which the rule needs` |
@@ -92,39 +97,34 @@ and the unit battery matches them tolerantly (the raising site's name, the key's
 
 Three properties the battery relies on: the message always contains the raising site's own name, the name of the argument
 or key at fault, and the offending value; it never claims a value was accepted (`docs/L3/features/errors.md` §3); and a
-refusal raised while a policy works is **this** module's, named `policy(readout)` rather than another module's class (§2).
+refusal raised while a policy works is **this** module's, named `policy(readout)` (§2).
 
 ## 4. What is *not* refused
 
 Refusing more than the contract refuses is also a defect — a battery may pass any valid instance (`battery.md` §4, D-15):
 
 - an **extra key in a learner spec**, `hyper`, `param_budget`, `samples`, `seeds`, `device` and `name` included:
-  those are a run record's data and not a per-learner argument (`surface.md` §4, `records.md` §2).
-  `variant_learner` in `tests/e2e/_surface.py` hands exactly such an entry over;
-- an **absent `learning_rule`**, an **absent `utility`** and an **absent `game`**: a spec naming none is built under that
-  catalogue's first member — `masked-q-learning`, `net-chips` — or the default shape, never an inference from silence
-  (`records.md` §3, `shapes.md` §1, D-19, D-20, D-29);
+  those are a run record's data and not a per-learner argument (`surface.md` §4, `records.md` §2);
+- an **absent `learning_rule`**, `utility`, `counterfactual` or `game`: a spec naming none is built under that
+  catalogue's first member — `masked-q-learning`, `net-chips`, `none` — or the default shape, never an inference from
+  silence (`records.md` §3, `shapes.md` §1, D-19, D-20, D-29, D-43);
 - **`sizes` when `architecture` is present**: redundant — `architecture` is authoritative (`records.md` §3);
-- a **`sparsity` or `residual` a kind does not read** — `sparsity: 0.5` on a `deep` kind is accepted and ignored
-  (`architecture.md` §3, `surface.md` §4);
+- a **`sparsity` or `residual` a kind does not read** — accepted and ignored on a `deep` kind (`architecture.md` §3);
 - a **`numpy` integer for a seed**, a width, a depth or an index: `numpy.int64` is an `Integral`, and a **`bool`**
   is refused in every one of those places because a flag is not a count (`docs/L3/features/errors.md` §4);
-- a **policy's readout carrying extra facts**: the eleven facts of `README.md` §7 are inspected, so an extra one is
-  ignored but a malformed one is refused rather than defaulted (`baselines.md` §1);
-- a **batch longer or shorter than `batch_size`**, a batch of one, and a transition whose `terminal` is true and
-  whose `next_observation` equals its `observation` (`rule.md` §3);
+- a **policy's readout carrying extra facts**: an extra fact is ignored, a malformed one refused (`baselines.md` §1);
+- a **batch longer or shorter than `batch_size`**, a batch of one, a transition whose `terminal` is true and whose
+  `next_observation` equals its `observation`, and a transition carrying a resolved `counterfactual` on a learner under
+  `none` (`rule.md` §3, `counterfactual.md` §6);
 - a **non-finite `reward`, and a non-finite parameter a container carries**: the batch passes validation and `load` reads
   the file as it always did, so what a step or a decision produced is refused at that site instead (`divergence.md` §4);
-- **`sparsity` of exactly `0` or `1`**, and a width or depth of `1` (`architecture.md` §3);
-- two learners from one spec, a learner saved twice, a checkpoint loaded twice, and a policy kept for a long time: the
-  module keeps no cache and no registry (`surface.md` §4, §8).
+- **`sparsity` of exactly `0` or `1`**, a width or depth of `1`, two learners from one spec, a learner saved twice, a
+  checkpoint loaded twice, and a policy kept for a long time: the module keeps no cache and no registry (`surface.md` §8).
 
-The only shapes refused on a record are the ones that are not that record at all: not a mapping, a missing required
-key, or a value the contract forbids (`surface.md` §1).
+Only a non-record is refused: not a mapping, a missing required key, a forbidden value (`surface.md` §1).
 
 ## 5. Where the messages are asserted
 
 FAM-1.17–1.26 assert only that each name is callable with a valid instance; the refusals are asserted by the blind
-instances and by this design's unit battery (`battery.md` §3–§4). A message that omits the entry point, the key at
-fault or the offending value passes the L1 battery and fails the unit battery, so §3 exists (`guardrails.md`), and
-AGT-16.1–16.6 assert this §3's last two rows (`divergence.md` §5, `tests/agents/test_divergence.py`).
+instances and by this design's unit battery (`battery.md` §3–§4). A message omitting the entry point, the key or the value
+fails the unit battery, so §3 exists (`guardrails.md`); AGT-16.1–16.6 assert its last two rows (`test_divergence.py`).

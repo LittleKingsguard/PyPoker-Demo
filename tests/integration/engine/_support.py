@@ -139,15 +139,28 @@ READOUT_FACTS = (
     "hand_class",
 )
 
-# records.md §5: the episode record's three required keys, and each decision's
+# records.md §5: the episode record's four required keys, and each decision's
 # five required facts.
-EPISODE_FACTS = ("seed", "decisions", "payoffs")
+#
+# **`reveal` is D-43's fourth required key** (`records.md` §5, `counterfactual.md` §2): the
+# hand's board, whether it reached a showdown, whether the shown hands split, and one entry
+# per seat in seat order carrying its seat, its two cards, whether it showed and whether its
+# cards were best of the shown ones.  It is post-hand data written when the hand ends, so the
+# readout stays the eleven facts of `READOUT_FACTS` and no twelfth is added; the episode
+# record, not the readout, is where D-43's resolution lives (FAM-22, D-43).
+EPISODE_FACTS = ("seed", "decisions", "payoffs", "reveal")
 DECISION_FACTS = ("seat", "readout", "legal", "action", "reward")
 # records.md §5, environment.md §3, sizing.md §2: the three amount facts every decision
 # carries beside its five.  `minimum`/`maximum` bound the legal raise interval and are
 # `None` exactly when no raise is legal; `amount` is the raise-to the engine resolved
 # and is `None` whenever the chosen descriptor is not a raise.
 DECISION_AMOUNT_FACTS = ("amount", "minimum", "maximum")
+# records.md §5, counterfactual.md §2, §4, §5: the two facts D-43 adds to every decision
+# record.  `amounts` maps every **legal** descriptor to the raise-to it resolves to, `None`
+# for `fold` and `check-call`; `counterfactual` maps every legal descriptor to that action's
+# whole-hand net chip delta for the acting seat, and is `None` throughout a hand §4 refuses
+# to resolve.  Both are per decision and per action, so neither is a hand-level fact.
+DECISION_RESOLUTION_FACTS = ("amounts", "counterfactual")
 
 # environment.md §2: the four street names and the board each one reveals.
 STREETS = ("preflop", "flop", "turn", "river")

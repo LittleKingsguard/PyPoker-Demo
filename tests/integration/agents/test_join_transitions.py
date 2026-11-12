@@ -35,6 +35,13 @@ REQUIRED_TRANSITION_KEYS = (
     "terminal",
     "legal",
     "next_legal",
+    # D-43 makes the episode boundary **required** of every transition (`records.md` §4,
+    # `counterfactual.md` §2): one hand's transitions carry one number, and a batch that
+    # omitted it would be refused by name before any arithmetic.  The conditional ninth
+    # key, `counterfactual`, is not listed here: a hand `counterfactual.md` §4 refuses to
+    # resolve carries none, so its presence is a property of the hand and not of the record
+    # shape (D-43).
+    "episode",
 )
 
 

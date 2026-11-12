@@ -131,6 +131,11 @@ MASK_PAIR = (1, 2)
 MASK_ALL = (0, 1, 2)
 
 BATCH_LENGTH = 5             # a batch length, invented
+#: The boundary a batch that is no hand's carries: `records.md` §4 makes `episode` required
+#: of every transition, and `still_batch`'s zero-observation probe belongs to no dealt hand,
+#: so every record of it carries this one invented integer — which is what one episode's
+#: records do (`counterfactual.md` §2, `docs/L1/battery.md` §4, D-15, D-43).
+SYNTHETIC_EPISODE = 60139
 HANDS_TWO = 2
 HANDS_THREE = 3
 STREAM_SEED_A = 9173         # seeds for the global `random` stream, invented
@@ -196,6 +201,21 @@ GAME_FORMAT_VERSION = 4
 # --------------------------------------------------------------------------
 def learners():
     return mod("agents").learners()
+
+
+def counterfactual_names():
+    """`agents.learners()['counterfactuals']`'s member names, in the declared order.
+
+    D-43's third catalogue, read from the call and never restated: its first member is
+    `none`, the rule's own target and the declared default, and its second is the member
+    whose residual is the transition's whole-hand `counterfactual` (`counterfactual.md`
+    §6, `e2e-surface.md` §2, D-43).  The container the catalogue publishes may be a
+    sequence of members or a mapping keyed by name, so a case reads the names and lets the
+    catalogue's own spelling be the implementation's (`docs/L1/records.md` §1).
+    """
+    published = learners()["counterfactuals"]
+    names = published.keys() if isinstance(published, Mapping) else published
+    return tuple(str(name) for name in names)
 
 
 def build_learner(spec):
@@ -336,6 +356,28 @@ def shaped_hand(seed, shape=None):
 def shaped_play_hand(seed, seat0_policy, seat1_policy, shape=None):
     """One whole hand of one declared shape driven by two policies (§10)."""
     return mod("engine").play_hand(seed, seat0_policy, seat1_policy, shape=shape)
+
+
+def seated_play_hand(seed, seats, shape=None):
+    """One whole hand of one declared shape driven by the shape's whole seating (§10).
+
+    `play_hand`'s optional `seats` argument is the `seats`-policy form a shape with more
+    than two seats takes: one policy per seat, in seat order, and the two positional
+    policies absent (`e2e-surface.md` §3.1, `seats.md` §4).  It is the one call a six-seat
+    hand is played with, so this battery reads a six-seat episode through it.
+    """
+    return mod("engine").play_hand(seed, seats=tuple(seats), shape=shape)
+
+
+def policy_from(path, exploration="schedule"):
+    """`evaluation.policy_from`: one checkpoint as a policy, at the mode of the call.
+
+    The join's consumer of the member's container: `evaluation` loads a version through
+    `agents.load` and `agents.as_policy`, so the policy it returns is the members its
+    file records as `evaluation` reports them (`e2e-surface.md` §2, §3.4,
+    `docs/L3/evaluation/scheduler.md` §5.1, D-19, D-20, D-43).
+    """
+    return mod("evaluation").policy_from(path, exploration)
 
 
 def shaped_encoder(name, shape=None):
@@ -583,6 +625,58 @@ def episode_seed(record):
     return _lookup(record, ("seed",), "an episode record's seed")
 
 
+def episode_reveal(record):
+    """D-43's `reveal` out of an episode record (`records.md` §5, `counterfactual.md` §2).
+
+    The hand's post-hand facts — `board`, `showdown`, `split` and one entry per seat in
+    seat order with its `seat`, its `hole`, whether it `shown` and whether its cards were
+    best of the shown ones — which `engine.play_hand` writes when the hand ends and no
+    readout reaches (`records.md` §5, `counterfactual.md` §2, §4, D-43).
+    """
+    reveal = _lookup(record, ("reveal", "resolution"), "an episode record's reveal")
+    if not isinstance(reveal, Mapping):
+        raise AssertionError(
+            "the episode record's reveal must be a mapping of the hand's facts, got %r"
+            % (reveal,)
+        )
+    return reveal
+
+
+def reveal_seats(reveal):
+    """The reveal's per-seat entries, in seat order (`records.md` §5)."""
+    seats = _lookup(reveal, ("seats", "seat"), "a reveal's per-seat entries")
+    return list(seats)
+
+
+def reveal_hole(entry):
+    """One reveal entry's two cards, however the seat finished (`records.md` §5)."""
+    return tuple(str(card) for card in _lookup(entry, ("hole", "cards"), "a reveal seat's hole"))
+
+
+def reveal_seat(entry):
+    """One reveal entry's seat index (`records.md` §5)."""
+    value = _lookup(entry, ("seat", "player", "index"), "a reveal seat's seat")
+    if isinstance(value, (tuple, list)):
+        value = value[0]
+    return int(value)
+
+
+def decision_amounts(decision):
+    """D-43's `amounts`: every legal descriptor's resolved raise-to (`records.md` §5)."""
+    return _lookup(decision, ("amounts", "resolved"), "a decision record's amounts")
+
+
+def decision_counterfactual(decision):
+    """D-43's `counterfactual`: every legal descriptor's whole-hand delta (`records.md` §5).
+
+    `None` is that page's own answer for a hand `counterfactual.md` §4 refuses to resolve,
+    so it is returned as it was written rather than read as an empty mapping.
+    """
+    value = _lookup(decision, ("counterfactual", "branches"),
+                    "a decision record's counterfactual")
+    return value
+
+
 def episode_decisions(record):
     return list(_lookup(record, ("decisions", "decision"), "an episode record's decisions"))
 
@@ -771,7 +865,7 @@ def flat_observation(encoder):
     return numpy.zeros(shape, dtype=spec["dtype"])
 
 
-def still_batch(observation, mask, length):
+def still_batch(observation, mask, length, episode=SYNTHETIC_EPISODE):
     """`length` transitions that leave every parameter as it was and advance the position.
 
     Over a zero observation at an unlearned head every value and every target is `0.0`,
@@ -779,6 +873,13 @@ def still_batch(observation, mask, length):
     still advances by the batch's length.  That is the only way to hold a learner at the
     annealed rate without moving the values the tie-break reads, which is what the `tie`
     case needs (`docs/L2/agents/shapes.md` §3-§4, `docs/L2/agents/surface.md` §7).
+
+    `episode` is D-43's **required** boundary of `records.md` §4 and is handed to every
+    record of the batch: a transition carries its episode's own `seed`, so the batch says
+    which hand it belongs to, and `learn` refuses a record carrying none by name
+    (`counterfactual.md` §2, D-43).  This batch is no hand's — it is the battery's own
+    zero-observation probe — so it carries one invented integer for every record, which is
+    what one episode's records do (`docs/L1/battery.md` §4, D-15).
     """
     members = [int(index) for index in mask]
     return [
@@ -790,6 +891,7 @@ def still_batch(observation, mask, length):
             "terminal": False,
             "legal": list(members),
             "next_legal": list(members),
+            "episode": int(episode),
         }
         for _ in range(int(length))
     ]
@@ -1041,7 +1143,13 @@ def seat_transitions(record, seat, encoder):
 
     The record carries the two encoded observations, the chosen index, the reward of
     ASM-12 at that seat's terminal decision and zero elsewhere, the terminal flag
-    and the two legal index sequences (`records.md` §4, `surface.md` §7).
+    and the two legal index sequences (`records.md` §4, `surface.md` §7).  It also carries
+    D-43's **required** `episode`, the episode's own `seed`: one hand's transitions carry
+    one number, so `learn` is told which hand each record belongs to without reading the
+    batch's order (`records.md` §4, §5, `counterfactual.md` §2, D-43).  The optional
+    `counterfactual` is not built here — a case that states the resolution spells it
+    itself, so the builder never invents a value the engine did not place
+    (`counterfactual.md` §4, §5).
     """
     decisions = [d for d in episode_decisions(record) if decision_seat(d) == seat]
     if not decisions:
@@ -1050,6 +1158,7 @@ def seat_transitions(record, seat, encoder):
             "be built for it: %r" % (seat, record)
         )
     rewards = episode_payoffs(record)
+    boundary = int(episode_seed(record))
     out = []
     for position, held in enumerate(decisions):
         last = position == len(decisions) - 1
@@ -1063,6 +1172,7 @@ def seat_transitions(record, seat, encoder):
                 "terminal": last,
                 "legal": list(legal_indices(decision_legal(held))),
                 "next_legal": list(legal_indices(decision_legal(successor))),
+                "episode": boundary,
             }
         )
     return out

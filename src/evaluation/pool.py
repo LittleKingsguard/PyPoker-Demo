@@ -34,6 +34,13 @@ a baseline's id alone, a version's `id`, ``\\x1f``, then its `rule`, ``\\x1f``, 
 `utility` -- so a baselines-only pool keeps the id it had and two pools of one membership
 under two estimators or two objectives do not wear one id (`families.md` §4, ASM-27).
 A declaration that names no folder therefore digests exactly as it did before D-21.
+
+Every version member also declares the **counterfactual member** its whole-hand targets came
+from -- the third catalogue `agents.learners()` publishes, `none` first and the declared
+default (`counterfactual.md` §6, D-43) -- but the field is **conditional**: a member trained
+under `none` carries none, exactly as a default-shape member carries no `game`, so the
+digest appends the member after the utility only when it is not `none` and a pool whose
+members were all trained under `none` keeps the id it had (`records.md` §7-§8, ASM-27).
 """
 
 import hashlib
@@ -174,6 +181,34 @@ def _utility_catalogue():
     return ()
 
 
+def _counterfactual_catalogue():
+    """`agents.learners()`'s counterfactual catalogue, its member names in declared order.
+
+    The third catalogue, read here on the same terms as the two above and never copied
+    into this module, so a name this module accepts is a name `agents.build_learner`
+    accepts (`counterfactual.md` §6, `module-map.md` §2, D-43).  Its first member is the
+    declared default, `none` -- "the rule's own target, unchanged" -- and is never restated
+    here as a module constant, because a copy of the name would drift from the catalogue it
+    is the default of (`rules.md` §4's rule, applied a third time).
+    """
+    declared = agents.learners()
+    catalogue = declared.get("counterfactuals") if isinstance(declared, Mapping) else None
+    if isinstance(catalogue, Mapping):
+        return tuple(str(name) for name in catalogue)
+    return ()
+
+
+def _default_counterfactual():
+    """The catalogue's **first** member: the member a record naming none reads as (§6).
+
+    `none` under today's catalogue, and read off the catalogue rather than spelled here,
+    so the default is the declared one and never a copy of it (`counterfactual.md` §6,
+    `records.md` §7, D-43).
+    """
+    catalogue = _counterfactual_catalogue()
+    return catalogue[0] if catalogue else "none"
+
+
 # ---------------------------------------------------------------------------
 # The pinned baselines of one membership (`records.md` §8, ASM-32, D-21)
 # ---------------------------------------------------------------------------
@@ -223,16 +258,26 @@ def _pinned(declared):
 # The id digest (`families.md` §4, ASM-27)
 # ---------------------------------------------------------------------------
 def _member_line(member):
-    """One member's line of the digest payload: a baseline's id alone, a version's, its rule and its utility."""
+    """One member's line of the digest payload: a baseline's id alone, a version's, its rule, its utility and -- when it is not `none` -- its counterfactual member.
+
+    The counterfactual member is **appended** and only when it is not the catalogue's
+    first: a version trained under `none` contributes exactly the line it contributed
+    before the catalogue existed, which is what keeps every shipped pool id, R1's among
+    them, exactly as it was (`counterfactual.md` §6, `families.md` §4, ASM-27, D-43).
+    """
     if member.get("baseline"):
         return member["id"]
-    return "%s%s%s%s%s" % (
+    line = "%s%s%s%s%s" % (
         member["id"],
         SEPARATOR,
         member["rule"],
         SEPARATOR,
         member["utility"],
     )
+    counterfactual = _counterfactual_of(member)
+    if counterfactual == _default_counterfactual():
+        return line
+    return "%s%s%s" % (line, SEPARATOR, counterfactual)
 
 
 def _pool_id(members):
@@ -240,10 +285,12 @@ def _pool_id(members):
 
     One line per member, in the pool's order: a baseline contributes its id alone and a
     version contributes its id, ``\\x1f``, then its `rule`, ``\\x1f``, then its
-    `utility`; lines joined by one ``"\\n"`` with no trailing separator.  `m`, `frozen`
-    and every other member field stay outside it, so a corrected seed or step does not
-    rename the pool, and a baselines-only pool digests exactly as it did before either
-    catalogue existed (`families.md` §4, ASM-27, D-19, D-20).
+    `utility`, and then its `counterfactual` when -- and only when -- that member is not
+    the catalogue's first; lines joined by one ``"\\n"`` with no trailing separator.  `m`,
+    `frozen` and every other member field stay outside it, so a corrected seed or step does
+    not rename the pool, and a baselines-only pool, a pool of versions all trained under
+    `none`, and R1's pool each digest exactly as they did before any of the three
+    catalogues existed (`families.md` §4, ASM-27, D-19, D-20, D-43).
     """
     payload = "\n".join(_member_line(member) for member in members).encode("utf-8")
     return "pool-" + hashlib.sha256(payload).hexdigest()[:16]
@@ -507,6 +554,61 @@ def _utility(record, where, entry, required=True):
     return value
 
 
+def _counterfactual(record, where, entry):
+    """A version member's `counterfactual`, or `None` when the record declares none.
+
+    The **third** catalogue member, the one its whole-hand targets came from, and
+    `records.md` §7's one **conditional** field: it is required of a member trained under
+    a member other than the catalogue's first and **absent** for one trained under that
+    first, so a record that declares none reads as `None` -- the declared default, which is
+    what its container says when it carries no field at all -- and gains nothing in the
+    digest or in the read-back (`counterfactual.md` §6, `records.md` §7, D-43).
+
+    A record that declares one is read exactly as its `rule` and its `utility` are: the
+    value must be a non-empty string without a newline or the digest's separator, and a
+    name the catalogue does not carry is refused **by name**, naming the member, the name
+    and the catalogue -- never mapped onto the declared default, and never carried into an
+    id a caller would read as a population (`counterfactual.md` §6, ASM-27, D-43).
+
+    The **file** a member was read from is not opened here: `build_pool` and `offer` read
+    the declaration, and a record whose field disagrees with its own container is refused
+    where the container is read -- when the member is played, beside the rule's and the
+    utility's disagreement (`families.md` §6, `scheduler.md` §5).
+    """
+    if "counterfactual" not in record:
+        return None
+    value = record["counterfactual"]
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\n" in value
+        or "\r" in value
+        or SEPARATOR in value
+    ):
+        raise MemberInvalid(
+            "%s(%s): the counterfactual must be a non-empty string without a newline or "
+            "the digest's separator, got %r" % (entry, where, value)
+        )
+    catalogue = _counterfactual_catalogue()
+    if value not in catalogue:
+        raise MemberInvalid(
+            "%s(%s): the counterfactual %r is not one of the catalogue's %r"
+            % (entry, where, value, catalogue)
+        )
+    return value
+
+
+def _counterfactual_of(member):
+    """The counterfactual member one member record **reads as** (`records.md` §7).
+
+    The record's own declared name, or the catalogue's first member when it declares none
+    -- absence is the default and never a substitution of another name (`shape.md` §2's
+    rule for `game`, applied to the third catalogue, `counterfactual.md` §6, D-43).
+    """
+    declared = member.get("counterfactual")
+    return declared if isinstance(declared, str) and declared else _default_counterfactual()
+
+
 def _check_member(record, position):
     """Validate one declared member's shape and return a copy of it (§2, §8)."""
     if not isinstance(record, Mapping):
@@ -555,7 +657,10 @@ def build_pool(declaration):
     tighter than the league's M and never wider; every version member declares its `rule`
     and its `utility`, each refused by name when the catalogue does not carry it and the
     `utility` refused by name when it is absent too, the pool being the only witness of the
-    objective a member was trained under; the versions are grouped into families and
+    objective a member was trained under; the third catalogue's member is read on the
+    same terms where a record declares one and is **conditional** -- a member trained under
+    `none` carries none, and a name outside the catalogue is refused by name
+    (`counterfactual.md` §6, `records.md` §7, D-43); the versions are grouped into families and
     ordered by their lineage links; the window is bounded to `m` by the fair-share eviction
     rule; the pinned baselines are probed once and added first -- the flagged three and
     then any declared folder, in the catalogue's order -- and the id is computed, which the
@@ -633,6 +738,18 @@ def build_pool(declaration):
         member["utility"] = _utility(
             member, "member %r" % (member["id"],), "build_pool"
         )
+    # ... and the **conditional** third catalogue member: a record that declares one is
+    # read as its rule and its utility are -- a name the catalogue does not carry refused
+    # by name -- while a record that declares none is a member trained under the catalogue's
+    # first, which is what its container records by carrying no field at all
+    # (`counterfactual.md` §6, `records.md` §7, D-43).  The key is kept only when the record
+    # declared one, so a default member's record gains nothing (`pool.md` §5).
+    for member in records:
+        declared_counterfactual = _counterfactual(
+            member, "member %r" % (member["id"],), "build_pool"
+        )
+        if declared_counterfactual is not None:
+            member["counterfactual"] = declared_counterfactual
     # ... and every member plays the pool's one shape: a record whose `game` -- or whose
     # absent `game`, read as the default -- is not the pool's is `ShapeMismatch`, refused
     # after the rule and the utility and before a family is ordered (`pool.md` §2 step 2,
@@ -743,6 +860,30 @@ def _pool_utilities(members):
     return tuple(seen)
 
 
+def _pool_counterfactuals(members):
+    """The distinct counterfactual members the versions declare, or `None` for none at all.
+
+    The third side of :func:`_pool_rules` and :func:`_pool_utilities`, on the same terms --
+    a baseline declares none -- but **conditional**, because the field it collects is: a
+    member under the catalogue's first member declares none either, so a pool whose
+    versions were every one of them trained under `none` records **no key at all** and
+    reads back exactly the record it read back before the catalogue existed (`records.md`
+    §8, `counterfactual.md` §6, §9, D-43).  `None` is that answer; a mixed window keeps
+    `none` among the members it names, in the window's order, because that is the member
+    those versions declare.
+    """
+    seen = []
+    for member in members:
+        if member.get("baseline"):
+            continue
+        counterfactual = _counterfactual_of(member)
+        if counterfactual not in seen:
+            seen.append(counterfactual)
+    if all(name == _default_counterfactual() for name in seen):
+        return None
+    return tuple(seen)
+
+
 def pool_members(pool):
     """`records.md` §8's pool record, freshly built on every call (§6, `pool.md` §5).
 
@@ -752,10 +893,15 @@ def pool_members(pool):
     absent declaration key reads as the default, and a record that names it is the fact a
     table and a report read (`shape.md` §2, §4, `records.md` §8).  `rules` and `utilities`
     are the two populations its version members declare; a baseline declares neither and
-    carries `game: None`, being shape-silent (`shape.md` §4).
+    carries `game: None`, being shape-silent (`shape.md` §4).  `counterfactuals` is the
+    third population -- the distinct counterfactual members those versions declare, in the
+    window's order -- and it is **absent** when every one of them is `none`, so a
+    baselines-only pool and a pool of versions all trained under `none` read back exactly
+    the record they read back before the third catalogue existed (`records.md` §8,
+    `counterfactual.md` §6, §9, D-43).
     """
     _require_pool(pool, "pool_members")
-    return {
+    record = {
         "id": pool.id,
         "m": pool.m,
         "frozen": bool(pool.frozen),
@@ -764,6 +910,10 @@ def pool_members(pool):
         "rules": _pool_rules(pool.members),
         "utilities": _pool_utilities(pool.members),
     }
+    counterfactuals = _pool_counterfactuals(pool.members)
+    if counterfactuals is not None:
+        record["counterfactuals"] = counterfactuals
+    return record
 
 
 # ---------------------------------------------------------------------------
@@ -777,7 +927,11 @@ def offer(pool, version):
     (`families.md` §5, ASM-26).  A lineage naming a member that is not its family's newest
     would fork the chain and is refused; a version whose rule or whose utility differs from
     the family it extends is refused; a version that names no `utility` is refused as a
-    missing required key, as a declared member's is; a version of another shape is
+    missing required key, as a declared member's is; its `counterfactual` is read on the
+    same terms as a declared member's -- **conditional**, read where the version declares
+    one and refused by name where the catalogue does not carry it, so a version trained
+    under `none` carries none and joins the window as it always did (`counterfactual.md`
+    §6, `records.md` §7, D-43); a version of another shape is
     `ShapeMismatch`, naming the version and both shapes, because a pool is one shape's
     (`shape.md` §3-§4); and a full window evicts fair-share, so no family is emptied while
     another holds two or more.  Opening the (m+1)th family is refused by name rather than
@@ -818,6 +972,17 @@ def offer(pool, version):
     offered["utility"] = _utility(
         offered, "version %r" % (offered["id"],), "offer"
     )
+    # ... and the third catalogue's conditional member, read as they are: a name the
+    # catalogue does not carry is refused by name, and an absent one is a version trained
+    # under the catalogue's first, whose record gains no key (`counterfactual.md` §6,
+    # `records.md` §7, D-43).
+    declared_counterfactual = _counterfactual(
+        offered, "version %r" % (offered["id"],), "offer"
+    )
+    if declared_counterfactual is not None:
+        offered["counterfactual"] = declared_counterfactual
+    else:
+        offered.pop("counterfactual", None)
     # ... and the version plays the pool's shape: one whose `game` -- or whose absent
     # `game`, read as the default -- is not the pool's is `ShapeMismatch`, naming the
     # version and both shapes, because no window mixes two (`pool.md` §6, `shape.md` §3-§4).

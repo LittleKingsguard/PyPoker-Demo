@@ -46,6 +46,8 @@ from _training_support import (
     as_text,
     baseline_names,
     checkpoint_tree,
+    counterfactual_configuration,
+    counterfactual_names,
     engine,
     entry_of,
     error_class,
@@ -54,6 +56,7 @@ from _training_support import (
     pinned_baselines,
     rule_set,
     training,
+    two_counterfactual_names,
     two_rule_configuration,
     two_rule_names,
     two_utility_configuration,
@@ -623,10 +626,18 @@ class FairnessTest(TrainingCase):
         )
         self.assertEqual(
             len(axes),
-            7,
-            "`utility` joins six axes as the seventh, so a comparison is read on seven "
-            "and a report can say which one a pair differs on (declarations.md §3, "
-            "utilities.md §8, D-20): %r" % (axes,),
+            8,
+            "`utility` joins six axes as the seventh and D-43's `counterfactual` joins "
+            "them as the eighth, so a comparison is read on eight and a report can say "
+            "which one a pair differs on (declarations.md §3, utilities.md §8, "
+            "counterfactual.md §6, D-20, D-43): %r" % (axes,),
+        )
+        self.assertIn(
+            "counterfactual",
+            axes,
+            "the counterfactual member is one of the axes a comparison reports, and it is "
+            "the third catalogue's and not a rule's or a utility's (counterfactual.md "
+            "§6, D-43): %r" % (axes,),
         )
         self.assertIn(
             "utility",
@@ -885,6 +896,98 @@ class FairnessTest(TrainingCase):
             "alone, so the refusal above is about the second axis and not about two "
             "utilities meeting (fairness.md §2, §6, utilities.md §8, D-20): %r"
             % (reported["axis"]["of"],),
+        )
+
+    # -- D-43: the counterfactual axis --------------------------------------
+    def test_trn_7_14_two_counterfactual_members_are_the_axis_and_the_default_is_one_member(self):
+        """TRN-7.14 two entries declaring the catalogue's two counterfactual members differ on the `counterfactual` axis — one word in both places, as the utility's is — and are **not** refused, while a side naming the catalogue's first and a side naming nothing are one member and no phantom difference; and the axis is the eighth and by no means one of the settings a pair must share (fairness.md §2, §4, §6, §7, declarations.md §4, counterfactual.md §6, D-43)."""
+        first_member, second_member = two_counterfactual_names()
+        self.assertEqual(
+            counterfactual_names()[0],
+            first_member,
+            "the catalogue's first member is the declared default of counterfactual.md §6, "
+            "so a side naming none is that member: %r" % (counterfactual_names(),),
+        )
+        self.assertNotIn(
+            "counterfactual",
+            self.internal("declarations", "PAIR_SETTINGS"),
+            "the member is an axis and never a setting both arms must share: two arms of "
+            "one pair declare two of them and both are trained (declarations.md §4, "
+            "counterfactual.md §6, §9, D-43): %r"
+            % (self.internal("declarations", "PAIR_SETTINGS"),),
+        )
+        entries = variant_entries(
+            counterfactual_configuration(member=second_member)
+        )
+        declaring_second = entries[0]
+        self.assertEqual(
+            as_text(declaring_second["counterfactual"], "a declared member"),
+            second_member,
+            "the invented entry declares the catalogue's second member, which is what "
+            "makes it differ from a side on the first (counterfactual.md §6, D-43): %r"
+            % (declaring_second.get("counterfactual"),),
+        )
+        declaring_first = with_setting(
+            declaring_second, counterfactual=first_member, name="variant-invented-5533"
+        )
+        silent = {
+            key: value
+            for key, value in declaring_first.items()
+            if key != "counterfactual"
+        }
+        self.assertNotIn(
+            "counterfactual",
+            silent,
+            "the silent side declares no member at all, which counterfactual.md §6 gives "
+            "one answer to: %r" % (sorted(silent),),
+        )
+        pair = self.result(declaring_second, declaring_second)
+        self.assertEqual(
+            as_text(as_mapping(pair["axis"], "axis")["of"], "of"),
+            "no difference",
+            "one entry against itself differs on nothing, which is the control the two "
+            "sides below are read against (fairness.md §2): %r" % (pair["axis"],),
+        )
+        report = self.result(declaring_first, declaring_second)
+        axis = as_mapping(report["axis"], "axis")
+        self.assertEqual(
+            as_text(axis["of"], "of"),
+            "counterfactual",
+            "two training targets are the `counterfactual` axis D-43 added beside the "
+            "seven, and the pair is reportable rather than refused "
+            "(counterfactual.md §6, D-43): %r" % (axis,),
+        )
+        self.assertEqual(
+            {
+                as_text(field, "a differing field")
+                for field in as_sequence(axis["differs"], "'differs'")
+            },
+            {"counterfactual"},
+            "`differs` names the field that differs, and it is `counterfactual` — **one "
+            "word**, the axis token and the field name being the same, unlike the rule's "
+            "pairing of the token `rule` with the field `learning_rule` "
+            "(counterfactual.md §6, D-43): %r" % (axis["differs"],),
+        )
+        self.assertIsNone(
+            axis["declared"],
+            "for two entries `declared` is None, there being no configuration's axis "
+            "sentence to quote (fairness.md §2)",
+        )
+        same = self.result(silent, declaring_first)
+        self.assertEqual(
+            as_text(as_mapping(same["axis"], "axis")["of"], "of"),
+            "no difference",
+            "a side leaving the default unsaid against a side spelling it out is one "
+            "member resolved through the catalogue, so nothing differs — a phantom "
+            "`counterfactual` difference would be the raw-key comparison "
+            "counterfactual.md §6 forbids (fairness.md §2, §7, D-43): %r"
+            % (same["axis"],),
+        )
+        self.assertEqual(
+            as_sequence(as_mapping(same["axis"], "axis")["differs"], "'differs'"),
+            [],
+            "nothing differs, so `differs` is empty (fairness.md §2, counterfactual.md "
+            "§6): %r" % (same["axis"]["differs"],),
         )
 
 

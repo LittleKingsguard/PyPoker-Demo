@@ -345,6 +345,42 @@ def _trained_utility(configuration, entry):
     return declarations.utilities()[0]
 
 
+def _declared_counterfactual(configuration, entry):
+    """The counterfactual member a variant declares — its entry's, else its configuration's.
+
+    The third axis' side of :func:`_declared_rule` and :func:`_declared_utility`, read at
+    either level so a configuration may carry the declaration beside its entries and an
+    entry may name its own; a level that declares none — or declares `None` — is no claim,
+    and `None` is returned so a caller passes no member at all rather than a member this
+    module substituted (`counterfactual.md` §6, `docs/L2/training/declarations.md` §1–§2,
+    D-43).  It is what decides whether the spec carries the key **at all**, which is what
+    keeps a variant trained under the default writing the container it always wrote.
+    """
+    declared = entry.get("counterfactual")
+    if declared is not None:
+        return declared
+    declared = configuration.get("counterfactual")
+    if declared is not None:
+        return declared
+    return None
+
+
+def _trained_counterfactual(configuration, entry):
+    """The counterfactual member a variant's learner is built under: the declared one, else the first.
+
+    A variant naming no counterfactual is built by `agents` under the catalogue's **first**
+    member, so the member is resolved by reading `declarations.counterfactuals()` — the
+    catalogue `agents.learners()` publishes — and never by standing
+    `declarations.COUNTERFACTUAL` in for it, because that constant is what the six rows
+    declare and not a default this module owns (`counterfactual.md` §6, D-43,
+    docs/L3/training/loop.md §2).
+    """
+    declared = _declared_counterfactual(configuration, entry)
+    if declared is not None:
+        return declared
+    return declarations.counterfactuals()[0]
+
+
 def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, shape=None):
     """Steps 3-9 for one variant at one seed: train, snapshot, save, and pass.
 
@@ -412,6 +448,13 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, s
     trained_utility = _declared_utility(configuration, entry)
     if trained_utility is not None:
         spec["utility"] = trained_utility
+    # The counterfactual member the variant is trained under, forwarded on the same terms
+    # and only when it was declared: a spec naming none carries no `counterfactual` key and
+    # `agents` builds the catalogue's first, so a variant that declares nothing writes the
+    # version-4 container it always wrote (counterfactual.md §6, §9, D-43).
+    trained_counterfactual = _declared_counterfactual(configuration, entry)
+    if trained_counterfactual is not None:
+        spec["counterfactual"] = trained_counterfactual
     learner = agents.build_learner(spec)
     policy = policies._learner_policy(learner, encoder, shape)
     layout._prepare(name, variant, seed)
@@ -613,6 +656,15 @@ def _record(
     the record holds no log of the behaviour policy and a census can be computed from it
     (`sizing.md` §4, §7, ASM-38, D-28).  The pool block repeats the shape, as `records.md`
     §8 makes it a required field of a pool record.
+
+    **The one key D-43 adds, and it is conditional.**  `counterfactuals` is the set of
+    counterfactual members the run declared and trained, and it is written **only when at
+    least one variant declares one that is not the catalogue's first**: a member that is
+    the default — declared or absent — writes no entry and a run where every variant is on
+    it writes no key, which is what keeps a default record field for field at its capture
+    (`records.md` §12, `counterfactual.md` §6, §9, D-43).  Each `variants` row names its own
+    member on the same condition, so a run says which targets produced which curve without
+    ever saying `none`.
     """
     name = declarations.require_game(shape, "training.run")
     params = {}
@@ -633,6 +685,16 @@ def _record(
         utility = _trained_utility(configuration, entry)
         if utility not in utilities:
             utilities.append(utility)
+    # The third axis' set, on the same terms and **conditional**: a member is listed only
+    # when it is not the catalogue's first, and an empty list writes no key at all — so a
+    # run declaring nothing leaves the record at the shape its capture took
+    # (records.md §12, counterfactual.md §6, §9, D-43).
+    default_counterfactual = declarations.counterfactuals()[0]
+    counterfactuals = []
+    for entry in configuration["variants"]:
+        member = _trained_counterfactual(configuration, entry)
+        if member != default_counterfactual and member not in counterfactuals:
+            counterfactuals.append(member)
     record = {
         "rung": configuration.get("name"),
         "game": name,
@@ -687,6 +749,8 @@ def _record(
     }
     if len(configuration["variants"]) == 1:
         record["axis row"] = "n/a, single variant"
+    if counterfactuals:
+        record["counterfactuals"] = counterfactuals
     return record
 
 
@@ -730,18 +794,23 @@ def run(rung, seeds=None, budget=None, device=None):
         for point in points.values():
             point["spread"] = list(spread)
         curve_block[variant] = points
-        variant_block.append(
-            {
-                "name": variant,
-                "backend": entry["backend"],
-                "encoding": entry["encoding"],
-                "architecture": dict(entry["architecture"]),
-                "learning_rule": _trained_rule(configuration, entry),
-                "utility": _trained_utility(configuration, entry),
-                "samples": int(entry.get("samples", hands)),
-                "snapshot_every": int(interval),
-            }
-        )
+        row = {
+            "name": variant,
+            "backend": entry["backend"],
+            "encoding": entry["encoding"],
+            "architecture": dict(entry["architecture"]),
+            "learning_rule": _trained_rule(configuration, entry),
+            "utility": _trained_utility(configuration, entry),
+            "samples": int(entry.get("samples", hands)),
+            "snapshot_every": int(interval),
+        }
+        # The third axis appears in the row **only when it is not the catalogue's first**,
+        # which is what keeps a default declaration's record at the shape its capture took
+        # (counterfactual.md §6, §9, records.md §12, D-43).
+        trained_counterfactual = _trained_counterfactual(configuration, entry)
+        if trained_counterfactual != declarations.counterfactuals()[0]:
+            row["counterfactual"] = trained_counterfactual
+        variant_block.append(row)
 
     return _record(
         configuration,

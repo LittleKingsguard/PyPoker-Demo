@@ -33,6 +33,16 @@ declares it (`shapes.md` §8, ASM-44).  A reader checks the geometry against tha
 kind's declared 203, so a widened container restores to the head it was written at; a
 version-1, 2 or 3 container records the default shape's size and is read as it
 (`restore.md` §2, `docs/L2/features/capacity.md` §2).
+
+**The counterfactual member is a format version too, and a later one than the shape's.**  A
+learner whose counterfactual member is **not** `none` writes format version **5** with a
+required `counterfactual` field written immediately after `utility`; a learner under `none`
+writes exactly the version it wrote before -- 3 on the default shape, 4 on another -- and
+the field is **absent**, so its two decompressed members are byte-for-byte today's.  A
+version-5 container carries `game` exactly when its shape is not the default, version 4's
+own condition, and a version-5 container without `game` is read as the default shape;
+versions 1-4 are read as `none` and must not carry the field (`counterfactual.md` §6, §9,
+D-43).
 """
 
 from __future__ import annotations
@@ -50,6 +60,7 @@ from .errors import (
     CheckpointMismatch,
     CheckpointUnreadable,
     CheckpointUnwritable,
+    UnknownCounterfactual,
     UnknownRule,
     UnknownShape,
     UnknownUtility,
@@ -60,9 +71,19 @@ MAGIC = "pypoker-agents-checkpoint"
 FORMAT_VERSION = 3
 #: The version a container of any other declared shape is written as (`shapes.md` §5).
 GAME_FORMAT_VERSION = 4
-#: The four versions this module reads: 4's shape and two members, 3's two members, 2's
-#: rule alone, and 1's absence of both (`checkpoint.md` §3, `utilities.md` §6).
-SUPPORTED_VERSIONS = (1, 2, FORMAT_VERSION, GAME_FORMAT_VERSION)
+#: The version a learner whose counterfactual member is not `none` writes
+#: (`counterfactual.md` §6).
+COUNTERFACTUAL_FORMAT_VERSION = 5
+#: The five versions this module reads, oldest first: 5's counterfactual member, 4's shape
+#: and two members, 3's two members, 2's rule alone, and 1's absence of both
+#: (`checkpoint.md` §3, `utilities.md` §6, `counterfactual.md` §6).
+SUPPORTED_VERSIONS = (
+    1,
+    2,
+    FORMAT_VERSION,
+    GAME_FORMAT_VERSION,
+    COUNTERFACTUAL_FORMAT_VERSION,
+)
 DTYPE = "float64"
 METADATA = "metadata.json"
 PARAMETERS = "parameters.npy"
@@ -171,14 +192,21 @@ def _metadata(learner):
     """The object `checkpoint.md` §2.1 records for one learner."""
     layout = learner.layout
     schedule = declarations.HYPER["exploration"]
-    # The version is the **shape's** and the fields are inserted in §2.1's order, so a
-    # learner of the default shape writes today's version 3 and no `game` at all: the
-    # two decompressed members of a fixed-limit save are byte-for-byte today's
-    # (`shapes.md` §5, `sizing.md` §6, ASM-40).
+    # The version is the **shape's** and the **member's**, and the fields are inserted in
+    # §2.1's order, so a learner of the default shape under `none` writes today's version
+    # 3 and no `game` at all: the two decompressed members of a fixed-limit save are
+    # byte-for-byte today's (`shapes.md` §5, `sizing.md` §6, ASM-40).  A learner whose
+    # counterfactual member is not `none` writes version 5, whose `counterfactual` field
+    # sits immediately after `utility` (`counterfactual.md` §6, D-43).
     other_shape = learner.game != declarations.DEFAULT_SHAPE
+    revealed = learner.counterfactual != declarations.DEFAULT_COUNTERFACTUAL
     record = {
         "format": MAGIC,
-        "format_version": GAME_FORMAT_VERSION if other_shape else FORMAT_VERSION,
+        "format_version": (
+            COUNTERFACTUAL_FORMAT_VERSION
+            if revealed
+            else (GAME_FORMAT_VERSION if other_shape else FORMAT_VERSION)
+        ),
         "dtype": DTYPE,
         "backend": learner.backend_name,
         "kind": learner.kind,
@@ -193,6 +221,11 @@ def _metadata(learner):
     # and the field a table reads to name a member's objective (`utilities.md` §6, §7,
     # D-20).
     record["utility"] = learner.utility
+    if revealed:
+        # The catalogue member its targets came from, immediately after `utility`: a
+        # version-5 field, written only when it is not `none`, so a `none` save carries no
+        # such key and stays byte-identical (`counterfactual.md` §6, §9, D-43).
+        record["counterfactual"] = learner.counterfactual
     record["settings"] = {
         "width": int(learner.width),
         "depth": int(learner.depth),
@@ -302,7 +335,7 @@ def _wrong(text, label, wanted, value):
 
 
 def _or_written(versions):
-    """`1, 2, 3 or 4`: the written versions as one clause, read off the tuple itself.
+    """`1, 2, 3, 4 or 5`: the written versions as one clause, read off the tuple itself.
 
     The clause is derived from `SUPPORTED_VERSIONS` rather than typed out, so a version
     added to the table cannot leave the message naming the old set (`errors.md` §3).
@@ -409,13 +442,15 @@ def _form(text, metadata):
     # `shapes.md` §5).
     if "game" in metadata:
         _field(text, metadata, "game", "game", _named)
-    # The two catalogue members are fields of the form when they are present; whether
+    # The three catalogue members are fields of the form when they are present; whether
     # each must be present is the format version's question and `_declared` answers it
-    # (`checkpoint.md` §3).
+    # (`checkpoint.md` §3, `counterfactual.md` §6).
     if "learning_rule" in metadata:
         _field(text, metadata, "learning_rule", "learning_rule", _named)
     if "utility" in metadata:
         _field(text, metadata, "utility", "utility", _named)
+    if "counterfactual" in metadata:
+        _field(text, metadata, "counterfactual", "counterfactual", _named)
     settings = _field(text, metadata, "settings", "settings", _recorded)
     for key in SETTINGS:
         _field(text, settings, key, "settings." + key, SETTING_TYPES[key])
@@ -484,12 +519,14 @@ def _declared(text, metadata):
         raise _wrong(
             text, "format_version", _or_written(SUPPORTED_VERSIONS), version
         )
-    # The shape's presence is the format version's, on the same rule the two catalogue
+    # The shape's presence is the format version's, on the same rule the three catalogue
     # members follow (`shapes.md` §5, `sizing.md` §6, ASM-40): version 4 **requires** a
     # `game` naming the shape it was written on, refuses the default shape's own name --
     # a field its writer would never have written, a default-shape save writing version 3
     # -- and refuses a name the module's catalogue does not carry, never defaulting it.
-    # A version-1, 2 or 3 container predates any other shape and must carry no `game`.
+    # Version 5 carries one on that same condition, for a shape that is not the default
+    # (`counterfactual.md` §6, D-43), and **absence is legal** for it.  A version-1, 2 or
+    # 3 container predates any other shape and must carry no `game`.
     if version == GAME_FORMAT_VERSION:
         if "game" not in metadata:
             raise CheckpointUnreadable(
@@ -509,6 +546,22 @@ def _declared(text, metadata):
                 "format version %d one" % (declarations.DEFAULT_SHAPE, FORMAT_VERSION),
                 metadata["game"],
             )
+    elif version == COUNTERFACTUAL_FORMAT_VERSION:
+        if "game" in metadata:
+            if metadata["game"] not in declarations.SHAPE_NAMES:
+                raise UnknownShape(
+                    "load(path): %r records the field 'game', which must be one of %r, "
+                    "got %r" % (text, declarations.SHAPE_NAMES, metadata["game"])
+                )
+            if metadata["game"] == declarations.DEFAULT_SHAPE:
+                raise _wrong(
+                    text,
+                    "game",
+                    "a declared shape other than the default %r, whose container is a "
+                    "format version %d one"
+                    % (declarations.DEFAULT_SHAPE, FORMAT_VERSION),
+                    metadata["game"],
+                )
     elif "game" in metadata:
         raise _wrong(
             text,
@@ -516,12 +569,12 @@ def _declared(text, metadata):
             "absent from a format version %d container" % (version,),
             metadata["game"],
         )
-    # Both catalogue members' presence is the format version's: version 4 and version 3
-    # require the rule and the utility, version 2 requires the rule and predates the
-    # utility, and version 1 predates both — so a file of an older version carrying a
-    # field its writer never wrote was edited and is refused by name (`checkpoint.md` §3,
-    # `rules.md` §6, `utilities.md` §6, D-19, D-20).
-    if version in (FORMAT_VERSION, GAME_FORMAT_VERSION):
+    # All three catalogue members' presence is the format version's: version 5, version 4
+    # and version 3 require the rule and the utility, version 2 requires the rule and
+    # predates the utility, and version 1 predates both — so a file of an older version
+    # carrying a field its writer never wrote was edited and is refused by name
+    # (`checkpoint.md` §3, `rules.md` §6, `utilities.md` §6, D-19, D-20).
+    if version in (FORMAT_VERSION, GAME_FORMAT_VERSION, COUNTERFACTUAL_FORMAT_VERSION):
         for field, catalogue, refusal in (
             ("learning_rule", declarations.LEARNING_RULES, UnknownRule),
             ("utility", declarations.UTILITIES, UnknownUtility),
@@ -575,6 +628,49 @@ def _declared(text, metadata):
                 "absent from a format version 1 container",
                 metadata["utility"],
             )
+    # One rule, and every refusal below is an instance of it: a container carries exactly
+    # the fields its own writer wrote, so a field present where no writer of that version
+    # wrote it was edited and is refused by name, and a field absent where its writer
+    # always wrote it is a form this module does not read (`checkpoint.md` §3).  Version 5
+    # requires the counterfactual member and refuses the declared default, whose container
+    # is a version-3 or version-4 one, and versions 1-4 must not carry the field at all --
+    # the rule `utility` already follows (`counterfactual.md` §6, §9, D-43).
+    if version == COUNTERFACTUAL_FORMAT_VERSION:
+        if "counterfactual" not in metadata:
+            raise CheckpointUnreadable(
+                "load(path): %r has a metadata.json without the field %r"
+                % (text, "counterfactual")
+            )
+        if metadata["counterfactual"] not in declarations.COUNTERFACTUALS:
+            raise UnknownCounterfactual(
+                "load(path): %r records the field %r, which must be one of %r, got %r"
+                % (
+                    text,
+                    "counterfactual",
+                    tuple(declarations.COUNTERFACTUALS),
+                    metadata["counterfactual"],
+                )
+            )
+        if metadata["counterfactual"] == declarations.DEFAULT_COUNTERFACTUAL:
+            raise _wrong(
+                text,
+                "counterfactual",
+                "a member other than the declared default %r, whose container is a "
+                "format version %d or %d one"
+                % (
+                    declarations.DEFAULT_COUNTERFACTUAL,
+                    FORMAT_VERSION,
+                    GAME_FORMAT_VERSION,
+                ),
+                metadata["counterfactual"],
+            )
+    elif "counterfactual" in metadata:
+        raise _wrong(
+            text,
+            "counterfactual",
+            "absent from a format version %d container" % (version,),
+            metadata["counterfactual"],
+        )
     if metadata["dtype"] != DTYPE:
         raise _wrong(text, "dtype", repr(DTYPE), metadata["dtype"])
     if metadata["backend"] not in declarations.BACKENDS:
@@ -702,16 +798,23 @@ def _read_container(path):
     # utility its writer could have used; a version-1 container carries no
     # `learning_rule` and is read as the only rule its writer could have used.  A
     # version-1, 2 or 3 container carries no `game` and is read as the **default**
-    # shape, the only one its writer could have used.  All three readings happen once,
-    # here, so `_compare` and `_rebuild` see the members and the shape the file is read
-    # as (`rules.md` §6, `utilities.md` §6, `shapes.md` §5, `checkpoint.md` §3, D-19,
-    # D-20, D-29).
+    # shape, the only one its writer could have used, and a version-5 container without
+    # one is read as the default shape too -- its writer writes none for one.  A
+    # version-1-to-4 container carries no `counterfactual` and is read as `none`, the only
+    # member its writer could have used.  All the readings happen once, here, so `_compare`
+    # and `_rebuild` see the members and the shape the file is read as (`rules.md` §6,
+    # `utilities.md` §6, `shapes.md` §5, `counterfactual.md` §6, `checkpoint.md` §3, D-19,
+    # D-20, D-29, D-43).
     if metadata["format_version"] == 1:
         metadata["learning_rule"] = declarations.DEFAULT_LEARNING_RULE
     if metadata["format_version"] in (1, 2):
         metadata["utility"] = declarations.DEFAULT_UTILITY
     if metadata["format_version"] in (1, 2, FORMAT_VERSION):
         metadata["game"] = declarations.DEFAULT_SHAPE
+    if metadata["format_version"] == COUNTERFACTUAL_FORMAT_VERSION and "game" not in metadata:
+        metadata["game"] = declarations.DEFAULT_SHAPE
+    if metadata["format_version"] != COUNTERFACTUAL_FORMAT_VERSION:
+        metadata["counterfactual"] = declarations.DEFAULT_COUNTERFACTUAL
     try:
         array = numpy.load(io.BytesIO(raw_parameters), allow_pickle=False)
     except (ValueError, OSError):
@@ -738,9 +841,10 @@ def _compare(spec, metadata):
     `seed` that is not an integer — a `bool` included, and never `int("1")` — is
     refused naming `load(spec)` and the offending value, so no `TypeError` from
     `int()` escapes and nothing is coerced (`surface.md` §1, `errors.md` §4).  A
-    `learning_rule` is validated against the catalogue before it is compared, and so is
-    a `utility` and a `game`; a disagreement names both values as a `seed`'s does
-    (`rules.md` §6, `utilities.md` §6, `shapes.md` §5, D-19, D-20, D-29).
+    `learning_rule` is validated against the catalogue before it is compared, and so are
+    a `utility`, a `counterfactual` and a `game`; a disagreement names both values as a
+    `seed`'s does (`rules.md` §6, `utilities.md` §6, `counterfactual.md` §6, `shapes.md`
+    §5, D-19, D-20, D-43, D-29).
     """
     if spec is None:
         return
@@ -791,6 +895,16 @@ def _compare(spec, metadata):
             raise CheckpointMismatch(
                 "load(spec): the spec's utility %r is not the checkpoint's utility %r"
                 % (named_utility, metadata["utility"])
+            )
+    if "counterfactual" in spec:
+        # Validated against the catalogue before it is compared, and a disagreement names
+        # both values exactly as a `learning_rule`'s and a `utility`'s do
+        # (`counterfactual.md` §6, `checkpoint.md` §3, D-43).
+        named_counterfactual = _learner.counterfactual(spec["counterfactual"], "load")
+        if named_counterfactual != metadata["counterfactual"]:
+            raise CheckpointMismatch(
+                "load(spec): the spec's counterfactual %r is not the checkpoint's "
+                "counterfactual %r" % (named_counterfactual, metadata["counterfactual"])
             )
     if "game" in spec:
         # The shape is compared exactly as the rule and the utility are: validated
@@ -936,6 +1050,11 @@ def _rebuild(text, metadata, array):
         # `params.count` was checked against is this `A` (`shapes.md` §5, ASM-40).
         game=game,
         actions=actions,
+        # The catalogue member the file records, or the one a version-1-to-4 container is
+        # read as -- `none` -- so a restored learner takes its targets from what its
+        # container names, a version-5 one carrying the member it names
+        # (`counterfactual.md` §6, D-43).
+        counterfactual=metadata["counterfactual"],
     )
 
 

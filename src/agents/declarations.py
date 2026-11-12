@@ -1,13 +1,16 @@
-"""The one catalogue: `BACKENDS`, `ARCHITECTURES`, `LEARNING_RULES`, `UTILITIES`, `HYPER`.
+"""The one catalogue: `BACKENDS`, `ARCHITECTURES`, `LEARNING_RULES`, `UTILITIES`,
+`COUNTERFACTUALS`, `HYPER`.
 
 `learners()` publishes these and nothing is restated elsewhere (`README.md` §5,
 `surface.md` §3): the two backends in `numpy` then `torch` order (D-7), the seven kinds
 in `architecture.md` §1's order with the family and the declared size each is sized
 from, the two learning rules in `rules.md` §2's order with the target each aims at
 (D-19), the two terminal-reward utilities in `utilities.md` §2's order with the reward
-each delivers (D-20), and the six fixed declarations both catalogues share
-(`rule.md` §6).  The record is plain data, rebuilt on every call, so no caller can
-mutate the catalogue through a returned mapping.
+each delivers (D-20), the two counterfactual members in `counterfactual.md` §6's order
+with what each reads and how many steps it takes -- the third axis, what a learner
+takes its **targets** from, beside the rule and the utility (D-43) -- and the six fixed
+declarations all of them share (`rule.md` §6).  The record is plain data, rebuilt on
+every call, so no caller can mutate the catalogue through a returned mapping.
 
 It also carries the module's two **axes of absence** -- the declared game shapes, default
 first, and the two exploration modes a policy may be built with (`shapes.md` §1, §4).
@@ -134,6 +137,38 @@ UTILITIES = {
 #: what a learner spec naming none is built under and what a version-1 or version-2
 #: checkpoint is read as (`utilities.md` §5, §6, D-20).  Derived from the order above.
 DEFAULT_UTILITY = next(iter(UTILITIES))
+
+#: The counterfactual catalogue, in the declared order (`counterfactual.md` §6, D-43).
+#: It is a **third** catalogue and neither a rule nor a utility: a rule owns the
+#: **bootstrap** and a utility owns one terminal number read by `training`, while this
+#: names what a learner takes its **targets** from, which `learn` alone reads and every
+#: container it writes records.  Each member is a record of exactly three keys -- its
+#: `name`, the `reads` it takes its residual from and its `steps` -- each value a stable
+#: token and never a sentence.  `none` is today's behaviour exactly, the rule's own
+#: bootstrap target; `reveal-counterfactual` takes its residual from the transition
+#: record's `counterfactual` values instead of from a bootstrap and reads **no
+#: successor**, so it states its own **step count** -- `A` semi-gradient steps per
+#: transition, `A` the shape's descriptor count -- where a rule's contract states one
+#: step per transition (`counterfactual.md` §4-§6).
+COUNTERFACTUALS = {
+    "none": {
+        "name": "none",
+        "reads": "the-rule-own-target",
+        "steps": "one-per-transition",
+    },
+    "reveal-counterfactual": {
+        "name": "reveal-counterfactual",
+        "reads": "whole-hand-value-at-every-legal-action",
+        "steps": "one-per-legal-action",
+    },
+}
+
+#: The declared default of the counterfactual axis: the catalogue's **first** member,
+#: which is what a learner spec naming none is built under and what a version-1-to-4
+#: checkpoint is read as (`counterfactual.md` §6, D-43).  Derived from the order above
+#: exactly as `DEFAULT_LEARNING_RULE` and `DEFAULT_UTILITY` are, so the declaration
+#: cannot drift.
+DEFAULT_COUNTERFACTUAL = next(iter(COUNTERFACTUALS))
 
 #: The six fixed declarations both catalogue members consume (`rule.md` §6): one
 #: value each, never a per-learner argument and never a per-rule block, so a rule swap
@@ -269,7 +304,7 @@ def require_exploration(value, entry):
 
 
 def catalogue():
-    """`learners()`'s record: five keys in order, plain data, rebuilt per call."""
+    """`learners()`'s record: six keys in order, plain data, rebuilt per call."""
     return {
         "backends": {name: {"name": name} for name in BACKENDS},
         "architectures": {kind: dict(entry) for kind, entry in ARCHITECTURES.items()},
@@ -277,5 +312,8 @@ def catalogue():
             name: dict(entry) for name, entry in LEARNING_RULES.items()
         },
         "utilities": {name: dict(entry) for name, entry in UTILITIES.items()},
+        "counterfactuals": {
+            name: dict(entry) for name, entry in COUNTERFACTUALS.items()
+        },
         "hyper": hyper_record(),
     }

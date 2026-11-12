@@ -1,6 +1,6 @@
 # agents — module design (L3)
 
-- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 6 · **Date:** 2026-11-10
+- **Layer:** L3 · **Module:** `agents` · **Unit:** phase1 · **Rev:** 7 · **Date:** 2026-11-11 — D-43: the third catalogue and §5's six keys
 - **Realises:** `docs/L2/agents/surface.md` (the ten entry points, their arguments, returns and refusals) and
   `docs/L2/agents/learner.md` (both catalogues and the one contract each one's members answer, the edges)
 - **Reads:** `docs/L1/e2e-surface.md` §1–§3.3, §5, `shapes.md` §8, `records.md` §2–§4, §6, §7, §9, `ladder.md` §2, §3, §5,
@@ -25,7 +25,7 @@ and utilities, the shape catalogue, the vocabulary and the readout facts are fix
 
 | Document | Owner of that question | What it fixes |
 |---|---|---|
-| `rule.md` | the catalogue of two rules | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the two **divergence guards** that sit in that order (`divergence.md` §2); the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns (D-19, ASM-7, ASM-12) |
+| `rule.md` | the catalogue of two rules, and the third catalogue of counterfactuals | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the two **divergence guards** that sit in that order (`divergence.md` §2); the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns; and the member's step count, its three fallbacks and the statistics counted over steps (D-19, ASM-7, ASM-12, D-43) |
 | `utility.md` | the catalogue of two utilities | each utility's `reward` and `normaliser`, the declared default, the one contract both answer, the arithmetic's four scores, where the transform is applied and where it is not, what a learner and a policy carry, and the `UnknownUtility` refusal (D-20, ASM-12, ASM-28) |
 | `architecture.md` | the seven kinds | each kind's layer stack, how `width`/`depth`/`sparsity`/`residual` are read, the **one initialisation order**, the **parameter formula**, and the sizing contract (D-3, ASM-10) |
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |
@@ -60,8 +60,8 @@ coercion, no substituted default, no swallowed error, no global `random` (ASM-2)
 
     __init__.py       the ten entry points, `__all__`, and nothing else (§3)
     errors.py         AgentsError and its twenty-one subclasses (errors.md §2, divergence.md §1)
-    declarations.py   the catalogues, the shape names and seat counts, the exploration modes and `sized_by_kind`, with
-                      their refusals (§5, shapes.md §1, §6)
+    declarations.py   the three catalogues, the shape names and seat counts, the exploration modes and `sized_by_kind`,
+                      with their refusals (§5, shapes.md §1, §6, counterfactual.md §6)
     model.py          the kinds' stacks, the parameter formula, the initialisation order (arch. §2–§5)
     rule.py           epsilon, the keyed draw, the tie-break, the TD aim, the step, both guards (rule.md, divergence.md)
     numpy_backend.py  the forward and backward arithmetic in NumPy (backends.md §2)
@@ -77,13 +77,13 @@ fixture and no data file. The names `rule.md` §8 fixes in `rule.py`, `model.py`
 
 ## 5. The catalogue `learners()` publishes
 
-Five keys, in this order: `backends`, `architectures`, `learning_rules`, `utilities`, `hyper` (`surface.md` §3, D-19,
-D-20). `backends` is keyed `numpy` then `torch`, each value `{"name": <backend>}`. `architectures` is keyed by the seven
-kinds of `architecture.md` §1, each value carrying `name`, `observation` and `observation_size` — the **default shape's**
-size, 203 and 96, so a learner on another shape takes its width from that shape's encoder (`shapes.md` §8, ASM-44);
-`learning_rules` and `utilities` by their catalogues' members in `rules.md` §2's and `utility.md` §2's order (D-19, D-20);
-`hyper` is the six fixed declarations both catalogues consume (`rule.md` §6). The record is plain data, equal on two calls,
-never the copy a fairness check audits (`ladder.md` §3, §4). **No shape key is added** (`shapes.md` §1, §4).
+Six keys, in this order: `backends`, `architectures`, `learning_rules`, `utilities`, `counterfactuals`, `hyper`
+(`surface.md` §3, D-19, D-20, D-43). `backends` is keyed `numpy` then `torch`, each value `{"name": <backend>}`;
+`architectures` by the seven kinds of `architecture.md` §1, each carrying `name`, `observation` and `observation_size` —
+the **default shape's** size, 203 and 96, so a learner on another shape takes its width from that shape's encoder
+(`shapes.md` §8, ASM-44); `learning_rules`, `utilities` and `counterfactuals` by their catalogues' members in `rules.md`
+§2's, `utility.md` §2's and `counterfactual.md` §6's order, the third carrying `name`, `reads`, `steps`; `hyper` the six
+fixed declarations all three consume (`rule.md` §6). Plain data, equal on two calls; **no shape key is added** (§1, §4).
 
 ## 6. The import boundary — a hard rule
 

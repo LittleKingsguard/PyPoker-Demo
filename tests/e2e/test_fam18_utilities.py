@@ -16,7 +16,10 @@ The instances below — the two invented utility names (`tournament-payout-batte
 `chips-per-hour-battery`), the configuration `R11-dual-utility`, its variant names
 (`chips-arm`, `shortfall-arm`), its width and depth and its pool id — appear in no
 design document; they are the battery's own, invented from the surface alone
-(`battery.md` §4, D-15).  `tournament-payout-battery` drives the three refusal sites that
+(`battery.md` §4, D-15).  D-43 leaves this catalogue exactly two members — its member is a
+**third** catalogue under `learners()`'s `counterfactuals` key (`counterfactual.md` §6,
+FAM-22) — so FAM-18.1 asserts the count and the first member while the record's key set
+admits the sibling.  `tournament-payout-battery` drives the three refusal sites that
 read a utility from a caller's declaration — a learner spec (FAM-18.3), a pool member
 (FAM-18.12) and a `load` spec (FAM-18.13) — and `chips-per-hour-battery` the fourth, a
 variant entry (FAM-18.9), so a name outside the catalogue is refused where it is declared
@@ -154,7 +157,15 @@ class FAM18Utilities(S.SurfaceCase):
 
     # -- the catalogue -----------------------------------------------------
     def test_fam18_1_agents_learners_publishes_the_utility_catalogue(self):
-        """FAM-18.1 learners() publishes a catalogue of more than one named utility."""
+        """FAM-18.1 learners() publishes a catalogue of more than one named utility.
+
+        The catalogue is still **exactly** the two utilities of `utilities.md` §2.  D-43's
+        counterfactual member is a third catalogue under `learners()`'s `counterfactuals`
+        key and never a third utility — a utility owns one terminal number that `training`
+        reads and `learn` never does, while the member is `A` numbers per decision that
+        `learn` reads (`counterfactual.md` §6, `utilities.md` §3, D-20, D-43) — so the
+        objectives a spec selects from stay two, the first being `net-chips`.
+        """
         pairs = self.catalogue()
         names = [name for name, _member in pairs]
         self.assertGreaterEqual(
@@ -163,6 +174,14 @@ class FAM18Utilities(S.SurfaceCase):
             "agents.learners() publishes the utility catalogue with more than one member, "
             "so a spec can select one (utilities.md §2, e2e-surface.md §2 'Utility', "
             "D-20): it publishes %r" % (names,),
+        )
+        self.assertEqual(
+            len(pairs),
+            len(S.UTILITIES),
+            "the utility catalogue is exactly the two members of utilities.md §2 and no "
+            "third: D-43's counterfactual member is a sibling catalogue under its own key, "
+            "not an objective (utilities.md §2, §3, counterfactual.md §6, D-20, D-43): it "
+            "publishes %r" % (names,),
         )
         for wanted in (S.UTILITY_DEFAULT, S.UTILITY_SECOND):
             self.assertIn(

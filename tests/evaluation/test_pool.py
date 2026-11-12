@@ -23,8 +23,10 @@ import unittest
 
 from _evaluation_support import (
     BASELINES,
+    DEFAULT_COUNTERFACTUAL,
     DEFAULT_RULE,
     OPPONENT_SEEDS,
+    OTHER_COUNTERFACTUAL,
     OTHER_RULE,
     POOL_M,
     START_LABEL,
@@ -32,9 +34,11 @@ from _evaluation_support import (
     EvaluationCase,
     baseline_members,
     declaration,
+    declared_counterfactuals,
     default_shape,
     member_id,
     other_shape,
+    pool_counterfactuals,
     pool_digest,
     pool_member_ids,
     pool_rules,
@@ -48,6 +52,22 @@ from _evaluation_support import (
 def unreadable_path(case):
     """A path inside the case's own temporary directory that names no file."""
     return os.path.join(case.tempdir(), "absent-checkpoint.ckpt")
+
+
+def version_members(record):
+    """A pool record's version members in window order, the pinned baselines dropped (§8)."""
+    return tuple(record["members"][len(BASELINES):])
+
+
+def member_named(record, name):
+    """One member of a pool record, by its id (`records.md` §8, `pool.md` §5)."""
+    for member in record["members"]:
+        if member_id(member) == name:
+            return member
+    raise AssertionError(
+        "the pool record holds no member %r in its membership (records.md §8): %r"
+        % (name, pool_member_ids(record))
+    )
 
 
 class PoolTest(EvaluationCase):
@@ -1269,6 +1289,509 @@ class PoolTest(EvaluationCase):
                 "the same three baselines on the other shape are one id and two tables "
                 "(pool.md §1, shape.md §4, G32): %r vs %r"
                 % (with_shape["id"], bare["id"]),
+            )
+
+    def test_evl_2_31_a_member_of_a_non_default_counterfactual_member_carries_the_field(self):
+        """EVL-2.31 a version trained under a counterfactual member other than the catalogue's first **declares** it, is admitted, and reads back carrying it, while a member trained under `none` -- the declared default -- never gains a key it did not declare: a record that stayed silent reads back with **no** such key at all, and one that named `none` explicitly reads back untouched, contributing the default and nothing else; and a name the catalogue does not carry, the empty name, a name holding the digest's separator or a newline, and a value that is not a string are each refused **by name**, naming `build_pool`, the member and the offender, as this module's own `EvaluationError` and never a `TypeError` (`records.md` §7-§8, `pool.md` §2, §5, `counterfactual.md` §6, §9, `errors.md` §1-§3, ASM-27, D-43)."""
+        package = self.evaluation()
+        catalogue = self.catalogue_counterfactuals()
+        self.assertEqual(
+            catalogue[:2],
+            (DEFAULT_COUNTERFACTUAL, OTHER_COUNTERFACTUAL),
+            "agents.learners() publishes the counterfactual catalogue in "
+            "counterfactual.md §6's order, `none` first and the declared default, so the "
+            "names this case asserts against are the module's own (D-43): %r"
+            % (catalogue,),
+        )
+        with self.subTest(declared=OTHER_COUNTERFACTUAL):
+            declared = version_chain(VERSION_IDS[:2], counterfactual=OTHER_COUNTERFACTUAL)
+            read = package.pool_members(
+                package.build_pool(declaration(members=declared, m=POOL_M, frozen=True))
+            )
+            versions = version_members(read)
+            self.assertEqual(
+                len(versions),
+                2,
+                "a chain of two versions is the window's two members (pool.md §2, §3): %r"
+                % (versions,),
+            )
+            for record, member in zip(declared, versions):
+                with self.subTest(member=record["id"]):
+                    self.assertEqual(
+                        sorted(member),
+                        sorted(record),
+                        "a member trained under a non-default counterfactual member "
+                        "carries exactly the keys its declaration carried, the field "
+                        "included and nothing invented beside it (records.md §7, pool.md "
+                        "§5, D-43): %r against %r" % (sorted(member), sorted(record)),
+                    )
+                    self.assertEqual(
+                        member["counterfactual"],
+                        OTHER_COUNTERFACTUAL,
+                        "the member reads back carrying the catalogue member its targets "
+                        "came from, as it carries its rule and its utility (records.md "
+                        "§7, counterfactual.md §6, pool.md §5, D-43): %r"
+                        % (member.get("counterfactual"),),
+                    )
+        with self.subTest(declared="nothing at all"):
+            silent = version_chain(VERSION_IDS[:2])
+            silent_read = package.pool_members(
+                package.build_pool(declaration(members=silent, m=POOL_M, frozen=True))
+            )
+            for record, member in zip(silent, version_members(silent_read)):
+                with self.subTest(member=record["id"]):
+                    self.assertNotIn(
+                        "counterfactual",
+                        member,
+                        "a member whose declaration carried no `counterfactual` reads "
+                        "back without one: absence is the catalogue's first member and "
+                        "never a value filled in, so no key is invented for it (records.md "
+                        "§7, pool.md §5, counterfactual.md §6, D-43): %r" % (member,),
+                    )
+                    self.assertEqual(
+                        sorted(member),
+                        sorted(record),
+                        "the read-back's key set is exactly the keys the declaration "
+                        "carried and the declaration carried none of the third "
+                        "catalogue's, so the many other keys are joined by no new one "
+                        "(records.md §7, pool.md §5, D-43): %r against %r"
+                        % (sorted(member), sorted(record)),
+                    )
+        with self.subTest(declared="none, explicitly"):
+            explicit = version_chain(
+                VERSION_IDS[:2], counterfactual=DEFAULT_COUNTERFACTUAL
+            )
+            explicit_read = package.pool_members(
+                package.build_pool(declaration(members=explicit, m=POOL_M, frozen=True))
+            )
+            self.assertEqual(
+                pool_member_ids(explicit_read),
+                tuple(BASELINES) + tuple(VERSION_IDS[:2]),
+                "a record naming the declared default explicitly is admitted: the same "
+                "membership builds, oldest to newest (records.md §7, pool.md §2, D-43): %r"
+                % (pool_member_ids(explicit_read),),
+            )
+            for record, member in zip(explicit, version_members(explicit_read)):
+                with self.subTest(member=record["id"]):
+                    self.assertEqual(
+                        member.get("counterfactual"),
+                        DEFAULT_COUNTERFACTUAL,
+                        "a member naming `none` reads back as a member trained under the "
+                        "catalogue's first member, and no other name is substituted for "
+                        "it (records.md §7, counterfactual.md §6, D-43): %r" % (member,),
+                    )
+                    self.assertEqual(
+                        sorted(member),
+                        sorted(record),
+                        "a record that names the declared default reads back **untouched** "
+                        "-- the key it carried and no key beside it -- because this change "
+                        "writes nothing into a record that named `none` itself (records.md "
+                        "§7, pool.md §5, counterfactual.md §9, D-43): %r against %r"
+                        % (sorted(member), sorted(record)),
+                    )
+                    self.assertEqual(
+                        member,
+                        record,
+                        "the explicit `none` member is admitted and reads back exactly as "
+                        "it was declared, gaining nothing (records.md §8, counterfactual.md "
+                        "§9, D-43): %r against %r" % (member, record),
+                    )
+            self.assertNotIn(
+                "counterfactuals",
+                explicit_read,
+                "a pool whose versions were all trained under `none` contributes nothing "
+                "to the record's `counterfactuals` set, so the key is absent even when the "
+                "declarations named the default (records.md §8, counterfactual.md §6, §9, "
+                "D-43): %r" % (sorted(explicit_read),),
+            )
+        cases = (
+            (
+                "a name the catalogue does not carry",
+                "reveal-everything",
+                ((VERSION_IDS[0],), ("reveal-everything",), (OTHER_COUNTERFACTUAL,)),
+            ),
+            (
+                "the empty name",
+                "",
+                ((VERSION_IDS[0],), ("non-empty",), ("''",)),
+            ),
+            (
+                "a name holding the digest's separator",
+                "reveal\x1fcounterfactual",
+                ((VERSION_IDS[0],), ("separator",), ("\\x1f",)),
+            ),
+            (
+                "a name holding a newline",
+                "reveal\ncounterfactual",
+                ((VERSION_IDS[0],), ("newline",), ("\\n",)),
+            ),
+            (
+                "a name that is not a string",
+                42,
+                ((VERSION_IDS[0],), ("string",), ("42",)),
+            ),
+        )
+        for label, value, groups in cases:
+            with self.subTest(counterfactual=label):
+                self.assert_evaluation_refusal(
+                    package.build_pool,
+                    declaration(
+                        members=[
+                            version_record(
+                                VERSION_IDS[0], START_LABEL, counterfactual=value
+                            )
+                        ],
+                        m=POOL_M,
+                        frozen=True,
+                    ),
+                    entry="build_pool",
+                    groups=groups,
+                    label="a member declaring %s" % (label,),
+                    kind="MemberInvalid",
+                )
+
+    def test_evl_2_32_the_pool_record_declares_the_counterfactuals_its_versions_hold_and_their_id(self):
+        """EVL-2.32 `pool_members` returns `counterfactuals` -- the **distinct** counterfactual members its version members declare, each version contributing its own or `none` when it declares none, in the window's order -- and **no such key at all** when every one of them is `none`, so a baselines-only pool and a pool of versions all trained under the default read back exactly the record they read back before the third catalogue existed; a non-default member moves the id, which is still the support's recomputation over the record's own members, and the three records this battery has always declared keep the pre-change id `pool-84fbe8ce62890da0` -- the literal R1's pool and every `none` pool keep, because the digest appends the member only when it is not `none` (`records.md` §8, `families.md` §4, `pool.md` §5, `counterfactual.md` §6, §9, ASM-27, D-43)."""
+        package = self.evaluation()
+        self.assertIn(
+            OTHER_COUNTERFACTUAL,
+            self.catalogue_counterfactuals(),
+            "the catalogue carries the member this case declares, so no name here is "
+            "spelled past it (counterfactual.md §6, D-43)",
+        )
+        # (a) the record a pool of `none`-trained members reads back, before and after.
+        legacy_keys = ("frozen", "game", "id", "m", "members", "rules", "utilities")
+        with self.subTest(case="a baselines-only pool"):
+            bare = package.pool_members(
+                package.build_pool(declaration(members=(), m=5, frozen=True))
+            )
+            self.assertNotIn(
+                "counterfactuals",
+                bare,
+                "a baselines-only pool's versions declare nothing, so the record carries "
+                "no `counterfactuals` key at all -- not an empty one (records.md §8, "
+                "counterfactual.md §6, §9, D-43): %r" % (sorted(bare),),
+            )
+            self.assertEqual(
+                tuple(sorted(bare)),
+                legacy_keys,
+                "the record is exactly the one such a pool read back before the third "
+                "catalogue existed, key for key (records.md §8, counterfactual.md §9, "
+                "D-43): %r" % (sorted(bare),),
+            )
+            self.assertEqual(
+                bare["id"],
+                pool_digest(bare["members"]),
+                "R1's pool digests its three baseline lines and nothing else (families.md "
+                "§4, ASM-27, D-43): %r" % (bare["id"],),
+            )
+        with self.subTest(case="a pool of versions all trained under `none`"):
+            silent = package.pool_members(
+                package.build_pool(
+                    declaration(members=version_chain(VERSION_IDS[:2]), m=POOL_M, frozen=True)
+                )
+            )
+            self.assertNotIn(
+                "counterfactuals",
+                silent,
+                "every version declares no counterfactual, so every one of them is `none` "
+                "and the record carries no `counterfactuals` key (records.md §8, "
+                "counterfactual.md §6, §9, D-43): %r" % (sorted(silent),),
+            )
+            self.assertEqual(
+                tuple(sorted(silent)),
+                legacy_keys,
+                "a pool of `none`-trained versions reads back the record it read back "
+                "before the catalogue, key for key (records.md §8, counterfactual.md §9, "
+                "D-43): %r" % (sorted(silent),),
+            )
+            self.assertEqual(
+                silent["id"],
+                pool_digest(silent["members"]),
+                "the digest appends nothing for a member trained under `none`, so the id "
+                "is the one the same membership wore before the change (families.md §4, "
+                "counterfactual.md §9, ASM-27, D-43): %r for %r"
+                % (silent["id"], pool_member_ids(silent)),
+            )
+            self.assertEqual(
+                declared_counterfactuals(silent["members"]),
+                (DEFAULT_COUNTERFACTUAL,),
+                "every one of the record's versions declares the catalogue's first member "
+                "and nothing else, which is exactly the condition under which the key is "
+                "omitted instead of written (records.md §7-§8, counterfactual.md §6, "
+                "D-43): %r" % (declared_counterfactuals(silent["members"]),),
+            )
+        # (b) one membership, two counterfactual members, two ids.
+        revealed = package.pool_members(
+            package.build_pool(
+                declaration(
+                    members=version_chain(
+                        VERSION_IDS[:2], counterfactual=OTHER_COUNTERFACTUAL
+                    ),
+                    m=POOL_M,
+                    frozen=True,
+                )
+            )
+        )
+        self.assertEqual(
+            pool_counterfactuals(revealed),
+            (OTHER_COUNTERFACTUAL,),
+            "a pool whose versions all declare the non-default member carries a "
+            "`counterfactuals` set naming it once, the distinct set and not one entry per "
+            "member (records.md §8, counterfactual.md §6, D-43): %r"
+            % (pool_counterfactuals(revealed),),
+        )
+        self.assertEqual(
+            pool_counterfactuals(revealed),
+            declared_counterfactuals(revealed["members"]),
+            "and it is the support's derivation over the members the record carries, so "
+            "one name per distinct member and never one per version (records.md §8, "
+            "counterfactual.md §6, D-43)",
+        )
+        self.assertEqual(
+            pool_member_ids(revealed),
+            pool_member_ids(silent),
+            "the two declarations hold one membership, so only the id and the third "
+            "catalogue's key may differ (records.md §8, families.md §4, D-43): %r against "
+            "%r" % (pool_member_ids(revealed), pool_member_ids(silent)),
+        )
+        self.assertNotEqual(
+            revealed["id"],
+            silent["id"],
+            "two pools of one membership under two counterfactual members wear two ids, "
+            "because the digest appends the member when it is not `none` (families.md §4, "
+            "ASM-27, D-43): %r against %r" % (revealed["id"], silent["id"]),
+        )
+        self.assertEqual(
+            revealed["id"],
+            pool_digest(revealed["members"]),
+            "the new id is still exactly the digest of the ordered member lines, the "
+            "counterfactual member appended after each version's utility (families.md §4, "
+            "ASM-27, D-43): %r for %r"
+            % (revealed["id"], pool_member_ids(revealed)),
+        )
+        # (c) a mixed window names both members, in the window's order and not sorted.
+        with self.subTest(case="a mixed window"):
+            silent_chain = version_chain(VERSION_IDS[:2])
+            first_silent = [
+                dict(silent_chain[0]),
+                dict(silent_chain[1], counterfactual=OTHER_COUNTERFACTUAL),
+            ]
+            mixed = package.pool_members(
+                package.build_pool(
+                    declaration(members=first_silent, m=POOL_M, frozen=True)
+                )
+            )
+            self.assertEqual(
+                pool_counterfactuals(mixed),
+                (DEFAULT_COUNTERFACTUAL, OTHER_COUNTERFACTUAL),
+                "one chain holding one member of each kind names both members, the "
+                "silent one contributing `none` (records.md §8, counterfactual.md §6, "
+                "D-43): %r" % (pool_counterfactuals(mixed),),
+            )
+            first_revealed = [
+                dict(silent_chain[0], counterfactual=OTHER_COUNTERFACTUAL),
+                dict(silent_chain[1]),
+            ]
+            other_order = package.pool_members(
+                package.build_pool(
+                    declaration(members=first_revealed, m=POOL_M, frozen=True)
+                )
+            )
+            self.assertEqual(
+                pool_counterfactuals(other_order),
+                (OTHER_COUNTERFACTUAL, DEFAULT_COUNTERFACTUAL),
+                "the two names are the window's order and not a sort: the chain whose "
+                "oldest member declares the non-default member names it first (records.md "
+                "§8, families.md §2, D-43): %r" % (pool_counterfactuals(other_order),),
+            )
+            for label, record in (
+                ("the silent member first", mixed),
+                ("the non-default member first", other_order),
+            ):
+                with self.subTest(window=label):
+                    self.assertEqual(
+                        pool_counterfactuals(record),
+                        declared_counterfactuals(record["members"]),
+                        "the record's `counterfactuals` is the support's own derivation "
+                        "over the members it carries, so the set is read off the "
+                        "membership and not off a name a case kept (records.md §8, "
+                        "counterfactual.md §6, D-43): %r against %r"
+                        % (
+                            pool_counterfactuals(record),
+                            declared_counterfactuals(record["members"]),
+                        ),
+                    )
+                    self.assertEqual(
+                        record["id"],
+                        pool_digest(record["members"]),
+                        "the mixed window's id is the digest of its own lines, the "
+                        "declaring member's line carrying the appended field and the "
+                        "silent one's carrying none (families.md §4, ASM-27, D-43): %r for "
+                        "%r" % (record["id"], pool_member_ids(record)),
+                    )
+        # (d) the measured pre-change id: the same three records, under `none`.
+        with self.subTest(case="the pre-change literal"):
+            legacy = package.pool_members(
+                package.build_pool(
+                    {
+                        "members": [
+                            {
+                                "id": "version-alpha",
+                                "lineage": "chain-start",
+                                "rule": "masked-q-learning",
+                                "utility": "net-chips",
+                                "seed": 0,
+                                "step": 100,
+                                "samples": 100,
+                                "rung": "measure",
+                                "variant": "measure",
+                            },
+                            {
+                                "id": "version-bravo",
+                                "lineage": "version-alpha",
+                                "rule": "masked-q-learning",
+                                "utility": "net-chips",
+                                "seed": 0,
+                                "step": 200,
+                                "samples": 100,
+                                "rung": "measure",
+                                "variant": "measure",
+                            },
+                            {
+                                "id": "version-charlie",
+                                "lineage": "version-bravo",
+                                "rule": "masked-q-learning",
+                                "utility": "net-chips",
+                                "seed": 0,
+                                "step": 300,
+                                "samples": 100,
+                                "rung": "measure",
+                                "variant": "measure",
+                            },
+                        ],
+                        "m": 3,
+                        "frozen": True,
+                    }
+                )
+            )
+            self.assertEqual(
+                legacy["id"],
+                "pool-84fbe8ce62890da0",
+                "these three records, each declaring the two catalogues' own first "
+                "members and no counterfactual, wore this id before the third catalogue "
+                "existed, and the digest appends the member only when it is not `none`, "
+                "so R1's pool and every `none` pool keep theirs (families.md §4, "
+                "ASM-27, counterfactual.md §6, §9, D-43): %r for %r"
+                % (legacy["id"], pool_member_ids(legacy)),
+            )
+            self.assertEqual(
+                legacy["id"],
+                pool_digest(legacy["members"]),
+                "the literal id is the support's recomputation over the record's own "
+                "members, so the two agree on what the payload is (families.md §4, "
+                "ASM-27, D-43): %r for %r"
+                % (legacy["id"], pool_member_ids(legacy)),
+            )
+            self.assertNotIn(
+                "counterfactuals",
+                legacy,
+                "the pre-change record carries no third-catalogue key, which is what "
+                "makes the literal id the pre-change one rather than a coincidence "
+                "(records.md §8, counterfactual.md §9, D-43): %r" % (sorted(legacy),),
+            )
+
+    def test_evl_2_33_offer_reads_the_conditional_field_as_a_declared_member_does(self):
+        """EVL-2.33 `offer` reads a version's counterfactual exactly as it reads a declared member's: a version naming a non-default member advances the window carrying it and the advanced record's `counterfactuals` gains it, a version naming none advances the window and gains no key, and a version naming a name the catalogue does not carry is refused naming `offer`, the version and the name, as this module's own refusal, leaving its argument pool reading back unchanged (`records.md` §7-§8, `pool.md` §6, `counterfactual.md` §6, `errors.md` §1-§3, ASM-27, D-43)."""
+        package = self.evaluation()
+        self.assertIn(
+            OTHER_COUNTERFACTUAL,
+            self.catalogue_counterfactuals(),
+            "the catalogue carries the member offered below, so no name here is spelled "
+            "past it (counterfactual.md §6, D-43)",
+        )
+        open_pool = self.open_pool(members=version_chain(VERSION_IDS[:1]))
+        with self.subTest(offered=OTHER_COUNTERFACTUAL):
+            advanced = package.offer(
+                open_pool,
+                version_record(
+                    VERSION_IDS[1],
+                    VERSION_IDS[0],
+                    step=7,
+                    counterfactual=OTHER_COUNTERFACTUAL,
+                ),
+            )
+            read = self.pool_members(advanced)
+            member = member_named(read, VERSION_IDS[1])
+            self.assertEqual(
+                member.get("counterfactual"),
+                OTHER_COUNTERFACTUAL,
+                "an offered version declaring a non-default counterfactual member joins "
+                "the window carrying it, as a declared member does (records.md §7, pool.md "
+                "§6, counterfactual.md §6, D-43): %r" % (member,),
+            )
+            self.assertEqual(
+                pool_counterfactuals(read),
+                (DEFAULT_COUNTERFACTUAL, OTHER_COUNTERFACTUAL),
+                "the advanced pool's record names the member the offered version "
+                "declared, after the silent member's `none` and in the window's order -- "
+                "each version contributing its own declaration (records.md §8, pool.md §6, "
+                "counterfactual.md §6, D-43): %r" % (pool_counterfactuals(read),),
+            )
+            self.assertEqual(
+                read["id"],
+                pool_digest(read["members"]),
+                "the offered pool's id is the digest of its own new membership, the "
+                "offered member's line carrying the appended field (families.md §4, "
+                "ASM-27, D-43): %r for %r"
+                % (read["id"], pool_member_ids(read)),
+            )
+        with self.subTest(offered="nothing at all"):
+            silent = package.offer(
+                open_pool, version_record(VERSION_IDS[1], VERSION_IDS[0], step=8)
+            )
+            read = self.pool_members(silent)
+            member = member_named(read, VERSION_IDS[1])
+            self.assertNotIn(
+                "counterfactual",
+                member,
+                "a version naming no counterfactual joins the window with no such key: "
+                "absence is the catalogue's first member and no value is filled in "
+                "(records.md §7, pool.md §6, counterfactual.md §6, D-43): %r" % (member,),
+            )
+            self.assertNotIn(
+                "counterfactuals",
+                read,
+                "both members of the advanced window were trained under `none`, so its "
+                "record carries no `counterfactuals` key at all (records.md §8, "
+                "counterfactual.md §6, §9, D-43): %r" % (sorted(read),),
+            )
+        with self.subTest(offered="a name the catalogue does not carry"):
+            before = self.pool_members(open_pool)
+            self.assert_evaluation_refusal(
+                package.offer,
+                open_pool,
+                version_record(
+                    VERSION_IDS[1],
+                    VERSION_IDS[0],
+                    step=9,
+                    counterfactual="reveal-everything",
+                ),
+                entry="offer",
+                groups=(
+                    (VERSION_IDS[1],),
+                    ("reveal-everything",),
+                    (OTHER_COUNTERFACTUAL,),
+                ),
+                label="an offered version declaring an uncatalogued counterfactual",
+                kind="MemberInvalid",
+            )
+            self.assertEqual(
+                self.pool_members(open_pool),
+                before,
+                "offer returns a new pool and leaves its argument unchanged, so a refused "
+                "version changes no membership and no id (pool.md §6, surface.md §7, "
+                "records.md §8, D-43): %r" % (self.pool_members(open_pool),),
             )
 
 

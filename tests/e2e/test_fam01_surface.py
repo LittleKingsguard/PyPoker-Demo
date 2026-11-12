@@ -9,7 +9,9 @@ points.  D-29 declares the second game shape, which adds exactly one name — th
 (``e2e-surface.md`` §3.1, §4; ``shapes.md`` §4).
 
 Each case asserts presence, that the name is callable, and that a minimal call returns a
-value of the kind §3 declares.  A minimal call for a league entry goes through
+value of the kind §3 declares.  FAM-1.51 then asserts the map itself: D-43 adds no name, so
+the fifty of §3 are the fifty this file drives and no module-level name the change would have
+had to add exists (`counterfactual.md` §9, `e2e-surface.md` §4).  A minimal call for a league entry goes through
 ``_surface.py``'s builders — a membership declaration, a pool, its members, one offer,
 one opponent, one cell, the shared table — never through a private helper.  The
 contracts behind the values are the business of the later families.
@@ -28,8 +30,45 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
     import _surface as S  # noqa: E402
 
 
+#: The fifty entry points `docs/L1/e2e-surface.md` §3 declares, in that document's order,
+#: as ``(module, name)``.  Each has one case below, so a name that is absent is one finding
+#: per name; the list is also the map's whole membership, which FAM-1.51 asserts — D-43's
+#: resolution reaches the surface as keys of existing records and a member of an existing
+#: catalogue, and **adds no name**, so the map stays at fifty (`counterfactual.md` §9,
+#: `e2e-surface.md` §4, D-13).
+ENTRY_POINTS = (
+    ("engine", "game_shapes"), ("engine", "game_config"), ("engine", "new_hand"),
+    ("engine", "readout"), ("engine", "legal_actions"), ("engine", "apply_action"),
+    ("engine", "is_terminal"), ("engine", "payoffs"), ("engine", "play_hand"),
+    ("engine", "equity"),
+    ("features", "encodings"), ("features", "build_encoder"),
+    ("features", "observation_spec"), ("features", "encode"),
+    ("features", "action_space"), ("features", "legal_indices"),
+    ("features", "decode_action"),
+    ("agents", "learners"), ("agents", "build_learner"), ("agents", "param_count"),
+    ("agents", "act"), ("agents", "learn"), ("agents", "save"), ("agents", "load"),
+    ("agents", "as_policy"), ("agents", "baselines"), ("agents", "build_baseline"),
+    ("evaluation", "protocol"), ("evaluation", "league"), ("evaluation", "build_pool"),
+    ("evaluation", "pool_members"), ("evaluation", "offer"), ("evaluation", "opponent"),
+    ("evaluation", "match"), ("evaluation", "matrix"), ("evaluation", "rating"),
+    ("evaluation", "policy_from"), ("evaluation", "report"),
+    ("training", "rungs"), ("training", "rung"), ("training", "run"),
+    ("training", "fairness"), ("training", "devices"), ("training", "checkpoints"),
+    ("harness", "drive"), ("harness", "fixtures"), ("harness", "factory"),
+    ("harness", "seam"), ("harness", "expect"), ("harness", "timings"),
+)
+
+#: The names D-43 could have had to add as an entry point and must not: the reveal, the two
+#: per-decision facts, the episode boundary and the member.  `e2e-surface.md` §1 makes
+#: **every** entry point a module-level name of the module's package, so "no name was added"
+#: is asserted as the absence of a module-level name of one of the six packages
+#: (`counterfactual.md` §9, `e2e-surface.md` §4, D-13).
+NOT_A_NAME = ("reveal", "counterfactual", "counterfactuals", "amounts",
+              "episode_reveal", "resolved_values")
+
+
 class FAM1Surface(S.SurfaceCase):
-    """Every one of the 50 entry points, in the order of e2e-surface.md §3."""
+    """Every one of the 50 entry points, in the order of e2e-surface.md §3, and the map."""
 
     # -- 3.1 engine (10) ---------------------------------------------------
     def test_fam1_01_engine_game_config(self):
@@ -448,6 +487,50 @@ class FAM1Surface(S.SurfaceCase):
                 S.is_mapping(row),
                 "each declared shape is a mapping of its facts (shapes.md §2): %r" % (row,),
             )
+
+    # -- the one thing D-43 does not add: a name --------------------------
+    def test_fam1_51_d43_adds_no_entry_point_to_the_map(self):
+        """FAM-1.51 the map stays at fifty: D-43's change is record keys, not a new name.
+
+        `counterfactual.md` §9 and `e2e-surface.md` §4: D-43 adds **no** entry point.  The
+        resolution reaches the surface as the episode record's `reveal`, the decision
+        record's `amounts` and `counterfactual` and the transition record's `episode` and
+        `counterfactual` — keys of records that already exist — and the member as an entry of
+        the `learners()` catalogue and a key of the spec, the variant entry and the
+        container, so every module's ceiling and the map's fifty names stand.  The case is
+        numbered **last**, as FAM-1.50 was, because the fifty cases above it are cited by id
+        from `docs/L1/` and renumbering would re-point those citations (`shapes.md` §4).
+        """
+        self.assertEqual(
+            len(set(ENTRY_POINTS)), 50,
+            "the map e2e-surface.md §3 declares is fifty names, and the battery's own list "
+            "of it holds %d (e2e-surface.md §4, counterfactual.md §9)"
+            % (len(set(ENTRY_POINTS)),),
+        )
+        for module_name, name in ENTRY_POINTS:
+            self.assertTrue(
+                callable(self.ep(module_name, name)),
+                "every one of the fifty declared names is a callable module-level name of its "
+                "package (e2e-surface.md §1, §3): %s.%s is not"
+                % (module_name, name),
+            )
+        for module_name in S.MODULES:
+            package = self.mod(module_name)
+            for name in dir(package):
+                if name.startswith("_"):
+                    continue
+                if not callable(getattr(package, name, None)):
+                    continue
+                self.assertNotIn(
+                    name.lower(),
+                    NOT_A_NAME,
+                    "D-43 adds no entry point: the reveal, the per-decision facts, the episode "
+                    "boundary and the counterfactual member all reach the surface as keys of "
+                    "existing records and a member of an existing catalogue, so no "
+                    "module-level name of %r may be a name the change would have had to add "
+                    "(counterfactual.md §9, e2e-surface.md §1, §4, D-13): %r"
+                    % (module_name, name),
+                )
 
 
 if __name__ == "__main__":

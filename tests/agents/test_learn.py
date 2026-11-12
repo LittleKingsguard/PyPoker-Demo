@@ -10,12 +10,24 @@ arithmetics — the masked maximum of the target copy and the target copy's valu
 at the index the online parameters choose — with the one path they share, and
 the mask every maximum and every index of either rule runs over, observed on a
 `next_legal` that excludes the whole vocabulary's argmax (D-2, ASM-7, D-19,
-ASM-25).
+ASM-25).  The last two cases are the third catalogue's own path: **every** transition that
+carries a complete resolution — a **terminal** one included, the seat's last decision of a hand
+being where the outcome is known and not an exemption — takes `A = len(legal)` semi-gradient
+steps whose movement is the **mean** over those steps, each step applying its raw residual
+`v_i − q[i]` over the number of steps that transition takes, and both read off one shared
+forward pass.  Only a transition whose `counterfactual` is `None` and one whose sequence is
+`None` at an index of its own `legal` mask fall back to the single ordinary step — a partial
+resolution is not a resolution.  The batch still reports one consumed record and one schedule
+position whatever its step count, and its `td_error` is the mean of the **raw** residual
+magnitudes over its steps (D-43, `docs/L1/counterfactual.md` §4, §6).
 """
 
+import io
 import os
 import unittest
 from collections.abc import Mapping
+
+import numpy as np
 
 from _agents_support import (
     ALL_MASK,
@@ -24,11 +36,14 @@ from _agents_support import (
     TEACH_REWARD,
     AgentsCase,
     batch,
+    container_document,
     declared_internal,
     dense_observation,
     finite_float,
     greedy_expectation,
+    hyper,
     learner_spec,
+    observation_template,
     plain_int,
     taught_batch,
     taught_observations,
@@ -46,6 +61,13 @@ REVERSE_REWARD = 60.0
 #: The masks a constructed transition is searched over: every mask of more than one
 #: index, since a singleton mask cannot tell the two arithmetics apart (`rule.md` §2).
 WIDER_MASKS = tuple(mask for mask in NONEMPTY_MASKS if len(mask) > 1)
+
+#: One resolved hand's whole-hand net chip deltas, one per descriptor of `ALL_MASK`'s
+#: order: the three numbers such a hand's last decision carries, `fold`,
+#: `check-call` and the fixed row's one raise band (`counterfactual.md` §4, §5).
+#: The second is the realised action's, so it is that transition's `reward` by §4's
+#: identity.  Invented numbers, like every fixture here.
+RESOLVED_VALUES = (11.0, -7.0, 23.0)
 
 
 class LearnTest(AgentsCase):
@@ -732,6 +754,772 @@ class LearnTest(AgentsCase):
             "over (0, 1, 2) under the mask would have reported the second figure "
             "(rule.md §2, §5, D-2, ASM-25)"
             % (by_double, mask, whole_vocabulary, whole_index),
+        )
+
+    def test_agt6_12_the_terminal_is_not_exempt_and_the_resolved_path_takes_a_steps(self):
+        """AGT-6.12 a **terminal** transition carrying a complete resolution takes the same `A` semi-gradient steps a resolved non-terminal one takes — it is not exempt — while a `None` resolution and a partial one each take the **single** ordinary step, and the batch still reports one consumed record and one schedule position (`docs/L3/agents/rule.md` §2-§3, `docs/L1/counterfactual.md` §4, §6, `docs/L1/records.md` §4, D-43).
+
+        The terminal transition is where the outcome is known: the seat's last decision of a
+        hand carries the whole-hand value of every legal action and the realised one **equals
+        that transition's `reward`**, so `counterfactual.md` §6 takes its `A` steps there
+        exactly as at any other transition, and the exemption an earlier reading gave it is
+        removed.  That is measured twice, and neither figure is derived: one `learn` call on
+        one terminal record with `legal == ALL_MASK` leaves the target copy's **step** counter
+        a container records at `A` where the record count is `1`, and it leaves exactly the
+        online block a resolved **non-terminal** record of the same observation, the same mask
+        and the same resolution leaves (`np.array_equal`, never "nearly") — while the `none`
+        learner's single ordinary step on the same record with no `counterfactual` key at all
+        lands somewhere else, which is what "not exempt" rules out.
+
+        The two fallbacks that remain are the other case and are measured the same way: a
+        transition whose `counterfactual` is `None` carries no resolution at all, and one whose
+        sequence is `None` at an index of its own `legal` mask carries only part of one, which
+        is not a resolution.  Each takes exactly one step, leaves the step counter at `1`, and
+        ends in exactly the state the `none` control ends in on the same record without the key.
+
+        The statistics separate with the step count: `transitions` is the record count, `1`,
+        the schedule position advances by the records consumed and never by the steps taken,
+        and `td_error` is the batch's mean of the **raw** residual magnitudes over its **steps**
+        — here the mean of the `A` residuals, each measured as the `none` learner's own
+        one-step figure on a terminal record whose `reward` is that index's value.
+        """
+        package = self.agents()
+        catalogue = tuple(package.learners()["counterfactuals"])
+        self.assertGreaterEqual(
+            len(catalogue),
+            2,
+            "the counterfactual catalogue declares the two members this case pairs "
+            "(counterfactual.md §6, D-43): %r" % (catalogue,),
+        )
+        # `none` first and the declared default, and the member that takes its residuals from
+        # the record second.  The member's name is read here and never spelled, and `A` is the
+        # shape's descriptor count: `ALL_MASK == (0, 1, 2)` on the default shape
+        # (`counterfactual.md` §6, §8, D-43).
+        self.assertEqual(
+            catalogue[0],
+            "none",
+            "the catalogue's first member is the declared default, `none`, the rule's own "
+            "target and one step per transition (counterfactual.md §6, D-43): %r"
+            % (catalogue,),
+        )
+        member = catalogue[1]
+        A = len(ALL_MASK)
+        folder = self.tempdir()
+        read_metadata = declared_internal("checkpoint", "_read_metadata")
+
+        def learner(under=None):
+            """One learner of this spec and seed, under `under` or the declared default."""
+            extra = {"counterfactual": under} if under is not None else None
+            return package.build_learner(
+                learner_spec(kind="naive-stack", width=6, depth=1, extra=extra)
+            )
+
+        # One container is one zip of `metadata.json` and `parameters.npy`
+        # (`checkpoint.md` §2), and the array holds the online block first, so the whole
+        # online block is the first `param_count` values it carries (`backends.md` §2).
+        total = plain_int(package.param_count(learner()), "param_count(learner)")
+
+        def online(path):
+            """One container's whole online parameter block."""
+            _metadata, blob = container_document(path)
+            return np.load(io.BytesIO(blob), allow_pickle=False)[:total]
+
+        def steps_taken(path):
+            """The target copy's consumed-**step** counter one container records.
+
+            `counterfactual.md` §6's other half is a step count and not a record count, and
+            the counter `checkpoint.md` §2.1 writes under `target` is where it is observable
+            from outside: it advances once per semi-gradient step and is reset by the
+            refresh, which no batch here reaches.
+            """
+            metadata, _blob = container_document(path)
+            return plain_int(metadata["target"]["counter"], "metadata['target']['counter']")
+
+        def state(held, record, tag):
+            """One fresh learner's whole online block either side of one `learn` call."""
+            before = package.save(held, os.path.join(folder, "%s-before.pt" % (tag,)))
+            result = package.learn(held, [record])
+            after = package.save(held, os.path.join(folder, "%s-after.pt" % (tag,)))
+            return online(before), online(after), result, after
+
+        def moved(before, after):
+            """The parameter indices one `learn` call moved, exactly and not nearly."""
+            return {int(index) for index in np.nonzero(before != after)[0]}
+
+        observation = dense_observation(0.0)
+
+        # The terminal transition, which is **not** exempt.  One terminal record carrying that
+        # hand's whole-hand values, one per legal descriptor, with the realised one at action
+        # 1: `reward` **is** `RESOLVED_VALUES[1]` (`counterfactual.md` §4, §5, `records.md` §4).
+        resolved = transition(
+            observation,
+            action=1,
+            reward=RESOLVED_VALUES[1],
+            terminal=True,
+            legal=ALL_MASK,
+            next_legal=ALL_MASK,
+            counterfactual=RESOLVED_VALUES,
+        )
+        ordinary = dict(resolved)
+        del ordinary["counterfactual"]
+        member_before, member_after, by_member, member_path = state(
+            learner(member), resolved, "terminal-member"
+        )
+        control_before, control_after, by_control, control_path = state(
+            learner(), ordinary, "terminal-none"
+        )
+        self.assertEqual(
+            plain_int(by_member["transitions"], "learn(...)['transitions']"),
+            1,
+            "a batch of one transition reports one consumed whatever its step count: "
+            "`transitions` is the record count and never the step count (rule.md §3, "
+            "counterfactual.md §6)",
+        )
+        self.assertEqual(
+            plain_int(by_control["transitions"], "learn(...)['transitions']"),
+            1,
+            "the `none` control consumed %r records where it was handed one (rule.md §3)"
+            % (by_control["transitions"],),
+        )
+        self.assertTrue(
+            np.array_equal(control_before, member_before),
+            "the two learners of one spec and one seed did not come out holding one initial "
+            "parameter array, so the comparisons below would be two learners' and not one "
+            "(architecture.md §4's seeded draw)",
+        )
+        self.assertEqual(
+            steps_taken(member_path),
+            A,
+            "the member's one **terminal** record carrying a complete resolution over "
+            "%r left the target copy's step counter at %r instead of %d: the seat's last "
+            "decision of a hand carries the whole-hand value of every legal action and the "
+            "realised one equals that transition's `reward`, so the terminal transition is "
+            "where the outcome is known and takes `A` steps like any other — it is not "
+            "exempt (counterfactual.md §4, §6, rule.md §2-§3, D-43)"
+            % (ALL_MASK, steps_taken(member_path), A),
+        )
+        self.assertEqual(
+            steps_taken(control_path),
+            1,
+            "the `none` control's one record left the step counter at %r instead of one: "
+            "under `none` one record is one step (rule.md §3)" % (steps_taken(control_path),),
+        )
+        self.assertFalse(
+            np.array_equal(member_after, control_after),
+            "a member learner handed one **terminal** record carrying a complete resolution "
+            "ended in exactly the state a `none` learner of the same spec and seed ends in on "
+            "the same record with no `counterfactual` key at all — the ordinary path's single "
+            "step at the applied action.  A terminal transition's resolution **is** read: the "
+            "member takes `A` steps there, one per legal index, on the cache of one forward "
+            "pass, and the exemption an earlier reading gave the terminal transition is "
+            "removed (counterfactual.md §4, §6, rule.md §2-§3, D-43)",
+        )
+        moved_at_terminal = moved(member_before, member_after)
+        for index in ALL_MASK:
+            slot = total - A + index
+            self.assertIn(
+                slot,
+                moved_at_terminal,
+                "the output bias of action index %d sits at parameter index `param_count − A "
+                "+ i` = %d − %d + %d and the member's terminal step set left it where it "
+                "was: the terminal transition takes one step per index of its legal mask and "
+                "each writes its own action's bias (rule.md §3, counterfactual.md §6, "
+                "backends.md §2)" % (index, total, A, index),
+            )
+
+        # The same resolution on a **non-terminal** record: the member reads no successor and
+        # no discount at all, so `terminal` cannot separate the two blocks it leaves
+        # (`counterfactual.md` §6).  The equality is what makes "the terminal one is not
+        # exempt" a measurement rather than a claim about the file's branch.
+        open_record = transition(
+            observation,
+            action=1,
+            reward=RESOLVED_VALUES[1],
+            terminal=False,
+            legal=ALL_MASK,
+            next_legal=ALL_MASK,
+            counterfactual=RESOLVED_VALUES,
+        )
+        open_control = dict(open_record)
+        del open_control["counterfactual"]
+        open_before, open_after, open_result, open_path = state(
+            learner(member), open_record, "resolved-member"
+        )
+        fallback_before, fallback_after, fallback_result, _path = state(
+            learner(), open_control, "resolved-none"
+        )
+        self.assertTrue(
+            np.array_equal(fallback_before, open_before),
+            "the two learners of one spec and one seed did not come out holding one initial "
+            "parameter array, so the inequality below would be two learners' and not one "
+            "(architecture.md §4's seeded draw)",
+        )
+        self.assertEqual(
+            plain_int(open_result["transitions"], "learn(...)['transitions']"),
+            1,
+            "the member's one-transition batch reports one consumed record whatever its step "
+            "count (rule.md §3, counterfactual.md §6)",
+        )
+        self.assertEqual(
+            plain_int(fallback_result["transitions"], "learn(...)['transitions']"),
+            1,
+            "the `none` control consumed %r records where it was handed one (rule.md §3)"
+            % (fallback_result["transitions"],),
+        )
+        self.assertEqual(
+            steps_taken(open_path),
+            A,
+            "the member's one non-terminal transition carrying a complete resolution left the "
+            "target copy's step counter at %r instead of %d: `A` steps, one per legal index "
+            "(rule.md §3, counterfactual.md §6)" % (steps_taken(open_path), A),
+        )
+        self.assertTrue(
+            np.array_equal(member_after, open_after),
+            "the member's one **terminal** record carrying a complete resolution did not end "
+            "in the state the same observation, mask and resolution leave on a "
+            "**non-terminal** record: the member reads no successor and no discount, so the "
+            "terminal transition takes exactly the `A` steps the other one takes and is not "
+            "exempt (counterfactual.md §4, §6, rule.md §2-§3, D-43)",
+        )
+        self.assertFalse(
+            np.array_equal(open_after, fallback_after),
+            "the member's one non-terminal transition carrying a complete resolution left the "
+            "online parameter block where the ordinary path leaves it: its %d steps at %d "
+            "distinct residuals cannot write the single step's array, so a member that agrees "
+            "with the ordinary path here took that path on a resolved transition (rule.md §3, "
+            "counterfactual.md §6, D-43)" % (A, A),
+        )
+
+        by_member_moved = moved(open_before, open_after)
+        by_fallback_moved = moved(fallback_before, fallback_after)
+        applied = open_record["action"]
+        for index in ALL_MASK:
+            slot = total - A + index
+            self.assertIn(
+                slot,
+                by_member_moved,
+                "the output bias of action index %d sits at parameter index `param_count − A "
+                "+ i` = %d − %d + %d and the member's step set left it where it was: the "
+                "member takes one step per index of its legal mask and each writes its own "
+                "action's bias (rule.md §3, counterfactual.md §6, backends.md §2)"
+                % (index, total, A, index),
+            )
+        for index in ALL_MASK:
+            slot = total - A + index
+            if index == applied:
+                self.assertIn(
+                    slot,
+                    by_fallback_moved,
+                    "the ordinary path's one step moved no parameter at %d, the output bias "
+                    "of the action %r it applied, and that step writes the applied index's own "
+                    "bias (rule.md §3, backends.md §2)" % (slot, applied),
+                )
+                continue
+            self.assertEqual(
+                float(fallback_after[slot]),
+                float(fallback_before[slot]),
+                "the ordinary path's single step moved parameter %d, the output bias of action "
+                "index %d, and that step writes no index but the applied %r's: a parameter "
+                "whose gradient belongs to another action index is a step the ordinary path "
+                "cannot take, and the member's move at %d is exactly what its %d steps buy "
+                "(rule.md §3, counterfactual.md §6, backends.md §2)"
+                % (slot, index, applied, slot, A),
+            )
+
+        # The measured mean.  Each reference is a fresh learner of one spec and one seed, so
+        # it holds the same initial parameters; its one terminal transition is the fallback's
+        # — the singleton mask `(i,)` and no `counterfactual` key — so it takes exactly one
+        # step and reports `|V[i] − q[i]|` (`rule.md` §2-§3).
+        references = {}
+        for index in ALL_MASK:
+            _before, _after, result, _path = state(
+                learner(),
+                transition(
+                    observation,
+                    action=index,
+                    reward=RESOLVED_VALUES[index],
+                    terminal=True,
+                    legal=(index,),
+                    next_legal=(index,),
+                ),
+                "reference-%d" % (index,),
+            )
+            references[index] = finite_float(
+                result["td_error"],
+                "the one-step fallback's td_error at action index %d" % (index,),
+            )
+        by_member_error = finite_float(by_member["td_error"], "learn(...)['td_error']")
+        by_open_error = finite_float(open_result["td_error"], "learn(...)['td_error']")
+        mean_over_steps = sum(references[index] for index in ALL_MASK) / A
+        self.assertGreater(
+            references[applied],
+            0.0,
+            "the one-step reference at the applied index %r reported a zero td_error, so the "
+            "mean below would be measured over a residual that is zero (rule.md §3)"
+            % (applied,),
+        )
+        for label, figure in (
+            ("the terminal record's", by_member_error),
+            ("the non-terminal record's", by_open_error),
+        ):
+            with self.subTest(statistic=label):
+                self.assertAlmostEqual(
+                    figure,
+                    mean_over_steps,
+                    places=12,
+                    msg="%s member batch reported %r and the mean of its %d raw residual "
+                        "magnitudes is %r: a resolved transition takes `A` steps, one per legal "
+                        "index — at a terminal transition too — and the batch's statistic is "
+                        "its mean over those steps, accumulated **before** the divisor, so the "
+                        "member's figure is the mean of %r and not the applied action's alone, "
+                        "which is %r (rule.md §3, counterfactual.md §4, §6, D-43)"
+                        % (
+                            label,
+                            figure,
+                            A,
+                            mean_over_steps,
+                            [references[index] for index in ALL_MASK],
+                            references[applied],
+                        ),
+                )
+        position = plain_int(
+            read_metadata(open_path)["exploration"]["position"], "exploration.position"
+        )
+        self.assertEqual(
+            position,
+            1,
+            "the member's one-transition batch left the schedule position at %r: the position "
+            "advances by the records consumed and never by the steps they took "
+            "(counterfactual.md §6, rule.md §3, §4)" % (position,),
+        )
+
+        # The two fallbacks: a resolution the record does not carry at all, and one it carries
+        # only in part — both on non-terminal records, since a terminal one is no longer a
+        # fallback.  Each is the ordinary path, so each must take one step and end in exactly
+        # the state the `none` control ends in on the same record without the key — whole-block
+        # equality, because both take one step with one delta (`counterfactual.md` §4, §6,
+        # D-43).
+        def falls_back(record, tag, what):
+            """One fallback's whole online block and step count, and the control's."""
+            member_before_row, member_after_row, result, member_path_row = state(
+                learner(member), record, tag + "-member"
+            )
+            control_record = dict(record)
+            del control_record["counterfactual"]
+            control_before_row, control_after_row, _result, _path = state(
+                learner(), control_record, tag + "-none"
+            )
+            self.assertEqual(
+                plain_int(result["transitions"], "learn(...)['transitions']"),
+                1,
+                "a record that is not a complete resolution reports one consumed transition "
+                "(rule.md §3, counterfactual.md §6)",
+            )
+            self.assertEqual(
+                steps_taken(member_path_row),
+                1,
+                "a %s took %r steps where it is not a resolution at all: a transition whose "
+                "`counterfactual` is `None` and one whose sequence carries `None` at an index "
+                "of its own `legal` mask take the **single** ordinary step, and a fraction of a "
+                "step is never taken (counterfactual.md §4, §6, rule.md §2-§3, D-43)"
+                % (what, steps_taken(member_path_row)),
+            )
+            self.assertTrue(
+                np.array_equal(control_before_row, member_before_row),
+                "the two learners of one spec and one seed did not come out holding one "
+                "initial parameter array, so the equality below would be two learners' and "
+                "not one (architecture.md §4's seeded draw)",
+            )
+            self.assertTrue(
+                np.array_equal(member_after_row, control_after_row),
+                "a %s did not end in exactly the state the ordinary path ends in on the same "
+                "record with no `counterfactual` key: a transition whose resolution is `None` "
+                "and one whose resolution is partial both fall back to the single ordinary "
+                "step — a partial resolution is not a resolution, so no fraction of a step and "
+                "no second step is taken (counterfactual.md §4, §6, rule.md §2-§3, D-43)"
+                % (what,),
+            )
+
+        fallbacks = (
+            (
+                "unresolved",
+                "transition whose `counterfactual` is `None`",
+                None,
+            ),
+            (
+                "partial",
+                "transition whose sequence carries `None` at an index of its own `legal` mask",
+                (RESOLVED_VALUES[0], None, RESOLVED_VALUES[2]),
+            ),
+        )
+        for tag, what, resolution in fallbacks:
+            with self.subTest(resolution=tag):
+                falls_back(
+                    transition(
+                        observation,
+                        action=1,
+                        reward=RESOLVED_VALUES[1],
+                        terminal=False,
+                        legal=ALL_MASK,
+                        next_legal=ALL_MASK,
+                        counterfactual=resolution,
+                    ),
+                    tag,
+                    what,
+                )
+
+        # A batch of several resolved records: the record count is the transition count and
+        # the schedule position, whatever the step count (`counterfactual.md` §6).
+        several = [
+            transition(
+                dense_observation(0.11 * step),
+                action=1,
+                reward=0.5,
+                terminal=False,
+                legal=ALL_MASK,
+                next_legal=ALL_MASK,
+                counterfactual=RESOLVED_VALUES,
+            )
+            for step in range(5)
+        ]
+        batch_learner = learner(member)
+        batch_result = package.learn(batch_learner, several)
+        batch_path = package.save(batch_learner, os.path.join(folder, "several-8127.pt"))
+        self.assertEqual(
+            plain_int(batch_result["transitions"], "learn(...)['transitions']"),
+            len(several),
+            "a member batch reports the records it consumed and not the %d steps they took "
+            "(rule.md §3, counterfactual.md §6)" % (len(several) * A,),
+        )
+        batch_position = plain_int(
+            read_metadata(batch_path)["exploration"]["position"], "exploration.position"
+        )
+        self.assertEqual(
+            batch_position,
+            len(several),
+            "the member's batch of %d resolved records left the schedule position at %r: the "
+            "position counts transitions and never steps, so it is %d and not %d "
+            "(counterfactual.md §6, rule.md §3, §4)"
+            % (len(several), batch_position, len(several), len(several) * A),
+        )
+
+    def test_agt6_13_the_member_s_step_is_the_raw_residual_over_the_legal_count(self):
+        """AGT-6.13 the member's step at one index applies `(V[i] − q[i]) / A`, `A` being **the number of steps that transition takes** — `len(legal)`, and not the shape's descriptor count — so one transition's movement is the mean over its steps (`docs/L3/agents/rule.md` §2-§3, `docs/L1/counterfactual.md` §4, §6, D-43).
+
+        Measured, never derived, at a **zero observation**: `architecture.md` §4's
+        initialisation has zero biases and a zero input zeroes every pre-activation, so every
+        masked value is exactly `0.0`, the residual at index `i` is `V[i]` itself, and only the
+        `A` output **biases** can move — the output weights' gradient is the zero carried
+        vector.  The step at index `i` therefore writes `α · V[i] / A` into that index's bias,
+        which is the number asserted here **by hand** from `learners()['hyper']`'s declared
+        `learning_rate`; the whole residual would write `α · V[i]`, `A` times as far.
+
+        Three clauses make the divisor the transition's own step count and not the shape's.  A
+        complete resolution over `ALL_MASK` divides by `A`; the same values over the two-index
+        mask `(0, 1)` of a three-descriptor shape divide by **two**, because that transition
+        takes two steps — dividing by the shape's three would be a fraction of a step and not
+        a mean over the steps taken; and the ordinary path's single step at the same residual,
+        taken by a `none` learner on a terminal record whose `reward` is `V[i]`, moves that
+        bias exactly `A` times as far as the member's step there, so the divisor is read off
+        two learners and not off one.
+
+        The statistic is asserted beside the step, on its own scale: `td_error` is the mean of
+        the **raw** residual magnitudes over the steps, so a one-transition batch of `A` steps
+        reports `(|V[0]| + |V[1]| + |V[2]|) / A` and not an `A`th of that number — a statistic
+        accumulating the **divided** residual would report the mean divided by `A` a second
+        time (`counterfactual.md` §6).  The last control proves the case bites: a complete
+        resolution of zero values at that same zero observation moves nothing while still
+        taking its `A` steps, so a movement there would be a step not driven by the residual
+        the same transition reports.
+        """
+        package = self.agents()
+        catalogue = tuple(package.learners()["counterfactuals"])
+        self.assertGreaterEqual(
+            len(catalogue),
+            2,
+            "the counterfactual catalogue declares the member this case measures second, after "
+            "`none` (counterfactual.md §6, D-43): %r" % (catalogue,),
+        )
+        self.assertEqual(
+            catalogue[0],
+            "none",
+            "the catalogue's first member is the declared default, `none`, the rule's own "
+            "target (counterfactual.md §6, D-43): %r" % (catalogue,),
+        )
+        member = catalogue[1]
+        A = len(ALL_MASK)
+        applied = 1
+        rate = float(hyper()["learning_rate"])
+        folder = self.tempdir()
+
+        def learner(under=None):
+            """One learner of this spec and seed, under `under` or the declared default."""
+            extra = {"counterfactual": under} if under is not None else None
+            return package.build_learner(
+                learner_spec(kind="naive-stack", width=6, depth=1, extra=extra)
+            )
+
+        # One container is one zip of `metadata.json` and `parameters.npy`
+        # (`checkpoint.md` §2), the array holds the online block first, and the output layer's
+        # `A` biases are that block's last `A` values, so the bias of action index `i` is
+        # `param_count − A + i` (`backends.md` §2).
+        total = plain_int(package.param_count(learner()), "param_count(learner)")
+
+        def online(path):
+            """One container's whole online parameter block."""
+            _metadata, blob = container_document(path)
+            return np.load(io.BytesIO(blob), allow_pickle=False)[:total]
+
+        def run(tag, record, under=None):
+            """One fresh learner, one `learn`, and its online block either side of that call."""
+            held = learner(under)
+            before = online(package.save(held, os.path.join(folder, "%s-before.pt" % (tag,))))
+            result = package.learn(held, [record])
+            after_path = package.save(held, os.path.join(folder, "%s-after.pt" % (tag,)))
+            metadata_container, _blob = container_document(after_path)
+            return {
+                "before": before,
+                "after": online(after_path),
+                "moved": online(after_path) - before,
+                "td_error": finite_float(result["td_error"], "learn(...)['td_error']"),
+                "transitions": plain_int(result["transitions"], "learn(...)['transitions']"),
+                "steps": plain_int(
+                    metadata_container["target"]["counter"], "metadata['target']['counter']"
+                ),
+            }
+
+        # The zero observation and the rule's own single step on it: a terminal record whose
+        # target is the reward alone (`rule.md` §2) applies `α · V[i] · ∂q[i]/∂θ` and reports
+        # `|V[i]|`, every masked value being `0.0` (`architecture.md` §4).
+        zero, _spec = observation_template("dense-numeric")
+        reference = run(
+            "none-applied",
+            transition(
+                zero,
+                action=applied,
+                reward=RESOLVED_VALUES[applied],
+                terminal=True,
+                legal=(applied,),
+                next_legal=(applied,),
+            ),
+        )
+        self.assertEqual(
+            reference["steps"],
+            1,
+            "the ordinary path's one terminal record left the target copy's step counter at %r "
+            "instead of one: under `none` one record is one step (rule.md §3)"
+            % (reference["steps"],),
+        )
+        self.assertGreater(
+            reference["td_error"],
+            0.0,
+            "the ordinary path's one step at index %d reported a zero td_error, so the "
+            "residual this case compares is zero and every equality below would decide "
+            "nothing (rule.md §3)" % (applied,),
+        )
+        applied_slot = total - A + applied
+        self.assertNotEqual(
+            float(reference["moved"][applied_slot]),
+            0.0,
+            "the ordinary path's step at a zero observation moved the applied index's output "
+            "bias by nothing, so the divisor below cannot be read off it (rule.md §3)",
+        )
+
+        # A complete resolution over `ALL_MASK`, on the same zero observation: `A` steps, each
+        # applying its raw residual over `A`, and nothing but the `A` biases may move.
+        whole = run(
+            "zero-whole",
+            transition(
+                zero,
+                action=applied,
+                reward=RESOLVED_VALUES[applied],
+                terminal=False,
+                legal=ALL_MASK,
+                next_legal=ALL_MASK,
+                counterfactual=RESOLVED_VALUES,
+            ),
+            under=member,
+        )
+        self.assertEqual(
+            whole["transitions"],
+            1,
+            "the member's one-transition batch reports one consumed record (rule.md §3, "
+            "counterfactual.md §6)",
+        )
+        self.assertEqual(
+            whole["steps"],
+            A,
+            "the member's one resolved transition over %r left the target copy's step counter "
+            "at %r instead of %d, one per legal action (rule.md §3, counterfactual.md §6)"
+            % (ALL_MASK, whole["steps"], A),
+        )
+        for index in ALL_MASK:
+            with self.subTest(action=index):
+                self.assertAlmostEqual(
+                    float(whole["moved"][total - A + index]),
+                    rate * (RESOLVED_VALUES[index] / A),
+                    places=15,
+                    msg="the member's step at action index %d moved the output bias at "
+                        "parameter %d by %r and the raw residual `V[%d] − q[%d]` = %r over the "
+                        "%d steps that transition takes is %r: `θ ← θ + α · ((V[i] − q[i]) / A) "
+                        "· ∂q[i]/∂θ`, and the whole residual — with no divisor at all — would "
+                        "have written %r (rule.md §2-§3, counterfactual.md §6, D-43)"
+                        % (
+                            index,
+                            total - A + index,
+                            float(whole["moved"][total - A + index]),
+                            index,
+                            index,
+                            RESOLVED_VALUES[index],
+                            A,
+                            rate * (RESOLVED_VALUES[index] / A),
+                            rate * RESOLVED_VALUES[index],
+                        ),
+                )
+        self.assertEqual(
+            {int(index) for index in np.nonzero(whole["moved"] != 0.0)[0]},
+            {total - A + index for index in ALL_MASK},
+            "the member's resolved transition moved parameter indices %r: at a zero "
+            "observation only the %d output biases the steps write can move, and each of them "
+            "must have (rule.md §3, backends.md §2)"
+            % (sorted(int(index) for index in np.nonzero(whole["moved"] != 0.0)[0]), A),
+        )
+        self.assertAlmostEqual(
+            float(whole["moved"][applied_slot]) * A,
+            float(reference["moved"][applied_slot]),
+            places=15,
+            msg="the member's step at index %d moved that bias %r and the ordinary path's "
+                "single step at the same raw residual moved it %r: the member's step carries "
+                "the residual divided by the %d steps the transition takes, so the rule's "
+                "move is exactly `A` times the member's — an undivided residual would have "
+                "moved both alike (rule.md §3, counterfactual.md §4, §6, D-43)"
+                % (
+                    applied,
+                    float(whole["moved"][applied_slot]),
+                    float(reference["moved"][applied_slot]),
+                    A,
+                ),
+        )
+
+        # The two-index mask: two legal actions on a three-descriptor shape take **two** steps,
+        # so the divisor is two and not the shape's three (`counterfactual.md` §6).
+        pair_legal = (0, 1)
+        pair_values = (RESOLVED_VALUES[0], RESOLVED_VALUES[1], None)
+        pair = run(
+            "zero-pair",
+            transition(
+                zero,
+                action=0,
+                reward=RESOLVED_VALUES[0],
+                terminal=False,
+                legal=pair_legal,
+                next_legal=pair_legal,
+                counterfactual=pair_values,
+            ),
+            under=member,
+        )
+        self.assertEqual(
+            pair["steps"],
+            len(pair_legal),
+            "a transition whose own legal mask is %r left the target copy's step counter at %r "
+            "instead of %d: `A` is the number of steps **that transition** takes "
+            "(counterfactual.md §6, rule.md §3)" % (pair_legal, pair["steps"], len(pair_legal)),
+        )
+        for index in pair_legal:
+            with self.subTest(legal=pair_legal, action=index):
+                self.assertAlmostEqual(
+                    float(pair["moved"][total - A + index]),
+                    rate * (RESOLVED_VALUES[index] / len(pair_legal)),
+                    places=15,
+                    msg="the step at action index %d of the two-index mask %r moved that bias "
+                        "by %r: that transition takes %d steps, so each applies its raw "
+                        "residual over %d and writes %r — dividing by the shape's %d descriptor "
+                        "count would write %r, a fraction of a step and not the mean over the "
+                        "steps taken (rule.md §3, counterfactual.md §6)"
+                        % (
+                            index,
+                            pair_legal,
+                            float(pair["moved"][total - A + index]),
+                            len(pair_legal),
+                            len(pair_legal),
+                            rate * (RESOLVED_VALUES[index] / len(pair_legal)),
+                            A,
+                            rate * (RESOLVED_VALUES[index] / A),
+                        ),
+                )
+        self.assertEqual(
+            float(pair["moved"][total - A + 2]),
+            0.0,
+            "a step moved the output bias of action index 2, which is outside the transition's "
+            "own legal mask %r: a masked action is never valued and never updated (rule.md §2, "
+            "counterfactual.md §5)" % (pair_legal,),
+        )
+
+        # The statistic keeps the scale of the raw values: the mean of the residual magnitudes
+        # over the steps, with the divisor applied to the movement and not to the figure
+        # (`counterfactual.md` §6).
+        raw_total = sum(abs(value) for value in RESOLVED_VALUES)
+        self.assertAlmostEqual(
+            whole["td_error"],
+            raw_total / A,
+            places=15,
+            msg="the member reported td_error %r for one transition of %d steps over the raw "
+                "residuals %r: the batch's statistic is the mean of their magnitudes, %r, "
+                "accumulated **before** the divisor — a curve reading %r would be reading a "
+                "statistic that divided the residual a second time "
+                "(counterfactual.md §6, rule.md §3)"
+                % (
+                    whole["td_error"],
+                    A,
+                    [RESOLVED_VALUES[index] for index in ALL_MASK],
+                    raw_total / A,
+                    raw_total / A / A,
+                ),
+        )
+        self.assertGreater(
+            whole["td_error"],
+            raw_total / A / A,
+            "the member reported td_error %r for %d steps and the same mean divided by `A` a "
+            "second time is %r: the figure a curve reads is the raw residual's own scale "
+            "(counterfactual.md §6, rule.md §3)" % (whole["td_error"], A, raw_total / A / A),
+        )
+
+        # A complete resolution of zero values is a no-op at that same zero observation: every
+        # residual is `0.0 − 0.0`, so each of the member's `A` steps adds nothing — while the
+        # steps are still taken and counted (rule.md §3, counterfactual.md §6).
+        quiet = run(
+            "zero-resolution",
+            transition(
+                zero,
+                action=applied,
+                reward=0.0,
+                terminal=False,
+                legal=ALL_MASK,
+                next_legal=ALL_MASK,
+                counterfactual=tuple(0.0 for _index in ALL_MASK),
+            ),
+            under=member,
+        )
+        self.assertEqual(
+            quiet["transitions"],
+            1,
+            "a resolved transition reports one consumed record whatever its step count "
+            "(rule.md §3, counterfactual.md §6)",
+        )
+        self.assertEqual(
+            quiet["steps"],
+            A,
+            "a resolution of zero values left the target copy's step counter at %r instead of "
+            "%d: the steps are taken however little they move (rule.md §3, "
+            "counterfactual.md §6)" % (quiet["steps"], A),
+        )
+        self.assertTrue(
+            np.array_equal(quiet["before"], quiet["after"]),
+            "one `learn` call on a complete resolution of zero values moved the online "
+            "parameters: at a zero observation every masked value is `0.0`, so every residual "
+            "is `0.0` and the member's %d steps add nothing — a movement here means the step "
+            "is not driven by the residual the same transition reports (rule.md §3, "
+            "counterfactual.md §6)" % (A,),
         )
 
 

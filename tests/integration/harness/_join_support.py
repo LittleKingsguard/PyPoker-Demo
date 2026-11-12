@@ -143,9 +143,18 @@ UNREADABLE_MEANS = (
 DECLARED_KINDS = ("zero-sum", "legal-choice", "counted", "refused")
 DECLARED_OBJECTS = ("baseline", "encoder", "hand", "learner", "pool", "rung")
 
-# `records.md` §5, §9 and §14: the **required** keys this battery reads.
-EPISODE_KEYS = ("seed", "decisions", "payoffs")
-DECISION_KEYS = ("seat", "readout", "legal", "action", "reward")
+# `records.md` §5, §9 and §14: the **required** keys this battery reads.  D-43 moved the
+# episode record's required set to four and each decision's to seven: the episode carries
+# the hand's `reveal` (its board, whether it reached a showdown, whether the shown hands
+# split, and one entry per seat in seat order with its cards, `shown` and `won`) and every
+# decision carries `amounts` and `counterfactual` beside its five — the first per legal
+# descriptor, the second the acting seat's whole-hand delta per legal descriptor, `None`
+# where the action was illegal or the hand resolved nothing (`records.md` §5,
+# `counterfactual.md` §2, §4, §5, FAM-22, D-43).  A harness case reads them because a
+# required key is part of the contract, so an engine that dropped one would fail here.
+EPISODE_KEYS = ("seed", "decisions", "payoffs", "reveal")
+DECISION_KEYS = ("seat", "readout", "legal", "action", "reward", "amounts",
+                 "counterfactual")
 CELL_KEYS = ("members", "hands", "directions", "params", "seed")
 DIRECTION_KEYS = ("wins", "ties", "losses", "mean_chip_delta", "seat_split")
 DRIVER_KEYS = ("id", "steps", "expectations", "hands", "wall_clock_seconds",
