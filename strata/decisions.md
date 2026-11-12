@@ -1201,3 +1201,29 @@ only variable against R1 is the encoding (D-3). Launched as a tracked job this t
 **Queue after R3**, in this order, as time allows: **R6 `residual`** (the beat the user asked for
 explicitly at intake: residual streaming per `llm-arch-kb`), then **R4 `wide`** or **R5 `dense`/`sparse`**
 if a rung still fits. Every deep run inherits R1's shape so the table compares rung to rung.
+
+---
+
+## D-47 — One run of twelve folds, and only at one seed of two
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Review all of the runs and identify which ones did *not* converge to
+never-fold"
+
+**Finding:** of twelve product runs — two game shapes, three seat counts, four pools, two learning rules,
+budgets from 200 to 200,000 hands — **exactly one** produced folding: the `reveal-counterfactual` member at
+**seed 1**, 1,545 folds of 3,862 decisions (**40.01 %**) against its own control arm's **0.00 %** on the
+same pool, seed set and budget. Its seed 0 and every other run folded **not once**; the seeds 2–6 attempt
+diverged before a verdict.
+
+Probe runs are the counter-pattern and confirm reachability: a tabular learner folds **100 %** against a
+tight aggressor (with or without hand strength in its state) and **87 %** at a six-seat mixed table.
+
+**Consequence:** folding is reachable by this stack but appears in **one run of twelve**, and in that run
+at one seed of two. The counterfactual effect is therefore **real where it appears and not reproducible
+across seeds** at the shipped budget — the attractor lottery recorded since `attractor-sweep.md`, now with
+its first exception rather than an absence.
+
+**No action taken on the runs**: none was restarted, retuned or filtered (the user's instruction to wait
+for confirmation on runs stands).
