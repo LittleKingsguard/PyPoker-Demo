@@ -1311,3 +1311,28 @@ two-seat rate for the same utility was 0.82–3.48 % (D-48), so seat count domin
 **No criterion was pinned** before this run and none is invented after it. If this configuration is to
 carry a verdict for the talk, the criterion belongs to the user and should be pinned before a confirming
 run.
+
+---
+
+## D-51 — Multi-seat only; the token build runs as a paired encoding comparison
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "We're not doing two seats. Start the token build"
+
+**Decision:** **every run from here is multi-seat.** Two-seat configurations are retired as training and
+measurement targets; D-49's two-seat length (50,000 × 3) is void, and the six-seat length stands at
+**15,000 hands × 3 seeds**. Two-seat results already recorded stay as recorded — they are the history that
+justifies the six-seat work, not targets to extend.
+
+**The token build** is run as a **paired encoding comparison at six seats**, not as a lone rung: `R3
+card-tokens` against `R1 flat-numeric`, same six-seat shape, same mixed pool, same seeds, same budget, same
+utility (`net-chips`), so the encoding is the only variable (D-3). Without its flat-numeric twin at the same
+shape there is no attributable encoding result — the two-seat R1 deep run cannot serve as the control for a
+six-seat token run.
+
+**Why the encoding matters here beyond the talk's narrative:** the token encoding is the only one that could
+carry a card's identity into a discrete vocabulary, and the six-seat shape is where behaviour finally
+separates (the utility axis produced 77–87 % folding where the chip reward produced none). If the encoding
+moves behaviour at six seats, it is attributable to the encoding; if it does not, the negative is equally
+usable.
