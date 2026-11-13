@@ -1359,3 +1359,28 @@ talk beat and a real effect, and it is not evidence that tokens learn better pok
 77–87 %, so there is a policy distribution for the encoding to disturb — and it is running now (six seats,
 same pool, same seeds, same budget, arms one key apart). Its result decides whether the encoding claim has
 anything behind it beyond seed selection.
+
+---
+
+## D-53 — The encoding bites under the risk-averse utility: more folding, less variance
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Try the stack-shortfall"
+
+**Result** (six seats, `pool-8386c3ef83ae48b2`, 15,000 hands × seeds 0–2, `stack-shortfall` both arms,
+encoding the only variable): **`card-tokens` folds 91.8 / 93.5 / 92.3 %** against `flat-numeric`'s
+**78.3 / 87.0 / 77.6 %**, loses less at every seed (−0.94 / −0.11 / −0.51 against −1.92 / −0.48 / −1.19),
+and its payoffs are far tighter (±0.25 / ±0.81 / ±0.05 against ±1.70 / ±1.47 / ±2.05).
+
+**Two levers, in order of size:** the **utility** moves the agent from stealer to folder (0 % → 78–93 %),
+and the **encoding** then decides how hard and how consistently it folds (78–87 % → 92–93 %, with a third
+of the variance and a fifth of the seed spread). The encoding's effect is **conditional on the utility** —
+under `net-chips` the same comparison produced no chip difference at all (D-52).
+
+**What it does not establish:** neither arm wins (all chip rates negative), the arms' intervals still
+overlap at every seed so no chip difference is resolvable, and folding 92 % is a behaviour rather than an
+edge.
+
+**For the talk:** this is the first encoding result in the project that is attributable, reproducible across
+seeds and consistent in direction — and it composes with the utility result rather than competing with it.
