@@ -1336,3 +1336,26 @@ carry a card's identity into a discrete vocabulary, and the six-seat shape is wh
 separates (the utility axis produced 77–87 % folding where the chip reward produced none). If the encoding
 moves behaviour at six seats, it is attributable to the encoding; if it does not, the negative is equally
 usable.
+
+---
+
+## D-52 — The token encoding moves play, not chips; the sharper pair is under way
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Start the token build" and "Try the stack-shortfall"
+
+**Result of the net-chip pair** (six seats, `pool-8386c3ef83ae48b2`, 15,000 hands × seeds 0–2, encoding the
+only variable): the encodings **diverge in policy and agree in money**. At seed 0, flat-numeric settles on
+minimum raises (61.7 %) and card-tokens on half-pot raises (56.8 %); at seed 1 flat keeps minimum raises
+while tokens fall into always-call. Every chip interval spans zero (±7), and at seed 2 both land on the same
+always-call policy with identical decision counts and identical payoffs. Neither arm folds — `net-chips`
+has produced 0 % folding in every multi-seat run on record.
+
+**Reading:** the encoding changes **which attractor a seed falls into**, not the outcome. That is a usable
+talk beat and a real effect, and it is not evidence that tokens learn better poker.
+
+**Decision:** the same pair under **`stack-shortfall`** is the sharper test — the baseline there folds
+77–87 %, so there is a policy distribution for the encoding to disturb — and it is running now (six seats,
+same pool, same seeds, same budget, arms one key apart). Its result decides whether the encoding claim has
+anything behind it beyond seed selection.
