@@ -64,9 +64,7 @@ For one transition record (`records.md` §4) — with a required `episode` and a
   count, which would be a fraction of a step — and a **terminal** transition takes its `A` steps exactly as any other,
   the seat's last decision being where the outcome is known. Only `None`, and one carrying `None` at an index of its own
   legal mask, take the ordinary single step — a partial resolution is not a resolution (`counterfactual.md` §4–§6, D-43).
-- **Two divergence guards sit inside that order** (`divergence.md` §2): a non-finite `td` refuses **before** `|td|` is
-  accumulated and before the step, and a step that left any parameter non-finite refuses **after** it; both name *k* —
-  and, on the member's path, the action index too.
+- **Two divergence guards sit inside that order** (`divergence.md` §2): a non-finite `td` refuses **before** `|td|` is accumulated and before the step, and a step that left any parameter non-finite — or, since D-45, a **finite** value above `declarations.PARAMETER_BAND` — refuses **after** it; both name *k*, and the action index too on the member's path. D-45's second site is outside the order: a batch's first read of the same `2·P` array refuses a learner restored outside the band before the batch is read, and no band refusal reports a non-finite number (`finiteness.md` §2–§3, `counterfactual.md` §10).
 - **The target copy and its counter.** A second, non-trainable copy of every parameter, equal at construction, is the
   source of every bootstrapping value under either rule; it is refreshed from the online parameters, in
   `architecture.md` §4's declaration order, every `target_update_interval` consumed **steps** — 200 transitions under
@@ -127,7 +125,7 @@ toward a worse-priced band, and `tie` is true exactly when that tie-break chose 
 
 ## 6. The fixed hyper-declarations `learners()["hyper"]` publishes
 
-Six keys, one value each, for **all three** catalogues — every rule, every utility and every counterfactual member: `hyper` is one declaration, not a per-member block, so a swap on any axis is one axis — but the member's own **step count** is its contract's, and it moves the update count (`rules.md` §2).
+Six keys, one value each, for **all three** catalogues — every rule, every utility and every counterfactual member: `hyper` is one declaration, not a per-member block, so a swap on any axis is one axis — but the member's own **step count** is its contract's, and it moves the update count (`rules.md` §2). `PARAMETER_BAND` is a declaration **beside** these six and never a seventh key (`finiteness.md` §2, D-45).
 
 | Key | Value | Why this value |
 |---|---|---|

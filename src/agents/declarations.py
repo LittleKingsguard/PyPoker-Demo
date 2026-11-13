@@ -183,6 +183,27 @@ HYPER = {
 }
 
 
+#: The declared **parameter band** (`counterfactual.md` §10, D-45): no value of the learner's
+#: whole `2·P` array -- the online parameters and their target copy -- may keep a magnitude
+#: above this, and `learn` refuses the step that leaves it as `LearningDiverged`, naming the
+#: site, the parameter index, the value and this band.  It is a declaration **beside**
+#: `HYPER` and not a seventh key of `learners()`: the catalogue's six keys and each
+#: `counterfactuals` member's three are unchanged, so no published record grows
+#: (`rule.md` §6, `surface.md` §3).
+#
+#: **Why this value makes a non-finite parameter unreachable.**  A step writes
+#: `theta <- theta + rate·delta·g`, so inside the band the largest value a forward pass of
+#: the catalogue's kinds can produce is bounded by `Theta^(D+1)·X·W^D` and a single step's
+#: movement by `rate·Theta^(D+2)·X^2·W^(D+1)`.  With `Theta = 1e6` (this band), the declared
+#: `rate = 1e-3`, the declared kinds' `D <= 4`, `W <= 512` and an observation bounded by the
+#: chips in play (`X <= 600`, `seats.md` §2), those are about 1e33 for the value and about
+#: 1e58 for the movement -- eleven to twenty orders below the float64 maximum of 1.8e308.
+#: So no step taken from inside the band can write a non-finite value, and the first step
+#: that would leave the band is refused after it is written but before the counter, the
+#: target refresh and the returned statistics move (`docs/L3/agents/finiteness.md` §2).
+PARAMETER_BAND = 1e6
+
+
 #: The three declared game shapes' names, in `engine.game_shapes()`'s order -- default
 #: first (`shapes.md` §2, `seats.md` §2, D-29, D-33).  Only the names and their order are
 #: restated: the join battery holds them equal to the catalogue `engine` publishes, which

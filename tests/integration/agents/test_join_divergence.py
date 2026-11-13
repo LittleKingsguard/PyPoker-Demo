@@ -96,6 +96,16 @@ AGGRESSIVE_LEARNING_RATE = 10.0
 #: (`divergence.md` §4, `errors.md` §4) that only the arithmetic can object to.
 HUGE_REWARD = 1e308
 
+#: How many times the declared band the control of 13.2 declares its terminal reward.
+#: A step writes `theta <- theta + rate·delta·g` (`rule.md` §3), so one step moves a
+#: parameter by `rate × reward × |gradient|`; at the declared rate a reward of
+#: `1e2 × PARAMETER_BAND` moves it by `0.001 × (1e2 × band) × |gradient|`, which is
+#: about `0.13 × band` on this fixture's largest gradient and so stays inside the band.
+#: The band itself is read from `agents.declarations` in the case and never restated
+#: here, and since D-45 a step past it is refused by design (`counterfactual.md` §10,
+#: `docs/L3/agents/finiteness.md` §2).
+CONTROL_REWARD_BANDS = 1e2
+
 #: The schedule-position fields a container may record (`checkpoint.md` §2.1); the reader
 #: below stays tolerant of the spelling instead of pinning one (`battery.md` §4).
 POSITION_FIELDS = ("position", "steps", "decisions", "consumed")
@@ -182,8 +192,9 @@ def _hyper():
 
     `learners()` hands back a rebuilt copy of the six declarations, so a case that
     needs the aggressive rate of 13.2 must patch the declaration `learn` itself reads;
-    this is the only `src/agents` name in this file that is not one of the ten entry
-    points or `agents.errors.AgentsError`.
+    these and `declarations.PARAMETER_BAND`, which 13.2's control reads, are the only
+    `src/agents` names in this file that are not one of the ten entry points or
+    `agents.errors.AgentsError`.
     """
     return J.mod("agents").declarations.HYPER
 
@@ -364,8 +375,13 @@ class DivergenceAtTheJoin(J.JoinCase):
         `reward` is a huge finite number (`strata/records/lr-probe.md`,
         `docs/L3/agents/divergence.md` §1).  `learn` re-reads the declaration at call
         time (`rule.md` §6), so the rate is patched in process and restored by
-        `addCleanup`, and the declared 0.001 is shown not to overshoot this fixture
-        first — which is why the patch, and not the reward, is what the refusal reports.
+        `addCleanup`, and the declared 0.001 is shown not to overshoot first: a terminal
+        reward of `1e2 × PARAMETER_BAND` takes one step of `rate × reward × |gradient|`
+        ≈ `0.13 × band` — inside the band — and that step is consumed and reported with
+        nothing clipped or substituted for.  Since D-45 the control's reward is chosen so
+        that the declared rate's step stays inside the declared `PARAMETER_BAND`, because
+        a step past it is now refused by design (`docs/L1/counterfactual.md` §10,
+        `docs/L3/agents/finiteness.md` §2).
         """
         encoder = self.encoder()
         spec = self.spec()
@@ -382,16 +398,51 @@ class DivergenceAtTheJoin(J.JoinCase):
         )
         terminal[0]["reward"] = HUGE_REWARD
 
-        # The control: at the declared rate the same transition is stepped and the
-        # update reports the huge td_error it produced (no refusal, nothing clipped).
+        # The control's own fixture: the same transition with a huge but **banded** reward,
+        # so that one declared-rate step stays inside the declared band — read from
+        # `agents.declarations` here and never restated — rather than past it, which since
+        # D-45 is refused (`counterfactual.md` §10, `finiteness.md` §2).
+        band = float(J.mod("agents").declarations.PARAMETER_BAND)
+        banded = [dict(transition) for transition in terminal]
+        banded[0]["reward"] = CONTROL_REWARD_BANDS * band
+
+        # The control: at the declared rate that transition is stepped and the update
+        # reports the huge td_error it produced (no refusal, nothing clipped).
         declared = J.build_learner(spec)
-        survived = J.learn(declared, terminal)
+        survived = J.learn(declared, banded)
         self.assertEqual(J.transitions_consumed(survived), 1)
         self.assertGreater(
             J.td_error(survived),
-            1e300,
+            CONTROL_REWARD_BANDS * band / 10.0,
             "the fixture's reward must be the huge finite one this case steps on "
             "(docs/L2/agents/divergence.md §4)",
+        )
+        # Nothing was clipped and nothing was substituted for: the parameters the step
+        # wrote carry the banded reward's own magnitude, orders above the initialisation
+        # they held, and stay strictly inside the band, which no clip of the step or of
+        # the array would (`counterfactual.md` §10, `docs/L3/agents/divergence.md` §1).
+        path = J.save(declared, self.checkpoint_path(J.CHECKPOINT_ALPHA))
+        _metadata_name, _raw_metadata, _parameters_name, raw_parameters = _members(path)
+        written = numpy.load(io.BytesIO(raw_parameters), allow_pickle=False)
+        self.assertTrue(
+            bool(numpy.isfinite(written).all()),
+            "the declared rate's step must leave every parameter finite "
+            "(docs/L1/counterfactual.md §10)",
+        )
+        largest = float(numpy.max(numpy.abs(written)))
+        self.assertGreater(
+            largest,
+            band / 100.0,
+            "the step must be written and not substituted for: the parameters must carry "
+            "the banded reward's own magnitude, orders above the initialisation they held "
+            "before it (docs/L3/agents/rule.md §3)",
+        )
+        self.assertLess(
+            largest,
+            band,
+            "the declared rate's step must stay strictly inside the declared parameter "
+            "band and must not be clipped to it, which is the substitution D-45 rejects "
+            "(docs/L1/counterfactual.md §10, docs/L3/agents/finiteness.md §2)",
         )
 
         hyper = _hyper()

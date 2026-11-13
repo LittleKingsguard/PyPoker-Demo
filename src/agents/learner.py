@@ -23,6 +23,7 @@ import features
 
 from . import declarations, model, rule
 from .errors import (
+    CounterfactualUnbounded,
     EncoderMismatch,
     InvalidBatch,
     InvalidEncoder,
@@ -678,7 +679,7 @@ def act(learner, observation, legal_mask):
     return {"action": int(index), "tie": bool(tie)}
 
 
-def _transition(learner, record):
+def _transition(learner, record, index=0, bound=None):
     """One transition record, validated against the learner before any arithmetic."""
     if not isinstance(record, Mapping):
         raise InvalidBatch(
@@ -781,6 +782,23 @@ def _transition(learner, record):
                     "the transition's legal mask %r, and an entry of a resolution is a "
                     "number or None" % (entry, position, legal)
                 )
+            # D-45's first bound (`finiteness.md` §1, `counterfactual.md` §10): a resolved
+            # branch's value is one seat's whole-hand net chip delta, so it lies inside the
+            # chips in play `T = seats × starting_stack`, and a value outside them has no
+            # bounded value to learn from.  Refused here, during validation, before any
+            # forward pass, any parameter change, any target refresh and any move of the
+            # schedule position -- and only ever for a learner whose member reads the
+            # sequence, which is why `bound` is `None` on the `none` path.  A value exactly
+            # at `±T` is inside the bound and is stepped normally; the bound is read from
+            # `engine.game_config(learner.game)` and never written down as a number
+            # (`shapes.md` §2, `seats.md` §2).
+            if bound is not None and abs(float(entry)) > float(bound):
+                raise CounterfactualUnbounded(
+                    "learn(transitions): transition index %d at action index %d carries "
+                    "the counterfactual value %r, which is outside the bound %r of the "
+                    "chips in play on the shape %r"
+                    % (int(index), int(position), float(entry), float(bound), learner.game)
+                )
             stored.append(float(entry))
         resolution = tuple(stored)
     return {
@@ -814,6 +832,40 @@ def _batch(transitions):
     return records
 
 
+def _chips_in_play(learner):
+    """`T = seats × starting_stack`, read from `engine.game_config(learner.game)`.
+
+    The bound on the member's target and the run's `target_bound` are one number: the chips
+    a hand can physically produce for one seat, so neither this module nor a caller writes
+    a `600` down (`counterfactual.md` §10, `shapes.md` §2, `seats.md` §2, `finiteness.md`
+    §1).  `engine` is imported inside the function, as `fold-large-bet`'s starting stack is
+    (`baselines.md` §9): the granted arrow is read where it is needed and no module-level
+    edge has to be kept in step (`module-map.md` §2, D-13).
+    """
+    import engine
+
+    config = engine.game_config(learner.game)
+    return float(config["seats"]) * float(config["starting_stack"])
+
+
+def _outside_band(values):
+    """The first `(index, value)` whose magnitude leaves `PARAMETER_BAND`, or `None`.
+
+    **A comparison over the array the guard already reads**, `backend.parameters(state)` —
+    the whole `2·P` array, online values and target copy together — and no arithmetic:
+    `abs(value) > PARAMETER_BAND` for every index, the first offender reported.  Only
+    **finite** values are this predicate's: a non-finite one is GUARD 2's own refusal, so no
+    band message can ever report `inf` or `nan` (`finiteness.md` §2, `divergence.md` §2).
+    """
+    beyond = numpy.isfinite(values) & (
+        numpy.abs(values) > float(declarations.PARAMETER_BAND)
+    )
+    if not beyond.any():
+        return None
+    slot = int(numpy.argmax(beyond))
+    return slot, float(values[slot])
+
+
 def _step(held, backend, cache, action, delta, site, rate, interval, total, divisor=1):
     """One guarded semi-gradient step, and the batch's total with the raw `|delta|` added.
 
@@ -836,10 +888,12 @@ def _step(held, backend, cache, action, delta, site, rate, interval, total, divi
         )
     total += abs(delta)
     backend.apply(held.state, held.layout, cache, action, delta / divisor, rate)
-    # GUARD 2 (`divergence.md` §2): a step that left any of the whole 2·P array
-    # non-finite refuses **after** it and before the counter moves, naming the
+    # GUARD 2 (`divergence.md` §2, `finiteness.md` §2): a step that left any of the whole
+    # 2·P array non-finite refuses **after** it and before the counter moves, naming the
     # transition -- and, on the member's path, the action too -- and the first parameter
-    # index out of range.
+    # index out of range; and the same read of the same array refuses a step that left a
+    # value **outside the declared parameter band**, which is the bound that keeps a
+    # non-finite value from being written in the first place (`counterfactual.md` §10).
     values = backend.parameters(held.state)
     finite = numpy.isfinite(values)
     if not finite.all():
@@ -847,6 +901,14 @@ def _step(held, backend, cache, action, delta, site, rate, interval, total, divi
         raise LearningDiverged(
             "learn(transitions): %s drove parameter index %d out of finite range and "
             "the learner has diverged, got %r" % (site, slot, float(values[slot]))
+        )
+    unbanded = _outside_band(values)
+    if unbanded is not None:
+        slot, value = unbanded
+        raise LearningDiverged(
+            "learn(transitions): %s drove parameter index %d to %r, beyond the declared "
+            "parameter band %r, and the learner has diverged"
+            % (site, slot, value, float(declarations.PARAMETER_BAND))
         )
     held.counter += 1
     if held.counter >= interval:
@@ -893,15 +955,50 @@ def learn(learner, transitions):
     rather than dividing by zero.  `transitions` is the record count, and the schedule
     position advances by it -- the number of transitions, never the number of steps
     (`counterfactual.md` §6, `rule.md` §4).
+
+    **D-45's two bounds are validated here, and neither touches the arithmetic.**  The
+    member's target is one seat's whole-hand chip delta, so it lies inside the chips in play
+    `T = seats × starting_stack` of the learner's own shape; a transition carrying a
+    `counterfactual` value outside `±T` is refused as `CounterfactualUnbounded` **during
+    validation**, before any forward pass, any parameter change, any target refresh and any
+    move of the schedule position, naming the transition's index in the caller's batch, the
+    action index, the value and the bound -- and only a member that reads the sequence can
+    reach it.  The parameters are the other half: no value of the `2·P` array may keep a
+    magnitude above `declarations.PARAMETER_BAND`, and the batch's first read of that array
+    refuses a learner restored outside it, before the batch is read, while every step's read
+    refuses the step that left it, in GUARD 2's place.  Both are comparisons and both raise
+    `LearningDiverged`, so a finite run's digits are unchanged and a non-finite value is
+    never the thing a guard reports (`counterfactual.md` §10, `finiteness.md` §1-§2).
     """
     held = _require_learner(learner, "learn")
-    records = [_transition(held, record) for record in _batch(transitions)]
+    # D-45's second bound, at the start of the batch and before the first forward pass
+    # (`finiteness.md` §2, `divergence.md` §2): a learner restored from a container whose
+    # parameters already lie outside the declared parameter band is refused before
+    # anything is computed — the batch is not read at all — because no step taken from
+    # there is bounded by the finiteness argument `declarations.PARAMETER_BAND` states
+    # (`counterfactual.md` §10).
+    unbanded = _outside_band(held.backend.parameters(held.state))
+    if unbanded is not None:
+        slot, value = unbanded
+        raise LearningDiverged(
+            "learn(transitions): the learner's parameter index %d is already %r, beyond "
+            "the declared parameter band %r, so no transition is read"
+            % (slot, value, float(declarations.PARAMETER_BAND))
+        )
+    revealed = held.counterfactual != declarations.DEFAULT_COUNTERFACTUAL
+    # D-45's first bound, read once per batch and only for a member that reads the
+    # sequence: `T`, the chips in play on the learner's own shape, is what every
+    # transition's `counterfactual` is validated against (`finiteness.md` §1).
+    bound = _chips_in_play(held) if revealed else None
+    records = [
+        _transition(held, record, index, bound)
+        for index, record in enumerate(_batch(transitions))
+    ]
 
     backend = held.backend
     rate = float(declarations.HYPER["learning_rate"])
     discount = float(declarations.HYPER["discount"])
     interval = int(declarations.HYPER["target_update_interval"])
-    revealed = held.counterfactual != declarations.DEFAULT_COUNTERFACTUAL
     total = 0.0
     steps = 0
     for index, record in enumerate(records):

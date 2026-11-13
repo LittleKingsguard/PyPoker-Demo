@@ -108,7 +108,7 @@ One pass of `run`, in this order, for any configuration:
    tie-break alone, no generator drawn from — recorded under `greedy`. It is **the one decision stream a run retains**,
    and the block is a function of the checkpoint the record names (`sizing.md` §4, §7, ASM-38, `greedy.md` §1–§3, D-28).
 9. **Assemble and return `records.md` §12's record** — curves, pool, checkpoints, seeds, budget, device, parameter
-   budget, table, timings, `game` and `greedy`, plus `variants`, `rules` and `utilities`, which name each variant's rule and utility and the run's two sets (D-19, D-20, D-29), plus `counterfactuals` **only when a variant declares a member that is not the catalogue's first** (`counterfactual.md` §6, §9, D-43) —
+   budget, table, timings, `game` and `greedy`, plus `variants`, `rules` and `utilities`, which name each variant's rule and utility and the run's two sets (D-19, D-20, D-29), plus `counterfactuals` **only when a variant declares a member that is not the catalogue's first** (`counterfactual.md` §6, §9, D-43), and plus `finiteness` **on that same condition** — per variant per seed the member, the `transitions` its episodes resolved, the `steps` it took, the `largest_target` it was handed and the run's `target_bound` (`counterfactual.md` §10, `docs/L3/training/record.md` §5, D-45) —
    and nothing beyond it: a run claims no table position and fits no rating (`module-map.md` §3, `records.md` §13, `surface.md` §4).
 
 The nine steps are the same for R1 and for a configuration written to no design document; only the data differs, and that is the whole of D-3 (`ladder.md` §1, FAM-15).

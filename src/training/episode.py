@@ -44,6 +44,14 @@ opponents from one `evaluation.opponent(pool, seed, seats - 1)` draw, seated in 
 order in seat order and played through `play_hand`'s `seats` argument (`seats.md` §4,
 `e2e-surface.md` §3.1, ASM-43).  Because training and the pass both call it, they cannot
 drift into two samples.
+
+**This is also where the member's finiteness facts are counted** (`counterfactual.md` §10,
+D-45).  `_target_bound` is the bound in force — the chips in play, `seats × starting_stack`,
+read from `engine.game_config` — and `_counted`/`_finiteness` turn the batch this module has
+just built into the run record's `finiteness` tally: the transitions an episode resolved
+**fully**, the `A` steps the member takes on each of them, and the largest target among the
+values they carried.  The loop adds one hand at a time and recomputes nothing, so the record
+states how much of a run's signal the member used without a second pass over the batch.
 """
 
 from collections.abc import Mapping
@@ -335,6 +343,67 @@ def _branch_values(decision, indices, arithmetic, seed, seat, shape, count):
             decision, seed, seat, shape, delta
         )
     return tuple(resolved)
+
+
+def _target_bound(shape=None):
+    """`T = seats × starting_stack`, the chips in play on the run's own shape.
+
+    The one bound D-45 puts on the member's target and the number a run's `finiteness`
+    block states as `target_bound`: `engine.game_config(shape)`'s seat count times its
+    starting stack — 40 chips on the default shape, 200 on `no-limit-100` and 600 on
+    `six-seat-no-limit-100` — so no `40`, `200` or `600` is written down here
+    (`counterfactual.md` §10, `shapes.md` §2, `seats.md` §2, ASM-44, D-29).
+    """
+    config = engine.game_config(shape)
+    return float(config["seats"]) * float(config["starting_stack"])
+
+
+def _counted(member, shape=None):
+    """The empty `finiteness` tally one pair starts from (`records.md` §12, D-45).
+
+    Five facts in the record's own key order: the member that ran, the transitions it
+    stepped on, the steps it took, the largest magnitude it was handed and the bound in
+    force.  A pair on the catalogue's first member starts and stays at `0 / 0 / 0.0`,
+    because that member reads no resolution and takes no step of its own — the counts are
+    the member's and never the run's (`counterfactual.md` §6, §10).
+    """
+    return {
+        "member": str(member),
+        "transitions": 0,
+        "steps": 0,
+        "largest_target": 0.0,
+        "target_bound": _target_bound(shape),
+    }
+
+
+def _finiteness(records, counted):
+    """Add one hand's contribution to a pair's `finiteness` tally, in place (`records.md` §12).
+
+    **Counted where the facts are built, not recomputed by the loop.**  A transition counts
+    exactly when its episode resolved **fully** — every index of its own legal mask carried
+    a value — which is the condition `agents.learn` takes `A` semi-gradient steps on it, so
+    `steps` adds one per legal action of those transitions and `largest_target` keeps the
+    largest `|value|` among the values they carried (`counterfactual.md` §4, §6, §10).  A
+    member that is the catalogue's first never reaches the resolution `_branch_values`
+    writes, so its tally stays `0 / 0 / 0.0` and the block still states the run's
+    `target_bound` (`counterfactual.md` §10, D-45).
+    """
+    if str(counted["member"]) == declarations.counterfactuals()[0]:
+        return counted
+    for record in records:
+        values = record.get("counterfactual")
+        if values is None:
+            continue
+        legal = record["legal"]
+        if any(values[position] is None for position in legal):
+            continue
+        counted["transitions"] += 1
+        counted["steps"] += len(legal)
+        for position in legal:
+            counted["largest_target"] = max(
+                float(counted["largest_target"]), abs(float(values[position]))
+            )
+    return counted
 
 
 def _transitions(episode, seat, encoder, utility=None, shape=None):

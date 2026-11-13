@@ -381,7 +381,9 @@ def _trained_counterfactual(configuration, entry):
     return declarations.counterfactuals()[0]
 
 
-def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, shape=None):
+def _train_variant_seed(
+    configuration, entry, seed, budget, device, pool=None, shape=None, counted=None
+):
     """Steps 3-9 for one variant at one seed: train, snapshot, save, and pass.
 
     The interval is `budget // 10` and not the declared `snapshot_every`, because ASM-18
@@ -418,6 +420,13 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, s
     and travel with the tree, while a redirected run's are carried absolute and name a file
     that exists (protocol.md §5, write-root.md §1, §5,
     docs/L3/training/checkpoints.md §2).
+
+    **`counted` is the one out-parameter**, and it is the caller's dict: a run that declares
+    a counterfactual member other than the catalogue's first hands `episode._counted`'s
+    five facts in and the pair adds each hand's `episode._finiteness` to them, so the
+    record's `finiteness` block is counted where the facts are built and nothing here
+    recomputes a batch (`counterfactual.md` §10, `records.md` §12, D-45).  A case that
+    passes none gets the same four-tuple and no tally (`loop.md` §8).
     """
     del device  # the run records it; a pair's pass measures the same work on any device
     if pool is None:
@@ -477,6 +486,11 @@ def _train_variant_seed(configuration, entry, seed, budget, device, pool=None, s
         trained = index + 1
         if batch:
             statistics = agents.learn(learner, batch)
+            # The member's finiteness facts, counted off the batch just built and only for
+            # a run that declared a member other than the catalogue's first
+            # (`counterfactual.md` §10, `records.md` §12, D-45).
+            if counted is not None:
+                episode._finiteness(batch, counted)
             curve.add(trained, statistics["td_error"])
         if trained % interval == 0:
             snapshots.append(
@@ -635,6 +649,7 @@ def _record(
     interval,
     shape=None,
     greedy_block=None,
+    finiteness_block=None,
 ):
     """Step 9: `records.md` §12's record and this module's own three evidence keys.
 
@@ -665,6 +680,14 @@ def _record(
     (`records.md` §12, `counterfactual.md` §6, §9, D-43).  Each `variants` row names its own
     member on the same condition, so a run says which targets produced which curve without
     ever saying `none`.
+
+    **And the one key D-45 adds, on the same conditional rule.**  `finiteness` is
+    variant → seed → `episode._counted`'s five facts — the `member`, the `transitions` its
+    episodes resolved fully, the `steps` it took, the `largest_target` it was handed and the
+    `target_bound` in force — written exactly when some variant declares a member other than
+    the catalogue's first and absent, like `counterfactuals`, on every run that declares
+    none, which is what keeps the two committed captures byte-identical (`records.md` §12,
+    `counterfactual.md` §10, D-45).
     """
     name = declarations.require_game(shape, "training.run")
     params = {}
@@ -751,6 +774,12 @@ def _record(
         record["axis row"] = "n/a, single variant"
     if counterfactuals:
         record["counterfactuals"] = counterfactuals
+    # D-45's block, on D-43's conditional rule: present exactly when some variant declares a
+    # member other than the catalogue's first, so a run that declares none carries no such
+    # key and its record stays at the shape its capture took (`records.md` §12,
+    # `counterfactual.md` §10, D-45).
+    if finiteness_block:
+        record["finiteness"] = finiteness_block
     return record
 
 
@@ -778,18 +807,42 @@ def run(rung, seeds=None, budget=None, device=None):
     checkpoints_block = {}
     timings_block = {}
     greedy_block = {}
+    finiteness_block = {}
     variant_block = []
+    # The member that makes D-45's block conditional: one run-level answer, so every pair —
+    # the `none` arm of a pair included — carries its own entry exactly when some variant
+    # declares a member other than the catalogue's first (`records.md` §12,
+    # `counterfactual.md` §10, D-45).
+    default_counterfactual = declarations.counterfactuals()[0]
+    counts_member = any(
+        _trained_counterfactual(configuration, entry) != default_counterfactual
+        for entry in configuration["variants"]
+    )
     for entry in configuration["variants"]:
         variant = str(entry.get("name"))
+        member = _trained_counterfactual(configuration, entry)
         points = {}
         for seed in seed_set:
+            # The pair's finiteness tally, handed in and filled in place: the empty five
+            # facts for a run that declares a member, and `None` for one that declares none
+            # (`counterfactual.md` §10, D-45).
+            counted = episode._counted(member, shape) if counts_member else None
             curve, written, timing, passed = _train_variant_seed(
-                configuration, entry, seed, hands, chosen_device, pool=pool, shape=shape
+                configuration,
+                entry,
+                seed,
+                hands,
+                chosen_device,
+                pool=pool,
+                shape=shape,
+                counted=counted,
             )
             points[str(seed)] = curve
             checkpoints_block.setdefault(variant, {})[str(seed)] = written
             timings_block.setdefault(variant, {})[str(seed)] = timing
             greedy_block.setdefault(variant, {})[str(seed)] = passed
+            if counted is not None:
+                finiteness_block.setdefault(variant, {})[str(seed)] = counted
         spread = curves._spread([points[str(seed)]["td_error"] for seed in seed_set])
         for point in points.values():
             point["spread"] = list(spread)
@@ -827,4 +880,5 @@ def run(rung, seeds=None, budget=None, device=None):
         interval,
         shape,
         greedy_block,
+        finiteness_block,
     )

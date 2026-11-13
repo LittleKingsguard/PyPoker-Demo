@@ -185,11 +185,7 @@ each consumes and the encoding each is built for are declared here, because a le
   target copy's value **at the index the online parameters' masked argmax selects** over `next_legal` — selection by
   the online parameters, evaluation by the copy. Both aim at `reward` alone at a terminal transition, and
   everything else — validation, loop, statistics, step, refresh counter, position — is one path (`rules.md` §2, §3).
-- **Refusals:** a value that is not a learner — a baseline never learns from a match (D-6, `protocol.md` §3); an
-  empty batch; a transition missing a required key of `records.md` §4, with that key named; an `action` outside that
-  transition's `legal`, a mask naming an index the learner's shape does not declare, naming that shape and the index
-  (D-2, `shapes.md` §3), or an observation of another family (D-3); and a divergence — a transition whose td_error or
-  whose step left a value not finite — refused by name at that transition (`divergence.md` §2, §3, D-19).
+- **Refusals:** a value that is not a learner — a baseline never learns from a match (D-6, `protocol.md` §3); an empty batch; a transition missing a required key of `records.md` §4, with that key named; an `action` outside that transition's `legal`, a mask naming an index the learner's shape does not declare, naming that shape and the index (D-2, `shapes.md` §3), or an observation of another family (D-3); a divergence — a transition whose td_error or whose step left a value not finite, and, since D-45, a learner restored with a parameter outside `PARAMETER_BAND` or a step that left one past it — refused by name at that site (`divergence.md` §2, §3, `finiteness.md` §2, D-19, D-45); and a `counterfactual` value whose magnitude exceeds the chips in play on the learner's own shape, refused during validation by the sibling class `CounterfactualUnbounded` naming the transition index, the action index, the value and the bound (`finiteness.md` §1, §3, `counterfactual.md` §10).
 - **Determinism:** one learner state, one rule and one batch give one update and one statistic set, this call being
   the only place a learner's schedule moves (§1); the aim, the masking and the terminal reward are the bullet above,
   never a per-backend or per-call choice (ASM-7, ASM-12, D-19).

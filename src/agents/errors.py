@@ -1,6 +1,6 @@
 """The refusal hierarchy of `agents` (`docs/L3/agents/errors.md` §2).
 
-One base and twenty-two subclasses, one per refusal family of
+One base and twenty-three subclasses, one per refusal family of
 `docs/L2/agents/surface.md` §4-§12 and `docs/L2/agents/shapes.md` §6: a caller catches
 `AgentsError` when it wants to know that *this* module refused it, and never has to
 catch a `KeyError` from a mistyped record key, a `numpy` `ValueError` or a `torch` error
@@ -106,3 +106,12 @@ class CheckpointMismatch(AgentsError):
 
 class LearningDiverged(AgentsError):
     """`learn`, `decide`, `_tie_break`: the learner's own state went non-finite (divergence.md §2)."""
+
+
+class CounterfactualUnbounded(AgentsError):
+    """`learn`: a transition's `counterfactual` carries a value outside the chips in play.
+
+    The sibling of `LearningDiverged` on D-45's finiteness envelope: the member's target is
+    one seat's whole-hand net chip delta, so it lies within the chips a hand can produce,
+    and a value outside that bound has no bounded value to learn from (`finiteness.md` §1).
+    """

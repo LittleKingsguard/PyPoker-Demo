@@ -30,6 +30,7 @@ rung-to-rung difference is one of those axes' (D-3, ASM-7, ASM-12, `rules.md` §
 | `baselines.md` | the six fixed baselines | the two surface rows (§1–§2) and the six rules with the `anchor` flag the rating is zeroed on (§3) — D-6's three and D-21's three folders (D-6, ASM-4, ASM-31, ASM-32, D-21) |
 | `utility.md` | the terminal-reward utility at this edge | the fifth catalogue `learners()` publishes (§1), the spec's optional `utility` and the declared default (§2), what a learner and a policy carry (§3), the container's field and the four format versions (§4), the four refusals (§5) (`utilities.md` §2–§7, D-20) |
 | `divergence.md` | the one refusal whose fault is the learner's state | the measurement it answers (§1), its two sites (§2), the message each carries (§3), and what it never does: no clip, no reset, no lowered rate (§4) (D-19, D-20) |
+| `finiteness.md` | D-45's envelope on the member's arithmetic | the target's bound by the chips in play and the declared `PARAMETER_BAND` (§1–§2), the three sites `learn` refuses at (§3), the run record's conditional block (§4) and what none of it changes (§5) (`counterfactual.md` §10, D-45) |
 
 ## 3. Boundaries
 
@@ -46,15 +47,14 @@ Each is a boundary and not a preference (`module-map.md` §3, D-6, D-7):
 
 ## 4. Count, cap and the blind instances
 
-Ten entry points, and L2 adds, removes and renames none: needing an eleventh is a defect that returns as an adjudication
-to L1 (D-12). The harness files are capped at `50 + 10 × 10 = 150` lines, computed by `strata-lint` and never asserted by
-a harness author (brief §5, `module-map.md` §4). Three rows are `fixed` — `learners`, `baselines`, `build_baseline` — and
-seven are `general`, so the battery carries seven invented instances (`e2e-surface.md` §5, `battery.md` §4, D-15, D-29).
+Ten entry points, and L2 adds, removes and renames none: needing an eleventh is a defect that returns as an adjudication to L1 (D-12).
+The harness files are capped at `50 + 10 × 10 = 150` lines, computed by `strata-lint` and never asserted by a harness author (brief §5,
+`module-map.md` §4). Three rows are `fixed` — `learners`, `baselines`, `build_baseline` — and seven are `general`, so the battery carries
+seven invented instances (`e2e-surface.md` §5, `battery.md` §4, D-15, D-29).
 
 ## 5. What is left to L3
 
-This document stops at the entry point and at the records they exchange. `role_l3_designer` owns the module design: the
-learner's own type and how a backend realises it, the initialisation order and the tie-break rule, how the keyed
-exploration draw is derived from the learner's generator, **how each rule's target is computed**, the checkpoint's
-bytes, versions and fields, the head's width and how a layout carries it, and the error classes the refusals raise
-(D-1, `module-map.md` §5, `shapes.md` §2, D-20).
+This document stops at the entry point and at the records they exchange. `role_l3_designer` owns the module design: the learner's own type and how a
+backend realises it, the initialisation order and the tie-break rule, how the keyed exploration draw is derived from the learner's generator, **how
+each rule's target is computed**, the checkpoint's bytes, versions and fields, the head's width and how a layout carries it, the two bounds'
+predicates and their messages, and the error classes the refusals raise (D-1, `module-map.md` §5, `shapes.md` §2, `finiteness.md` §2, D-20).

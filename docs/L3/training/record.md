@@ -1,7 +1,7 @@
 # training — the run record, key by key
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-11 · **Rev 1** carries `loop.md` §3's key-by-key table and `loop.md` §4's sub-records out of a file at its ceiling, and adds the two keys D-29 writes — `game` and `greedy` — with the header's and the pool block's shape rows (`records.md` §12, §15, `shapes.md` §3, D-28, D-29); **Rev 2** states that the layout is one layout on all three shapes, that the header's `game` and `action space` rows are the six-seat shape's too, and that a run on a shape with more than two seats has no matrix and therefore no report (`seats.md` §2, §5, `shapes.md` §8, ASM-42, ASM-44, D-33); **Rev 3** adds D-43's one **conditional** key — the `counterfactuals` set, written only when a variant declares a member that is not the catalogue's first, with each `variants` row naming its own member on the same condition (`counterfactual.md` §6, §9, `records.md` §4, §12, D-43)
-- **Owner:** `_record()` and `_header()` — the record key by key (§1), the sub-records in the shape their readers expect (§2), the two keys D-29 adds and the rows that repeat the shape (§3), the one conditional key D-43 adds (§4), what is left to L4 (§5). `loop.md` §3 and §4 keep their numbers as pointers into this file, because tests cite them; nothing here is a second claim — every sentence of §1 and §2 is one of those two sections', moved, and §3 and §4 are the shape's and the member's own statements
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-11 · **Rev 1** carries `loop.md` §3's key-by-key table and `loop.md` §4's sub-records out of a file at its ceiling, and adds the two keys D-29 writes — `game` and `greedy` — with the header's and the pool block's shape rows (`records.md` §12, §15, `shapes.md` §3, D-28, D-29); **Rev 2** states that the layout is one layout on all three shapes, that the header's `game` and `action space` rows are the six-seat shape's too, and that a run on a shape with more than two seats has no matrix and therefore no report (`seats.md` §2, §5, `shapes.md` §8, ASM-42, ASM-44, D-33); **Rev 3** adds D-43's one **conditional** key — the `counterfactuals` set, written only when a variant declares a member that is not the catalogue's first, with each `variants` row naming its own member on the same condition (`counterfactual.md` §6, §9, `records.md` §4, §12, D-43); **Rev 4** adds D-45's conditional `finiteness` block — five facts per variant per seed, counted by `episode` where the batch is built (§5, `counterfactual.md` §10, `records.md` §12, D-45)
+- **Owner:** `_record()` and `_header()` — the record key by key (§1), the sub-records in the shape their readers expect (§2), the two keys D-29 adds and the rows that repeat the shape (§3), the one conditional key D-43 adds (§4), the block D-45 adds (§5), what is left to L4 (§6). `loop.md` §3 and §4 keep their numbers as pointers into this file, because tests cite them; nothing here is a second claim — every sentence of §1 and §2 is one of those two sections', moved, and §3, §4 and §5 are the shape's, the member's and the envelope's own statements
 - **Ceiling:** 150 lines. At the ceiling, split by owner — never append
 - **Read with:** `loop.md` §1 steps 2 and 8–9, §2, §3, §4, §6, `checkpoints.md` §2–§3, `curves.md` §5, `greedy.md` §1–§2, `registry.md` §1–§3, `errors.md` §4, `records.md` §8, §12, §15
 
@@ -26,6 +26,7 @@
 | `variants` | the list of `{name, backend, encoding, architecture, learning_rule, utility, samples, snapshot_every}` — the entry's declaration, **the rule and the utility the variant was actually built under**, and the interval the run used (§2, D-19, D-20); the `counterfactual` member is the row's one **conditional** ninth key, present only when it is not `none` (§4, D-43) |
 | `rules` | the distinct rules the run declared and trained, in declaration order: one name for a ladder rung, two for a configuration whose arms name two estimators (`records.md` §12, `rules.md` §7, D-19) |
 | `utilities` | the same set on D-20's axis: the distinct utilities the run declared and trained, in declaration order, read through `_trained_utility` — one for a ladder rung, two for a configuration whose arms name two (`records.md` §12, `utilities.md` §7, D-20) |
+| `finiteness` | **conditional**: variant → seed → `{member, transitions, steps, largest_target, target_bound}`, present exactly when some variant declares a counterfactual member other than the catalogue's first, absent on every run that declares none (§5, `records.md` §12, `counterfactual.md` §10, D-45) |
 
 **One id per record, and it is the declared one** (D3, stated in `loop.md` §3): `pool.id` is `config["pool"]["id"]` — for a registry rung the read-back id of the membership, for a custom configuration its own `"pool-r7"`-style id — and the read-back digest id is **not** carried anywhere in the record, because `tests/e2e/_surface.py`'s `pool_identity` reads every `id` a record declares and two ids in one two-variant record fail FAM-3.18 (ASM-16).
 
@@ -57,8 +58,28 @@
 
 **The condition is the surface, not an optimisation.** D-43 adds no entry point and no required key of the run record (`counterfactual.md` §9): every new fact lives in the episode record or the transition record, neither of which a run retains, and every other carrier — this set, the `variants` row's member, the container's version-5 field, the pool member's `counterfactual` — is written only when the member is not `none`. `tests/integration/training/test_default_baseline.py`'s 21-field capture and `test_greedy_sample.py`'s 1,000-hand capture are the measurement of that claim and neither is regenerated (`counterfactual.md` §9, `battery.md` §5, D-33 §4).
 
-## 5. What is left to L4
+## 5. The block D-45 adds, and what it says
 
-Whether `_record` builds the mapping literal or assembles it, the order its keys are written in (a record's key order is no reader's contract), whether `pool.game` is read back or echoed, and whether `_header` takes the shape positionally or by keyword — its `shape` argument is contract for `tests/training/` (`README.md` §4), as are `_record`'s two new trailing arguments, `shape=None` and `greedy_block=None`, which `loop.run` passes positionally and which a unit case may omit to get the empty `greedy` block and the default shape.
+**`finiteness` is one block per variant per seed, keyed as `curves` is, and it is written on D-43's conditional rule.** It is the run's
+answer to "how much of this run's signal did the member use, and inside which bound": `member` is the catalogue member that ran,
+`transitions` the transitions whose episode resolved **fully** — every index of its own legal mask carried a value, which is exactly the
+ones it takes `A` steps on — `steps` the steps it took (`A` per resolved transition, `0` when nothing resolved), `largest_target` the
+largest `|value|` among the values those transitions carried (`0.0` when none) and `target_bound` the `T` of the run's shape,
+`seats × starting_stack` (`records.md` §12, `counterfactual.md` §10, `episode.md` §3, D-45).
 
-Not L4's: §1's keys and the one-id rule, §2's sub-record shapes and the four `timings` key names, the two keys D-29 adds and the three rows that repeat the shape, the header's nine items and its `game`/`action space` rows, §4's conditionality with the exact members it covers, and `evaluation.report`'s tenth key staying the report's (`guardrails.md` G6, G8, G23, `loop.md` §8, `counterfactual.md` §6, §9, D-43).
+**It is written exactly when some variant declares a member that is not the catalogue's first**, and absent — like `counterfactuals` — on
+every run that declares none, which is what keeps a default record field for field at its capture. Every pair of such a run carries its
+own entry, the `none` arm included: that arm's member reads no resolution, so it reports `0 / 0 / 0.0` beside the run's `target_bound`
+(`counterfactual.md` §9, §10, `records.md` §12, `tests/integration/training/test_default_baseline.py`). The block is `loop.run`'s own
+`episode._counted` tally, filled in place by `episode._finiteness` as each hand's batch is built and passed to `_record` as its one new
+trailing keyword — `_record(..., greedy_block=None, finiteness_block=None)` — so nothing here counts a transition a second time
+(`loop.md` §2, `episode.md` §3).
+
+**A run a guard refused writes no record at all**, so a third party reads the absence of a record as the other half of the evidence and
+the refusal's own message — the value and the bound it crossed — as the rest (`counterfactual.md` §10, `agents/finiteness.md` §3, D-45).
+
+## 6. What is left to L4
+
+Whether `_record` builds the mapping literal or assembles it, the order its keys are written in (a record's key order is no reader's contract), whether `pool.game` is read back or echoed, and whether `_header` takes the shape positionally or by keyword — its `shape` argument is contract for `tests/training/` (`README.md` §4), as are `_record`'s three new trailing arguments, `shape=None`, `greedy_block=None` and `finiteness_block=None`, which `loop.run` passes positionally and which a unit case may omit to get the empty `greedy` block, no `finiteness` key and the default shape.
+
+Not L4's: §1's keys and the one-id rule, §2's sub-record shapes and the four `timings` key names, the two keys D-29 adds and the three rows that repeat the shape, the header's nine items and its `game`/`action space` rows, §4's conditionality with the exact members it covers, §5's five facts and the run-level condition that writes them, and `evaluation.report`'s tenth key staying the report's (`guardrails.md` G6, G8, G23, `loop.md` §8, `counterfactual.md` §6, §9, D-43, D-45).

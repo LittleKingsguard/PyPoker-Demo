@@ -101,6 +101,7 @@ The run record's keys (`records.md` §12's **required** set, D-19's rule set inc
 | `timings` | the cost record: hands played, wall clock, seconds per hand and the throughput, per variant and per seed — the facts `harness.timings` reports, measured by the run itself because no `harness` edge reaches this module (`records.md` §12, `e2e-surface.md` §3.6, D-7, ASM-15) |
 | `variants` | this module's own: each variant's backend, encoding, architecture, **its learning rule and its utility**, its `counterfactual` member **only when it is not the catalogue's first**, declared samples and the snapshot interval it used (`records.md` §12, `rules.md` §7, `utility.md` §3, `counterfactual.md` §6, D-20, D-43) |
 | `rules`, `utilities` | the two sets the run declared and trained, so a configuration whose two arms name two estimators or two objectives says so (`records.md` §12, `rules.md` §7, `utility.md` §3, D-19, D-20) — and, on the third axis, the `counterfactuals` set, present **only when at least one variant declares a member that is not the catalogue's first** (`counterfactual.md` §6, §9, D-43) |
+| `finiteness` | per variant and per seed: the member the run trained under, the `transitions` its episodes resolved fully (the ones it takes `A` steps on), the `steps` it took, the `largest_target` it was handed and the `target_bound` in force — present **on the same condition** as the set above and absent from every run that declares none, which is what keeps the two committed captures byte-identical; it is the artefact a report reads for the count of counterfactual updates (`counterfactual.md` §10, `records.md` §12, `docs/L3/training/record.md` §5, D-45) |
 
 ### 4.1 The three further keys a complete report needs (Rev 2, measured)
 
@@ -123,11 +124,7 @@ keys above without claiming what it did not measure (D-6):
 
 ### 4.2 The vocabularies a run checks against (Rev 6, Rev 10)
 
-A `backend`, `encoding` or `architecture.kind` is refused against **this module's own declaration** of the two
-backends, two encodings and seven kinds (`loop.md` §2, `docs/L3/agents/architecture.md` §1): `features.encodings()` is
-not among the calls `module-map.md` §2 grants, so a run names the offending value and `features.build_encoder` and
-`agents.build_learner` remain the authority, refusing it in turn. A `learning_rule` and a `utility` are the
-exceptions: `agents.learners()` **is** granted, so the catalogue either is refused against is the one that call publishes (`declarations.md` §2, `utility.md` §1).
+A `backend`, `encoding` or `architecture.kind` is refused against **this module's own declaration** of the two backends, two encodings and seven kinds (`loop.md` §2, `docs/L3/agents/architecture.md` §1): `features.encodings()` is not among the calls `module-map.md` §2 grants, so a run names the offending value and `features.build_encoder` and `agents.build_learner` remain the authority, refusing it in turn — and the two bounds `learn` refuses on are that owner's too, so a run propagates them unchanged (`agents/finiteness.md` §3, D-45). A `learning_rule` and a `utility` are the exceptions: `agents.learners()` **is** granted, so the catalogue either is refused against is the one that call publishes (`declarations.md` §2, `utility.md` §1).
 
 A `game` is refused against a **third restated table**, for the same reason: `engine.game_shapes()` is granted to
 nobody and `features.action_space` is not this module's (`module-map.md` §2), so `src/training/declarations.py`

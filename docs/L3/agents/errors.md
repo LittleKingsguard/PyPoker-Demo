@@ -3,17 +3,16 @@
 - **Owner:** the error classes and the message grammar every refusal of this module follows, the canonical message per
   refusal of `docs/L2/agents/surface.md` §4–§12 and of `divergence.md`'s, and what is deliberately *not* refused
 - **Ceiling:** 130 lines. At the ceiling, split by owner — never append
-- **Rev:** 2 · **Date:** 2026-11-11 — D-43 adds `UnknownCounterfactual` and the record's `episode` and
-  `counterfactual` refusals (§2–§4)
+- **Rev:** 3 · **Date:** 2026-11-11 — D-45 adds `CounterfactualUnbounded` and the two band messages (§2–§3); D-43 added
+  `UnknownCounterfactual` and the record's `episode` and `counterfactual` refusals (§2–§4)
 
 ## 1. Why a hierarchy
 
-`docs/L2/agents/surface.md` §1: *an invalid argument is refused by raising an error that names the violated
-contract; no entry point coerces a value, substitutes a default, swallows an error or returns part of a record*.
-The error is therefore the only reporting channel: nothing comes back as a failure record, nothing is logged and
-continued, and no validation refusal has an observable effect — `learn` validates the batch before its first step,
-`save` before it opens a handle, `act` before it computes a value (`rule.md` §3, `checkpoint.md` §3). A hierarchy
-lets a caller catch "this module refused me" without catching a `TypeError` from a bug in it.
+`docs/L2/agents/surface.md` §1: *an invalid argument is refused by raising an error that names the violated contract; no entry
+point coerces a value, substitutes a default, swallows an error or returns part of a record*. The error is the only reporting
+channel: nothing comes back as a failure record and nothing is logged and continued, so no validation refusal has an observable
+effect — `learn` validates before its first step, `save` before it opens a handle, `act` before it computes a value (`rule.md` §3,
+`checkpoint.md` §3). A hierarchy lets a caller catch "this module refused me" without catching a `TypeError` from a bug in it.
 
 ## 2. The classes — `src/agents/errors.py`
 
@@ -39,12 +38,13 @@ lets a caller catch "this module refused me" without catching a `TypeError` from
     class CheckpointUnwritable(AgentsError)  # save: a path that is not a writable file location
     class CheckpointUnreadable(AgentsError)  # load: missing, unreadable, or a form this module does not read
     class CheckpointMismatch(AgentsError)    # load: the spec disagrees with the file on a compared key
-    class LearningDiverged(AgentsError)      # learn, act, a policy: the state went non-finite, raised by decide/
-                                             #   decide_greedy/_tie_break (divergence.md §2)
+    class LearningDiverged(AgentsError)      # learn, act, a policy: the state or a band went out of range (divergence.md §2)
+    class CounterfactualUnbounded(AgentsError)  # learn: a transition's counterfactual is outside the chips in play (finiteness.md §1)
 
-Twenty-two subclasses, one per refusal family of `surface.md` §4–§12, `shapes.md` §6, `counterfactual.md` §6 and
-`divergence.md` §1. They are **not** module-level names of the `agents` package — below an entry point is not surface
-(`README.md` §3, `e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class (`docs/L3/features/errors.md` §2).
+Twenty-three subclasses, one per refusal family of `surface.md` §4–§12, `shapes.md` §6, `counterfactual.md` §6,
+`finiteness.md` §1–§3 and `divergence.md` §1. They are **not** module-level names of the `agents` package — below an entry
+point is not surface (`README.md` §3, `e2e-surface.md` §1) — and a battery asserts the *behaviour*, never the class
+(`docs/L3/features/errors.md` §2).
 
 ## 3. The message grammar
 
@@ -94,6 +94,7 @@ and the unit battery matches them tolerantly (the raising site's name, the key's
 | `build_baseline` name and shape | `build_baseline(name): the name must be one of ('random', 'always-call', 'oracle', 'fold-no-pair-or-face', 'fold-no-pair-or-better', 'fold-large-bet'), got 'gto'`; and `build_baseline(game): 'no-limit-6' is not one of the declared shapes ('fixed-limit-20', 'no-limit-100', 'six-seat-no-limit-100'), and a shape name is never defaulted` (`seats.md` §6, D-33) |
 | `learn`, a non-finite td_error, and a step that left a parameter non-finite (`divergence.md` §2–§3) | `learn(transitions): transition index 41 computed a non-finite td_error and the learner has diverged, got nan`; `learn(transitions): transition index 41 drove parameter index 118 out of finite range and the learner has diverged, got nan` |
 | the decision: `act`, every policy, and `learn`'s bootstrap — one raise per site (`divergence.md` §2–§3) | `decide(values): the masked value at index 2 is not finite and the learner has diverged, got nan`; `decide_greedy(values): …` on an `off` policy's path; `_tie_break(values): …` for `double-q-learning`'s bootstrap |
+| D-45's two bounds (`finiteness.md` §2–§3) | `learn(transitions): the learner's parameter index 118 is already 15000000.0, beyond the declared parameter band 1000000.0, so no transition is read`; `learn(transitions): transition index 41 at action index 2 drove parameter index 118 to -32000000.0, beyond the declared parameter band 1000000.0, and the learner has diverged`; `learn(transitions): transition index 0 at action index 1 carries the counterfactual value -812.5, which is outside the bound 600.0 of the chips in play on the shape 'six-seat-no-limit-100'` |
 
 Three properties the battery relies on: the message always contains the raising site's own name, the name of the argument
 or key at fault, and the offending value; it never claims a value was accepted (`docs/L3/features/errors.md` §3); and a
@@ -101,7 +102,8 @@ refusal raised while a policy works is **this** module's, named `policy(readout)
 
 ## 4. What is *not* refused
 
-Refusing more than the contract refuses is also a defect — a battery may pass any valid instance (`battery.md` §4, D-15):
+Refusing more than the contract refuses is also a defect — a battery may pass any valid instance (`battery.md` §4, D-15) — and only a
+non-record is refused: not a mapping, a missing key, a forbidden value; a value inside D-45's bound passes (`finiteness.md` §1, §3):
 
 - an **extra key in a learner spec**, `hyper`, `param_budget`, `samples`, `seeds`, `device` and `name` included:
   those are a run record's data and not a per-learner argument (`surface.md` §4, `records.md` §2);
@@ -121,10 +123,8 @@ Refusing more than the contract refuses is also a defect — a battery may pass 
 - **`sparsity` of exactly `0` or `1`**, a width or depth of `1`, two learners from one spec, a learner saved twice, a
   checkpoint loaded twice, and a policy kept for a long time: the module keeps no cache and no registry (`surface.md` §8).
 
-Only a non-record is refused: not a mapping, a missing required key, a forbidden value (`surface.md` §1).
-
 ## 5. Where the messages are asserted
 
-FAM-1.17–1.26 assert only that each name is callable with a valid instance; the refusals are asserted by the blind
-instances and by this design's unit battery (`battery.md` §3–§4). A message omitting the entry point, the key or the value
-fails the unit battery, so §3 exists (`guardrails.md`); AGT-16.1–16.6 assert its last two rows (`test_divergence.py`).
+FAM-1.17–1.26 assert only that each name is callable with a valid instance; the refusals are asserted by the blind instances and by this
+design's unit battery (`battery.md` §3–§4), and a message omitting the entry point, the key or the value fails it (`guardrails.md`): the
+divergence rows are AGT-16.1–16.6's and the two bounds' AGT-19.1–19.3's.

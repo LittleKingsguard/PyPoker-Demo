@@ -14,18 +14,19 @@
 
 ## 1. What this module is
 
-`agents` is everything that chooses or learns an action: one learner family, the catalogue of two learning rules and the
-catalogue of two terminal-reward utilities a spec selects from, the three declared game shapes a spec selects between, and
-the six fixed baselines — D-6's three, which anchor the rating, and D-21's three folders (`module-map.md` §1, D-6, D-19,
-D-20, D-21, D-29, D-33, ASM-7). It acts, learns, saves, restores and hands out policies; it never deals a hand, decides
-legality, encodes an observation, measures a match or writes a report (D-2, D-3, `learner.md` §6–§8). The **sets** of rules
-and utilities, the shape catalogue, the vocabulary and the readout facts are fixed for the ladder (D-3, ASM-7, `rules.md` §8).
+`agents` is everything that chooses or learns an action: one learner family, the catalogue of two learning rules and the catalogue
+of two terminal-reward utilities a spec selects from, the three declared game shapes a spec selects between, and the six fixed
+baselines — D-6's three, which anchor the rating, and D-21's three folders (`module-map.md` §1, D-6, D-19, D-20, D-21, D-29, D-33,
+ASM-7). It acts, learns, saves, restores and hands out policies; it never deals a hand, decides legality, encodes an observation,
+measures a match or writes a report (D-2, D-3, `learner.md` §6–§8). The **sets** of rules and utilities, the shape catalogue, the
+vocabulary and the readout facts are fixed for the ladder (D-3, ASM-7, `rules.md` §8).
 
 ## 2. The documents, one per owner
 
 | Document | Owner of that question | What it fixes |
 |---|---|---|
-| `rule.md` | the catalogue of two rules, and the third catalogue of counterfactuals | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the two **divergence guards** that sit in that order (`divergence.md` §2); the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns; and the member's step count, its three fallbacks and the statistics counted over steps (D-19, ASM-7, ASM-12, D-43) |
+| `rule.md` | the catalogue of two rules, and the third catalogue of counterfactuals | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the two **divergence guards** that sit in that order (`divergence.md` §2) and D-45's band on the same read (`finiteness.md` §2); the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns; and the member's step count, its three fallbacks and the statistics counted over steps (D-19, ASM-7, ASM-12, D-43, D-45) |
+| `finiteness.md` | D-45's finiteness envelope | the target's bound by the chips in play, `PARAMETER_BAND` beside `HYPER`, the three sites `learn` refuses at, the argument that makes `-inf` unreachable, the three messages and the cases that pin them (D-45, `counterfactual.md` §10) |
 | `utility.md` | the catalogue of two utilities | each utility's `reward` and `normaliser`, the declared default, the one contract both answer, the arithmetic's four scores, where the transform is applied and where it is not, what a learner and a policy carry, and the `UnknownUtility` refusal (D-20, ASM-12, ASM-28) |
 | `architecture.md` | the seven kinds | each kind's layer stack, how `width`/`depth`/`sparsity`/`residual` are read, the **one initialisation order**, the **parameter formula**, and the sizing contract (D-3, ASM-10) |
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |
@@ -33,7 +34,7 @@ and utilities, the shape catalogue, the vocabulary and the readout facts are fix
 | `shapes.md` | the game shape | the catalogue restated in `declarations.py` with each row's seat count and why `A` is **read** off `features.action_space`, the head `W → A` and the layout's `actions` field, the `A`-index decision space, `decide`/`decide_greedy` and the `tie` flag, the two exploration modes, format 4 and the `game` field (D-29, D-33, ASM-37, ASM-40) |
 | `restore.md` | a restore's promise | the loss-free equality stated testably, why the file must carry more than the parameters, where the promise is asserted by a case, and what is left to L4 (D-16, ASM-5, ASM-20) |
 | `baselines.md` | the six fixed rules | `random`'s keyed uniform draw, `always-call`'s procedure, `oracle`'s pot-odds inequality at **257** samples, the three folders' predicates under one legality rule, the blindness, the `baselines()` record and the `anchor` flag that keeps the rating's scale (D-6, ASM-4, ASM-31, ASM-32, D-21) |
-| `errors.md` | refusals | the hierarchy, the message grammar, the canonical message per refusal of `surface.md` §4–§12 and of `divergence.md`'s, and what is deliberately *not* refused — the learner's own divergence being `divergence.md`'s: its twenty-first class, its sites and guards, its four messages (D-19, D-20) |
+| `errors.md` | refusals | the hierarchy, the message grammar, the canonical message per refusal of `surface.md` §4–§12, of `divergence.md`'s and of `finiteness.md`'s, and what is deliberately *not* refused — the learner's own divergence being `divergence.md`'s and D-45's envelope `finiteness.md`'s: its twenty-third class, its sites and guards, its messages (D-19, D-20, D-45) |
 | `guardrails.md` | L4 | one numbered note per risk this design identified, in the order they bite, each naming the test that catches it |
 
 ## 3. The ten names
@@ -52,14 +53,14 @@ adds, removes and renames none (D-12):
     baselines()                            -> Mapping
     build_baseline(name, seed, shape=None) -> callable        # the declared shape the policy decides in
 
-`Learner`, the error classes, the kind table, the shape names, both catalogues, the hyper-declarations, the parameter
-layout, the keyed draw and every helper below an entry point are **not** surface, and the rules holding of all ten — no
-coercion, no substituted default, no swallowed error, no global `random` (ASM-2) — are L2's (`surface.md` §1, brief §5).
+`Learner`, the error classes, the kind table, the shape names, both catalogues, the hyper-declarations, `PARAMETER_BAND`, the
+parameter layout, the keyed draw and every helper below an entry point are **not** surface, and the rules holding of all ten — no
+coercion, no substituted default, no swallowed error, no global `random` (ASM-2) — are L2's (`surface.md` §1, `finiteness.md` §2).
 
 ## 4. The layout of `src/agents/`
 
     __init__.py       the ten entry points, `__all__`, and nothing else (§3)
-    errors.py         AgentsError and its twenty-one subclasses (errors.md §2, divergence.md §1)
+    errors.py         AgentsError and its twenty-three subclasses (errors.md §2, divergence.md §1, finiteness.md §1)
     declarations.py   the three catalogues, the shape names and seat counts, the exploration modes and `sized_by_kind`,
                       with their refusals (§5, shapes.md §1, §6, counterfactual.md §6)
     model.py          the kinds' stacks, the parameter formula, the initialisation order (arch. §2–§5)
@@ -77,13 +78,13 @@ fixture and no data file. The names `rule.md` §8 fixes in `rule.py`, `model.py`
 
 ## 5. The catalogue `learners()` publishes
 
-Six keys, in this order: `backends`, `architectures`, `learning_rules`, `utilities`, `counterfactuals`, `hyper`
-(`surface.md` §3, D-19, D-20, D-43). `backends` is keyed `numpy` then `torch`, each value `{"name": <backend>}`;
-`architectures` by the seven kinds of `architecture.md` §1, each carrying `name`, `observation` and `observation_size` —
-the **default shape's** size, 203 and 96, so a learner on another shape takes its width from that shape's encoder
-(`shapes.md` §8, ASM-44); `learning_rules`, `utilities` and `counterfactuals` by their catalogues' members in `rules.md`
-§2's, `utility.md` §2's and `counterfactual.md` §6's order, the third carrying `name`, `reads`, `steps`; `hyper` the six
-fixed declarations all three consume (`rule.md` §6). Plain data, equal on two calls; **no shape key is added** (§1, §4).
+Six keys, in this order: `backends`, `architectures`, `learning_rules`, `utilities`, `counterfactuals`, `hyper` (`surface.md` §3, D-19,
+D-20, D-43). `backends` is keyed `numpy` then `torch`, each value `{"name": <backend>}`; `architectures` by the seven kinds of
+`architecture.md` §1, each carrying `name`, `observation` and `observation_size` — the **default shape's** size, 203 and 96, so a
+learner on another shape takes its width from that shape's encoder (`shapes.md` §8, ASM-44); `learning_rules`, `utilities` and
+`counterfactuals` by their catalogues' members in `rules.md` §2's, `utility.md` §2's and `counterfactual.md` §6's order, the third
+carrying `name`, `reads`, `steps`; `hyper` the six fixed declarations all three consume (`rule.md` §6). Plain data, equal on two
+calls; no shape key and no seventh key is added, so `PARAMETER_BAND` sits beside `hyper` and never in it (`finiteness.md` §2, D-45).
 
 ## 6. The import boundary — a hard rule
 
@@ -109,12 +110,11 @@ for `fold-large-bet`, each imported inside the policy that needs it (`module-map
 
 1. **One rule set, one utility set, one shape catalogue, one vocabulary** (ASM-7, ASM-28, D-19, D-20, D-29, D-33): a rung
    changes the representation or the architecture only, and a pair may differ on the rule or the utility at one capacity.
-2. **An answer depends on the state and the decision, not on call order**: the key is a function of seed,
-   observation and mask, the schedule advances only inside `learn`, a policy's state advances nowhere.
-3. **The tie-break is total and backend-independent**: the smallest masked index within `1e-9` relative of the masked
-   maximum, in the **shape's** declared order (`rule.md` §5, `backends.md` §3, `shapes.md` §3).
-4. **One initialisation order**, worked by NumPy for both backends: He-normal weights, zero biases (arch §4).
-5. **The count is one formula and the shape's numbers are read, never written**: `I·W` over the learner's own input width
-   (203, 329 or 433) plus `A·W + A` at its head, the target copy and masks excluded; `SHAPE_NAMES` and `SHAPE_SEATS` restate
-   the names and seat counts only, and no backend carries a `3` (`shapes.md` §1–§2, §8, `seats.md` §1, ASM-40, ASM-44, D-33).
-6. **A checkpoint is a zip of two members**, written through an open file handle (`checkpoint.md` §2).
+2. **An answer depends on the state and the decision, not on call order**: the key is a function of seed, observation and mask, and
+   the schedule advances only inside `learn`.
+3. **The tie-break is total and backend-independent**: the smallest masked index within `1e-9` relative of the masked maximum, in
+   the **shape's** declared order (`rule.md` §5, `backends.md` §3, `shapes.md` §3), and D-45's band is a comparison beside it.
+4. **One initialisation order**, worked by NumPy for both backends: He-normal weights, zero biases (arch §4); a checkpoint is a zip
+   of two members (`checkpoint.md` §2).
+5. **The count is one formula and the shape's numbers are read**: `I·W` over the learner's own input width (203, 329 or 433) plus `A·W + A`
+   at its head, the target copy excluded (`shapes.md` §8, `seats.md` §1, ASM-44, D-33).
