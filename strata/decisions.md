@@ -1384,3 +1384,25 @@ edge.
 
 **For the talk:** this is the first encoding result in the project that is attributable, reproducible across
 seeds and consistent in direction — and it composes with the utility result rather than competing with it.
+
+---
+
+## D-54 — The encoding claim is hardened on seven seeds
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Run the rest of the seeds"
+
+**Decision:** the `card-tokens` vs `flat-numeric` pair under `stack-shortfall` is re-run on **seeds 3–6**
+(four more per arm), at the same six-seat shape, pool, budget and utility, on top of the recorded seeds
+0–2 (D-53). Together that is **seven seeds per arm**, which is what the claim needs: on three seeds the
+token arm folded 91.8–93.5 % with a spread of 1.6 points, and a spread that tight is exactly what a
+three-seed sample cannot distinguish from luck.
+
+The purpose is falsification, not confirmation. If seeds 3–6 keep the token arm above 90 % while the flat
+arm wanders in the 70s–80s, the encoding result stands on seven seeds. If the token arm falls to the flat
+arm's range on the new seeds, then D-53's 92–93 % was **seeds 0–2**, not the encoding, and that is the
+result — the criterion is the *separation between arms per seed*, not any absolute rate, and no threshold
+is invented after the data.
+
+Cost: eight runs at the reduced length, ~6 h. No two-seat configuration is involved (D-51).
