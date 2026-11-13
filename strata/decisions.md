@@ -1406,3 +1406,32 @@ result — the criterion is the *separation between arms per seed*, not any abso
 is invented after the data.
 
 Cost: eight runs at the reduced length, ~6 h. No two-seat configuration is involved (D-51).
+
+---
+
+## D-55 — The finiteness fix, then the three-way combination
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Do the finiteness fix and then test the combination. There are plenty of
+unused cores, run both as long as they're not on the same thread"
+
+**The gap this closes:** every counterfactual run to date is `flat-numeric` — verified from the
+containers, whose `representation.encoding` is `flat-numeric` in all of them — so the encoding has never
+been combined with the counterfactual. The untested cell is **`card-tokens` + `reveal-counterfactual` +
+`stack-shortfall`**, and it is the promising one because the two mechanisms have opposite profiles: the
+counterfactual is strong but seed-dependent (40 % at one seed of two, nothing at the other), while the
+token encoding is weaker but steady (1.6-point spread against the flat encoding's 9.4).
+
+**Order of work, and why:** the counterfactual **diverges** at a third seed (`-inf` at the first
+transition, D-45), so the combination cannot be measured before the fix — a partially-filled table would
+be the result instead of the cell. The fix must make the member **unable** to emit a non-finite target
+(bound it to the chips a hand can produce, or refuse by name), not clip silently.
+
+**The control is reused, not re-run:** D-53's `R3-card-tokens-shortfall` arm (91.83 / 93.45 / 92.25 %,
+chips −0.939 / −0.110 / −0.509) is the counterfactual-free baseline on the same pool, shape, seeds and
+budget, so the combination arm is one variable away from a measured result.
+
+**Concurrency:** the seeds 3–6 hardening run (`/tmp/token-shortfall-seeds36`) continues untouched; the fix
+and the combination run in separate single-threaded processes on other cores. **No threshold is pinned**
+for the combination; it is a measurement, and criteria are pinned before runs, not after them.
