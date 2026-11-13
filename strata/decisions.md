@@ -1280,3 +1280,34 @@ the member. Both halves have measured, opposite characters — the utility folds
 **Attribution:** the two arms differ in exactly one key (D-3); chips and fold shares are reported per seed
 and never thresholded, since no criterion is pinned for this combination and none is being invented after
 the fact.
+
+---
+
+## D-50 — The risk-averse utility folds reproducibly; the counterfactual adds nothing
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Reduce the deep run length, then try a run that combines reveal-counterfactual
+with the stack-shortfall loss/reward calculation"
+
+**Result:** at six seats, the mixed pool, 15,000 hands × seeds 0–2, **both arms fold at every seed**:
+`reveal-counterfactual` + `stack-shortfall` at **74.71 / 77.97 / 77.46 %**, and the control with the member
+off at **78.33 / 87.01 / 77.58 %**. The control folds *more*, so the reproducible folding is the
+**utility's**, not the counterfactual's.
+
+**Attribution** is clean — same pool id `pool-8386c3ef83ae48b2`, same shape, same seeds, where
+`net-chips` folded **0.00 %** at 20,000 hands (D-44) and **0 %** at five seeds of 1,000 (D-34). The
+utility is the sole difference.
+
+**What it settles:** the project now has a configuration whose folding is **reproducible across seeds** —
+the first — and it needs neither the new counterfactual nor a new shape. `stack-shortfall` at six seats
+with a mixed pool folds three quarters or more of its decisions at every seed, against a utility-matched
+control that folds none.
+
+**What it does not settle:** folding is **not profitable** in this configuration (chips −0.48 to −1.92,
+two of six intervals reaching above zero), so this is a behavioural result and not a chip edge; and the
+two-seat rate for the same utility was 0.82–3.48 % (D-48), so seat count dominates its effect.
+
+**No criterion was pinned** before this run and none is invented after it. If this configuration is to
+carry a verdict for the talk, the criterion belongs to the user and should be pinned before a confirming
+run.
