@@ -1608,3 +1608,36 @@ instruction to alter the input representation; it remains in force for every fut
 reports its census, chips, **active-unit count** (the D-60 instrument) and **state-dependence** (distinct
 score vectors, the D-59 instrument) — because the question is not only whether behaviour changes but whether
 the input path survives at all.
+
+---
+
+## D-62 — "Model versions" means the mechanism grid, not the six architecture rungs
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "What I meant by 'model versions' was the net-chips vs. stack-shortfall +
+double-Q vs counterfactual + flat vs. tokenized"
+
+**Correction:** D-61's stage 2 specified the six rungs (`R1`…`R6`, the architecture and encoding ladder).
+That was the wrong grid. The user's "model versions" are the **combinations of the three mechanisms those
+rungs varied separately**:
+
+| axis | levels |
+|---|---|
+| **utility** | `net-chips` · `stack-shortfall` |
+| **estimator / signal** | masked-Q · `double-q-learning` · `reveal-counterfactual` |
+| **encoding** | `flat-numeric` · `card-tokens` |
+
+**= 12 cells**, each at six seats, 15,000 hands × seeds 0–2, the mixed pool `pool-8386c3ef83ae48b2`,
+running **concurrently** as separate single-threaded processes.
+
+**Why this grid is the right one:** the project measured each axis alone and found the utility decisive
+(0 % → 78–93 % folding), the encoding a modulator under that utility only, the rule inert, the counterfactual
+inert on top — and D-60 then found the *reason* the net-chip cells were inert: their trunks are dead. So the
+grid asks the question the singles could not: **which combinations have a living input path, and does the
+mechanism matter once the network can see?** The D-60 (active units) and D-59 (distinct score vectors)
+instruments are reported per cell, and the [0,1] normalisation of D-61 is the precondition that may revive
+them.
+
+**Cancelled:** the nine-rung sweep (D-61 stage 2). The rungs R4/R5/R6 remain declared and unmeasured; they are
+architecture questions and belong to a later pass, not to this grid.
