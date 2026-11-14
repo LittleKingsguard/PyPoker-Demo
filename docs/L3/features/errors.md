@@ -25,16 +25,16 @@ action index escaping this module would each be an internal decision leaking as 
     class UnknownShape(FeaturesError)       # build_encoder, action_space, decode_action: a shape name
                                             #         outside the catalogue, which is never defaulted
     class InvalidEncoder(FeaturesError)     # observation_spec / encode: not an encoder this module built
-    class InvalidReadout(FeaturesError)     # encode: not a mapping, a missing carried field, or a
-                                            #         carried value this encoding cannot represent
+    class InvalidReadout(FeaturesError)     # encode: not a mapping, a missing field, a value with no spelling;
+                                            # build_encoder/observation_spec: a shape row with no denominator (`normalisers.md` §2)
     class InvalidActionList(FeaturesError)  # legal_indices: not a sequence of descriptors, or empty
     class UnknownAction(FeaturesError)      # legal_indices: a descriptor outside the declared descriptors
     class InvalidActionIndex(FeaturesError) # decode_action: not an index, or outside the shape's vocabulary
 
-The classes are **not** module-level names of the `features` package: they live below an entry point and
-are not surface (`README.md` §3, `e2e-surface.md` §1). The battery asserts the *behaviour* — that a call
-raises, and what the message says — never an exception class, because the class is this module's freedom
-(`docs/L3/engine/errors.md` §2 makes the same choice for the same reason).
+The classes are **not** module-level names of the `features` package: they live below an entry point and are not
+surface (`README.md` §3, `e2e-surface.md` §1). The battery asserts the *behaviour* — that a call raises, and what the message says —
+never an exception class, because the class is this module's freedom (`docs/L3/engine/errors.md` §2), with one exception:
+`FEA-12` asserts `InvalidReadout` **by name**, because `docs/L1/normalisation.md` §4 names it (`normalisers.md` §2, D-61).
 
 ## 3. The message grammar
 

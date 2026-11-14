@@ -25,7 +25,11 @@ class InvalidEncoder(FeaturesError):
 
 
 class InvalidReadout(FeaturesError):
-    """`encode`: not a mapping, a missing carried field, or a value with no spelling."""
+    """`encode`: not a mapping, a missing carried field, or a value with no spelling.
+
+    `build_encoder`/`observation_spec`: a shape row carrying no denominator for a magnitude
+    block, refused while its declaration is built (normalisers.md §2, errors.md §2, D-61).
+    """
 
 
 class InvalidActionList(FeaturesError):

@@ -1670,3 +1670,40 @@ their observations are bit-identical — and only the token path's trunk input c
 **Decision:** the repair is the **value scale** (a normalised or bounded target on the utility axis), not
 another input transform, not an architecture rung (`R4`/`R5`/`R6` stay declared and unmeasured, D-62), and not
 another estimator. That is the next experiment, and it is the last one this cause admits.
+
+---
+
+## D-64 — The grid ran twice; both passes agree at seed level, and pooled census shares are invalid
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (L0's own defect):** I launched the corrected 12-cell brief (`subagent-508`) before the earlier
+pass (`subagent-507`) had stopped, so **two concurrent L1 passes ran the same grid** on the same pool,
+seeds and budget. Both reported `PASS`; their summary numbers disagree.
+
+**Reconciliation, done by hand before either set was published:**
+
+- **Seed 0 of `net-masked-flat` agrees to rounding**: 3,934 decisions / raise-minimum 61.5 % / check-call
+  38.5 % in one pass, 3,935 / 61.7 % / 38.35 % in the other — and both match the pre-change record, as they
+  must, because the encoder's output is **provably identical** pre- and post-change on real readouts (all
+  four shape × encoding combinations, max difference **0.0**, checked by importing the pre-change package
+  from `git archive 0e030e1`) and the dense backend was untouched (only the token path gained the `tanh`
+  squash).
+- **The summary rows differ because one pass pooled census shares across seeds whose policies differ** —
+  seed 0 raise-minimum 61.5 %, seed 1 raise-all-in 57.9 % with 39.1 % folding, seed 2 check-call 100 %. A
+  pooled "census" of three different attractors is not a policy; that is the trap `attractor-sweep.md`
+  recorded and this row re-learns.
+- The two passes also differ on the **band refusals**: one saw three `LearningDiverged` at the 1e6 band, the
+  other two, and reported that both completed on an identical retry — so the refusal is an intermittency,
+  not a cell property.
+
+**Substantive verdict, identical in both passes:** **the utility is the only axis that revives the trunk.**
+Every `net-chips` cell is a constant function (0 active units in the second hidden layer, one score vector
+over hundreds to thousands of observations, ‖hidden‖ 0.00 against a bias of 10–57); every
+`stack-shortfall` cell is alive (19–25 active units per layer, distinct score vectors equal to distinct
+observations). The encoding modulates only where a trunk lives; `double-q` and `reveal-counterfactual` are
+indistinguishable from the seed spread.
+
+**Decision:** the substantive finding stands and both passes support it; **per-seed tables are the form of
+record and pooled census shares are not**, from here on. The duplication was my scheduling error, and the
+cost was two grids' worth of compute rather than a wrong conclusion.

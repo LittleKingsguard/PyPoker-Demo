@@ -33,7 +33,12 @@ their value cannot exceed 1 by construction, so their bound is a *checked* state
 not a clamp.  A token-sequence block's bound is **categorical**, never a numeric scale:
 its emitted value is an integer id in ``[0, vocabulary)`` -- the vocabulary is the shape
 row's, the pad 0 included -- so no amount is divided on the token path
-(card-tokens.md §6, D-61).
+(card-tokens.md §6, D-61).  A shape row that declares no denominator for a magnitude block
+is **refused by name** instead: the refusal is raised while that shape's declaration is
+built, so `build_encoder`, `observation_spec`, `spec`, `catalogue` and `encodings()` reach
+it and `encode` never does -- and both encodings reach it, the token encoding included,
+because the guard is the declaration's and not a writer's (normalisers.md §2-§3,
+normalisation.md §4, errors.md §3, D-61).
 
 The normalisers, the descriptors, the ladders and the capacity are **restated, not
 imported**: this module imports no other project module (layout.md §3, guardrails.md
@@ -46,7 +51,7 @@ down: every block's `params` is read from the shape's row here.
 from __future__ import annotations
 
 from .cards import CARD_SLOT
-from .errors import UnknownEncoding, UnknownShape
+from .errors import InvalidReadout, UnknownEncoding, UnknownShape
 
 # The nine facts an observation carries, in the readout's own order less `legal` and the
 # derived `hand_class` (encoder.md §3.1, ASM-30); it is also both encodings' block order.
@@ -280,6 +285,47 @@ BLOCK_BOUNDS = {
 }
 
 
+#: Which normaliser key is each magnitude block's denominator, ``(block, key)`` in the
+#: declaration's own block order: the stacks block divides by `stack`, the pot by `pot`, the
+#: amount to call by `to_call`, and the limit block's two slots by `amount` (the bet size in
+#: force) and `count` (the bet-or-raise actions this street).  It is the **one** statement of
+#: that mapping: the refusal below reads it for both of its message forms, so the block a key
+#: belongs to and the key a block needs cannot drift apart, and the first missing key is
+#: reported in this order rather than in a set's (normalisers.md §1-§2, flat-numeric.md §4,
+#: errors.md §3, D-61).
+_BLOCK_NORMALISERS = (
+    ("stacks", "stack"),
+    ("pot", "pot"),
+    ("to_call", "to_call"),
+    ("limit", "amount"),
+    ("limit", "count"),
+)
+
+
+def _denominator_phrase():
+    """`_BLOCK_NORMALISERS` spelled as the one clause the absent-mapping refusal carries.
+
+    The blocks are grouped in declaration order, so the limit block's two slots are one
+    group, and a block whose key is its own name is named without "the block" -- the clause
+    reads ``'stack' for the block 'stacks', 'pot' for 'pot', ..., 'amount' and 'count' for
+    'limit'`` (normalisers.md §2).  Derived from the table, never restated beside it.
+    """
+    groups = []
+    for block, key in _BLOCK_NORMALISERS:
+        if groups and groups[-1][0] == block:
+            groups[-1][1].append(key)
+        else:
+            groups.append((block, [key]))
+    phrases = []
+    for block, keys in groups:
+        quoted = " and ".join(repr(key) for key in keys)
+        if len(keys) > 1 or keys[0] == block:
+            phrases.append("%s for %s" % (quoted, repr(block)))
+        else:
+            phrases.append("%s for the block %s" % (quoted, repr(block)))
+    return ", ".join(phrases)
+
+
 def _table(rows):
     """One encoding's block records, each offset the sum of the widths before it."""
     blocks = []
@@ -366,6 +412,52 @@ def _token_blocks(row):
     ))
 
 
+def _normalisers_of(row):
+    """One row's normaliser mapping as a **fresh copy**, or `{}` when the row carries none.
+
+    Defensive on purpose: a row with no ``normalisers`` mapping at all -- or with something
+    there that is not a mapping -- reaches the caller as an empty mapping, never as a bare
+    ``KeyError``.  `action_space` and `decode_action` read rows too, and they are given a
+    row rather than a crash; the refusal belongs to the declaration, not to every reader
+    (normalisers.md §2, errors.md §3, D-61).
+    """
+    mapping = row.get("normalisers")
+    return dict(mapping) if hasattr(mapping, "keys") else {}
+
+
+def _require_normalisers(row, entry_point):
+    """One row's five denominators, or the refusal that names what the row is missing.
+
+    Called while the declaration is built and **before** either block table is written, so
+    the refusal is the declaration's and not a writer's: `build_encoder`, `observation_spec`,
+    `spec`, `catalogue` and `encodings()` all reach it, `card-tokens` included because it
+    divides nothing, and nothing on `encode`'s path re-checks it (normalisers.md §2-§3,
+    normalisation.md §4, D-61).  A row with no mapping at all is refused naming the mapping
+    and every block's denominator; a row missing one key is refused naming that key **quoted**
+    and the block whose denominator it is, both read from `_BLOCK_NORMALISERS`, and the
+    first missing key in that order when more than one is absent (errors.md §3).
+    """
+    normalisers = row.get("normalisers")
+    if normalisers:
+        for block, key in _BLOCK_NORMALISERS:
+            if key not in normalisers:
+                raise InvalidReadout(
+                    "%s(shape): the shape %r declares no %r normaliser for the block %r, so "
+                    "the readout cannot be normalised: it is refused, never clamped, "
+                    "defaulted or scaled by a substituted denominator (normalisers.md §2, "
+                    "normalisation.md §4, errors.md §3, D-61)"
+                    % (entry_point, row["name"], key, block)
+                )
+        return normalisers
+    raise InvalidReadout(
+        "%s(shape): the shape %r declares no normalisers mapping, so no magnitude block "
+        "has a denominator -- %s -- and the readout cannot be normalised: it is refused, "
+        "never clamped, defaulted or scaled by a substituted denominator (normalisers.md "
+        "§2, normalisation.md §4, errors.md §3, D-61)"
+        % (entry_point, row["name"], _denominator_phrase())
+    )
+
+
 def shape_names():
     """Every declared shape name, in the catalogue's order -- default first (shapes.md §2)."""
     return tuple(SHAPE_ROWS)
@@ -400,7 +492,7 @@ def shape_row(shape=None, entry_point="shape_row"):
         "seat_mode": row["seat_mode"],
         "stacks_order": row["stacks_order"],
         "actions": tuple(row["actions"]),
-        "normalisers": dict(row["normalisers"]),
+        "normalisers": _normalisers_of(row),
         "ladders": {key: tuple(value) for key, value in row["ladders"].items()},
         "history": row["history"],
         "vocabulary": row["vocabulary"],
@@ -447,6 +539,7 @@ def declaration(name, shape=None, entry_point="build_encoder"):
     """
     encoding = require_encoding(name, entry_point)
     row = shape_row(shape, entry_point)
+    _require_normalisers(row, entry_point)
     blocks = _flat_blocks(row) if encoding == "flat-numeric" else _token_blocks(row)
     record = {
         "representation": _ENCODING_ROWS[encoding]["representation"],

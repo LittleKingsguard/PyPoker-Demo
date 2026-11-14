@@ -4,7 +4,7 @@
 - **Owns:** every input value both encodings emit, the bound each slot carries, the one saturation
   rule, the refusal for a fact that cannot be normalised, the invariant and where it is asserted,
   and the twelve-cell mechanism grid that measures what normalisation changes (D-61, D-62)
-- **Ceiling:** 195 lines. One document rather than two because the grid exists to measure this change
+- **Ceiling:** 210 lines. One document rather than two because the grid exists to measure this change
   and a second file would restate the map to explain the instrument (D-61, D-62)
 
 ## 1. What this change is, and what it is not
@@ -108,12 +108,16 @@ and is never clipped"** for those five slots and for no others; the case that as
 becomes the case that asserts `1.0` and the saturation, which is a stronger assertion about the same
 block, not a weaker one (D-61, `battery.md` §3).
 
-**The refusal by name.** A readout that cannot be normalised is refused, never scaled by a substituted
-denominator: `decode` of a carried fact whose shape row declares no normaliser is an
-`InvalidReadout` naming the field and the shape (`errors.md` §3, `encoder.md` §4). No declared shape
-reaches it — all three declare the five normalisers (`shapes.md` §2) — so it is a structural guard that
-keeps a fourth row from emitting an unbounded slot silently, and the module battery exercises it at the
-block level rather than leaving it untested (D-11).
+**The refusal by name.** A shape row that carries **no denominator** for a magnitude block is refused
+when the declaration is built — `build_encoder` and `encodings` alike — as this
+module's `InvalidReadout`, naming the **block**, the **missing normaliser key** and the **shape**, and
+never scaled by a substituted denominator, defaulted or silently built (`errors.md` §3, `encoder.md` §4).
+No declared shape reaches it — all three declare the five normalisers (`shapes.md` §2) — so it is a
+structural guard that keeps a fourth row from emitting an unbounded slot, and it is asserted at the block
+level in `tests/features/` rather than left untested (D-11, `battery.md` §5). Its second half matters
+more than it looks: before this guard the dense path raised a bare `KeyError` while the **token** path
+built silently on a row missing a key — the quiet failure, which is the one a refusal exists to prevent
+(D-13).
 
 ## 5. The invariant, and the battery that asserts it
 
@@ -128,11 +132,13 @@ Where each half is asserted, and why there:
 - **`tests/e2e/` FAM-24** — the layer-level half, through declared surfaces only (`battery.md` §2): a
   sweep of real hands over all three shapes and both encodings asserting `max(observation) <= 1` and
   every id inside the vocabulary; the saturation case of §4, where a readout above its denominator
-  encodes to exactly `1.0`; the refusal of §4 for a block whose row declares no denominator; and a
-  learner of each family built and decided at its shape's own width (`e2e-surface.md` §2).
+  encodes to exactly `1.0`; and a learner of each family built and decided at its shape's own width
+  (`e2e-surface.md` §2).
 - **`tests/features/`** — the per-block half: every magnitude block's denominator is its shape's
   published normaliser, at the normaliser the slot reads `1.0`, above it it reads `1.0` and no more,
-  and the supersession of §4 is stated where `flat-numeric.md` §4 is tested.
+  the supersession of §4 is stated where `flat-numeric.md` §4 is tested, and the refusal of §4 is
+  exercised by doctoring a row's denominators — which is the only way to reach it, since no declared
+  row omits one (`battery.md` §5).
 - **`tests/agents/`** — INV-2's second part, which no e2e surface exposes: the forward cache's input
   is the mean of rows read through the squash, a table set to magnitudes far past the band still feeds
   the trunk a value in [0, 1], and the backward pass carries the squash's derivative so a step on the
@@ -193,3 +199,11 @@ No threshold is pinned before it, so the grid is a measurement and not a verdict
 it cannot compare a cell with a pre-change number as if both saw the same input (§1); its chip intervals
 span zero at this variance (D-56); it says nothing about architecture (D-62). **`grid-result.md` states
 what it measured and what L1 now rules out**, the figures staying beside the run records (ASM-23).
+
+**Two properties of the instrument, stated before its numbers are read.** A cell's runs are the same
+*regime* and not the same *digits*: the deal stream drifts between processes, so two processes at one
+seed part after a few dozen hands and a recorded pre-change value is reachable rather than reproducible
+(ASM-2, D-6). And a `net-chips` cell can **refuse at the declared parameter band** before its trunk is
+measured — with the input bounded and the reward still O(100), a surviving input path carries the
+reward's scale into the weights, and D-45's band stops the run by name rather than letting it diverge, so
+a refused cell has a cause and no checkpoint for the D-60 instrument to read (D-45, D-61).

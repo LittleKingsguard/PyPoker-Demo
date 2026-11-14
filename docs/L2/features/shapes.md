@@ -135,8 +135,10 @@ point, the rejected value and the **declared names** — and is never defaulted;
 unknown encoding name before it looks at the shape, so the two refusals cannot trade places
 (`surface.md` §1, §4, D-13).
 
-The join is three assertions in the integration battery, and they are the whole of how the restatement of §1
-stays true:
+**A magnitude block's denominator is §2's and nothing else**, and a row carrying none for one of the five scaled
+slots is refused by name at declaration time — `normalisers.md` §1–§4 (D-61, `normalisation.md` §4, `errors.md` §3).
+
+The join is three assertions in the integration battery, and they are the whole of how the restatement of §1 stays true:
 
 - for every shape `engine.game_shapes()` declares, this module's row carries **the same descriptors in the
   same index order** and **the same five normalisers** — so `features.action_space(shape=...)` and

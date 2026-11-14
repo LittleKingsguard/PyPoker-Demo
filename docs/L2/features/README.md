@@ -18,7 +18,7 @@ else: the game, the information set and the shape's vocabulary are held constant
 (`ladder.md` §2, §4, D-29). No name takes a seed, a hand, a learner, a rung or an opponent; three take a game
 shape as an optional keyword whose absence is the default shape (`shapes.md` §1, ASM-2).
 
-## 2. The four documents
+## 2. The five documents
 
 | Document | The owner of that question | What it fixes |
 |---|---|---|
@@ -26,6 +26,7 @@ shape as an optional keyword whose absence is the default shape (`shapes.md` §1
 | `encodings.md` | the representation axis, and the contracts at this edge | the nine carried fields and why they never move; the shape, dtype and the shape's own token vocabulary of each encoding; what `engine` and `agents` may rely on; the battery invariants this module carries (`battery.md` §3) |
 | `shapes.md` | the game shape's part | the shape as this module's own data, its seat count and the two per-seat blocks' declared modes, the per-shape amount normalisers and action vocabulary, the index and the mask, what the shape moves and what it does not, and the join with `engine.game_shapes()` (`shapes.md` §2, §8, `seats.md` §3, `sizing.md` §3, §5) |
 | `capacity.md` | the history block's capacity | that the capacity is the shape's, how a shape's betting derives it at two and at six seats, the widths it reaches per encoding and the refusal it is the threshold of (`shapes.md` §8, `seats.md` §2, ASM-42, ASM-44, D-33) |
+| `normalisers.md` | the denominator refusal | that a magnitude block's denominator is the shape row's normaliser and that a row carrying none is refused by name — `InvalidReadout`, naming the field, the missing key and the shape, at declaration time — while no declared row reaches it (`normalisation.md` §4, `errors.md` §3, D-61) |
 
 ## 3. Boundaries
 
@@ -56,5 +57,4 @@ this surface alone; a shape widens three rows' arguments and changes no row's ki
 
 `role_l3_designer` owns everything below the entry point: the encoder's type, the block order and each block's slot
 order, `card-tokens`' bucket edges **per shape**, the card→slot and card→id maps, the shape table — seat count, both
-per-seat writers' modes, normalisers, ladders, capacity and vocabulary — the error classes and the file layout
-under `src/features/` (D-1, D-12, `shapes.md` §8, `seats.md` §3).
+per-seat modes, normalisers, ladders, capacity, vocabulary, error classes, the refusal and the layout (D-1, D-12, `seats.md` §3).
