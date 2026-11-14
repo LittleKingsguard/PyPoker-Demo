@@ -18,8 +18,8 @@ contract (`e2e-surface.md` §1, brief §5). Six rules are shared and are stated 
 - No entry point draws randomness, seeds or advances the global `random` stream, and none takes a seed, so
   every name here is a function of its arguments alone (`e2e-surface.md` §2, ASM-2, `protocol.md` §4).
 - **Three names take a game shape** — `build_encoder`, `action_space` and `decode_action` — as an optional
-  **keyword** whose absence is the default shape, `fixed-limit-20`; the other four take none, since the shape
-  is the encoder's once built (`shapes.md` §1, §5, D-29, `e2e-surface.md` §2).
+  **keyword** whose absence is the default shape, `fixed-limit-20`; the other four take none
+  (`shapes.md` §1, §5, D-29, `e2e-surface.md` §2).
 - An encoder is an opaque value a caller only hands back to `observation_spec` and `encode`; no caller inspects,
   compares, serialises or rebuilds one, and every other returned value is plain data — a mapping, a sequence of
   names or indices, or the observation array (`e2e-surface.md` §1, `protocol.md` §1, §3.2).
@@ -40,9 +40,8 @@ Five consequences bind both sides of this edge, and four of them hold on every d
 
 - a descriptor carries no amount, is hand-independent and compares by value, so one value denotes one index
   on one shape at every decision of that shape (`engine/surface.md` §2, `shapes.md` §4);
-- the spelling is shared with `engine` and is fixed here: the descriptors are the shape's own names, and
-  that round trip — `decode_action` returns one, `legal_indices` recognizes one — is the contract between
-  the two modules (`e2e-surface.md` §3.2, D-13);
+- the spelling is shared with `engine` and is fixed here: the descriptors are the shape's own names, and that
+  round trip — `decode_action` returns one, `legal_indices` recognizes one — binds the two modules (`e2e-surface.md` §3.2, D-13);
 - `engine.legal_actions` returns a decision's descriptors in the shape's declared order, at most one per
   index, so its legal indices are distinct and ascending whenever the argument is the engine's order
   (`engine/surface.md` §2, §6, `sizing.md` §3);
@@ -97,8 +96,7 @@ Five consequences bind both sides of this edge, and four of them hold on every d
 - **Four of the six values are the same on all three rows** — the representation, the kind, the nine fields and the
   dtype — while `shape` and `vocabulary` are the shape's: the width follows the shape's history capacity and its seat
   count, `127 + 2 × seats + 3 × capacity` dense and `12 + 2 × seats + capacity` tokens, and the vocabulary follows the
-  ids that shape's seat block needs. Neither names the shape, the normalisers or the capacity (`shapes.md` §8,
-  `seats.md` §3, ASM-42, ASM-44).
+  ids that shape's seat block needs; neither names the shape, the normalisers or the capacity (`shapes.md` §8, `seats.md` §3, ASM-42, ASM-44).
 - **Refusals:** a value that is not an encoder this module built, naming that contract (`e2e-surface.md` §2).
   **Determinism:** one encoder declares one spec; two calls are equal and the spec depends on no readout, hand
   or seed (`e2e-surface.md` §2, ASM-2).
@@ -113,6 +111,11 @@ Five consequences bind both sides of this edge, and four of them hold on every d
   shape's own because its history block declares the shape's capacity (`encodings.md` §3–§4, `shapes.md` §8).
   It carries the declared `fields` and nothing else, so no observation can show the other seat's cards or
   the undealt deck (`engine/environment.md` §2, D-3).
+- **Bounds:** every `flat-numeric` slot is a number in `[0, 1]` and every `card-tokens` slot an integer id in
+  `[0, vocabulary)` — the **declared-bound invariant** of D-61, a property of the layout and the same on every run,
+  each block's bound being one row of the module's one bound table (`flat-numeric.md` §4, `card-tokens.md` §6,
+  `encoder.md` §5); `tests/features/` asserts it block by block (FEA-11.1–FEA-11.4) and the join battery asserts it
+  over every decision of 250 real hands per declared shape (J-8.12).
 - **Refusals:** a value that is not an encoder; a readout missing a field this encoding carries; a carried
   field that cannot be represented — a `street` outside the four, a `hole` that is not two cards, a `seat` index
   outside the shape's seat count, a `stacks` that is not one count per seat; and a `history` longer than the
@@ -133,9 +136,8 @@ Five consequences bind both sides of this edge, and four of them hold on every d
   `name` and, for a descriptor that resolves an amount, the resolution it denotes as prose: the fixed-limit
   `raise` says it denotes the engine's minimum legal completion (§2), and a sized band says which part of
   the legal raise interval it takes (`shapes.md` §3, `sizing.md` §2). The keys are in the shape's **declared**
-  index order, deliberately not monotone in amount on the two uncapped rows (`sizing.md` §3). It is plain data,
-  because a report's header quotes it (`protocol.md` §1), and the shape's indices are the only numbers in it:
-  no bet size and no chip count (`battery.md` §3 FAM-2 case FAM-2.9, `shapes.md` §3).
+  index order, deliberately not monotone in amount on the two uncapped rows (`sizing.md` §3); it is plain data,
+  a report's header quoting it (`protocol.md` §1), and no bet size or chip count is in it (`battery.md` §3 FAM-2.9).
 - **Refusals:** a shape name outside the catalogue, naming it and the declared names, never defaulted
   (`shapes.md` §6). **Ordering:** two calls with one shape return equal records in that shape's index order,
   and the mask `legal_indices` returns is read against exactly these indices (`battery.md` §3 FAM-2.9).
@@ -147,10 +149,9 @@ Five consequences bind both sides of this edge, and four of them hold on every d
   `readout["legal"]`, which the engine makes the same in value and order (`engine/surface.md` §6). It takes
   **no shape**: the descriptors are the shape's own, and one's index is its position there (`shapes.md` §4).
 - **Returns:** the indices of those actions, **position-aligned with the argument** — the i-th index is the
-  i-th descriptor's — therefore one per descriptor, and distinct for any descriptor set a decision can
-  produce, since §2 allows at most one descriptor per index. They are ascending whenever the argument is the
-  engine's order; an out-of-order argument keeps its own order and is never sorted, and a band masked out at
-  the decision is simply absent (`shapes.md` §4, `battery.md` §3 FAM-2 case FAM-2.11).
+  i-th descriptor's — therefore one per descriptor, and distinct for any descriptor set a decision can produce,
+  since §2 allows at most one descriptor per index. They are ascending whenever the argument is the engine's
+  order; an out-of-order argument keeps its own order and is never sorted (`shapes.md` §4, `battery.md` §3 FAM-2.11).
 - **Refusals:** an empty sequence, because a decision has at least one legal action and none has zero
   (`engine/surface.md` §6); a value that is not a sequence of descriptors; a descriptor outside the declared
   vocabulary, with that descriptor named; no fold is substituted for an unknown action (D-2,
@@ -165,6 +166,5 @@ Five consequences bind both sides of this edge, and four of them hold on every d
 - **Returns:** the descriptor `engine.apply_action` accepts in that shape's vocabulary (§2), whose raise
   denotes that shape's resolution, and which is the round trip of §2 (`battery.md` §3 FAM-2.10, D-2).
 - **Refusals:** an index outside the shape's vocabulary — naming it, the shape and that vocabulary — and a
-  value that is not an integer, a `bool` included; neither is mapped to a default (`e2e-surface.md` §2,
-  `shapes.md` §6, D-2), and one index on one shape gives one descriptor, stable in text across calls
-  (`battery.md` §3 FAM-16 case FAM-16.11).
+  value that is not an integer, a `bool` included; neither is mapped to a default, and one index on one shape
+  gives one descriptor, stable in text across calls (`e2e-surface.md` §2, `shapes.md` §6, D-2, `battery.md` §3 FAM-16.11).

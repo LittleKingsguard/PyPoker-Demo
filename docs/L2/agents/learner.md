@@ -39,6 +39,12 @@ never read, never a target and never updated (D-2, `records.md` §4, ASM-25, `sh
   `utilities.md` §2). `net-chips` is the seat's net chip delta at its terminal decision, zero elsewhere, with no shaped
   term and no intermediate reward — this module adds none (ASM-12, `engine/environment.md` §3); `stack-shortfall`
   re-expresses that same delta in `training`'s transition step, and neither arithmetic normalises or clips it here (ASM-25).
+- **The input block, and how each family is bounded.** A dense slot is a number in `[0, 1]` because the encoding
+  divides by its shape's normalisers (`normalisation.md` §2); a token slot is an id, so the token path's bound is its
+  **input block**: each addressed embedding row is read through one squash, `row = (1 + tanh θ)/2`, and the trunk
+  consumes the mean of those rows, a value in `[0, 1]` whatever the table holds (D-61, `normalisation.md` §3). It
+  changes **what a token model computes and not what it holds**: widths, `param_count`, the container and the dense
+  family's own forward are unmoved (§3 below, `checkpoint.md` §2, `architecture.md` §5, `normalisation.md` §5).
 - **The exploration.** An ε-greedy draw governed by the schedule `learners()` declares, from the learner's own
   seeded generator and **keyed by the decision**, a decision being the observation and the legal mask — so one
   learner state and one decision give one index, and a policy at the learner's own seed answers the same index
@@ -215,6 +221,9 @@ Each family of `battery.md` §3 that lands here, with the entry points that carr
 The other families reach this module only as a path: FAM-4's seed contract bites through the generator
 `build_learner` seeds (`protocol.md` §4), FAM-3 and FAM-15 through the specs a custom rung hands `build_learner`
 (`ladder.md` §3), and FAM-7 through the baseline policies `match` is given beside the members it loads (`league.md` §3).
+D-61's invariant lands here on its **second** half: no e2e surface exposes the input the trunk consumes, so the bound
+the bounded embedding imposes on the mean of the addressed rows is asserted in `tests/agents/` (AGT-20.1–20.5), the
+layer battery's FAM-24 being the observations the encoders emit (`normalisation.md` §3, §5, `battery.md` §5).
 D-19's cases — the catalogue's two members and their order, the spec's rule and its default, the two targets, the
 checkpoint's field and the policy's attribute — are the unit battery's, since no L1 family reads a rule, and the
 module's own internals belong to `tests/agents/` (`battery.md` §5, `rules.md` §3, `module-map.md` §5). D-29's are the

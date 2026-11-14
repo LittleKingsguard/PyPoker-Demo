@@ -29,6 +29,7 @@ vocabulary and the readout facts are fixed for the ladder (D-3, ASM-7, `rules.md
 | `finiteness.md` | D-45's finiteness envelope | the target's bound by the chips in play, `PARAMETER_BAND` beside `HYPER`, the three sites `learn` refuses at, the argument that makes `-inf` unreachable, the three messages and the cases that pin them (D-45, `counterfactual.md` §10) |
 | `utility.md` | the catalogue of two utilities | each utility's `reward` and `normaliser`, the declared default, the one contract both answer, the arithmetic's four scores, where the transform is applied and where it is not, what a learner and a policy carry, and the `UnknownUtility` refusal (D-20, ASM-12, ASM-28) |
 | `architecture.md` | the seven kinds | each kind's layer stack, how `width`/`depth`/`sparsity`/`residual` are read, the **one initialisation order**, the **parameter formula**, and the sizing contract (D-3, ASM-10) |
+| `input-read.md` | the token family's input block | the **bounded embedding** — `row = (1 + tanh θ)/2` per addressed row, and the mean the trunk reads — its derivative and the resolution it costs, what the forward cache carries, and what stays unmoved (D-61, `normalisation.md` §3, §5) |
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |
 | `checkpoint.md` | a version | what a restore recovers, the **exact bytes** of the container, format **3** for a default-shape learner and **4** with a `game` field for any other declared shape, the four version rules, the `utility` field written beside `learning_rule`, and `save`/`load`'s refusals (D-16, ASM-5, ASM-18, D-19, D-20, ASM-40) |
 | `shapes.md` | the game shape | the catalogue restated in `declarations.py` with each row's seat count and why `A` is **read** off `features.action_space`, the head `W → A` and the layout's `actions` field, the `A`-index decision space, `decide`/`decide_greedy` and the `tie` flag, the two exploration modes, format 4 and the `game` field (D-29, D-33, ASM-37, ASM-40) |
@@ -72,9 +73,8 @@ coercion, no substituted default, no swallowed error, no global `random` (ASM-2)
     policy.py         as_policy and the frozen snapshot (rule.md §7)
     baselines.py      baselines, build_baseline, the six rules and the anchor set (baselines.md §1–§9)
 
-Eleven files, one concern each, and a twelfth needs a document here saying what it owns; `src/agents/` holds no test, no
-fixture and no data file. The names `rule.md` §8 fixes in `rule.py`, `model.py` and `checkpoint.py` are contract for
-`tests/agents/` — L4 implements those spellings, and the shape's fields ride through them (`shapes.md` §2).
+Eleven files, one concern each, and a twelfth needs a document here saying what it owns; `src/agents/` holds no test,
+no fixture and no data file. The names `rule.md` §8 fixes are contract for `tests/agents/`, and L4 implements them (§2).
 
 ## 5. The catalogue `learners()` publishes
 

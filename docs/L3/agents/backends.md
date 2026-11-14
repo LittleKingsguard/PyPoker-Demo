@@ -32,16 +32,16 @@ What is forbidden is a backend that differs in the model, the rule, the order or
 The two backends evaluate **the same expressions in the same sequence**; only the library that evaluates them
 changes (`architecture.md` §2):
 
-1. the input block — `relu(x @ W_in + b_in)`, or the embedding gather and the mean-pool over positions in
-   ascending position order divided by the position count;
+1. the input block — `relu(x @ W_in + b_in)`, or the embedding gather, the squash `(1 + tanh θ_row)/2` and the
+   mean over positions in ascending position order divided by the position count (`input-read.md` §1);
 2. trunk layers in ascending order — `h @ (W_ℓ ⊙ B_ℓ) + b_ℓ`, then `relu`, then either replace the carried
    vector (`plain`, `sparse`, and the kinds that read neither setting) or add the delta to it (`residual`);
 3. the output layer — `h @ W_out + b_out`, `A` `float64` values, `A` read off `layout.actions` in both backends and
    never written down (`shapes.md` §2);
 4. for `learn`, the same expressions again for `next_observation`, from the target copy (`rule.md` §3);
 5. the backward pass — the explicit semi-gradient expression of `rule.md` §3, layer by layer in descending
-   order, with the ReLU derivative taken from the pre-activation's sign and the sparse mask applied to the
-   gradient as well as to the weight.
+   order, with the ReLU derivative taken from the pre-activation's sign, the sparse mask applied to the gradient
+   as well as to the weight, and the token block's squash derivative `(1 − tanh²θ)/2` carried (`input-read.md` §2).
 
 **`torch.autograd` is not used.** The backward pass is written out in both backends, because an autograd graph's summation
 order is the framework's and not this design's, and holding one arithmetic order is the whole point of the axis. The torch

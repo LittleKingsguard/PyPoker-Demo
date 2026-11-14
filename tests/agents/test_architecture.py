@@ -9,12 +9,26 @@ would pass every count in the battery — and it is invisible to `act` on a fres
 learner, because a learner at position 0 explores at the schedule's `start`
 (1.0) and the kind's keyed draw decides which index comes back (`rule.md` §4).
 So each case reads the axis where the forward pass is the only difference left:
-`learn`'s mean absolute TD error on one identical batch (`rule.md` §3), and the
-indices 20 real decisions come back with on two learners the same batch has
-moved. `sparse` is asserted twice — as the count difference §5's `D·(k + W)`
+`learn`'s mean absolute TD error on one identical batch (`rule.md` §3), and — for
+AGT-13.3 — **the values** the two arms compute on 20 real decisions plus the
+indices a walk of 24 invented token observations comes back with on the same two
+learners. `sparse` is asserted twice — as the count difference §5's `D·(k + W)`
 states for `s = 0.5`, and as a signal no dense trunk produces. R5 and R6 are the
 axes those kinds exist for (`docs/L1/ladder.md` §2, D-3); guardrails G4 and G10
 are the notes naming the gap these cases close (`guardrails.md`).
+
+AGT-13.3 was **corrected** by D-61 and its two halves are stronger than the
+single assertion it replaced: the token input block is now the bounded embedding
+(`normalisation.md` §3, `docs/L3/agents/input-read.md` §1-§2), so the value the
+trunk consumes varies little between two real pre-flop decisions — 2 of the 40
+token positions differ, and the mean-pool then divides by 40 — and an assertion
+that one *argmax* out of 20 disagree was an assertion about each arm's decision
+margin rather than about the trunk connection. The case now asserts that the two
+passes differ on **every** one of those 20 real decisions (the value vector, per
+decision: 20 statements where there was one), and that the axis still reaches a
+decision on a walk whose observation varies at every position. Which cases a
+change may correct, and how, is `battery.md` §3's and `normalisation.md` §5's
+rule: added and strengthened, never narrowed (D-61, D-11).
 """
 
 import unittest
@@ -22,6 +36,7 @@ import unittest
 import numpy as np
 
 from _agents_support import (
+    ALL_MASK,
     LEARNER_SEED,
     AgentsCase,
     anneal_batch,
@@ -41,6 +56,17 @@ from _agents_support import (
 #: terminal record only, which is where ASM-12 delivers it (`rule.md` §2).
 MIXED_SEED = 1777
 MIXED_REWARDS = (6.5, -3.25, 11.0, -1.75)
+
+#: AGT-13.3's own invented instances (`docs/L1/battery.md` §4, D-15): the walk of
+#: observations whose every token position varies, its length, the number of its
+#: decisions the two arms must answer differently, and the smallest value gap that
+#: counts as two forward passes.  The walk exists because the real decisions of one
+#: batch of hands share 38 of their 40 positions, which is a property of the
+#: mean-pooled token encoding and not of either trunk (`normalisation.md` §3).
+WALK_SEED = 777001
+WALK_DECISIONS = 24
+WALK_DIFFERING_MINIMUM = 3
+VALUE_GAP = 1e-6
 
 
 def mixed_batch(count=8, seed=MIXED_SEED):
@@ -181,7 +207,7 @@ class ArchitectureAxisTest(AgentsCase):
         )
 
     def test_agt13_3_the_residual_axis_survives_learning(self):
-        """AGT-13.3 one identical batch — the schedule's own length at the annealed rate, then `target_update_interval` real transitions — leaves `residual` and `plain` at one position, one seed and one schedule, so the keyed draw is one draw (`rule.md` §4); over 20 real decisions, at least 16 greedy-expected, at least one `act` index differs, and only the trunk connection of `architecture.md` §2 can make it differ (`architecture.md` §2-§3, `rule.md` §3-§5, D-3, R6)."""
+        """AGT-13.3 one identical batch — the schedule's own length at the annealed rate, then `target_update_interval` real transitions — leaves `residual` and `plain` at one position, one seed and one schedule, so the keyed draw is one draw (`rule.md` §4); then, over 20 real decisions, **every** decision's value vector differs between the two arms and, over a walk of 24 invented token observations whose every position varies, at least 3 of the greedy-expected decisions come back with a different `act` index, and only the trunk connection of `architecture.md` §2 can make either differ (`architecture.md` §2-§3, `rule.md` §3-§5, `normalisation.md` §3, D-3, D-61, R6)."""
         package = self.agents()
         width, depth = 8, 2
         # `quiet_batch` reaches the annealed rate without moving a parameter
@@ -220,22 +246,84 @@ class ArchitectureAxisTest(AgentsCase):
             list, zip(*self.decision_observations(rows, "residual"))
         )
         self.greedy_arm(LEARNER_SEED, "residual", observations, masks, 16)
+        # The values first, and on **every** real decision (D-61, normalisation.md §3):
+        # the two arms were drawn from one seed and moved by one batch, so only
+        # `architecture.md` §2's connection can make one observation's vector differ.
+        # This is the assertion the corrected case adds — 20 per-decision statements,
+        # where it used to make one statement about one argmax — and it holds however
+        # little the mean-pooled input varies between two real decisions.
+        for position, observation in enumerate(observations):
+            with self.subTest(decision=position):
+                left = np.asarray(
+                    residual.backend.forward(
+                        residual.state, residual.layout, observation, need_cache=True
+                    )[0],
+                    dtype=np.float64,
+                )
+                right = np.asarray(
+                    plain.backend.forward(
+                        plain.state, plain.layout, observation, need_cache=True
+                    )[0],
+                    dtype=np.float64,
+                )
+                self.assertEqual(
+                    tuple(left.shape),
+                    tuple(right.shape),
+                    "the two arms answered vectors of different shapes on one "
+                    "decision, and one observation is one decision's vector "
+                    "(architecture.md §2, shapes.md §2)",
+                )
+                self.assertGreater(
+                    float(np.abs(left - right).max()),
+                    VALUE_GAP,
+                    "the two arms computed one value vector for real decision %d, "
+                    "to within %r: `h + relu(z)` and `relu(z)` are one forward pass, "
+                    "so the kind does not decide the trunk connection "
+                    "(architecture.md §2-§3)"
+                    % (position, VALUE_GAP),
+                )
+        # Then the axis in a decision, on a walk whose observation varies at **every**
+        # token position: the real decisions of one batch of hands share 38 of their
+        # 40 positions, so their mean-pooled input moves by less than one arm's own
+        # decision margin and no `act` index can separate the two trunks on them — a
+        # property of the mean-pooled encoding and of nothing this case can change
+        # (normalisation.md §3).  The walk is this case's invented instance
+        # (`battery.md` §4, D-15), and the guard above keeps its comparison on the
+        # greedy arm (`rule.md` §4-§5).
+        walk = invented_observations("residual", WALK_DECISIONS + 1, WALK_SEED)[
+            :WALK_DECISIONS
+        ]
+        self.assertEqual(
+            len(walk),
+            WALK_DECISIONS,
+            "the walk of invented observations is not the length this case declares",
+        )
+        walk_masks = [ALL_MASK] * len(walk)
+        self.assertGreaterEqual(
+            len({value.tobytes() for value in walk}),
+            WALK_DECISIONS,
+            "the walk repeats an observation, so a differing decision on it would be "
+            "one observation's coincidence (rule.md §3)",
+        )
+        self.greedy_arm(LEARNER_SEED, "residual", walk, walk_masks, 16)
         answers = [
             (
                 package.act(residual, observation, mask)["action"],
                 package.act(plain, observation, mask)["action"],
             )
-            for observation, mask in zip(observations, masks)
+            for observation, mask in zip(walk, walk_masks)
         ]
         differing = [
             index for index, (left, right) in enumerate(answers) if left != right
         ]
         self.assertGreaterEqual(
             len(differing),
-            1,
-            "`residual` and `plain` decided all %d decisions identically after "
-            "one batch from one seed, so one forward pass answered both kinds "
-            "(architecture.md §2-§3)" % (len(answers),),
+            WALK_DIFFERING_MINIMUM,
+            "`residual` and `plain` decided all but %d of %d decisions identically "
+            "after one batch from one seed, and at least %d differing decisions are "
+            "what says one forward pass does not answer both kinds "
+            "(architecture.md §2-§3, normalisation.md §3)"
+            % (len(answers) - len(differing), len(answers), WALK_DIFFERING_MINIMUM),
         )
 
     def assert_mixed(self, records):

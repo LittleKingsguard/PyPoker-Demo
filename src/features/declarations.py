@@ -20,6 +20,21 @@ and the shape is their sum), so the table is the single source `encode` walks an
 hard-coded offset cannot drift from it (encoder.md §4, guardrails.md G3).  A third
 encoding would be a third *name* here, never a third module (D-3, guardrails.md G1).
 
+A block's **bound** is not a field of its block record: it is one table, `BLOCK_BOUNDS`,
+keyed by the writer tag and holding ``(low, high, policy)`` for every tag of `encode`'s
+closed `WRITERS` set (D-61).  A dense-numeric block's value is ``numerator /
+denominator``, the denominator being the shape's normaliser from `SHAPE_ROWS`, and a
+value above the block's declared high **saturates at that high by the layout's rule**:
+the clamp is the block's, never a run's, never a writer's, and never silent
+(flat-numeric.md §4).  The three scaled writers carry the ``saturate`` policy because
+their numerator is a chip amount whose relation to the shape's normaliser is a property of
+the shape and not of a run; the four one-hot and index writers carry ``exact`` because
+their value cannot exceed 1 by construction, so their bound is a *checked* statement and
+not a clamp.  A token-sequence block's bound is **categorical**, never a numeric scale:
+its emitted value is an integer id in ``[0, vocabulary)`` -- the vocabulary is the shape
+row's, the pad 0 included -- so no amount is divided on the token path
+(card-tokens.md §6, D-61).
+
 The normalisers, the descriptors, the ladders and the capacity are **restated, not
 imported**: this module imports no other project module (layout.md §3, guardrails.md
 G12), so the values a shape declares are the same values `engine.game_shapes()`
@@ -232,6 +247,39 @@ SHAPE_ROWS = {
 }
 
 
+#: The bound every block writer's values are declared to lie in, and the policy that holds
+#: them there -- `(low, high, policy)`, one record per tag of `encode`'s closed `WRITERS`
+#: set, so no block of any encoding on any shape is outside a declared bound (D-61,
+#: flat-numeric.md §4, card-tokens.md §6).  Three policies:
+#:
+#: ``"saturate"`` -- a scaled block: `encode` clips the writer's values into ``(low, high)``
+#: before the assignment, because the numerator is a chip amount and its relation to the
+#: shape's normaliser is the shape's, not a run's.  ``"exact"`` -- a one-hot, flag or index
+#: block: the writer's value cannot leave ``(0.0, 1.0)`` by construction, so the bound is
+#: asserted and nothing is clipped.  ``"id"`` -- a token block: the value is an integer id
+#: in ``[0, vocabulary)``, and `"vocabulary"` stands for the high the **shape row** declares,
+#: so the bound follows the row -- 96 at two seats, 102 at six -- and never a [0, 1] scale
+#: (D-61, card-tokens.md §6, capacity.md §4).
+BLOCK_BOUNDS = {
+    # flat-numeric: `numerator / denominator`, the denominator the shape's normaliser.
+    "street-onehot": (0.0, 1.0, "exact"),
+    "seat-index": (0.0, 1.0, "exact"),
+    "card-onehot": (0.0, 1.0, "exact"),
+    "history-onehot": (0.0, 1.0, "exact"),
+    "stacks-scaled": (0.0, 1.0, "saturate"),
+    "amount-scaled": (0.0, 1.0, "saturate"),
+    "limit-scaled": (0.0, 1.0, "saturate"),
+    # card-tokens: an integer id, the pad 0 first and `vocabulary - 1` last.
+    "street-id": (0, "vocabulary", "id"),
+    "seat-ids": (0, "vocabulary", "id"),
+    "card-ids": (0, "vocabulary", "id"),
+    "stacks-buckets": (0, "vocabulary", "id"),
+    "amount-bucket": (0, "vocabulary", "id"),
+    "limit-ids": (0, "vocabulary", "id"),
+    "history-ids": (0, "vocabulary", "id"),
+}
+
+
 def _table(rows):
     """One encoding's block records, each offset the sum of the widths before it."""
     blocks = []
@@ -367,6 +415,17 @@ def shape_rows(shape=None, entry_point="shape_rows"):
     if shape is not None:
         return (shape_row(shape, entry_point),)
     return tuple(shape_row(name, entry_point) for name in SHAPE_ROWS)
+
+
+def bounds():
+    """Every block writer's declared bound, as a fresh mapping (D-61, flat-numeric.md §4).
+
+    The record is ``(low, high, policy)`` and the mapping is closed over `encode`'s
+    `WRITERS`: one writer's bound is the same on every encoding, on every shape and on
+    every run, so nothing about it can be fitted to a readout (surface.md §6,
+    guardrails.md G11).
+    """
+    return dict(BLOCK_BOUNDS)
 
 
 def require_encoding(name, entry_point, argument="name"):

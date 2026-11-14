@@ -6,6 +6,13 @@ from the target copy, then the backward pass layer by layer in descending order 
 the ReLU derivative taken from the pre-activation's sign and the sparse mask applied
 to the gradient as well as to the weight (`backends.md` §2 item 5).  Every parameter,
 intermediate and accumulation is `float64` (§4).
+
+**The token family's input block is the bounded embedding** (`input-read.md` §1-§2,
+D-61): each addressed row is read through the one squash `row = (1 + tanh θ)/2`, so the
+value the trunk consumes is a mean of values in `(0, 1)` whatever the table holds, and
+the backward pass carries the squash's derivative `(1 - tanh²θ)/2` gathered at each
+addressed id.  The dense family's block is untouched: `relu(x @ W_in + b_in)`, with no
+squash anywhere (`normalisation.md` §3-§5).
 """
 
 from __future__ import annotations
@@ -75,7 +82,14 @@ def _weight(state, layout, layer, base):
 
 
 def forward(state, layout, observation, target=False, need_cache=True):
-    """The three values of one observation, and the cache the backward pass reads."""
+    """The three values of one observation, and the cache the backward pass reads.
+
+    The cache's `input` is the block the backward pass differentiates through, and for
+    the token family it is the value the trunk actually consumed: `(rows, ids)`, one
+    squashed row per position in the observation's own order and the ids those rows were
+    read at — never the raw table, which the trunk never sees (`input-read.md` §3).  For
+    the dense family it stays `(observation, pre_activation)`.
+    """
     base = layout.count if target else 0
     width = layout.width
     cache = None
@@ -95,8 +109,12 @@ def forward(state, layout, observation, target=False, need_cache=True):
             layout.input_dim, width
         )
         ids = numpy.asarray(observation, dtype=numpy.int64)
-        carried = table[ids].mean(axis=0)
-        block = (table, ids)
+        # The bounded embedding (`input-read.md` §1, `normalisation.md` §3): each
+        # addressed row is read through one squash, so every row lies in (0, 1) for
+        # every finite parameter value and so does any mean of rows.
+        rows = (1.0 + numpy.tanh(table[ids])) / 2.0
+        carried = rows.mean(axis=0)
+        block = (rows, ids)
     layers = []
     for layer in range(layout.trunk):
         matrix = _weight(state, layout, layer, base)
@@ -149,9 +167,14 @@ def apply(state, layout, cache, action, delta, rate):
         gradient[offset : offset + length] = numpy.outer(dense, below).reshape(-1)
         gradient[layout.b_in : layout.b_in + width] = below
     else:
-        table, ids = cache["input"]
+        rows, ids = cache["input"]
         offset, length = layout.w_in
         gathered = numpy.zeros((layout.input_dim, width), dtype=DTYPE)
-        numpy.add.at(gathered, ids, upstream / len(ids))
+        # The squash's derivative, read off the squashed row the forward pass stored:
+        # `(1 - tanh²θ)/2` is `(1 - (2·row - 1)²)/2` (`input-read.md` §2).  Dropping it
+        # would step the table by a gradient no squash produces, and clipping instead
+        # of squashing would zero it exactly where the reward scale pushed hardest.
+        slope = (1.0 - (2.0 * rows - 1.0) ** 2) / 2.0
+        numpy.add.at(gathered, ids, (upstream / len(ids)) * slope)
         gradient[offset : offset + length] = gathered.reshape(-1)
     state.params[: layout.count] += (rate * delta) * gradient

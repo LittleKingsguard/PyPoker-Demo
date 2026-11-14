@@ -113,8 +113,8 @@ no substituted default, no swallowed error, no partial record, no randomness, no
    `fields`, which is the readout's own order less `legal` and `hand_class` (`encoder.md` §3).
 4. **The pad is id `0`, and only the board, the history and a `one-hot` `seat` block's non-acting slots
    pad** (`card-tokens.md` §3, `seats.md` §3).
-5. **`flat-numeric` never buckets an amount; `card-tokens` always does.** The dense encoding divides
-   and keeps the magnitude; the token encoding resolves it to one id. Both are the representation, and
-   neither is a change of fact set (`ladder.md` §4).
+5. **`flat-numeric` never buckets an amount; `card-tokens` always does.** The dense encoding divides and
+   saturates at the block's declared high; the token encoding resolves it to one id. Both are the
+   representation, and neither is a change of fact set (`ladder.md` §4, `flat-numeric.md` §4, D-61).
 6. **The vocabulary is the shape's indices and carries no amount.** A record holds no integer other than
    that shape's own — `0`, `1`, `2` by default, `0`–`5` on the two uncapped rows (`vocabulary.md` §2, D-33).

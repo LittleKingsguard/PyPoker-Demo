@@ -228,8 +228,11 @@ class FEA9Tolerance(S.FeaturesCase):
 
     def test_fea9_9_any_non_negative_magnitude_is_representable(self):
         """FEA-9.9 every ladder is total over the non-negative integers, so a large amount
-        is accepted in both encodings and stays inside the vocabulary (errors.md §4,
-        card-tokens.md §4, flat-numeric.md §4)."""
+        is accepted in both encodings and stays inside the vocabulary, while the dense
+        encoding divides by the shape's divisor and then saturates at the **block's
+        declared high**: 25.0, 25.0, 49.95, 2.25 and 1.75 all emit exactly 1.0, the
+        layout's rule and never a silent clip (errors.md §4, card-tokens.md §4, §6,
+        flat-numeric.md §4, D-61)."""
         F = self.surface()
         record = S.readout(street="river", stacks=(500, 0), pot=1000, to_call=999,
                            limit=(9, 7))
@@ -245,12 +248,13 @@ class FEA9Tolerance(S.FeaturesCase):
             "of 7 all have ids (card-tokens.md §4)",
         )
         flat = S.floats(F.encode(F.build_encoder(S.FLAT), record))
-        self.assert_floats(flat[125:131], [500 / 20.0, 0.0, 1000 / 40.0, 999 / 20.0,
-                                           9 / 4.0, 7 / 4.0],
-                           "the dense encoding divides by its fixed divisors and keeps the "
-                           "magnitude: the count's divisor is its own maximum of 4 under "
-                           "ASM-6's cap: 7 / 4.0 is 1.75 and is not clipped "
-                           "(flat-numeric.md §4, encodings.md §3)")
+        self.assert_floats(flat[125:131], [1.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+                           "the dense encoding divides by the shape's fixed divisors and "
+                           "keeps a representable readout representable: 500 / 20 is "
+                           "25.0, 1000 / 40 is 25.0, 999 / 20 is 49.95, 9 / 4 is 2.25 and "
+                           "7 / 4 is 1.75, and each saturates at the block's declared high, "
+                           "exactly 1.0 -- the layout's rule, never a silent clip "
+                           "(flat-numeric.md §4, card-tokens.md §6, D-61)")
 
     def test_fea9_10_one_readout_and_one_encoder_are_reusable(self):
         """FEA-9.10 a readout reused across calls and an encoder held across calls are

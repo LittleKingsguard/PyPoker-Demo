@@ -10,7 +10,11 @@ This module is test support, not part of any subsystem.  It does four things:
 * it drives the seven entry points of ``docs/L2/features/surface.md`` §3-§9 and
   nothing below them: no ``src/features/`` submodule, helper, private name,
   ``Encoder`` class or error class is ever touched (``docs/L3/features/README.md``
-  §3, D-12);
+  §3, D-12).  The one exception is declared where it is made:
+  ``test_features_bounds.py``'s totality case reads the layout's bound table and
+  ``WRITERS`` to assert that every slot of every observation is inside a declared
+  bound -- "no slot is outside a bound" is a statement about the declaration and is
+  not decidable through a call (D-61, ``flat-numeric.md`` §4, ``card-tokens.md`` §6);
 * it holds the **invented readouts** the battery encodes.  A readout is a plain
   mapping the battery builds itself: this battery imports neither ``engine`` nor
   ``pokerkit``, because it tests this module in isolation and the battery that

@@ -551,15 +551,25 @@ class FEA8DenseDivisors(S.FeaturesCase):
     def test_fea8_29_the_dense_divisors_are_the_shapes(self):
         """FEA-8.29 one readout with stacks=(100,100), pot=200, to_call=100 and
         limit=(100,50) encodes to exactly 1.0 in the stacks, pot, to_call and both limit
-        slots on no-limit-100, and to 5.0, 5.0, 5.0, 25.0 and 12.5 on the default shape
-        -- a divisor of 20, 40, 20, 4 and 4 while the second shape divides by 100, 200,
-        100, 100 and 50; the two observations are their shapes' own widths, 329 against
+        slots on no-limit-100 -- where each amount *is* its divisor -- and to exactly 1.0
+        on the default shape too, where the divisors of 20, 40, 20, 4 and 4 make the same
+        amounts 5.0, 5.0, 5.0, 25.0 and 12.5 and each **saturates at the block's declared
+        high**; the divisors are still the shape's, which a readout below every normaliser
+        shows: 10, 20, 10, 4 and 2 encode to 0.5, 0.5, 0.5, 1.0 and 0.5 against 0.1, 0.1,
+        0.1, 0.04 and 0.04.  The two observations are their shapes' own widths, 329 against
         203, and every slot before the history is the same number of slots on both
-        (surface.md §6, shapes.md §2, §8, flat-numeric.md §4, §5, FAM-2.9, ASM-42)."""
+        (surface.md §6, shapes.md §2, §8, flat-numeric.md §4, §5, D-61, FAM-2.9,
+        ASM-42)."""
         record = S.readout(stacks=(100, 100), pot=200, to_call=100, limit=(100, 50))
+        # The same readout's amounts below every normaliser: the divisors are the shape's,
+        # and saturation is what hides them when an amount sits at or above its divisor
+        # (flat-numeric.md §4, D-61).
+        below = S.readout(stacks=(10, 10), pot=20, to_call=10, limit=(4, 2))
         block = {field: (offset, width) for field, offset, width in S.FLAT_BLOCKS}
         on_second = S.floats(observation_of(self, S.FLAT, SECOND, record))
         on_default = S.floats(observation_of(self, S.FLAT, DEFAULT, record))
+        below_second = S.floats(observation_of(self, S.FLAT, SECOND, below))
+        below_default = S.floats(observation_of(self, S.FLAT, DEFAULT, below))
         unnamed = S.floats(self.flat(record))
         self.assertEqual(
             len(on_default), S.DECLARED[S.FLAT]["shape"][0],
@@ -575,10 +585,18 @@ class FEA8DenseDivisors(S.FeaturesCase):
             "ASM-44): %d against %d" % (len(on_second), len(on_default)),
         )
         expectations = (
-            ("stacks", [1.0, 1.0], [5.0, 5.0], "÷100 against ÷20"),
-            ("pot", [1.0], [5.0], "÷200 against ÷40"),
-            ("to_call", [1.0], [5.0], "÷100 against ÷20"),
-            ("limit", [1.0, 1.0], [25.0, 12.5], "÷100 and ÷50 against ÷4 and ÷4"),
+            ("stacks", [1.0, 1.0], [1.0, 1.0],
+             "÷100 against ÷20: 1.0 both, and 5.0 saturates at 1.0"),
+            ("pot", [1.0], [1.0], "÷200 against ÷40: 1.0 both, and 5.0 saturates at 1.0"),
+            ("to_call", [1.0], [1.0], "÷100 against ÷20: 1.0 both, and 5.0 saturates at 1.0"),
+            ("limit", [1.0, 1.0], [1.0, 1.0],
+             "÷100 and ÷50 against ÷4 and ÷4: 1.0 both, and 25.0 and 12.5 saturate at 1.0"),
+        )
+        observed = (
+            ("stacks", [0.1, 0.1], [0.5, 0.5], "÷100 against ÷20"),
+            ("pot", [0.1], [0.5], "÷200 against ÷40"),
+            ("to_call", [0.1], [0.5], "÷100 against ÷20"),
+            ("limit", [0.04, 0.04], [1.0, 0.5], "÷100 and ÷50 against ÷4 and ÷4"),
         )
         for field, second, default, divisors in expectations:
             offset, width = block[field]
@@ -591,12 +609,25 @@ class FEA8DenseDivisors(S.FeaturesCase):
                 self.assert_floats(
                     on_second[offset:offset + width], second,
                     "the %r block of a readout sitting at the second shape's normalisers "
-                    "(%s, shapes.md §2, flat-numeric.md §4)" % (field, divisors),
+                    "(%s, shapes.md §2, flat-numeric.md §4, D-61)" % (field, divisors),
                 )
                 self.assert_floats(
                     on_default[offset:offset + width], default,
                     "the %r block of the same readout on the default shape (%s, "
-                    "shapes.md §2, flat-numeric.md §4)" % (field, divisors),
+                    "shapes.md §2, flat-numeric.md §4, D-61)" % (field, divisors),
+                )
+        for field, second, default, divisors in observed:
+            offset, width = block[field]
+            with self.subTest(field=field, at="below the normalisers"):
+                self.assert_floats(
+                    below_second[offset:offset + width], second,
+                    "the %r block of an amount below both normalisers on no-limit-100 "
+                    "(%s, shapes.md §2, flat-numeric.md §4)" % (field, divisors),
+                )
+                self.assert_floats(
+                    below_default[offset:offset + width], default,
+                    "the same amount on the default shape (%s, shapes.md §2, "
+                    "flat-numeric.md §4)" % (divisors,),
                 )
         self.assert_floats(
             unnamed, on_default,
@@ -604,9 +635,19 @@ class FEA8DenseDivisors(S.FeaturesCase):
             "observation is unmoved, byte for byte (shapes.md §2, §5, D-29)",
         )
         self.assertNotEqual(
+            below_second[:len(below_default)], below_default,
+            "and the second shape's observation is its own: one readout below both sets "
+            "of normalisers cannot encode the same, because a divisor of 20 and one of "
+            "100 are different numbers (shapes.md §2, flat-numeric.md §4): %r"
+            % (below_second[:8],),
+        )
+        self.assertEqual(
             on_second[:len(on_default)], on_default,
-            "and the second shape's observation is its own: one readout at both shapes' "
-            "normalisers cannot encode the same (shapes.md §2): %r" % (on_second[:8],),
+            "while the same readout at the second shape's normalisers encodes exactly as "
+            "it does on the default one, because every block has saturated at its "
+            "declared high -- saturation is a bound and not a divisor, so the two "
+            "observations agree only where both are 1.0 (flat-numeric.md §4, D-61): %r"
+            % (on_second[:8],),
         )
         self.assert_floats(
             on_second[S.FIXED_FLAT_SLOTS:], [0.0] * (3 * S.CAPACITY[SECOND]),

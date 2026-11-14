@@ -10,6 +10,15 @@ attributable to the representation and to nothing else (D-3, README.md §5 rule 
 A writer is a pure function of the values its block declares it reads.  It returns
 exactly the block's width, refuses a value it cannot represent instead of clamping,
 defaulting or substituting, and returns a fresh sequence (encoder.md §5 rule 2).
+
+The loop is also the one place the **declared bound** is applied: each block's
+`(low, high, policy)` is read from `declarations.BLOCK_BOUNDS` by the tag the block
+names, and a ``saturate`` block's values are clipped into it before the assignment, so
+both encodings reach the bound the way they reach the refusals -- through the one loop
+(D-61, flat-numeric.md §4).  A writer still refuses what it cannot represent; the bound
+is what a *representable* value above the shape's normaliser saturates at, and it is the
+layout's property rather than a run's, so the observation of one readout is the same on
+every run (encoder.md §5).
 """
 
 from __future__ import annotations
@@ -20,6 +29,7 @@ from numbers import Integral
 import numpy
 
 from . import cards, history
+from .declarations import bounds
 from .encoder import require_encoder
 from .errors import InvalidReadout
 
@@ -164,19 +174,22 @@ def _street_id(readout, reads, params):
 
 
 def _seat_index(readout, reads, params):
-    """The acting seat's index and its button flag, or its one-hot over the seats.
+    """The acting seat's index over the shape's ``seats − 1``, then its button flag.
 
     `params` carries the shape row's **declared mode** and its seat count
-    (`declarations.py`): `index-flag` writes the index then the button flag -- the pair the
-    two-seat rows have always carried, which is the acting seat's one-hot over the two
-    seats read in reverse because the declared button seat is seat 0 -- and `one-hot`
-    writes one slot per seat with the acting seat's set (`seats.md` §3, flat-numeric.md §4,
-    ASM-44).
+    (`declarations.py`): `index-flag` writes the index over `seats − 1` then the button
+    flag -- the pair the two-seat rows have always carried, which is the acting seat's
+    one-hot over the two seats read in reverse because the declared button seat is seat 0
+    -- and `one-hot` writes one slot per seat with the acting seat's set (`seats.md` §3,
+    flat-numeric.md §4, ASM-44).  The slot's map is therefore `numerator = seat index,
+    denominator = seats − 1`: on both two-seat rows that denominator is 1, so **no emitted
+    value moves**, and a six-seat `index-flag` row would still land in `[0, 1]`, 5 of 5
+    being `1.0` (D-61, flat-numeric.md §4).
     """
     mode, seats = params
     index, flag = _seat(readout[reads[0]], seats)
     if mode == "index-flag":
-        return [float(index), 1.0 if flag else 0.0]
+        return [index / (seats - 1), 1.0 if flag else 0.0]
     values = [0.0] * seats
     values[index] = 1.0
     return values
@@ -336,7 +349,10 @@ def encode(encoder, readout):
     The readout is refused as a whole (not a mapping) and field by field (a carried
     fact it is missing) before the first write, and a key the encoding does not carry
     -- `legal` above all -- is ignored and never refused (surface.md §6,
-    guardrails.md G9).
+    guardrails.md G9).  Each block's values then meet the bound the layout declares for
+    its writer: a ``saturate`` block is clipped into `(low, high)`, an ``exact`` or
+    ``id`` block is assigned as its writer returned it, because the writer's value is
+    inside the bound by construction (D-61, flat-numeric.md §4, card-tokens.md §6).
     """
     declaration = require_encoder(encoder, "encode")._declaration
     if not isinstance(readout, Mapping):
@@ -351,6 +367,11 @@ def encode(encoder, readout):
                 % (field,)
             )
     out = numpy.zeros(declaration["shape"], dtype=declaration["dtype"])
+    declared_bounds = bounds()
     for _field, offset, width, writer, reads, params in declaration["blocks"]:
-        out[offset : offset + width] = WRITERS[writer](readout, reads, params)
+        values = WRITERS[writer](readout, reads, params)
+        low, high, policy = declared_bounds[writer]
+        if policy == "saturate":
+            values = numpy.clip(values, low, high)
+        out[offset : offset + width] = values
     return out

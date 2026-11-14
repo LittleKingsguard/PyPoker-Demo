@@ -62,7 +62,7 @@ history block's, `3 × the shape's capacity` (`shapes.md` §2, §5, §8, `seats.
 | `stacks` | `seats` — 2 or 6 | on a two-seat row the acting seat's stack then the other's; above that one slot per seat in seat order — each divided by the shape's `stack` normaliser (`seats.md` §3, ASM-44) |
 | `pot` | 1 | divided by the shape's `pot` normaliser — 40, 200 or 600, the shape's chips in play (`shapes.md` §2) |
 | `to_call` | 1 | divided by the shape's `to_call` normaliser |
-| `limit` | 2 | the bet size in force over the shape's `amount` normaliser, and the bet-or-raise actions this street over its `count` normaliser — the count's own maximum on the default shape, so that slot spans 0.0–1.0 and no clip is needed |
+| `limit` | 2 | the bet size in force over the shape's `amount` normaliser, and the bet-or-raise actions this street over its `count` normaliser — the count's own maximum on the default shape; a reachable 1.0 is legal and a value above the block's declared high saturates at it by the layout's rule, never silently (D-61, `flat-numeric.md` §4) |
 | `history` | `3 × capacity` — 72 / 198 / 294 | one slot of 3 per applied action: a one-hot over fold, check/call and raise, oldest first; a slot past the history's end is all zeros (`shapes.md` §8, `seats.md` §2) |
 
 - The total is `127 + 2 × seats + 3 × capacity` — `4 + seats + 34 + 85 + seats + 1 + 1 + 2 = 127 + 2 × seats` slots

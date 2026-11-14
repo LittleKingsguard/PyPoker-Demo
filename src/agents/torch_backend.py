@@ -8,6 +8,13 @@ because an autograd graph's summation order is the framework's and not this desi
 parameters are the values `model._initial_parameters` drew — copied, never redrawn
 with `torch.randn` (§2, §4, `architecture.md` §4).
 
+**The token family's input block is the bounded embedding**, the same expression in this
+library's operators (`input-read.md` §1-§2, D-61): each addressed row is read through
+`row = (1 + tanh θ)/2`, the trunk consumes the mean of values in `(0, 1)` whatever the
+table holds, and the hand-written backward pass carries the squash's derivative
+`(1 - tanh²θ)/2` gathered at each addressed id.  The dense family's block is untouched:
+`relu(x @ W_in + b_in)`, with no squash anywhere (`normalisation.md` §3-§5).
+
 This is the only module of the project that imports `torch`, and it does so inside a
 function, on the first torch learner's build (§4).
 """
@@ -122,8 +129,13 @@ def forward(state, layout, observation, target=False, need_cache=True):
                 numpy.asarray(observation, dtype=numpy.int64).reshape(-1)
             )
         )
-        carried = table.index_select(0, ids).mean(dim=0)
-        block = (table, ids)
+        # The bounded embedding (`input-read.md` §1, `normalisation.md` §3): one squash
+        # per addressed row, so every row lies in (0, 1) for every finite parameter value
+        # and so does any mean of rows.  NumPy's and torch's expressions are the same
+        # arithmetic on the same values (`backends.md` §2).
+        rows = (1.0 + torch.tanh(table.index_select(0, ids))) / 2.0
+        carried = rows.mean(dim=0)
+        block = (rows, ids)
     layers = []
     for layer in range(layout.trunk):
         matrix = _weight(state, layout, layer, base)
@@ -177,12 +189,16 @@ def apply(state, layout, cache, action, delta, rate):
         gradient[offset : offset + length] = torch.outer(dense, below).reshape(-1)
         gradient[layout.b_in : layout.b_in + width] = below
     else:
-        table, ids = cache["input"]
+        rows, ids = cache["input"]
         offset, length = layout.w_in
         gathered = torch.zeros(
             (layout.input_dim, width), dtype=torch.float64
         )
-        share = (upstream / float(len(ids))).unsqueeze(0).expand(len(ids), width)
+        # The squash's derivative, read off the squashed row the forward pass stored:
+        # `(1 - tanh²θ)/2` is `(1 - (2·row - 1)²)/2`, the same expression the NumPy
+        # backward pass writes (`input-read.md` §2, `backends.md` §2 item 5).
+        slope = (1.0 - (2.0 * rows - 1.0) ** 2) / 2.0
+        share = (upstream / float(len(ids))).unsqueeze(0).expand(len(ids), width) * slope
         gathered.index_add_(0, ids, share)
         gradient[offset : offset + length] = gathered.reshape(-1)
     state.params[: layout.count] += (rate * delta) * gradient

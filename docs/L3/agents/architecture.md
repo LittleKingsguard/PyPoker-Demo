@@ -15,12 +15,12 @@ of these spellings and no other, and this module never infers a kind from a vari
 | Kind | `observation` | `observation_size` — the default shape's | Input block | Trunk | Reads |
 |---|---|---|---|---|---|
 | `naive-stack` | `dense-numeric` | 203 | dense `I → W`, bias, ReLU | `D` layers `W → W` | `width`, `depth` |
-| `token-embedding` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | same | `width`, `depth` |
-| `wide` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | **one** layer `W → W` | `width` |
-| `deep` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` layers `W → W` | `width`, `depth` |
-| `sparse` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` masked layers `W → W` | `width`, `depth`, `sparsity` |
-| `residual` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` layers `W → W`, each added to the carried vector | `width`, `depth` |
-| `plain` | `token-sequence` | 96 | embedding `V → W`, mean-pooled | `D` layers `W → W`, replacing the carried vector | `width`, `depth` |
+| `token-embedding` | `token-sequence` | 96 | embedding `V → W`, squashed, mean-pooled | same | `width`, `depth` |
+| `wide` | `token-sequence` | 96 | embedding `V → W`, squashed, mean-pooled | **one** layer `W → W` | `width` |
+| `deep` | `token-sequence` | 96 | embedding `V → W`, squashed, mean-pooled | `D` layers `W → W` | `width`, `depth` |
+| `sparse` | `token-sequence` | 96 | embedding `V → W`, squashed, mean-pooled | `D` masked layers `W → W` | `width`, `depth`, `sparsity` |
+| `residual` | `token-sequence` | 96 | embedding `V → W`, squashed, mean-pooled | `D` layers `W → W`, each added to the carried vector | `width`, `depth` |
+| `plain` | `token-sequence` | 96 | embedding `V → W`, squashed, mean-pooled | `D` layers `W → W`, replacing the carried vector | `width`, `depth` |
 
 Every kind ends in an output layer as wide as the shape's descriptor count, `W → A` with a bias and no activation: the
 `A` values `rule.md` §5 takes a mask over, three on the default shape and six on the others (`shapes.md` §2). Every trunk
@@ -36,11 +36,11 @@ or 102 — so this table's third column is the default shape's and not every sha
 ## 2. The layer stacks, exactly
 
 **The input block.** `naive-stack` applies `relu(x @ W_in + b_in)` to a dense observation of width `I`, with
-`W_in` of shape `(I, W)` and `b_in` of shape `(W,)`. The six token kinds gather the embedding table's rows for
-the observation's token ids, in the observation's own position order, and **mean-pool** them: `h = mean(E[ids],
-axis=0)`, a sum over positions divided by the number of positions. The table `E` has shape `(V, W)` and no bias;
-row `0` is a row like any other, because `features`' pad is an id and not a mask (`docs/L3/features/README.md`
-§5, `learner.md` §3).
+`W_in` of shape `(I, W)` and `b_in` of shape `(W,)`. The six token kinds gather the embedding table's rows at
+the observation's token ids, in its own position order, read each addressed row through the **bounded embedding**
+`row = (1 + tanh θ_id)/2`, and **mean-pool** them: `h = mean(rows, axis=0)`. The table `E` has shape `(V, W)` and
+no bias — the squash adds neither — and row `0` is a row like any other, because `features`' pad is an id and not
+a mask (`input-read.md` §1-§2, D-61, `docs/L3/features/README.md` §5, `learner.md` §3).
 
 **The trunk.** For layer `ℓ = 1..D`: `z_ℓ = h @ W_ℓ + b_ℓ` with `W_ℓ` of shape `(W, W)` and `b_ℓ` of shape
 `(W,)`, then `h ← relu(z_ℓ)`. The three bullets below state the kinds that differ from that default, and the
@@ -128,7 +128,7 @@ its settings and its shape: **not** a decision, **not** a step, **not** a seed (
 both backends (D-7, `ladder.md` §5).
 
 **Not counted:** the target copy, the mask buffers, the schedule's constants and the position (`learner.md` §3).
-**Counted:** the input block first, because the embedding table is trainable (`learner.md` §3).
+**Counted:** the input block first — `V·W` trainable slots, no bias, and the squash adds none (`input-read.md` §1, §4).
 
 **An arithmetic check, not a declaration.** At the default shape's `A = 3`, `I = 203`, `W = 36`, `D = 2`:
 `7344 + 2664 + 111 = 10,119`, which is every recorded count unmoved (ASM-40); at the uncapped rows' `A = 6` and `I` of

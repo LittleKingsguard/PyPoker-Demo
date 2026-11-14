@@ -1641,3 +1641,32 @@ them.
 
 **Cancelled:** the nine-rung sweep (D-61 stage 2). The rungs R4/R5/R6 remain declared and unmeasured; they are
 architecture questions and belong to a later pass, not to this grid.
+
+---
+
+## D-63 — Normalisation is real but inert; the cause is the value scale, and D-60's step 1 is refuted
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Normalize all input values to between 0 and 1 and then rerun training for all
+model versions in parallel" — executed as D-61 + D-62.
+
+**Result:** the **[0,1] invariant holds** everywhere (dense `[0.000, 1.000]` on all three shapes, token ids in
+vocabulary, trunk input `(0.204, 0.630)`) and is now a battery assertion. But the 12-cell grid shows
+normalisation changed **nothing**, for a reason my RCA got wrong: a before/after dump of every observation
+over 4,744 decisions is **bit-identical**, because the dense slots were already inside [0,1] by D-30's
+per-shape divisors. **D-60's step 1 — "large inputs drive large weights" — is refuted**; step 2, the O(100)
+reward scale, is the whole cause.
+
+**The grid (36 runs, six seats, 15,000 hands × seeds 0–2):** **six cells alive** (`stack-shortfall`, all
+encodings and estimators: 12.7–31.4 active units, fold 74.7–93.6 %) and **six dead** (`net-chips`: **0 active
+units** in the second hidden layer, one score vector over 3,143–10,700 observations), with **three
+`LearningDiverged` crashes** in the net-chip × flat corner. The utility decides whether the trunk lives; the
+encoding modulates magnitude only where it lives; the estimator is inert in both regimes.
+
+**Correction to D-61's declared cost:** the shipped 18 containers stay **comparable** for the dense family —
+their observations are bit-identical — and only the token path's trunk input changed.
+
+**Decision:** the repair is the **value scale** (a normalised or bounded target on the utility axis), not
+another input transform, not an architecture rung (`R4`/`R5`/`R6` stay declared and unmeasured, D-62), and not
+another estimator. That is the next experiment, and it is the last one this cause admits.

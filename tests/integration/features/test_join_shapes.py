@@ -60,6 +60,14 @@ DENSE, TOKENS = S.ENCODING_NAMES
 #: `engine.game_shapes()` publishes (`shapes.md` §2).
 NORMALISERS = ("stack", "pot", "to_call", "amount", "count")
 
+#: The hands each declared row is played for by the bound case, and the seed range they
+#: are dealt from: one case over "every decision of a real hand" needs more than one hand
+#: per row, and the seeds are the instance a battery may choose for itself
+#: (`docs/L1/battery.md` §4, D-15, D-22).  The base is this battery's own, above every
+#: instance seed `_join_support` fixes, so the walk is new hands and not a reused one.
+BOUND_HANDS = 250
+BOUND_SEED_BASE = 90000
+
 
 def pick(legal, policy):
     """One descriptor of a policy's choosing, taken from the engine's own sequence.
@@ -1116,6 +1124,159 @@ class ShapesSixSeatHistory(ShapesCase):
                     "truncated (capacity.md §3, ASM-42)",
                     words=("history", str(capacity), str(capacity + 1)),
                 )
+
+
+class ShapesDeclaredBound(ShapesCase):
+    """Every slot of every real decision's observation is inside its declared bound."""
+
+    def test_join_shapes_12_every_real_decisions_observation_is_inside_its_bound(self):
+        """J-8.12 250 hands on each of the three declared rows, dealt by
+        engine.new_hand under one fixed policy over one fixed range of seeds, and every
+        decision of every one of them encodes to a dense observation whose **every** slot
+        is in [0, 1] and to a token observation whose every slot is an integer in
+        [0, vocabulary) -- 96 at two seats and 102 at six; and one real readout of each row
+        with its four amount facts placed at three times the row's normalisers encodes to
+        exactly 1.0 in all five scaled slot classes, because the module accepts any chip
+        count and saturates it at the block's declared high.  The bound is a property of the
+        layout and the same on every run, so a real hand cannot leave it, and the case
+        asserts how many decisions it checked in both the per-shape and the total message
+        (surface.md §6, flat-numeric.md §4, card-tokens.md §6, capacity.md §2, §4,
+        e2e-surface.md §3.2, D-60, D-61, ASM-44)."""
+        seeds = tuple(BOUND_SEED_BASE + step for step in range(BOUND_HANDS))
+        checked = 0
+        for shape in S.SHAPE_NAMES:
+            encoders = {encoding: self.shaped_encoder(encoding, shape)
+                        for encoding in (DENSE, TOKENS)}
+            specs = {encoding: self.observation_spec(encoders[encoding])
+                     for encoding in encoders}
+            vocabulary = int(specs[TOKENS]["vocabulary"])
+            self.assertEqual(
+                vocabulary, S.TOKEN_VOCABULARY[shape],
+                "the row's token vocabulary is the high its token bound declares -- 96 at "
+                "two seats, 102 at six -- which is the number every id below is asserted "
+                "against (card-tokens.md §6, capacity.md §4, ASM-44, D-61): %r"
+                % (vocabulary,),
+            )
+            decisions = 0
+            for seed in seeds:
+                steps = self.walk_shaped(seed, shape, S.CHECK_CALL)
+                self.assertTrue(
+                    steps,
+                    "a hand engine.new_hand deals has at least one decision, so the walk "
+                    "of seed %r on %r is not empty (engine/surface.md §6, D-13): %r"
+                    % (seed, shape, steps),
+                )
+                for position, step in enumerate(steps):
+                    dense = self.encode(encoders[DENSE], step.readout)
+                    self.assert_observation(DENSE, specs[DENSE], dense)
+                    values = [float(value) for value in dense.reshape(-1).tolist()]
+                    lowest, highest = min(values), max(values)
+                    self.assertGreaterEqual(
+                        lowest, 0.0,
+                        "no dense slot of a real %r decision is negative -- seed %r, "
+                        "decision %d of %d, slot value %r (flat-numeric.md §4, D-61)"
+                        % (shape, seed, position, len(steps), lowest),
+                    )
+                    self.assertLessEqual(
+                        highest, 1.0,
+                        "and none exceeds the high the layout declares, on any of the "
+                        "three rows and at any street -- seed %r, decision %d of %d, slot "
+                        "value %r (flat-numeric.md §4, card-tokens.md §6, D-61): the "
+                        "engine's own readouts are already inside the bound, and the "
+                        "bound is the layout's rather than the run's"
+                        % (seed, position, len(steps), highest),
+                    )
+                    tokens = self.encode(encoders[TOKENS], step.readout)
+                    self.assert_observation(TOKENS, specs[TOKENS], tokens)
+                    ids = [int(value) for value in tokens.reshape(-1).tolist()]
+                    self.assertGreaterEqual(
+                        min(ids), 0,
+                        "no token slot of a real %r decision is negative -- the pad 0 is "
+                        "the lowest id a row emits -- seed %r, decision %d (card-tokens.md "
+                        "§3, §6, D-61): %r" % (shape, seed, position, min(ids)),
+                    )
+                    self.assertLess(
+                        max(ids), vocabulary,
+                        "and every id of a real decision is inside the row's vocabulary "
+                        "of %d, so an embedding table of that size holds the whole row "
+                        "-- seed %r, decision %d (card-tokens.md §6, capacity.md §4, "
+                        "ASM-44): %r"
+                        % (vocabulary, seed, position, max(ids)),
+                    )
+                    decisions += 1
+            self.assertGreaterEqual(
+                decisions, BOUND_HANDS,
+                "every one of the %d hands of %r was checked at one decision or more, and "
+                "the case reports the decisions it asserted the bound over (D-61, "
+                "battery.md §4): %d decisions" % (BOUND_HANDS, shape, decisions),
+            )
+            self.assert_saturation(encoders, specs, shape, seeds[0], vocabulary)
+            checked += decisions
+        self.assertGreaterEqual(
+            checked, len(S.SHAPE_NAMES) * BOUND_HANDS,
+            "the census of the case: %d decisions of %d hands on each of the %d declared "
+            "rows, every flat-numeric slot in [0, 1] and every card-tokens slot an integer "
+            "in [0, vocabulary) -- the invariant D-61 makes and no observation of a real "
+            "hand may leave (surface.md §6, D-60, D-61)"
+            % (checked, BOUND_HANDS, len(S.SHAPE_NAMES)),
+        )
+
+    def assert_saturation(self, encoders, specs, shape, seed, vocabulary):
+        """One real readout's amounts at three times the row's normalisers saturate at 1.0.
+
+        The engine's own readouts sit inside the bound by construction -- a stack is bounded
+        by the shape's chips in play and the pot by the same -- so the real hands above are
+        the bound's *guard*; this placement is its **witness**, and the row's normalisers are
+        the engine catalogue's own numbers, not this battery's (`shapes.md` §2, D-13).  The
+        module accepts every chip count (§6 of `flat-numeric.md`), so a readout three times
+        over the divisors is a legal readout whose five scaled blocks must clip, not carry
+        3.0 (D-61).
+        """
+        divisors = self.catalog()[shape]["normalisers"]
+        steps = self.walk_shaped(seed, shape, S.CHECK_CALL)
+        base = steps[len(steps) // 2].readout
+        beyond = self.at_normalisers(
+            base, {key: 3 * int(divisors[key]) for key in NORMALISERS})
+        values = [float(value)
+                  for value in self.encode(encoders[DENSE], beyond).reshape(-1).tolist()]
+        seats = S.SEATS[shape]
+        scaled_at = 4 + seats + 34 + 85          # street, seat, hole, board before it
+        scaled = list(range(scaled_at, scaled_at + seats + 4))   # stacks, pot, to_call, limit
+        with self.subTest(shape=shape, at="three times the normalisers"):
+            self.assert_observation(
+                DENSE, specs[DENSE], self.encode(encoders[DENSE], beyond))
+            for slot in scaled:
+                self.assertAlmostEqual(
+                    values[slot], 1.0, delta=1e-5,
+                    msg="slot %d of a %r readout placed at three times the row's "
+                        "normalisers is the block's declared high, exactly 1.0 -- the "
+                        "layout's rule, never the 3.0 the division produces and never a "
+                        "silent clip (flat-numeric.md §4, D-61): %r"
+                        % (slot, shape, values[scaled_at - 2:scaled_at + seats + 5]),
+                )
+            self.assertGreaterEqual(
+                min(values), 0.0,
+                "and the whole observation of that readout is still in [0, 1] on every "
+                "row (flat-numeric.md §4, D-61): %r" % (min(values),),
+            )
+            self.assertLessEqual(
+                max(values), 1.0,
+                "no slot of a readout above every normaliser exceeds the declared high, on "
+                "any row (flat-numeric.md §4, D-61): %r" % (max(values),),
+            )
+            ids = [int(value)
+                   for value in self.encode(encoders[TOKENS], beyond).reshape(-1).tolist()]
+            self.assertGreaterEqual(
+                min(ids), 0,
+                "and the token encoding of the same readout emits no negative id "
+                "(card-tokens.md §6, D-61): %r" % (min(ids),),
+            )
+            self.assertLess(
+                max(ids), vocabulary,
+                "no id above the row's vocabulary of %d, because every ladder's last bound "
+                "is unbounded and resolves to the top id (card-tokens.md §4, §6, D-61): %r"
+                % (vocabulary, max(ids)),
+            )
 
 
 if __name__ == "__main__":

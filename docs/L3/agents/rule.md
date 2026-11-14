@@ -56,7 +56,7 @@ For one transition record (`records.md` §4) — with a required `episode` and a
 - **One step per transition, in order** (or one per legal action of a resolved transition, below). For transition *k*: `q` and `q'` come from the state *before
   step *k*; `target` from §2, then `td = target − q[a]`, `|td|` added to the batch's total, then
   `θ ← θ + α·td·∂q[a]/∂θ` — a **semi**-gradient, the derivative taken with the target held constant, and **plain SGD**:
-  no momentum, weight decay, clipping or scaling, in whichever backend owns the parameters (`backends.md` §2).
+  no momentum, weight decay, clipping or scaling, in whichever backend owns the parameters, the token input block's squash derivative carried with it (`input-read.md` §2, `backends.md` §2 item 5).
 - **`reveal-counterfactual` is a step count, not a second path**: its target is the transition's own `counterfactual`,
   not a bootstrap; one `forward` pass, **all** its residuals `value − q[i]` read from that pass first in the legal mask's
   ascending order, then **one step per legal index** on that same cache. Its residual is a **mean**: each step applies
@@ -148,7 +148,7 @@ labels a table's members by, none of them read by a decision (`e2e-surface.md` �
 
 ## 8. The internals a unit battery may drive, and what is left to L4
 
-Eight spellings are **battery-facing** — nothing exports them, no caller outside `tests/agents/` may use them, and L4
+Ten spellings are **battery-facing** — nothing exports them, no caller outside `tests/agents/` may use them, and L4
 implements exactly these names (`battery.md` §5, D-13); the step tail §3's two paths share is L4's helper, not one of them.
 
 | Name | Signature | One-line contract |
@@ -161,3 +161,5 @@ implements exactly these names (`battery.md` §5, D-13); the step tail §3's two
 | `model._param_count_for` | `_param_count_for(kind, width, depth, sparsity=0.0, actions=None)` | `architecture.md` §5's sum at those settings, `I`/`V` the kind's declared `observation_size` and `A·W + A` its output term (`shapes.md` §2) |
 | `model._initial_parameters` | `_initial_parameters(kind, width, depth, sparsity, seed, actions=None)` | `architecture.md` §4's steps 1–3 as one 1-D `float64` array in declaration order — the checkpoint's `[0, P)` — `sparsity` changing nothing |
 | `checkpoint._read_metadata` | `_read_metadata(path)` | `checkpoint.md` §2.1's object read from `path`'s `metadata.json`, refusing as `load` does |
+| `numpy_backend.forward` | `forward(state, layout, observation, target=False, need_cache=True)` | §3's input block in NumPy as `(values, cache)`: the dense `relu(x @ W_in + b_in)`, the token `(1 + tanh θ)/2` rows and their mean, and the cache the backward pass reads — the token `input` being `(rows, ids)` (`input-read.md` §1-§3, `backends.md` §2) |
+| `torch_backend.forward` | `forward(state, layout, observation, target=False, need_cache=True)` | the same expressions in torch's operators and the same cache, driven off a learner's own `state` and `layout` (`input-read.md` §3, `backends.md` §2, §4) |
