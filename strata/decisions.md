@@ -1435,3 +1435,28 @@ budget, so the combination arm is one variable away from a measured result.
 **Concurrency:** the seeds 3–6 hardening run (`/tmp/token-shortfall-seeds36`) continues untouched; the fix
 and the combination run in separate single-threaded processes on other cores. **No threshold is pinned**
 for the combination; it is a measurement, and criteria are pinned before runs, not after them.
+
+---
+
+## D-56 — The encoding claim survives seven seeds; it is the project's strongest result
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Run the rest of the seeds"
+
+**Result:** over **seven seeds** (0–6) at six seats, `stack-shortfall` held fixed and the encoding the only
+variable: **`card-tokens` folds 92.74 % (sd 1.22, range 91.02–94.82)** against **`flat-numeric`'s 77.53 %
+(sd 5.71, range 70.69–87.01)**. The arms' **ranges do not overlap** — the lowest token seed is 4.01 points
+above the highest flat seed — and every individual seed favours tokens by 6.4–22.3 points (mean +15.22).
+
+**D-54's falsification attempt failed to falsify:** seeds 3–6 alone give 91.02 / 93.01 / 94.82 / 92.82 for
+tokens against 76.99 / 70.69 / 81.21 / 70.87 for flat, so D-53's three-seed result was not seed selection.
+
+**What it does not establish:** neither arm wins (every chip rate is negative, so this compares two losing
+policies); the effect is conditional on the utility (under `net-chips` the same comparison showed no chip
+difference, D-52); and folding 92.7 % is a behaviour rather than an edge.
+
+**Decision:** this is the **lead claim for the talk** — attributable, reproducible across seven seeds and
+falsification-tested — stated as *"tokenising the cards makes the agent fold 15 points more, with a fifth
+of the variance, and no seed reverses it"*, never as a claim that tokens win chips. The counterfactual is
+not part of it: it added nothing to this pair (D-55).
