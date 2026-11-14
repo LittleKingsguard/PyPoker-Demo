@@ -1518,3 +1518,33 @@ folder loses 0.265 chips/hand per seat to the non-folder.
 **For the talk:** of four levers built, exactly two move behaviour, and they compose in a fixed order. That
 is the deck's spine, and it is the honest form of the claim: **the reward decides whether the agent folds,
 the encoding decides how hard and how consistently, and neither makes it win.**
+
+---
+
+## D-59 — The never-fold models are state-blind: one constant score vector, not a weighted choice
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "What is the percentage weighting that the different models give to
+fold/check-call/raise? Is it that they zero out the fold chance entirely, or that they're outweighted?"
+
+**Answer:** neither — and the distinction matters. The learner is an **argmax over six Q-values**, so it has
+no probability weighting to report. Measured on 477 distinct observations at a table with all four streets:
+
+- **All four net-chip models emit exactly ONE score vector for every decision** — a constant function of no
+  input. `fold` is not zeroed and not outcompeted: the model is not reading the state. Its constant margin
+  puts fold 6.03 below the call and 7.59 below the best raise, hand after hand.
+- **The seven token+shortfall models do read their input** (115 distinct vectors of 117) but the spread is
+  tiny (sd 0.001–0.004) and fold wins by ≈0.013 — genuinely outweighed, by a hair.
+- **Only flat+shortfall is both state-dependent and mixed** (175 vectors of 175; fold 53 %, raises 40 %,
+  call 7 %).
+
+**Consequence:** "never folds" is not a preference but a **collapsed network**, which explains three seeds
+with identical payoffs, the inference test's 0.026-chip same-family agreements, and every single-action
+census. The utility's real effect is not on *what* the model prefers but on **whether it learns to depend
+on its input at all** — and only the flat encoding under the risk-averse utility produces a policy with
+genuine state dependence.
+
+**For the talk:** this is the strongest methodological beat in the project — a census that looked like a
+strategy ("it never folds") turned out to be a constant function, and only reading the values rather than
+the argmax revealed it.
