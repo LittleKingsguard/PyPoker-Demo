@@ -1577,3 +1577,34 @@ because no gradient reaches an action through a zeroed unit.
 small and the trunk alive — and the project already has the rung for keeping a trunk alive: **R6
 `residual`**. The instrument to watch is **active-unit count**, not the action census: it is the earliest
 visible failure and `agents` already exposes the arrays to count it.
+
+---
+
+## D-61 — Normalise every input into [0, 1] and re-train every model version in parallel
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Normalize all input values to between 0 and 1 and then rerun training for all
+model versions in parallel"
+
+**Why:** D-60's RCA found the input path dead — `net-chips` models keep **0 of 36** (flat) and **2 then 1 of
+50** (tokens) hidden units alive, so their output is their output bias and their policy is a constant. The
+measured chain runs through **input magnitude**: the O(100) chip reward drives input-weight norms to 313 and
+input biases to 82, the pre-activations leave every trunk unit negative, and ReLU zeroes the hidden vector.
+Normalising the input to [0, 1] attacks the first term of that chain rather than the reward.
+
+**Decision:** both encodings emit values in [0, 1] — the dense layout slot by slot with a declared numerator,
+denominator and clamp, the token path with its own justified reading of "bounded" — and **every slot that can
+saturate does so by a documented rule, never silently**; a readout that cannot be normalised is refused by
+name. The invariant becomes a **battery assertion**: no observation emitted anywhere exceeds 1.
+
+**Costs, declared:** the layouts keep their widths, so containers still load, but their **values mean
+something different** — pre-change checkpoints are no longer comparable, and the shipped 18 are read-only
+history. The fixed-limit byte-identical gate is therefore superseded **for this change only**, by the user's
+instruction to alter the input representation; it remains in force for every future change that does not.
+
+**Then:** all **nine variants** across the six rungs re-trained at the six-seat shape, 15,000 hands × seeds
+0–2, the mixed pool, `net-chips`, as **concurrent single-threaded processes** on 24 cores. Every variant
+reports its census, chips, **active-unit count** (the D-60 instrument) and **state-dependence** (distinct
+score vectors, the D-59 instrument) — because the question is not only whether behaviour changes but whether
+the input path survives at all.
