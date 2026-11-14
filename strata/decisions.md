@@ -1548,3 +1548,32 @@ genuine state dependence.
 **For the talk:** this is the strongest methodological beat in the project — a census that looked like a
 strategy ("it never folds") turned out to be a constant function, and only reading the values rather than
 the argmax revealed it.
+
+---
+
+## D-60 — The net-chip models' trunks are dead: the input path collapses at the ReLU
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "RCA where the input is falling out of the net-chips model"
+
+**Cause, measured by counting active ReLU units in each network's own forward pass:** the **trunk is dead**.
+`flat + net-chips` keeps **0 of 36** units alive in both hidden layers, so its hidden vector is exactly
+zero and its output **is** its output bias; `token + net-chips` keeps **2 then 1 of 50**, contributing
+0.0003 against a bias of 9.39. Both are constant functions. The shortfall models keep 16–25 units alive and
+are input-driven.
+
+**The chain:** the reward is chips (±600 at six seats) → squared TD at the declared rate drives parameter
+magnitudes to fit that scale (input-weight norms **313 vs 8.5**, input biases **82 vs 0.083**) → large
+pre-activations plus ReLU leave every trunk unit on the negative side → the hidden vector is zero → the
+output is the bias → the policy is a constant.
+
+**Consequences:** this explains three seeds with identical payoffs, Double-Q moving nothing (there is no
+input path for a better bootstrap to repair), the inference test's same-family agreement, and every
+single-action census — *including the project's earlier finding that 200× more training changed nothing*,
+because no gradient reaches an action through a zeroed unit.
+
+**What follows:** the fix is **scale, not architecture** — normalising the reward should keep parameters
+small and the trunk alive — and the project already has the rung for keeping a trunk alive: **R6
+`residual`**. The instrument to watch is **active-unit count**, not the action census: it is the earliest
+visible failure and `agents` already exposes the arrays to count it.
