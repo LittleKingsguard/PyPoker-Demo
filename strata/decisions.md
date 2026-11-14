@@ -1493,3 +1493,28 @@ checks — and the corrected instrument reports both as passing.
 
 **Still running:** the `card-tokens` + `double-q` arm, which decides whether the rule axis changes the
 folding rate the utility produces.
+
+---
+
+## D-58 — The rule axis is dead; the utility is the only switch
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test both the net chips and double Q versions, Then run all of the token models
+against each other for an inference test"
+
+**Result:** `card-tokens` + `double-q-learning` at six seats produces the **same policy** as the masked-Q arm
+on the same pool, shape, seeds and utility — **0 % folding**, and two of three seeds byte-identical
+(4,432/4,617 decisions, 100 % check-call, chips −3.510/−2.683), the third differing by 0.1 chips and 0.1
+points of share. This reproduces D-42's two-seat finding (0 folds in 21,858 decisions under Double-Q), so it
+now holds across seat counts, encodings and shapes: **the rule changes neither the folding rate nor the
+policy.**
+
+**The lever table, all measured at six seats:** the **utility** is the switch (0 % → 78–93 %); the
+**encoding** is a real modulator (77.5 % → 92.7 %, sd 5.7 → 1.2) when the utility is held fixed; the
+**rule** and the **counterfactual** do nothing; and the **inference test** (D-57) prices the result — the
+folder loses 0.265 chips/hand per seat to the non-folder.
+
+**For the talk:** of four levers built, exactly two move behaviour, and they compose in a fixed order. That
+is the deck's spine, and it is the honest form of the claim: **the reward decides whether the agent folds,
+the encoding decides how hard and how consistently, and neither makes it win.**
