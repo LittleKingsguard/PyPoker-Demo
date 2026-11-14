@@ -1460,3 +1460,36 @@ difference, D-52); and folding 92.7 % is a behaviour rather than an edge.
 falsification-tested — stated as *"tokenising the cards makes the agent fold 15 points more, with a fifth
 of the variance, and no seed reverses it"*, never as a claim that tokens win chips. The counterfactual is
 not part of it: it added nothing to this pair (D-55).
+
+---
+
+## D-57 — Inference test: the folding models lose to the non-folding ones
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test both the net chips and double Q versions, Then run all of the token models
+against each other for an inference test"
+
+**Result of the inference test** — 11 entrants (ten `card-tokens` checkpoints plus the pool's raiser),
+55 matches, six seats, 300 deals played twice per match with the entrant on each side, antisymmetry
+verified at `+0.000000` and within-family agreement at 0.026 chips:
+
+- **`token+net-chips` beats `token+shortfall` by +0.265 chips/hand per seat** across 21 matches.
+- **The raiser beats both** (+1.352 against net-chips models, +0.512 against shortfall models) and is the
+  strongest single entrant at +0.764 overall.
+- **Every folding model is negative against the field** (−0.08 to −0.16); the best individual model is a
+  non-folding one at +0.223.
+
+**Consequence:** D-56's reproducible folding is now priced — **the behaviour that is reliable is the
+behaviour that loses**. The talk can pair the two results honestly: the risk-averse utility makes folding
+reproducible, and the inference test shows the folder gives up a quarter of a chip a hand to the agent that
+never folds.
+
+**Also recorded, my own defects in this instrument, caught before any number was read**: a seat-index bug
+that measured the opponent's seats while labelling them the entrant's (every match cancelled toward zero);
+different deal sets for the two seatings, which broke antisymmetry (sum −0.216); and `payoffs` indexed as a
+list when it is a seat-keyed mapping. Each was caught by an invariant — the antisymmetry and within-family
+checks — and the corrected instrument reports both as passing.
+
+**Still running:** the `card-tokens` + `double-q` arm, which decides whether the rule axis changes the
+folding rate the utility produces.
