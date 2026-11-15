@@ -1982,3 +1982,29 @@ hole cards. The only card-dependent models in the project remain the **flat** en
 **The sharpest open question:** why a token model whose score vectors are demonstrably live (8–24 distinct
 vectors per seating) still maps every hand to one action. That is now the question a further pass should attack,
 and it is a representation question, not a reward or exploration one.
+
+---
+
+## D-74 — The cards are not meaningfully distinct: the token embedding is still its initialization
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Cluster-map the embedding vectors. Are the cards meaningfully distinct?"
+
+**Answer:** **no.** The 52 card rows are distinct only as random vectors are distinct (pairwise cosine −0.435 to
++0.453, mean −0.001), and they carry **no card structure**: same-rank pairs average **+0.0071** and same-suit
+**+0.0072** against unrelated pairs' −0.0049, an excess of 0.012 against a per-pair spread of 0.139.
+
+**The decisive measurement:** seven named pairs match a fresh `PCG64(0)` draw **to four decimals**, and `model.py`
+initialises from exactly that generator — so the trained table **is** its initialization. Movement over training
+is **max |Δ| 0.0004** against a row scale of ~0.14, i.e. **0.3 %**; two independent runs are 0.0004 apart from each
+other as well.
+
+**Mechanism (leading hypothesis):** only the **addressed rows** receive gradient, the mean-pooling divides it
+across every token position, and the bounded squash's derivative is ≤ 0.5 — so each row's share is tiny and
+thousands of hands move it by a fraction of a percent.
+
+**This closes D-73's open question:** the token model maps every hand to one action because it reads a **random
+projection** of its hole cards, not because the trunk or the estimator is inadequate. The flat encoding, which
+feeds 433 values directly into the trunk, is the only one in this project whose play depends on the cards (D-71).
+The discrimination layer is a **representation** failure, located.
