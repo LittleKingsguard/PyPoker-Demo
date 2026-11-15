@@ -1736,3 +1736,31 @@ input path, because a dead rectifier has zero derivative. The loss is sound; the
 value scale are not. The fix is a **normalised reward** (or a bounded advantage target), which places the
 declared rate inside the window — and that is also why `stack-shortfall`'s O(1) reward leaves its trunks
 alive (D-60, D-63).
+
+---
+
+## D-66 — Test the normalised reward: the one predicted repair for the dead trunk
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Proceed with normalized reward test"
+
+**What is tested:** a new utility on D-20's axis — **net chips ÷ (seats × starting stack)**, so the six-seat
+range is `[-1, +1]` — differing from `net-chips` in **scale and nothing else**: terminal-only, same axis, same
+encoders, same containers.
+
+**The prediction, stated before the run:** with the reward in `[-1, 1]`, one step is `lr·δ·x` ≈ 1e-3 rather
+than **0.6**, so **‖w_in‖ should stay of order 10 rather than 298.6, the trunk should keep live units, and the
+policy should become state-dependent** — none of which any `net-chips` cell has achieved (‖w_in‖ 298.6, zero
+active units, one score vector over thousands of observations).
+
+**Six cells** at six seats, 15,000 hands × seeds 0–2, the mixed pool: the normalised reward × {masked-Q,
+`double-q-learning`, `reveal-counterfactual`} × {`flat-numeric`, `card-tokens`}, run concurrently. One cell
+carries a **snapshot trajectory** at hands 300/600/1,500/3,000 — the direct test of the explosion that D-65
+measured between hands 300 and 600.
+
+**Why this is the right test and the last one of its kind:** D-65 established that at a 600-scale reward **no
+learning rate works** — 1e-3 explodes the weights in 300 hands and 1e-6 never moves them. The only remaining
+term in that arithmetic is the reward's magnitude, and it is the one the utility axis owns. If the trunk dies
+under a normalised reward too, the cause was not the scale and the RCA must be reopened; **no threshold will be
+invented to rescue it**.
