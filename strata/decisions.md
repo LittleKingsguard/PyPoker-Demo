@@ -2008,3 +2008,29 @@ thousands of hands move it by a fraction of a percent.
 projection** of its hole cards, not because the trunk or the estimator is inadequate. The flat encoding, which
 feeds 433 values directly into the trunk, is the only one in this project whose play depends on the cards (D-71).
 The discrimination layer is a **representation** failure, located.
+
+---
+
+## D-75 — The embedding learns at 0.3 % because its gradient is divided by 122
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Why is the embedding learning so slow?"
+
+**Cause, from the backward pass:** `add.at(gathered, ids, (upstream / len(ids)) * slope)` divides every addressed
+row's gradient by the **whole observation length — 122 positions at six seats — of which only 14 carry a real
+token.** Each card row therefore receives **≤ 1/122 × 0.5 ≈ 0.0041** of the upstream gradient per appearance,
+against a flat input slot's full share, and only when that exact card appears.
+
+**The arithmetic closes against D-74's measurement:** `appearances × lr × upstream × 0.0041` at `lr = 1e-3`, an
+upstream of order `1e-2`, and hundreds to a couple of thousand appearances gives **order 1e-4** — the measured
+**max |Δ| 0.0004** on a row scale of 0.14. The 0.3 % is predicted by the dilution, not an accident of tuning.
+
+**Remedies, cheapest first:** divide by the **real** token count or mask padding out of the pool (recovers 8.7×,
+one line); drop the squash or widen the embedding scale (another ≤ 2×); sum-pool instead of mean-pool; or use the
+flat encoding, which has no pooling and is the only card-aware encoding in the project (D-71).
+
+**Consequence for every earlier encoding result:** the token encoding never had a fair test — its card
+representation received **0.4 %** of the learning signal the flat encoding's did, throughout. D-52, D-56, D-67,
+D-71 and D-73 are statements about an **untrained embedding**, not about tokenisation as an idea, and must be
+reported that way.
