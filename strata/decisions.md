@@ -1824,3 +1824,37 @@ table before either is presented**, because the direction reverses with the oppo
 agent fold whenever folding is legal against a betting pool, and the token encoding makes it do so more
 consistently, while against an all-passive table the same models stop folding entirely.* Conditionality is the
 finding; the percentage is a property of the opposition.
+
+---
+
+## D-69 — The cross-condition check exposed era mixing; D-68's token findings stand, older token censuses cannot be reproduced
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "proceed" — with D-68's cross-condition check.
+
+**Result:** the replay **contradicted the recorded censuses** (`short-tok-s0` folded 0 % of 460 decisions where
+its own greedy pass recorded 91.8 %), so the harness was tested first: the same file, same table, same seeds now
+plays **raise-half on 400 of 400 decisions**. The file did not change; **the code did**.
+
+D-61's bounded embedding — `row = (1 + tanh θ)/2`, applied at forward time — **silently reinterprets every
+pre-squash token checkpoint**. All token models in `/tmp/token-shortfall`, `-seeds36`, `/tmp/token-build` and
+`/tmp/token-dq` predate it and cannot be evaluated meaningfully now.
+
+**What survives:** **D-68's token findings** (the nine runs are one policy; it folds whenever folding is legal),
+because those were measured on `norm-*` models trained **and** evaluated after the squash — internally consistent.
+
+**What does not survive as current measurement:** every recorded token census from before D-61 — D-53's 92.7 %,
+D-56's seven-seed table, D-63's grid. They were correct **in their era** and remain true statements about models
+that no longer exist; reloading the same files cannot reproduce them.
+
+**Invalid:** this pass's cross-condition table, which mixed eras and therefore measures nothing in its `short-*`
+rows.
+
+**To close D-68:** train a **post-squash stack-shortfall token model** (one cell, three seeds) and run the
+cross-condition test entirely within one era. Until then the conditionality claim rests on a single cell and is
+not a contrast.
+
+**Lesson recorded:** changing a forward pass must declare **the era of the containers it invalidates**. D-61
+declared the dense family comparable — the encoder dump proved that — but not the token family, and this is the
+cost of that omission.
