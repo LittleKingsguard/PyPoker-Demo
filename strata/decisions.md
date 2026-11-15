@@ -1707,3 +1707,32 @@ indistinguishable from the seed spread.
 **Decision:** the substantive finding stands and both passes support it; **per-seed tables are the form of
 record and pooled census shares are not**, from here on. The duplication was my scheduling error, and the
 cost was two grids' worth of compute rather than a wrong conclusion.
+
+---
+
+## D-65 — The trunk dies by weight explosion at hand ~600, then freezes on a zero gradient
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "RCA how the trunk is dying. The input data should be sufficiently diverse and
+meaningful that the code can't justify ignoring it entirely without errors being made"
+
+**Finding, from ten snapshots over 3,000 hands:** ‖w_in‖ goes **11.0 at hand 300 → 298.6 at hand 600 → and
+then stays 298.6 to four significant figures for the remaining 2,400 hands**, with ‖b_in‖ 78.87 and ‖w_out‖
+312.0 likewise frozen while only `b_out` drifts. That freeze is a **zero gradient**: every trunk unit's
+pre-activation is negative, the rectifier's derivative is 0, and no gradient reaches the input path again.
+
+**Why the explosion:** the reward is ±600 chips a hand, so the first TD errors are |δ| ≈ 600 and one step is
+`lr·δ·x` ≈ **0.6 per hand** at the declared 1e-3. The weights climb ~1 per hand and reach 300 within 300
+hands, at which point every unit dies.
+
+**The window is narrow, and that is the answer to the challenge:** at **1e-6** the weights stay at their
+initial values for all 3,000 hands (‖w_in‖ 8.471 from hand 300 onward, `b_out` 0.022) — nothing explodes and
+nothing learns. So `lr × reward-scale` must be small enough not to explode and large enough to move within
+the budget, and at a 600-scale reward **1e-3 explodes while 1e-6 stalls**: no rate in that span works.
+
+**Consequence:** the input *is* informative and ignoring it *does* cost error — but the cost never reaches the
+input path, because a dead rectifier has zero derivative. The loss is sound; the parameterisation and the
+value scale are not. The fix is a **normalised reward** (or a bounded advantage target), which places the
+declared rate inside the window — and that is also why `stack-shortfall`'s O(1) reward leaves its trunks
+alive (D-60, D-63).
