@@ -1921,3 +1921,38 @@ lottery, unchanged.
 
 This supersedes every aggregate-census claim about what the models "do": the census is retired as the primary
 behavioural instrument (D-70), and the scenario table is now the form of record.
+
+---
+
+## D-72 — The fold-pinning is a data-starvation loop, proven by the exploration floor
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Pinning into fold-when-legal is a training failure, RCA"
+
+**Not the cause:** not a near-tie (fold wins by a mean **+0.0157**, range +0.0022 to +0.0523 across 164
+scenarios); not a card-blind network (D-71: 8–24 distinct score vectors); not a dead trunk (D-67: 22–30 active
+units); not the reward's scale (these cells are already normalised).
+
+**The finding:** fold's own value averages **−0.0027** — the blind loss, which is *correct* — while every
+alternative sits at **−0.01 to −0.14**. The model folds because it estimates that **playing on loses more than
+folding**, and that estimate is self-fulfilling: folding ends the hand, so the on-policy samples that would
+price the other actions are never collected.
+
+**Proven by one parameter.** Same configuration, pool and 5,000 hands, only the exploration floor changed:
+
+| arm | fold |
+|---|---|
+| **ε_end 0.05** (declared) | **92.9 %** |
+| **ε_end 0.60** | **0.0 %** (raise-minimum 63 %, call 27 %, all-in 10 %) |
+
+**The pinning vanishes entirely when the learner is forced to keep trying the other actions.**
+
+**Why the token arms pin and the flat ones do not:** their action values are compressed into a narrow band
+(~0.05 against the flat arms' ~0.3), so a smaller estimation error is enough to make fold win, and less data
+locks it in.
+
+**Remedies, in order:** **raise the exploration floor** — one declared number, measured to move fold from
+92.9 % to 0.0 % — and, if that is not enough, **estimate the values of actions not taken**, which is exactly what
+D-39/D-40's reveal-only counterfactual does. It was set aside because it did not fix folding in a two-player
+pool; this RCA says it was aimed at the wrong symptom.
