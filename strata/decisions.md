@@ -1858,3 +1858,34 @@ not a contrast.
 **Lesson recorded:** changing a forward pass must declare **the era of the containers it invalidates**. D-61
 declared the dense family comparable — the encoder dump proved that — but not the token family, and this is the
 cost of that omission.
+
+---
+
+## D-70 — A loaded-deal scenario suite: does the model's play depend on its cards?
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Set up a test suite that contains loaded games setting up a variety of hands of
+different strengths, ex. paired aces, K-Q (on/off-suite), paired 2's, 8/7 (on/off-suite), 7/2 (on/off-suite),
+etc. with both helpful and unhelpful community cards for each hole set"
+
+**Why this is the right instrument now:** every behavioural result in this project has been an **aggregate
+census** — a share of actions across thousands of hands — and D-59 showed that an aggregate can look like a
+strategy while being a constant function. A loaded-deal suite replaces the census with the question directly:
+*what does this model do when it holds aces, and what does it do when it holds seven-deuce offsuit?*
+
+**Decision:** build a **declared table of concrete scenarios** — cards spelled out, each hole set against one
+board that helps it and one that does not, with boards reused across hole sets where that is the honest
+comparison — served by a **declared loaded-deal surface** that plays a hand with prescribed hole cards and board,
+validates every malformed deal by name, and leaves the seeded path byte-identical.
+
+**Measurement discipline:**
+- the model's decision is reported **before the flop and on the flop**, with the scored values, so the table
+  reads as behaviour rather than as an average;
+- **only post-D-61 models** are used (`/tmp/reward-scale/checkpoints/norm-*`), because D-69 established that
+  earlier token checkpoints are silently reinterpreted by the bounded embedding and cannot be evaluated today;
+- the answer required is binary and plain: **does the action depend on the cards at all** — AA against 72o, and
+  a helpful board against an unhelpful one for the same hole cards — and if it does not, that is the result.
+
+This supersedes the census as the primary behavioural instrument; censuses stay for population-level questions,
+but every "the model does X%" claim in the talk must be backed by a scenario table showing *when* it does X.
