@@ -19,7 +19,7 @@ own probe of the declared `learning_rate` (ASM-7, D-19): at 0.1 the value functi
 
 - **Refused by name, never clipped.** A clip, a skip, a reset or a finite substitute would change the declared learning rule
   (ASM-7, D-19) and hand the caller an answer its arithmetic did not produce (`surface.md` §1).
-- **The finite path is untouched**: the declarations, both rules, both utilities, the initialisation order, the tie-break, the
+- **The finite path is untouched**: the declarations, both rules, every utility, the initialisation order, the tie-break, the
   schedule and the composition are unchanged, so a finite batch takes the same steps and returns the same `td_error` digits
   (D-19, D-20, ASM-10, `rule.md` §3, §6).
 - **`load` gains nothing**: a container with a non-finite parameter is read exactly as it always was, and the refusal arrives at

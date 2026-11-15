@@ -146,7 +146,7 @@ head it was written at and a `game` disagreeing with its own `params` is refused
 
 ## 7. What a seat count does not move
 
-The two learning rules, the two utilities, the six hyper-declarations and the six baselines stay one declaration for
+The two learning rules, the three utilities, the six hyper-declarations and the six baselines stay one declaration for
 the catalogue; the readout keeps its eleven facts; both encodings keep their nine fields and their block order; the
 amount normalisers and the bucket edges stay `features`' (`shapes.md` §2, §8, `utility.md` §1, `rule.md` §6,
 `docs/L2/features/shapes.md` §5). What this row moves at this surface is three things and no fourth: the **seat count**

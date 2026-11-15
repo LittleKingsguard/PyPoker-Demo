@@ -15,7 +15,7 @@
 ## 1. What this module is
 
 `agents` is everything that chooses or learns an action: one learner family, the catalogue of two learning rules and the catalogue
-of two terminal-reward utilities a spec selects from, the three declared game shapes a spec selects between, and the six fixed
+of three terminal-reward utilities a spec selects from, the three declared game shapes a spec selects between, and the six fixed
 baselines — D-6's three, which anchor the rating, and D-21's three folders (`module-map.md` §1, D-6, D-19, D-20, D-21, D-29, D-33,
 ASM-7). It acts, learns, saves, restores and hands out policies; it never deals a hand, decides legality, encodes an observation,
 measures a match or writes a report (D-2, D-3, `learner.md` §6–§8). The **sets** of rules and utilities, the shape catalogue, the
@@ -27,7 +27,7 @@ vocabulary and the readout facts are fixed for the ladder (D-3, ASM-7, `rules.md
 |---|---|---|
 | `rule.md` | the catalogue of two rules, and the third catalogue of counterfactuals | each rule's target, the contract they share, the mask, where the terminal reward enters, the semi-gradient step and the batch order; the two **divergence guards** that sit in that order (`divergence.md` §2) and D-45's band on the same read (`finiteness.md` §2); the exploration schedule and the **keyed draw**; the **tie-break**; what `learners()` declares and what `learn` returns; and the member's step count, its three fallbacks and the statistics counted over steps (D-19, ASM-7, ASM-12, D-43, D-45) |
 | `finiteness.md` | D-45's finiteness envelope | the target's bound by the chips in play, `PARAMETER_BAND` beside `HYPER`, the three sites `learn` refuses at, the argument that makes `-inf` unreachable, the three messages and the cases that pin them (D-45, `counterfactual.md` §10) |
-| `utility.md` | the catalogue of two utilities | each utility's `reward` and `normaliser`, the declared default, the one contract both answer, the arithmetic's four scores, where the transform is applied and where it is not, what a learner and a policy carry, and the `UnknownUtility` refusal (D-20, ASM-12, ASM-28) |
+| `utility.md` | the catalogue of three utilities | each utility's `reward` and `normaliser`, the declared default, the one contract all three answer, both normalising arithmetics and their numbers, where the transform is applied and where it is not, what a learner and a policy carry, and the `UnknownUtility` refusal (D-20, ASM-12, ASM-28, D-65) |
 | `architecture.md` | the seven kinds | each kind's layer stack, how `width`/`depth`/`sparsity`/`residual` are read, the **one initialisation order**, the **parameter formula**, and the sizing contract (D-3, ASM-10) |
 | `input-read.md` | the token family's input block | the **bounded embedding** — `row = (1 + tanh θ)/2` per addressed row, and the mean the trunk reads — its derivative and the resolution it costs, what the forward cache carries, and what stays unmoved (D-61, `normalisation.md` §3, §5) |
 | `backends.md` | the R1↔R2 axis | NumPy at R1 and PyTorch from R2 on, what the swap may not change, the decision-parity mechanism and its tolerance, the dtype, the lazy `torch` import (D-7) |

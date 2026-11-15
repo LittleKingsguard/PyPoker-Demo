@@ -15,7 +15,7 @@ error on a ±20-chip terminal reward, stepped at a large rate, drives the delta 
 
 - **Refused by name, never clipped.** Clipping the step would be a change to the declared learning rule (ASM-7, D-19)
   and a silent substitution for the value the caller's arithmetic produced, which §1 of `surface.md` forbids.
-- **The declared arithmetic is not the fix.** The six declarations, the two rules and the two utilities are untouched:
+- **The declared arithmetic is not the fix.** The six declarations, the two rules and the utility catalogue are untouched:
   same action, same step, bit for bit, and the shipped `learning_rate` stands as declared (ASM-7, D-20).
 - **Reachable from this surface.** Both sites are reached by a caller holding only the ten entry points, as are D-45's two
   (`finiteness.md` §1–§3).

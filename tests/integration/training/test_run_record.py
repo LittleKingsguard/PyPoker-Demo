@@ -45,6 +45,17 @@ else:
     sys.modules["training_join_support"] = J
     _spec.loader.exec_module(J)
 
+#: The three utilities `docs/L1/utilities.md` §2 declares, **in its declared order**: the
+#: first is the declared default of §5, and the third is the member
+#: `docs/L1/reward-scale.md` §2 appends after the two of Rev 1 so no existing member's
+#: position -- and so that default -- moves.  The names are spelled here only so the
+#: catalogue can be held to the document's order; every value a case reads is read off
+#: `agents.learners()`.
+UTILITIES = ("net-chips", "stack-shortfall", "net-chips-normalised")
+
+#: That order's first member, which is the declared default a spec naming no `utility` takes.
+DEFAULT_UTILITY = UTILITIES[0]
+
 
 class EngineJoin(J.JoinCase):
     """TRNJ-1 -- a run's hands are the engine's hands."""
@@ -774,19 +785,35 @@ class AgentsJoin(J.JoinCase):
         configuration = J.two_utility_configuration()
         catalogue = J.utility_names()
         self.assertEqual(
-            len(catalogue),
-            2,
-            "the catalogue publishes the two utilities the ladder may train on, so a run "
-            "of two arms is two objectives and not one twice (utilities.md §2, D-20): %r"
+            tuple(catalogue),
+            UTILITIES,
+            "the catalogue publishes docs/L1/utilities.md §2's three utilities in its "
+            "declared order — the third appended by docs/L1/reward-scale.md §2 after the "
+            "two of Rev 1 — so a run of two arms is two objectives out of three and not one "
+            "twice (utilities.md §2, §5, reward-scale.md §2, §4, D-20, D-65): %r"
             % (catalogue,),
+        )
+        self.assertEqual(
+            catalogue[0],
+            DEFAULT_UTILITY,
+            "and its first member is still `net-chips`, the declared default of "
+            "utilities.md §5, so the third member's arrival moved no default "
+            "(reward-scale.md §2, §4, D-20): %r" % (catalogue,),
         )
         declared = [str(entry["utility"]) for entry in configuration["variants"]]
         self.assertEqual(
             declared,
-            catalogue,
-            "the invented configuration declares one catalogued utility per arm, read from "
-            "agents.learners() and never restated (utilities.md §2, §5, D-20): %r"
-            % (declared,),
+            catalogue[:2],
+            "the invented configuration declares one catalogued utility per arm — the "
+            "catalogue's first two, in its declared order, read from agents.learners() and "
+            "never restated — so the two arms are two of the document's three members "
+            "(utilities.md §2, §5, D-20): %r" % (declared,),
+        )
+        self.assertTrue(
+            set(declared) <= set(catalogue),
+            "every member the configuration declares is one the catalogue publishes, or the "
+            "run would be asked for a reward training cannot deliver "
+            "(utilities.md §2, §4, D-20): %r against %r" % (declared, catalogue),
         )
         record = J.two_utility_run()
         seeds = tuple(int(seed) for seed in record["seeds"])
@@ -837,17 +864,25 @@ class AgentsJoin(J.JoinCase):
                     J.policy_utility(J.policy_from(path))
                     for path in per_seed
                 },
-                set(catalogue),
-                "and those two containers record two **different** utilities — the "
-                "catalogue's two members — so the utilities a run trained on are readable "
-                "from its artefacts alone (utilities.md §6, §7, D-20): seed %r" % (seed,),
+                set(declared),
+                "and those two containers record two **different** utilities — the two "
+                "catalogue members the configuration declares — so the utilities a run "
+                "trained on are readable from its artefacts alone (utilities.md §6, §7, "
+                "D-20): seed %r" % (seed,),
             )
         self.assertEqual(
             sorted(str(utility) for utility in record["utilities"]),
-            sorted(catalogue),
+            sorted(declared),
             "the run record's `utilities` names both members the run declared and "
             "trained, so a table can say which objectives produced its members "
             "(records.md §12, utilities.md §7, D-20): %r" % (record["utilities"],),
+        )
+        self.assertTrue(
+            set(str(utility) for utility in record["utilities"]) <= set(catalogue),
+            "and every name that set holds is a catalogue member, so the record never "
+            "names an objective the catalogue does not publish "
+            "(records.md §12, utilities.md §2, §7, D-20): %r against %r"
+            % (record["utilities"], catalogue),
         )
         self.assertEqual(
             [str(entry["utility"]) for entry in record["variants"]],
@@ -864,6 +899,221 @@ class AgentsJoin(J.JoinCase):
             "arms trained against holds the three baselines and no version, and its "
             "utility set is empty -- one pool for both arms (records.md §8, §12, "
             "league.md §2, D-20): %r" % (record["pool"]["utilities"],),
+        )
+
+    def test_trnj_3_6_the_normalised_utility_is_a_scale_a_run_trains_and_a_curve_separates(self):
+        """TRNJ-3.6 a run declaring `net-chips-normalised` trains it, records it for its variant, and separates its curve from `net-chips`' on the same hands.
+
+        `docs/L1/reward-scale.md` §2 puts a third utility in the catalogue — the reward
+        `Δ / T`, the seat's net chip delta over the game's chips in play — delivered at the
+        terminal decision by `training`'s transition record and by no other step
+        (`utilities.md` §4, D-65).  D-20 makes that objective a parameter a variant names,
+        so a configuration whose two arms differ **only** in `utility` — `net-chips` against
+        `net-chips-normalised`, one backend, one encoding, one architecture, one rule, one
+        `hyper`, one seed set and one budget — trains both arms and records both: each
+        `variants` row names its own member and the run's `utilities` set holds both
+        (`records.md` §12, `utilities.md` §7).  §2 and §4 make the two members differ in
+        **scale and in nothing else** — one terminal number, one zero on every other
+        decision, one bootstrap rule, one state layout, one `param_count` — so the same
+        hands dealt to the same initial draw must produce two **different** learning
+        curves; that is what makes a difference between the arms attributable to the
+        reward's scale and not to a second axis (ASM-10, D-3, D-65, FAM-18.7).  Finally the
+        reward a member delivers is the token `training` selects its arithmetic by
+        (`utilities.md` §4), so **every** member the catalogue publishes is driven through
+        that step and is not refused there (`reward-scale.md` §2, §4).
+        """
+        configuration = J.normalised_utility_configuration()
+        record = J.normalised_utility_run()
+        catalogue = J.utility_names()
+        normalised = J.utility_by_reward(J.NORMALISED_REWARD_TOKEN)
+        arms = [str(entry["name"]) for entry in configuration["variants"]]
+        declared = [str(entry["utility"]) for entry in configuration["variants"]]
+        self.assertIn(
+            normalised,
+            catalogue,
+            "the member whose declared reward is `normalised-net-chip-delta` is one the "
+            "catalogue publishes, so the third member is a member and not a reward this "
+            "battery asked for by name (docs/L1/reward-scale.md §2, "
+            "docs/L1/utilities.md §2, D-65): %r of %r" % (normalised, catalogue),
+        )
+        self.assertEqual(
+            declared,
+            [DEFAULT_UTILITY, normalised],
+            "the invented pair's two arms are the declared default `net-chips` and the "
+            "normalised member, read off agents.learners() by the reward token "
+            "reward-scale.md §2 declares and never restated (utilities.md §2, §5, "
+            "reward-scale.md §2, D-65): %r" % (declared,),
+        )
+        stripped = [
+            {
+                str(key): value
+                for key, value in dict(entry).items()
+                if str(key) not in ("name", "utility")
+            }
+            for entry in configuration["variants"]
+        ]
+        self.assertEqual(
+            stripped[0],
+            stripped[1],
+            "the two arms' declared entries are equal on every field but `name` and "
+            "`utility` — one backend, one encoding, one architecture, one rule, one "
+            "`hyper`, one seed set and one budget — so the pair differ on the `utility` "
+            "axis alone and start from the same initial draw (utilities.md §8's one-axis "
+            "rule, §3, reward-scale.md §2, §4, ASM-10, D-3): %r"
+            % (sorted(stripped[0]),),
+        )
+        seeds = tuple(int(seed) for seed in record["seeds"])
+        self.assertEqual(
+            seeds,
+            (J.UTILITY_SEED, J.UTILITY_SEED_OTHER),
+            "the run states the two invented seeds it trained at, so both arms' artefacts "
+            "and curves are named per seed (records.md §12, protocol.md §2): %r" % (seeds,),
+        )
+        self.assertEqual(
+            [str(entry["utility"]) for entry in record["variants"]],
+            declared,
+            "the run record's `variants` rows name the utility **that** arm was trained "
+            "on, so the third member is named for its variant and not folded into the "
+            "default (records.md §12, utilities.md §7, reward-scale.md §4, D-65): %r"
+            % ([entry.get("utility") for entry in record["variants"]],),
+        )
+        self.assertIn(
+            normalised,
+            {str(name) for name in record["utilities"]},
+            "the run's `utilities` set holds the third member, so the objective a table "
+            "reads off the record includes it (records.md §12, utilities.md §7, "
+            "reward-scale.md §4, D-65): %r" % (record["utilities"],),
+        )
+        self.assertEqual(
+            sorted(str(name) for name in record["utilities"]),
+            sorted(declared),
+            "and that set is exactly the two members the configuration declared — a run's "
+            "utility set is the set its variants declare and never the whole catalogue "
+            "(records.md §12, utilities.md §7): %r" % (record["utilities"],),
+        )
+        self.assertEqual(
+            dict(record["params"][arms[0]]),
+            dict(record["params"][arms[1]]),
+            "the two arms carry one parameter budget block, so the pair is matched on "
+            "capacity and differs on the reward alone (utilities.md §3, ASM-10, D-3): %r "
+            "against %r"
+            % (
+                dict(record["params"][arms[0]]),
+                dict(record["params"][arms[1]]),
+            ),
+        )
+        interval = int(record["budget"]) // J.SNAPSHOT_POINTS
+        self.assertGreater(
+            interval,
+            0,
+            "the invented budget holds at least one snapshot interval, so a curve is a "
+            "measurement and not an empty axis (docs/L3/training/curves.md §2, ASM-18): "
+            "budget %r" % (record["budget"],),
+        )
+        for arm, utility in zip(arms, declared):
+            for seed in seeds:
+                block = J.checkpoints_of(record, arm, seed)
+                final = str(block["final"])
+                self.assertTrue(
+                    os.path.exists(J.resolve(final)),
+                    "each arm × seed pair of the two-scale run writes its own final model, "
+                    "so both arms trained and the path the record names is a file "
+                    "`agents.save` wrote (records.md §12, utilities.md §7, ASM-18): arm "
+                    "%r under %r, seed %r -> %r" % (arm, utility, seed, final),
+                )
+                container = J.policy_utility(J.policy_from(final))
+                self.assertEqual(
+                    container,
+                    utility,
+                    "and the container records the member its arm was trained under, the "
+                    "third member included (utilities.md §6, §7, "
+                    "`e2e-surface.md` §2, D-20): arm %r, seed %r reports %r"
+                    % (arm, seed, container),
+                )
+                curve = J.curve_of(record, arm, seed)
+                self.assertEqual(
+                    [int(sample) for sample in curve["samples"]],
+                    [k * interval for k in range(1, J.SNAPSHOT_POINTS + 1)],
+                    "the arm's curve is read at the run's own `budget // 10` points, which "
+                    "are the hands the run dealt (docs/L3/training/curves.md §2, ASM-18): "
+                    "arm %r, seed %r" % (arm, seed),
+                )
+                self.assertEqual(
+                    len(curve["td_error"]),
+                    J.SNAPSHOT_POINTS,
+                    "one mean absolute TD error per snapshot interval "
+                    "(docs/L3/training/curves.md §2-§3): arm %r, seed %r"
+                    % (arm, seed),
+                )
+                for value in curve["td_error"]:
+                    magnitude = self.assert_finite(
+                        value,
+                        "a `td_error` of arm %r under %r at seed %r"
+                        % (arm, utility, seed),
+                        "docs/L3/training/curves.md §3",
+                    )
+                    self.assertGreaterEqual(
+                        magnitude,
+                        0.0,
+                        "the signal is a mean absolute TD error, so it is in [0, infty) "
+                        "under the normalised reward too — a negative value would be a "
+                        "signed reward where none is shaped "
+                        "(docs/L3/training/curves.md §3, reward-scale.md §2): %r"
+                        % (value,),
+                    )
+        for seed in seeds:
+            curves = [J.curve_of(record, arm, seed) for arm in arms]
+            self.assertEqual(
+                [int(sample) for sample in curves[0]["samples"]],
+                [int(sample) for sample in curves[1]["samples"]],
+                "both arms are scored at the same snapshot points — the same hands of the "
+                "same seed — so their curves are comparable point by point "
+                "(docs/L3/training/curves.md §2, protocol.md §2): seed %r, %r against %r"
+                % (seed, curves[0]["samples"], curves[1]["samples"]),
+            )
+            self.assertNotEqual(
+                [float(value) for value in curves[0]["td_error"]],
+                [float(value) for value in curves[1]["td_error"]],
+                "the two arms' learning curves differ on the same hands and the same "
+                "initial draw, because the reward one arm was trained on is the other's "
+                "divided by the chips in play and nothing else moved "
+                "(reward-scale.md §2, §4, utilities.md §8, ASM-10, FAM-18.7, D-65): %r "
+                "against %r at seed %r"
+                % (curves[0]["td_error"], curves[1]["td_error"], seed),
+            )
+        episode = J.showdown_episode()
+        encoder = J.flat_encoder()
+        checked = 0
+        for utility in catalogue:
+            for seat in (0, 1):
+                batch = J.transitions_under(episode, seat, encoder, utility)
+                if not batch:
+                    continue
+                checked += 1
+                terminal = float(batch[-1]["reward"])
+                self.assertTrue(
+                    J.finite(terminal),
+                    "training's transition step accepts the reward token the catalogue "
+                    "declares for %r — a member whose token this module cannot apply is "
+                    "refused by name — and delivers a finite terminal reward "
+                    "(utilities.md §4, reward-scale.md §2, §4, D-65): %r"
+                    % (utility, terminal),
+                )
+                if utility == normalised:
+                    self.assertLessEqual(
+                        abs(terminal),
+                        1.0,
+                        "the normalised reward is bounded by 1 in magnitude on every "
+                        "declared shape with no clamp and no reachable end, because the "
+                        "divisor is the game's chips in play (reward-scale.md §2, §3, "
+                        "ASM-45, D-65): %r under %r" % (terminal, utility),
+                    )
+        self.assertGreaterEqual(
+            checked,
+            2,
+            "the showdown hand gives a seat a batch under every declared member, or this "
+            "case has driven nothing (docs/L3/training/episode.md §3, "
+            "docs/L1/counterfactual.md §4): %d batches" % (checked,),
         )
 
     def test_trnj_3_3_another_seed_decides_differently_and_the_same_seed_again(self):

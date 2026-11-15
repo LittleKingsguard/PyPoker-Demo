@@ -183,10 +183,18 @@ DEFAULT_RULE = "masked-q-learning"
 OTHER_RULE = "double-q-learning"
 RULES = (DEFAULT_RULE, OTHER_RULE)
 
-#: The utility catalogue's two members (`utilities.md` §2, D-20), on the same terms: the
-#: names the battery asserts against, with the catalogue always read off `agents`.
+#: The utility catalogue's members (`utilities.md` §2, `reward-scale.md` §2, D-20, D-65),
+#: on the same terms: the names the battery asserts against, with the catalogue always read
+#: off `agents`.  `CATALOGUE_UTILITIES` is the catalogue's **three** members in declared
+#: order — D-65's normalised reward appended third so no existing member's position, and so
+#: the declared default, moves — and is what a case that asserts the catalogue's contents
+#: reads.  `UTILITIES` stays the two objectives this battery's own pools, cells and matrices
+#: **declare**, so a record's `utility_population` is still read against the population it
+#: measured rather than against every member the module publishes (`records.md` §8, §9, §10).
 DEFAULT_UTILITY = "net-chips"
 OTHER_UTILITY = "stack-shortfall"
+NORMALISED_UTILITY = "net-chips-normalised"
+CATALOGUE_UTILITIES = (DEFAULT_UTILITY, OTHER_UTILITY, NORMALISED_UTILITY)
 UTILITIES = (DEFAULT_UTILITY, OTHER_UTILITY)
 
 #: The counterfactual catalogue's two members (`counterfactual.md` §2, §6, D-43), on the

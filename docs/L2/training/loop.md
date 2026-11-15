@@ -94,11 +94,11 @@ One pass of `run`, in this order, for any configuration:
    refusal, propagated unchanged in its owner's class (`engine/surface.md` §4, §10, `e2e-surface.md` §3.1, §3.5,
    `records.md` §8, D-2, D-29).
 6. **Learn once per hand.** The episode's decisions for the learner's own seat, in decision order, become
-   `records.md` §4 transitions and go to `agents.learn`; the batch is the caller's order and neither sampled nor
-   shuffled, which is what lets two arms declare one sample order (`agents/surface.md` §7, ASM-7, `ladder.md` §5).
-   The terminal reward is **the variant's utility's** reward — the seat's net chip delta under `net-chips`, the
-   normalised shortfall delta under `stack-shortfall` — computed in this module's transition record and never in
-   `agents.learn` (`utilities.md` §4, D-20, ASM-12), and its `td_error` is the curve's learning signal (`records.md` §5, `agents/surface.md` §7, `protocol.md` §1).
+   `records.md` §4 transitions and go to `agents.learn`; the batch is the caller's order — neither sampled nor
+   shuffled — which lets two arms declare one sample order (`agents/surface.md` §7, ASM-7, `ladder.md` §5). The
+   terminal reward is **the variant's utility's** reward: the delta under `net-chips`, the normalised shortfall
+   under `stack-shortfall`, that delta over the chips in play under `net-chips-normalised`; its `td_error` is the
+   signal (`utilities.md` §4, `reward-scale.md` §2, D-20, D-65, ASM-12, `records.md` §5, `protocol.md` §1).
 7. **Snapshot every `snapshot_every` hands** with `agents.save`, recording the path it returns: ten snapshots at
    equal intervals, of which the window retains the last M (ASM-18, `agents/surface.md` §8, `ladder.md` §6).
 8. **Write the final model, then play the pair's greedy pass.** At the budget's end `agents.save` writes the final

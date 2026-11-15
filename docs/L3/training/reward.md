@@ -1,10 +1,10 @@
 # training — the terminal reward, and the one place a utility is applied
 
-- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 3 · **Date:** 2026-11-10 · **Rev 2** reads the two quantities the transform needs — `s_0` and `T` — from the **run's own shape** through `engine.game_config(shape)` and `_chips_in_play(..., shape)`, so the arithmetic normalises against that shape's chips in play and a readout of one shape read against the other is refused by name (`shapes.md` §2–§3, `episode.md` §3, D-29); **Rev 3** reads a catalogue of three shapes, so the totals are that shape's own at 40, 200 and 600 and the six-seat row normalises against the 600 chips in play its seat count makes (`seats.md` §2, §5, `shapes.md` §8, ASM-42, ASM-44, D-33)
+- **Layer:** L3 · **Module:** `training` · **Unit:** phase1 · **Rev:** 4 · **Date:** 2026-11-14 · **Rev 2** reads the two quantities the transform needs — `s_0` and `T` — from the **run's own shape** through `engine.game_config(shape)` and `_chips_in_play(..., shape)`, so the arithmetic normalises against that shape's chips in play and a readout of one shape read against the other is refused by name (`shapes.md` §2–§3, `episode.md` §3, D-29); **Rev 3** reads a catalogue of three shapes, so the totals are that shape's own at 40, 200 and 600 and the six-seat row normalises against the 600 chips in play its seat count makes (`seats.md` §2, §5, `shapes.md` §8, ASM-42, ASM-44, D-33); **Rev 4** adds the catalogue's third reward token — `r = Δ / T`, the delta over the run's own shape's chips in play, through the same conservation guard, terminal-only and with no clamp — so `REWARDS` holds three arithmetics (`reward-scale.md` §2–§4, `utilities.md` §2, ASM-45, D-65)
 - **Owner:** the utility axis this module applies — where the transform sits and why (§1), the catalogue's **reward token** as the
-  selector and never a member name copied here (§2), the two arithmetics and the four scores (§3), the chips-in-play guard and the
+  selector and never a member name copied here (§2), the three arithmetics and the four scores (§3), the chips-in-play guard and the
   class it raises (§4), what every other decision keeps and what this module never touches (§5), and what is left to L4 (§6);
-  D-20, `utilities.md` §2–§5, `records.md` §4–§5, ASM-12, ASM-28, `shapes.md` §2, D-29
+  D-20, `utilities.md` §2–§5, `records.md` §4–§5, ASM-12, ASM-28, `shapes.md` §2, D-29, `reward-scale.md` §2–§4, D-65
 - **Ceiling:** 120 lines. At the ceiling, split by owner — never append
 - **Read with:** `episode.md` §3–§6, `loop.md` §1 steps 3 and 6, §4, `record.md` §1, `fairness.md` §4, `errors.md` §2, §4, `guardrails.md` G25
 
@@ -27,40 +27,45 @@ Three facts fix *why* the transform is here and not in `learner.py` (D-20, `util
   it (D-19, D-20).
 
 **No arithmetic in `src/agents/learner.py` is touched by any of it**: its terminal branch stays `target = record["reward"]` and its
-non-terminal branch stays the rule's `target = record["reward"] + discount * bootstrap`, so the utility decides what a terminal transition
-is worth while the rule decides how a non-terminal one is bootstrapped, and neither reads the other. The learner carries the utility's
-**name** — `agents.build_learner` selects it and refuses an unknown one, and the learner stores it as `self.utility` — and reads no
-arithmetic from it (`utilities.md` §3, §4, D-19, D-20).
+non-terminal branch stays the rule's `target = record["reward"] + discount * bootstrap`, so the utility decides a terminal
+transition's worth and the rule its bootstrap, neither reading the other. The learner carries the utility's **name** —
+`agents.build_learner` selects it, and the learner stores it as `self.utility` — and reads no arithmetic from it (`utilities.md` §3, §4, D-19, D-20).
 
 ## 2. The arithmetic is selected by the catalogue's reward token, never by a member name
 
     _reward_token(utility)       -> (name, token)       # the member's reward token, or ConfigurationInvalid
     _reward_function(utility)    -> (name, arithmetic)  # the callable the token names, or ConfigurationInvalid
-    REWARDS                      -> {"net-chip-delta": <delta>, "squared-stack-shortfall-delta": <shortfall delta>}
+    REWARDS                      -> {"net-chip-delta": <delta>, "squared-stack-shortfall-delta": <shortfall delta>,
+                                     "normalised-net-chip-delta": <delta / T>}
 
 The catalogue `agents.learners()["utilities"]` is the only source of a member's reward, so the arithmetic is keyed by the **token**
 the member states for itself and never by a member name transcribed into this module (D-20, `utilities.md` §2). `_reward_token`
 resolves its argument — `None` meaning the catalogue's first member, the declared default of `utilities.md` §5 — and returns the
 member's `reward` string; a name the catalogue does not carry, or a member whose `reward` is not a string, is
 `ConfigurationInvalid` naming the utility and every name the catalogue does carry. `_reward_function` then looks the token up in
-`REWARDS`, and a token no arithmetic here names is a reward this module cannot deliver: it is refused by name, **never defaulted
-to the net chip delta** (`utilities.md` §4, §5, D-20).
+`REWARDS`, and a token no arithmetic here names is refused by name, **never defaulted to the net chip delta** (`utilities.md` §5, D-20).
 
-No member name is spelled in the arithmetic itself: `net-chips` and `stack-shortfall` are names this document states because a
-reader needs them, and the code reaches either only through the token the catalogue publishes. That is D-19's precedent applied to
-the second axis — a catalogue member is a parameter, and this module reads the catalogue rather than a private copy of it
-(`rules.md` §2, §4, `utilities.md` §2, D-19, D-20).
+No member name is spelled in the arithmetic itself: `net-chips`, `stack-shortfall` and `net-chips-normalised` are names this
+document states because a reader needs them, and the code reaches any only through the token the catalogue publishes. That is
+D-19's precedent applied to the second axis — a catalogue member is a parameter, and this module reads the catalogue rather
+than a private copy of it (`rules.md` §2, §4, `utilities.md` §2, D-19, D-20).
 
-## 3. The two arithmetics, and the four scores
+## 3. The three arithmetics, and the four scores
 
     r = delta                                  # net-chip-delta
     r = (U(s_before) − U(s_after)) / U(s_0)    # squared-stack-shortfall-delta
+    r = delta / T                              # normalised-net-chip-delta
     U(s) = (T − s)²
 
-Under `net-chips` the terminal reward is `delta` — the decision's own `reward`, the seat's net chip delta for the completed hand,
-unnormalised and unshaped (ASM-12). Under `stack-shortfall` it is the shortfall delta normalised by the shortfall a hand begins
-with, where `s_before = s_0` is the stack a hand is dealt from, `s_after = s_0 + delta`, and `delta` is the decision's own
-`reward`, the hand's net chip delta for that seat (D-20, ASM-6, ASM-28).
+Under `net-chips` the terminal reward is `delta` — the decision's own `reward`, the seat's net chip delta, unshaped (ASM-12).
+Under `stack-shortfall` it is the shortfall delta normalised by the shortfall a hand begins with, where `s_before = s_0` is the
+stack a hand is dealt from, `s_after = s_0 + delta`, and `delta` is that same decision's `reward` (D-20, ASM-6, ASM-28).
+
+Under `net-chips-normalised` it is `delta / T` — the same delta, or a counterfactual branch's, over the chips in play **the run's own shape** declares — 40 on
+`fixed-limit-20`, 200 on `no-limit-100`, 600 on `six-seat-no-limit-100` — read through §4's guard, so a disagreeing readout is
+`ChipConservationBroken` and never a substituted divisor. **No clamp, no clipping**: a seat loses at most its stack and wins at most
+the rest of the table, so `r ∈ [−1/S, (S−1)/S]` because `T` is the game's own total; terminal only, one capacity with the other two,
+so a pair differs on scale alone (`reward-scale.md` §2–§4, ASM-45, ASM-46, D-65).
 
 Both quantities the transform needs are read and never assumed (`utilities.md` §4, ASM-28):
 
@@ -87,33 +92,29 @@ asymmetry is arithmetic and no claim about play: it prefers the cheaper variance
 `T` is read from one decision's readout and checked against the stacks **the run's own shape** declares: it must equal
 `engine.game_config(shape)["seats"] × starting_stack`, or the hand is refused by name with **the hand's seed and both totals**, because a
 normaliser that is not the game's own would make one reward incommensurable with the next — and a 200-chip readout read against the
-default shape's 40, or a 600-chip one against either two-seat row's 200, is exactly that case (ASM-6, ASM-28, `utilities.md` §4,
-`shapes.md` §2, §8, ASM-42, D-29, D-33).
+default shape's 40, or a 600-chip one against either two-seat row's 200, is exactly that case (ASM-6, ASM-28, `utilities.md` §4, `shapes.md` §2, §8, ASM-42, D-29, D-33).
 
 Both refusals are `errors.ChipConservationBroken`, a `training` class and not a called module's (`errors.md` §2):
 
 - the hand's total disagrees with the stacks the game declares — the message names the seed, the seat, the total, the seat count,
-  the starting stack and the declared total;
-- `U(s_0)` is `0`, so the normaliser is undefined — the message names the seed.
+  the starting stack and the declared total; and `U(s_0)` is `0`, so the normaliser is undefined — the message names the seed.
 
-The guard is reached only by the arithmetic that needs the readout at all: `net-chips` reads the decision's own `reward` and nothing
-else, so a hand it scores is never measured for conservation (`utilities.md` §2, §4, ASM-12).
+The guard is reached by every arithmetic that needs the readout: `net-chips` reads the decision's own `reward` and nothing else, so
+a hand it scores is never measured for conservation, while `stack-shortfall` and `net-chips-normalised` both divide by a number this
+guard has checked against the run's own shape (`utilities.md` §2, §4, ASM-12, ASM-45, D-65).
 
 ## 5. What every other decision keeps, and what is never done here
 
 - **`terminal` stays positional**: the transform touches exactly one transition per hand — the last decision that seat made — and
-  the flag is never inferred from the reward (`episode.md` §4, `records.md` §5). A split pot pays `0.0` and scores `0.0` under
-  either arithmetic, and that is a normal terminal transition rather than a missed one.
-- **Every non-terminal decision keeps `0.0`**, the value the episode placed there, so no intermediate term and no shaping enters
-  the reward (ASM-12, D-20).
-- **The transform runs once per hand, before the batch reaches `agents.learn`** (`loop.md` §1 step 6), and it reads the episode's
-  record alone: it keeps no state between hands and writes nothing (`records.md` §4, D-13).
+  the flag is never inferred from the reward (`episode.md` §4, `records.md` §5). A split pot pays `0.0` and scores `0.0` under any
+  arithmetic — a normal terminal transition, not a missed one.
+- **Every non-terminal decision keeps `0.0`**, the value the episode placed there, so no intermediate term and no shaping enters the reward (ASM-12, D-20).
+- **The transform runs once per hand, before the batch reaches `agents.learn`** (`loop.md` §1 step 6), and it reads the episode's record alone: it keeps no state between hands and writes nothing (`records.md` §4, D-13).
 
 ## 6. What is left to L4
 
 Whether `REWARDS` is a mapping or a match, whether the member's name is discarded before or after the token's lookup, how the four
-quantities are named inside the arithmetic, and the internals of `_shortfall`, `_net_chips`, `_stack_shortfall` and
-`_chips_in_play`. Not L4's: the transform's location and its terminal-only delivery, the selection by reward token, both arithmetics
-and the four scores, the guard's two refusals and the class both carry, `0.0` at every non-terminal decision, and the untouched
-`learner.py` branches (`guardrails.md` G25, `utilities.md` §4, D-20). `_reward_token`, `_reward_function` and `REWARDS` are
-contract for `tests/training/`, as are `_transitions`' fourth and fifth arguments — the utility's name and the run's shape (`README.md` §4).
+quantities are named inside the arithmetic, and the internals of `_shortfall`, `_net_chips`, `_stack_shortfall`,
+`_net_chips_normalised` and `_chips_in_play`. Not L4's: the transform's location and its terminal-only delivery, the selection by
+reward token, all three arithmetics and the four scores, the guard's two refusals and the class both carry, `0.0` at every
+non-terminal decision, and the untouched `learner.py` branches (`guardrails.md` G25, `utilities.md` §4, D-20). `_reward_token`, `_reward_function` and `REWARDS` are contract for `tests/training/`, as are `_transitions`' fourth and fifth arguments — the utility's name and the run's shape (`README.md` §4).

@@ -42,9 +42,9 @@ For one transition record (`records.md` §4) — with a required `episode` and a
   candidate; `q[a]` is read at the transition's own `action`, validated in its `legal` mask first, a terminal
   transition carries its own `next_legal` and `learn` reads none of it, and no empty mask is legal (`surface.md` §7,
   D-2, `features/surface.md` §8);
-- **the reward is the learner's utility's** (ASM-12, ASM-28): that utility's terminal value — `net-chips`' unshaped
-  delta, `stack-shortfall`'s re-expression — at the seat's terminal decision and `0.0` at every other one; with
-  **terminal**, `target = reward` under either rule: no successor, no term, no clip (`utility.md` §4, D-20).
+- **the reward is the learner's utility's** (ASM-12, ASM-28): its terminal value — `net-chips`' unshaped delta,
+  `stack-shortfall`'s re-expression, `net-chips-normalised`'s `Δ / T` — at the seat's terminal decision and `0.0`
+  elsewhere; with **terminal**, `target = reward` under either rule: no successor, no term, no clip (`utility.md` §4, `reward-scale.md` §2, D-20).
 
 ## 3. The update, and the one place a rule branches
 

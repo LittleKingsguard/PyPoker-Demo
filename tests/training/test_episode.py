@@ -48,6 +48,7 @@ from _training_support import (
     as_text,
     decision_seat,
     decisions_of,
+    default_shape,
     encoder,
     engine,
     episode,
@@ -57,7 +58,12 @@ from _training_support import (
     payoff_of,
     same_observation,
     seat_decisions,
+    seated_episode,
+    second_shape,
+    shaped_episode,
+    shaped_game_config,
     shaped_vocabulary,
+    third_shape,
     two_utility_names,
     utility_catalogue,
     utility_names,
@@ -91,22 +97,38 @@ OPTIONAL_KEYS = {"counterfactual"}
 
 
 class EpisodeTest(TrainingCase):
-    def transitions(self, record, seat, encoder_name="flat-numeric", utility=None):
+    def transitions(
+        self, record, seat, encoder_name="flat-numeric", utility=None, shape=None
+    ):
+        """One seat's transitions under one utility, on the run's own `shape`.
+
+        `shape` is the run's own declared shape and reaches both the encoder — a shape's
+        readout encodes at that shape's width, so a no-limit or six-seat hand is encoded
+        by its own vocabulary and never the default one (`shapes.md` §8, ASM-44) — and the
+        arithmetic that reads the game's chips in play (`episode.md` §6, `reward.md` §4).
+        Absent, the call is the default shape's, which is what every case before the
+        shaped ones drives.
+        """
+        built = (
+            features().build_encoder(encoder_name, shape=shape)
+            if shape is not None
+            else encoder(encoder_name)
+        )
         return [
             as_mapping(record_of_transition, "one transition record")
             for record_of_transition in as_sequence(
                 internal("episode", "_transitions")(
-                    record, seat, encoder(encoder_name), utility
+                    record, seat, built, utility, shape
                 ),
                 "a transition list",
             )
         ]
 
-    def rewards(self, record, seat, utility=None):
+    def rewards(self, record, seat, utility=None, shape=None):
         """One seat's reward per decision, in decision order (`reward.md` §1, §5)."""
         return [
             as_float(transition["reward"], "a reward")
-            for transition in self.transitions(record, seat, utility=utility)
+            for transition in self.transitions(record, seat, utility=utility, shape=shape)
         ]
 
     def chip_counts(self, record, seat):
@@ -629,14 +651,20 @@ class EpisodeTest(TrainingCase):
         )
 
     def test_trn_4_13_the_arithmetic_is_selected_by_the_catalogue_s_reward_token(self):
-        """TRN-4.13 `REWARDS` is keyed by the **reward tokens** the catalogue states and by nothing else, `_reward_function` resolves a member to its token's arithmetic (`None` meaning the catalogue's first), and a utility name outside the catalogue is refused by name rather than defaulted to the net chip delta (utilities.md §2, §4, §5, reward.md §2, D-20)."""
+        """TRN-4.13 `REWARDS` is keyed by the **reward tokens** the catalogue states and by nothing else, `_reward_function` resolves a member to its token's arithmetic (`None` meaning the catalogue's first), and a utility name outside the catalogue is refused by name rather than defaulted to the net chip delta (`utilities.md` §2, §4, §5, `reward-scale.md` §2, reward.md §2, D-20, D-65)."""
         catalogue = utility_catalogue()
         self.assertEqual(
-            len(catalogue),
-            2,
-            "the catalogue publishes exactly two members — `net-chips` and the utility "
-            "D-20 adds — so a token selects one of two arithmetics (utilities.md §2, "
-            "D-20): %r" % (sorted(catalogue),),
+            tuple(catalogue),
+            (
+                "net-chips",
+                "stack-shortfall",
+                "net-chips-normalised",
+            ),
+            "the catalogue publishes exactly three members, in the declared order — "
+            "`net-chips`, the utility D-20 adds, and D-65's normalised reward appended "
+            "third so no existing member's position moves — so a token selects one of "
+            "three arithmetics (utilities.md §2, reward-scale.md §2, ASM-45, D-20, D-65): "
+            "%r" % (tuple(catalogue),),
         )
         tokens = {
             as_text(name, "a utility name"): utility_reward(name) for name in catalogue
@@ -644,9 +672,9 @@ class EpisodeTest(TrainingCase):
         self.assertEqual(
             len(set(tokens.values())),
             len(tokens),
-            "two catalogue members state two distinct reward tokens, which is what makes "
-            "the token — and not the member's name — the selector (utilities.md §2, "
-            "reward.md §2): %r" % (tokens,),
+            "three catalogue members state three distinct reward tokens, which is what "
+            "makes the token — and not the member's name — the selector (utilities.md §2, "
+            "reward.md §2, reward-scale.md §2): %r" % (tokens,),
         )
         rewards = as_mapping(internal("episode", "REWARDS"), "the reward table")
         self.assertEqual(
@@ -927,6 +955,368 @@ class EpisodeTest(TrainingCase):
             "the control: the resolved hand of the battery's own episode does carry the "
             "key, so the absence above is about that hand and not about the step "
             "(counterfactual.md §4): %r" % ([sorted(t) for t in resolved],),
+        )
+
+    # -- D-65: the normalised reward, `r = delta / T` -----------------------
+    def shape_chips(self, record, seat, shape):
+        """`(T, the shape's declared total, the seat's terminal payoff)` for one hand.
+
+        `T` is read off the hand — `sum(readout['stacks']) + readout['pot']` at that
+        seat's terminal decision — and the total it must agree with is the **run's own
+        shape's**, `engine.game_config(shape)`'s seats times its starting stack; the
+        payoff is the episode's own net chip delta for that seat (`reward-scale.md` §2,
+        `utilities.md` §4, `records.md` §5, ASM-45).
+        """
+        config = as_mapping(
+            shaped_game_config(shape), "the shape's game configuration"
+        )
+        declared = as_float(config["seats"], "the shape's seat count") * as_float(
+            config["starting_stack"], "the shape's starting stack"
+        )
+        readout = as_mapping(
+            seat_decisions(record, seat)[-1]["readout"],
+            "a terminal decision's readout",
+        )
+        total = sum(
+            as_float(stack, "a seat's stack")
+            for stack in as_sequence(readout["stacks"], "a readout's 'stacks'")
+        ) + as_float(readout["pot"], "a readout's 'pot'")
+        return float(total), float(declared), payoff_of(record, seat)
+
+    def shaped_hand(self, shape):
+        """One real episode on one shape, seated by whatever that shape seats.
+
+        A two-seat shape is played through the positional policies every run has handed
+        `engine.play_hand`; a shape with more seats is played through that entry point's
+        `seats` sequence, one fresh policy per seat in seat order (`seats.md` §4,
+        `shapes.md` §2).  Which of the two is the shape's own seat count's business and
+        never this case's.
+        """
+        seats = as_int(
+            as_mapping(
+                shaped_game_config(shape), "the shape's game configuration"
+            )["seats"],
+            "the shape's seat count",
+        )
+        return shaped_episode(shape) if seats == 2 else seated_episode(shape)
+
+    def test_trn_4_17_the_normalised_reward_is_the_delta_over_the_chips_in_play(self):
+        """TRN-4.17 under `net-chips-normalised` the terminal reward is `r = delta / T` — the seat's net chip delta the episode places, divided by the run's own shape's chips in play, **600** at `six-seat-no-limit-100`, **40** at `fixed-limit-20` and **200** at `no-limit-100` — asserted against the delta the record carries to 1e-12, with `0.0` at every non-terminal decision and no clamp of any kind (`docs/L1/reward-scale.md` §2, §3, `docs/L1/utilities.md` §2, §4, ASM-45, D-65)."""
+        catalogue = utility_names()
+        self.assertEqual(
+            len(catalogue),
+            3,
+            "the catalogue publishes the third member D-65 adds, so this case has a member "
+            "to build the normalised reward under (utilities.md §2, reward-scale.md §2): %r"
+            % (catalogue,),
+        )
+        normalised = catalogue[2]
+        self.assertEqual(
+            utility_reward(normalised),
+            "normalised-net-chip-delta",
+            "the member this case scores under states the reward token reward-scale.md §2 "
+            "pins for it, so the arithmetic read here is the design's own "
+            "(utilities.md §2, reward.md §2): %r" % (utility_reward(normalised),),
+        )
+        for shape, expected_total in (
+            (default_shape(), 40.0),
+            (second_shape(), 200.0),
+            (third_shape(), 600.0),
+        ):
+            record = self.shaped_hand(shape)
+            seats = as_int(
+                as_mapping(
+                    shaped_game_config(shape), "the shape's game configuration"
+                )["seats"],
+                "the shape's seat count",
+            )
+            acted = 0
+            for seat in range(seats):
+                decisions = seat_decisions(record, seat)
+                if not decisions:
+                    continue  # a seat that never acted files no signal (episode.md §3)
+                acted += 1
+                total, declared, payoff = self.shape_chips(record, seat, shape)
+                with self.subTest(shape=shape, seat=seat):
+                    self.assertEqual(
+                        declared,
+                        expected_total,
+                        "the shape's chips in play are its seats times its starting stack "
+                        "— 40, 200 and 600 on the three declared shapes — and they are read "
+                        "from engine.game_config and never written down here "
+                        "(shapes.md §2, utilities.md §4, ASM-45): %r" % (declared,),
+                    )
+                    self.assertEqual(
+                        total,
+                        expected_total,
+                        "the hand's own total must be that number, or the guard refuses "
+                        "it and this case could not be about a reward at all "
+                        "(utilities.md §4, ASM-28): %r against %r"
+                        % (total, expected_total),
+                    )
+                    rewards = self.rewards(
+                        record, seat, utility=normalised, shape=shape
+                    )
+                    self.assertEqual(
+                        len(rewards),
+                        len(decisions),
+                        "one reward per decision of the seat (episode.md §3): %d against %d"
+                        % (len(rewards), len(decisions)),
+                    )
+                    self.assertEqual(
+                        rewards[:-1],
+                        [0.0] * (len(rewards) - 1),
+                        "the reward is terminal only: every non-terminal decision keeps "
+                        "the episode's `0.0`, so the normalised member adds no intermediate "
+                        "term either (utilities.md §2, §3, reward.md §5, ASM-12): %r"
+                        % (rewards,),
+                    )
+                    self.assertNotEqual(
+                        rewards[-1],
+                        0.0,
+                        "the invented hand pays this seat %r chips, so its terminal reward "
+                        "is non-zero under the normalised arithmetic and a `0.0` there "
+                        "would be a missed decision rather than a split pot "
+                        "(reward.md §5, records.md §5): %r" % (payoff, rewards),
+                    )
+                    self.assertAlmostEqual(
+                        rewards[-1],
+                        payoff / total,
+                        places=12,
+                        delta=1e-12,
+                        msg="the terminal reward is the seat's net chip delta divided by "
+                        "the chips in play — r = delta / T with delta = %r, the number the "
+                        "episode places, and T = %r, the run's own shape's total — and this "
+                        "case divides the record's own delta by the hand's own T rather "
+                        "than quoting a memorised float (reward-scale.md §2, utilities.md "
+                        "§2, §4, ASM-45, D-65): %r against %r on %r"
+                        % (payoff, total, rewards[-1], payoff / total, shape),
+                    )
+                    self.assertAlmostEqual(
+                        rewards[-1],
+                        payoff / expected_total,
+                        places=12,
+                        delta=1e-12,
+                        msg="and that divisor is the shape's declared total — %r — so the "
+                        "reward is the same number read two ways, and a normaliser that was "
+                        "not the game's own would differ here (reward-scale.md §2, §3, "
+                        "ASM-45, ASM-28): %r against %r on %r"
+                        % (expected_total, rewards[-1], payoff / expected_total, shape),
+                    )
+                    self.assertLessEqual(
+                        abs(rewards[-1]),
+                        1.0,
+                        "no clamp and no clipping is applied anywhere: the reward is "
+                        "bounded by 1 because T is the game's whole total — a seat loses at "
+                        "most its stack and wins at most the rest of the table — and the "
+                        "bound is reachable from below and above but never exceeded "
+                        "(reward-scale.md §2, §3, ASM-45): %r on %r"
+                        % (rewards[-1], shape),
+                    )
+            self.assertGreater(
+                acted,
+                0,
+                "at least one seat of this shape's hand acted, so the case scored a "
+                "terminal decision at all (records.md §5): shape %r" % (shape,),
+            )
+
+    def test_trn_4_18_a_counterfactual_branch_is_its_delta_over_the_same_t(self):
+        """TRN-4.18 under `net-chips-normalised` every resolved branch value is that branch's whole-hand chip delta divided by the **same** `T` the terminal reward is divided by — the same call and the same conservation guard — `None` at every index that was not legal, and at the descriptor the hand applied it is that seat's terminal `reward` (`counterfactual.md` §4, §6, `docs/L1/reward-scale.md` §2, `docs/L1/utilities.md` §4, D-43, D-65)."""
+        normalised = utility_names()[2]
+        record = episode()
+        reveal = as_mapping(record["reveal"], "the episode's 'reveal'")
+        self.assertTrue(
+            bool(reveal["showdown"]),
+            "the invented hand reaches a showdown, which is what makes it a hand the "
+            "reveal can resolve (counterfactual.md §4, records.md §5): %r" % (reveal,),
+        )
+        count = len(shaped_vocabulary())
+        for seat in (0, 1):
+            decisions = seat_decisions(record, seat)
+            total, _starting_stack, payoff = self.chip_counts(record, seat)
+            transitions = self.transitions(record, seat, utility=normalised)
+            with self.subTest(seat=seat):
+                self.assertEqual(
+                    len(transitions),
+                    len(decisions),
+                    "one transition per decision of the seat (episode.md §3)",
+                )
+                for decision, transition in zip(decisions, transitions):
+                    indices = [
+                        as_int(index, "a legal index")
+                        for index in features().legal_indices(decision["legal"])
+                    ]
+                    self.assertIn(
+                        "counterfactual",
+                        transition,
+                        "a resolved hand gives every one of its transitions a "
+                        "`counterfactual`, the terminal one included "
+                        "(counterfactual.md §4, §6, records.md §4): %r"
+                        % (sorted(transition),),
+                    )
+                    values = as_sequence(
+                        transition["counterfactual"], "a resolution"
+                    )
+                    self.assertEqual(
+                        len(values),
+                        count,
+                        "a resolution is one entry per descriptor of the shape "
+                        "(sizing.md §6, counterfactual.md §5, §6): %d against %d"
+                        % (len(values), count),
+                    )
+                    deltas = self.branch_deltas(decision)
+                    for position, descriptor in enumerate(decision["legal"]):
+                        index = indices[position]
+                        delta = as_float(
+                            deltas[descriptor], "a branch's chip delta"
+                        )
+                        self.assertAlmostEqual(
+                            as_float(values[index], "a branch's value"),
+                            delta / total,
+                            places=12,
+                            delta=1e-12,
+                            msg="the entry at a legal index is that branch's whole-hand "
+                            "chip delta divided by the same `T` = %r the terminal reward is "
+                            "divided by, because the branch values go through the "
+                            "terminal reward's own function and no second arithmetic "
+                            "(counterfactual.md §4, reward-scale.md §2, utilities.md §4, "
+                            "D-43, D-65): action %r, %r against %r"
+                            % (total, descriptor, values[index], delta / total),
+                        )
+                    for index in range(count):
+                        if index in indices:
+                            continue
+                        self.assertIsNone(
+                            values[index],
+                            "an index that was not legal at that decision carries `None`, "
+                            "so a masked action is never valued and never updated "
+                            "(counterfactual.md §5, agents/rule.md §2): index %d of %r"
+                            % (index, indices),
+                        )
+                    applied = as_int(transition["action"], "a transition's action")
+                    self.assertAlmostEqual(
+                        as_float(values[applied], "the applied branch's value"),
+                        payoff / total,
+                        places=9,
+                        msg="the invariant `counterfactual.md` §4 proves holds under the "
+                        "normalised member too: at the descriptor the hand applied the "
+                        "value is the seat's realised delta over `T` — %r / %r — which is "
+                        "the number the terminal transition carries as its reward "
+                        "(%r against %r)" % (payoff, total, values[applied], payoff / total),
+                    )
+                terminal = transitions[-1]
+                self.assertAlmostEqual(
+                    as_float(
+                        as_sequence(terminal["counterfactual"], "a resolution")[
+                            as_int(terminal["action"], "the terminal action")
+                        ],
+                        "the terminal resolution's applied value",
+                    ),
+                    as_float(terminal["reward"], "the terminal reward"),
+                    places=12,
+                    msg="at the seat's terminal decision the resolution's value at the "
+                    "applied descriptor **is** that transition's `reward`, because the "
+                    "normalised utility is applied to both sides by the same function "
+                    "(counterfactual.md §4, reward-scale.md §2, ASM-12): %r against %r"
+                    % (terminal["counterfactual"], terminal["reward"]),
+                )
+
+    def test_trn_4_19_a_disagreeing_hand_is_refused_under_the_normalised_member(self):
+        """TRN-4.19 under `net-chips-normalised` a hand whose terminal readout's `sum(stacks) + pot` is not the chips the run's own shape declares is refused with `training`'s `ChipConservationBroken`, naming the hand's seed and both totals — the same guard, and the same named refusal, `stack-shortfall` earns — rather than divided by a substituted number; the control: `net-chips`, which never reads the readout, still scores that hand (`docs/L1/reward-scale.md` §2, `docs/L1/utilities.md` §4, reward.md §4, errors.md §2, ASM-28, ASM-45, D-65)."""
+        first, second = two_utility_names()
+        normalised = utility_names()[2]
+        self.assertNotIn(
+            normalised,
+            (first, second),
+            "the two-utility pair this case uses as its control is the catalogue's first "
+            "two members, so the third is a member of its own (utilities.md §2, "
+            "reward-scale.md §2): %r" % (utility_names(),),
+        )
+        game = as_mapping(engine().game_config(), "the game's configuration")
+        starting_stack = as_float(game["starting_stack"], "the starting stack")
+        declared = as_float(game["seats"], "the seat count") * starting_stack
+        record = copy.deepcopy(episode())
+        seat = 0
+        readout = as_mapping(
+            seat_decisions(record, seat)[-1]["readout"], "a terminal decision's readout"
+        )
+        # The doctor keeps the readout encodable — `features.encode` reads the pot as a
+        # non-negative integer — so the hand is refused by the chips-in-play guard and
+        # not by the encoder (`features/surface.md` §6, reward.md §4).
+        readout["pot"] = as_int(readout["pot"], "a readout's 'pot'") + 1
+        total = sum(
+            as_float(stack, "a seat's stack")
+            for stack in as_sequence(readout["stacks"], "a readout's 'stacks'")
+        ) + as_float(readout["pot"], "a readout's 'pot'")
+        self.assertNotEqual(
+            total,
+            declared,
+            "the invented episode must be one whose chips in play disagree with the game "
+            "before its refusal is read: it totals %r against %r (reward.md §4)"
+            % (total, declared),
+        )
+        refused = self.refuse(
+            lambda: internal("episode", "_transitions")(
+                record, seat, encoder(), normalised
+            ),
+            "ChipConservationBroken",
+            groups=(
+                (str(record["seed"]),),
+                (repr(float(total)),),
+                (repr(float(declared)),),
+                ("chips in play", "total", "stack"),
+            ),
+            label="a hand whose chips in play disagree with the game, under the "
+            "normalised member",
+        )
+        message = str(refused)
+        for label, value in (("the readout's total", total),
+                             ("the game's declared total", declared)):
+            self.assertIn(
+                repr(float(value)),
+                message,
+                "the refusal names both totals — %s is %r — because a normaliser that is "
+                "not the game's own would make one reward incommensurable with the next "
+                "(utilities.md §4, reward-scale.md §2, ASM-28): %r"
+                % (label, float(value), message),
+            )
+        # The guard is one guard: `stack-shortfall` and the normalised member refuse the
+        # same hand with the same refusal, so neither member divides by a number the
+        # other would have refused (`reward-scale.md` §2, ASM-28, ASM-45).
+        shortfall_message = str(
+            self.refuse(
+                lambda: internal("episode", "_transitions")(
+                    record, seat, encoder(), second
+                ),
+                "ChipConservationBroken",
+                groups=((str(record["seed"]),),),
+                label="the same hand under stack-shortfall",
+            )
+        )
+        self.assertEqual(
+            message,
+            shortfall_message,
+            "the two normalising members read `T` through the same guard, so the hand is "
+            "refused by the same named error with the same sentence — a member that "
+            "substituted a divisor of its own would differ here "
+            "(reward-scale.md §2, utilities.md §4, ASM-28): %r against %r"
+            % (message, shortfall_message),
+        )
+        accepted = self.transitions(episode(), seat, utility=normalised)
+        self.assertTrue(
+            accepted,
+            "the same hand before it was doctored is scored under the normalised member, "
+            "so the refusal above is about the total and not about the hand "
+            "(reward.md §4): %r" % (accepted,),
+        )
+        self.assertAlmostEqual(
+            self.rewards(record, seat, utility=first)[-1],
+            payoff_of(record, seat),
+            places=12,
+            msg="the guard is reached only by the arithmetic that needs the readout: "
+            "`net-chips` divides by nothing and reads the decision's own reward, so a hand "
+            "it scores is never measured for conservation (reward.md §4, utilities.md §2, "
+            "§4, reward-scale.md §2): %r" % (record["payoffs"],),
         )
 
 

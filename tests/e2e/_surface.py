@@ -278,12 +278,30 @@ UTILITY_DEFAULT = "net-chips"
 UTILITY_SECOND = "stack-shortfall"
 UTILITIES = (UTILITY_DEFAULT, UTILITY_SECOND)
 
+# D-65's third member, appended after the two above: `reward-scale.md` §2 publishes it
+# third so no existing member's position — and so the declared default — moves, and its
+# reward is the same net chip delta divided by the game's chips in play.  `UTILITIES`
+# keeps naming the two members every case before this document compares, so a case that
+# reads the whole three-member catalogue spells it out through `UTILITY_CATALOGUE` and
+# never widens the pair its neighbours iterate (`utilities.md` §2, `reward-scale.md` §2,
+# D-65).
+UTILITY_THIRD = "net-chips-normalised"
+UTILITY_CATALOGUE = UTILITIES + (UTILITY_THIRD,)
+
 # Two invented utility names the catalogue does not carry: the battery's own, one for a
 # learner spec and a `load` spec, one for a variant entry (`utilities.md` §5: a name
 # outside the catalogue is refused where it is declared, by name, and never mapped onto
 # the default).
 UNKNOWN_UTILITY = "tournament-payout-battery"
 UNKNOWN_ENTRY_UTILITY = "chips-per-hour-battery"
+
+#: The invented near miss the third member adds a refusal for: one word away from
+#: `net-chips-normalised` and still outside the catalogue, so a case asserts that a name
+#: *resembling* the third member is refused by name rather than resolved onto it — a
+#: catalogue that accepted it would be reading a name it does not carry (`utilities.md`
+#: §5, `reward-scale.md` §2).  It is the battery's own and appears in no document under
+#: `docs/L1/` (`battery.md` §4).
+UNKNOWN_NORMALISED_UTILITY = "net-chips-normalised-battery"
 
 # The counterfactual catalogue `counterfactual.md` §6 publishes beside the rule and the
 # utility ones: `agents.learners()["counterfactuals"]`, in the declared order, with `none`

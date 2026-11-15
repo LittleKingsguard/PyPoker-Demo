@@ -5,8 +5,8 @@
 `surface.md` §3): the two backends in `numpy` then `torch` order (D-7), the seven kinds
 in `architecture.md` §1's order with the family and the declared size each is sized
 from, the two learning rules in `rules.md` §2's order with the target each aims at
-(D-19), the two terminal-reward utilities in `utilities.md` §2's order with the reward
-each delivers (D-20), the two counterfactual members in `counterfactual.md` §6's order
+(D-19), the three terminal-reward utilities in `utilities.md` §2's order with the reward
+each delivers (D-20, D-65), the two counterfactual members in `counterfactual.md` §6's order
 with what each reads and how many steps it takes -- the third axis, what a learner
 takes its **targets** from, beside the rule and the utility (D-43) -- and the six fixed
 declarations all of them share (`rule.md` §6).  The record is plain data, rebuilt on
@@ -119,7 +119,10 @@ DEFAULT_LEARNING_RULE = next(iter(LEARNING_RULES))
 #: stable token and never a sentence, and the `normaliser` that reward is divided by.
 #: `net-chips` is the unshaped net chip delta of ASM-12; `stack-shortfall` is the delta
 #: of the squared stack shortfall over the chips in play, normalised by the shortfall a
-#: hand begins with (`utilities.md` §2, §4).
+#: hand begins with (`utilities.md` §2, §4); `net-chips-normalised` is that same delta
+#: divided by the chips in play, `T`, which bounds the reward by 1 on every declared shape
+#: (`reward-scale.md` §2, §4, ASM-45, D-65).  The third is **appended** after the two of
+#: Rev 13 so no existing member's position -- and so the declared default below -- moves.
 UTILITIES = {
     "net-chips": {
         "name": "net-chips",
@@ -130,6 +133,11 @@ UTILITIES = {
         "name": "stack-shortfall",
         "reward": "squared-stack-shortfall-delta",
         "normaliser": "U(s_0)",
+    },
+    "net-chips-normalised": {
+        "name": "net-chips-normalised",
+        "reward": "normalised-net-chip-delta",
+        "normaliser": "T",
     },
 }
 

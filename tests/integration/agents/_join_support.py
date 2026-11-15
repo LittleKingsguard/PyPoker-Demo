@@ -218,6 +218,48 @@ def counterfactual_names():
     return tuple(str(name) for name in names)
 
 
+def utility_names():
+    """`agents.learners()['utilities']`'s member names, in the declared order.
+
+    D-20's axis, read from the call and never restated: the first member is `net-chips`,
+    the declared default (`utilities.md` §2, §5), and the third is the normalised reward
+    `reward-scale.md` §2 **appends** after the two of Rev 1 so no existing member's
+    position -- and so that default -- moves.  The container the catalogue publishes may be
+    a sequence of members or a mapping keyed by name, so a case reads the names and lets
+    the catalogue's own spelling be the implementation's (`docs/L1/records.md` §1).
+    """
+    published = learners()["utilities"]
+    names = published.keys() if isinstance(published, Mapping) else published
+    return tuple(str(name) for name in names)
+
+
+def utility_record(name):
+    """One utility catalogue member's record: `name`, `reward` and `normaliser` (§2).
+
+    `utilities.md` §2 publishes each member as a record carrying its own name, the reward
+    it delivers as a stable token and the normaliser that reward is divided by, and
+    `reward-scale.md` §2 and §4 keep the third member's record at exactly those three keys
+    so no published record grows.  A sequence catalogue is read by member name, so a case
+    is written the same way against either container (`docs/L1/records.md` §1, D-20).
+    """
+    published = learners()["utilities"]
+    if isinstance(published, Mapping):
+        entries = list(published.items())
+    else:
+        entries = [
+            (entry.get("name") if isinstance(entry, Mapping) else None, entry)
+            for entry in published
+        ]
+    for key, entry in entries:
+        if str(key) != str(name) or not isinstance(entry, Mapping):
+            continue
+        return dict(entry)
+    raise AssertionError(
+        "agents.learners()['utilities'] carries no member named %r: %r"
+        % (name, utility_names())
+    )
+
+
 def build_learner(spec):
     return mod("agents").build_learner(spec)
 

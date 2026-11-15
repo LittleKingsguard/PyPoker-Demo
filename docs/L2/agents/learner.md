@@ -37,8 +37,9 @@ never read, never a target and never updated (D-2, `records.md` §4, ASM-25, `sh
 - **The reward, and the utility that re-expresses it.** `learn` aims at the terminal transition's `reward` as the
   caller wrote it; that number is the reward of the catalogue member the learner's spec names (`utility.md` §1–§2,
   `utilities.md` §2). `net-chips` is the seat's net chip delta at its terminal decision, zero elsewhere, with no shaped
-  term and no intermediate reward — this module adds none (ASM-12, `engine/environment.md` §3); `stack-shortfall`
-  re-expresses that same delta in `training`'s transition step, and neither arithmetic normalises or clips it here (ASM-25).
+  term and no intermediate reward — this module adds none (ASM-12, `engine/environment.md` §3); `stack-shortfall` and
+  D-65's `net-chips-normalised` re-express that same delta in `training`'s transition step, and no arithmetic either
+  builds normalises or clips it here (ASM-25, `reward-scale.md` §2, ASM-45).
 - **The input block, and how each family is bounded.** A dense slot is a number in `[0, 1]` because the encoding
   divides by its shape's normalisers (`normalisation.md` §2); a token slot is an id, so the token path's bound is its
   **input block**: each addressed embedding row is read through one squash, `row = (1 + tanh θ)/2`, and the trunk

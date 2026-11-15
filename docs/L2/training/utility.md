@@ -14,10 +14,10 @@ keeps a one-line pointer here, so a record's keys and this axis have one owner e
 
 ## 1. The declaration: one more axis a configuration may name
 
-- **`UTILITY` is a module constant beside `LEARNING_RULE`.** Both name the catalogue's **first** member — and both
-  are what the six rung rows declare, never a value a run is fixed to (`declarations.py`, `utilities.md` §5, D-19,
-  D-20). Every variant entry of every rung row carries `"utility": UTILITY`, so both arms of every rung ask one
-  objective and no rung quietly differs on this axis (`utilities.md` §8, D-3, ASM-7).
+- **`UTILITY` is a module constant beside `LEARNING_RULE`**, and both name the catalogue's **first** member —
+  never a value a run is fixed to (`declarations.py`, `utilities.md` §5, D-19, D-20). Every variant entry of every
+  rung row carries `"utility": UTILITY`, so both arms of every rung ask one objective and no rung quietly differs on
+  this axis (`utilities.md` §8, D-3, ASM-7).
 - **A variant entry's `utility` is read and forwarded**, at the entry first and then at its configuration, exactly as
   `learning_rule` is: the value reaches `agents.build_learner`'s spec, so the variant is trained on the reward it
   names (`records.md` §2, `utilities.md` §5, D-20).
@@ -36,16 +36,20 @@ keeps a one-line pointer here, so a record's keys and this axis have one owner e
 **`episode._transitions` is the one place a utility reaches a number** (`utilities.md` §4, `src/training/episode.py`):
 
 - the step takes the utility's name, and at the seat's **terminal** decision only it replaces the record's `reward`:
-  under `net-chips` with `r = delta`, and under `stack-shortfall` with `r = (U(s_before) − U(s_after)) / U(s_0)`,
-  `U(s) = (T − s)²`, `s_before = s_0`, `s_after = s_0 + delta`, `delta` the decision's own reward (`utilities.md` §2, §4);
+  under `net-chips` with `r = delta`, under `stack-shortfall` with `r = (U(s_before) − U(s_after)) / U(s_0)`,
+  `U(s) = (T − s)²`, `s_before = s_0`, `s_after = s_0 + delta`, `delta` the decision's own reward, and under
+  `net-chips-normalised` with `r = delta / T` — the same delta divided by the game's chips in play, D-65's
+  scale-only change (`utilities.md` §2, §4, `reward-scale.md` §2, ASM-45);
 - `s_0 = engine.game_config()["starting_stack"]` (20) and `T = sum(readout["stacks"]) + readout["pot"]` read from
-  that decision's readout — 40 at every decision of the fixed game, the pot being un-awarded and chips conserved
-  (`utilities.md` §4, ASM-6, D-2);
+  that decision's readout — 40 at every decision of the fixed game, the pot being un-awarded and chips conserved,
+  and the run's own shape's total (200, 600) elsewhere; the same `T` is the shortfall's `U(s)` total and the third
+  member's **divisor** (`utilities.md` §4, `reward-scale.md` §2, ASM-6, ASM-45, D-2);
 - **every non-terminal decision keeps `0.0`**, and the arithmetic is selected by the catalogue's **reward token**
-  (`net-chip-delta`, `squared-stack-shortfall-delta`), so no member name is copied into this module (D-20);
+  (`net-chip-delta`, `squared-stack-shortfall-delta`, `normalised-net-chip-delta`), so no member name is copied into
+  this module (D-20, D-65);
 - **a hand whose two totals disagree** — `T` against `seats × s_0` — is refused by name with the hand's seed and both
-  totals, as `ChipConservationBroken`, a `training` class; it can fire only if the game stops holding its chips
-  (`utilities.md` §4, ASM-6);
+  totals, as `ChipConservationBroken`, a `training` class; it can fire only if the game stops holding its chips, and
+  it is the refusal both normalising members reach (`utilities.md` §4, `reward-scale.md` §2, ASM-6, ASM-45);
 - **`src/agents/learner.py`'s reward arithmetic is untouched**: its terminal branch stays `target = record["reward"]`
   and its non-terminal branch stays the rule's, so the utility decides what a terminal transition is worth while the
   rule decides how a non-terminal one bootstraps (`utilities.md` §4, ASM-12, ASM-25, D-19, D-20).
@@ -83,15 +87,14 @@ containers are version 1 and are read as `net-chips`; the shipped set is not reg
   difference (`utilities.md` §5, §8, `fairness.md` §2).
 - **`_differences` appends the axis** and `_constants` reports a `utilities` **set** beside `rules`; a pair differing
   on `utility` *and* on another axis stays `MultipleAxes`, naming both (`surface.md` §5, D-3, D-6, D-20).
-- **The `reward` constant states the utility's reward** rather than one fixed sentence — the catalogue's own token for
-  each utility the pair names, both for a two-utility pair — and keeps its ASM-12 citation (`utilities.md` §2,
-  `fairness.md` §4, D-20).
+- **The `reward` constant states the utility's reward** rather than one fixed sentence — the catalogue's own token
+  for each utility the pair names — keeping its ASM-12 citation (`utilities.md` §2, `fairness.md` §4, D-20).
 
 ## 6. The four numbers this layer asserts, because the battery cannot
 
 The e2e battery never asserts the transform's arithmetic — `battery.md` §5 says so explicitly — so the reward's
 values are asserted at module level, in `tests/training/test_episode.py`, from the implementation rather than from a
 constant: **+0.190 / −0.210** for a ±2-chip hand and **+1.000 / −3.000** for an all-in, the zero non-terminal term
-under both utilities, and the guard's refusal naming a hand's seed and both totals (`battery.md` §5, `utilities.md`
-§2, §4, D-20). A run's two arms under two utilities are asserted to produce **different curves on the same hands**,
-which is the observable the changed reward must produce (`battery.md` §3 FAM-18, D-20).
+under every utility, the normalised member's `delta / T` at 40, 200 and 600, and the guard's refusal naming a hand's
+seed and both totals (`battery.md` §5, `utilities.md` §2, §4, `reward-scale.md` §2, D-20, D-65). A run's two arms
+under two utilities are asserted to produce **different curves on the same hands** — the observable the changed reward must produce (`battery.md` §3 FAM-18, D-20).

@@ -22,9 +22,9 @@ entry point and never past one:
   carrying a value at an illegal index are each refused **by name** (`counterfactual.md`
   §2, §4, §5, `records.md` §4).
 - **16.2** the arithmetic is **one quantity**: at the descriptor the hand applied, the
-  engine's branch value is the seat's realised net chip delta, under both catalogue
-  utilities, on `fixed-limit-20` and on `six-seat-no-limit-100`, at **every** decision of
-  the hand and not only the seat's last (`counterfactual.md` §4).
+  engine's branch value is the seat's realised net chip delta, under **every** catalogue
+  utility, on `fixed-limit-20` and on `six-seat-no-limit-100`, at **every** decision of
+  the hand and not only the seat's last (`counterfactual.md` §4, `reward-scale.md` §2).
 - **16.3** the member is in the container and in the population: a `reveal-counterfactual`
   learner's `agents.save` writes **format version 5** with the required field, a `none`
   learner writes version 3 with no such field, `agents.load(None, path)` restores the member
@@ -75,6 +75,15 @@ REVEAL_COUNTERFACTUAL = "reveal-counterfactual"
 #: (`docs/L3/agents/checkpoint.md` §3).
 COUNTERFACTUAL_FORMAT_VERSION = 5
 DEFAULT_FORMAT_VERSION = 3
+
+#: The three reward tokens `docs/L1/utilities.md` §2 and `docs/L1/reward-scale.md` §2
+#: declare for the catalogue's three members: the catalogue is always read for the token a
+#: member delivers, and this table is the only place a token becomes a number here — the
+#: unshaped delta, that delta over the chips in play `T`, and the squared shortfall over
+#: the shortfall a hand begins with (`utilities.md` §2, §4, ASM-12, ASM-45, D-65).
+NET_CHIP_DELTA = "net-chip-delta"
+NORMALISED_NET_CHIP_DELTA = "normalised-net-chip-delta"
+STACK_SHORTFALL_DELTA = "squared-stack-shortfall-delta"
 
 #: The invented deals this file plays (`docs/L1/battery.md` §4, D-15): one two-seat hand and
 #: one six-seat hand, both of which reach a river showdown with no split pot, so every
@@ -248,23 +257,44 @@ class ResolutionAtTheJoin(J.JoinCase):
     def transformer(self, utility, decision, shape=None):
         """The utility's transform of one chip delta, recomputed from the shape's own game.
 
-        `records.md` §4 and `utilities.md` §2 fix the transform: `net-chips` is the delta
-        itself, and `stack-shortfall` is `(U(s_0) − U(s_0 + Δ)) / U(s_0)` with
-        `U(s) = (T − s)²`, `T` the chips in play and `s_0` the shape's starting stack, the
-        normaliser being the shortfall a hand begins with.  The arithmetic is selected by
-        the **reward token** the catalogue states for the member, so no member name is
-        copied into this file.  This is a **check** of `training`'s transform and not a
-        second spelling of the engine's arithmetic: the engine's job is the chip delta and
-        the transform is the loop's, so recomputing it here from `engine.game_config`'s own
-        numbers is what holds the two sides to one quantity (`counterfactual.md` §4,
-        `utilities.md` §2, §4, D-20).
+        `records.md` §4, `utilities.md` §2, §4 and `reward-scale.md` §2 fix the transform
+        for each of the catalogue's three members: `net-chips` is the delta itself,
+        `stack-shortfall` is `(U(s_0) − U(s_0 + Δ)) / U(s_0)` with `U(s) = (T − s)²`,
+        and `net-chips-normalised` is `Δ / T` with `T` the chips in play and `s_0` the
+        shape's starting stack.  The arithmetic is selected by the **reward token** the
+        catalogue states for the member, so no member name is copied into this file, and a
+        token this table does not state is a token `training` cannot be asked for rather
+        than one silently read as its neighbour.  This is a **check** of `training`'s
+        transform and not a second spelling of the engine's arithmetic: the engine's job is
+        the chip delta and the transform is the loop's, so recomputing it here from
+        `engine.game_config`'s own numbers is what holds the two sides to one quantity
+        (`counterfactual.md` §4, `utilities.md` §2, §4, `reward-scale.md` §2, D-20, D-65).
         """
         published = J.learners()["utilities"]
         token = published[str(utility)]["reward"]
         total = float(sum(decision["readout"]["stacks"]) + decision["readout"]["pot"])
         start = float(J.shape_row(shape)["starting_stack"])
-        if token == "net-chip-delta":
+        self.assertIn(
+            token,
+            (NET_CHIP_DELTA, NORMALISED_NET_CHIP_DELTA, STACK_SHORTFALL_DELTA),
+            "the reward a catalogue member delivers is one of the three tokens "
+            "utilities.md §2 and reward-scale.md §2 declare, so a member the transform "
+            "cannot recompute fails here instead of borrowing a sibling's arithmetic "
+            "(utilities.md §2, §4, D-20, D-65): %r delivers %r"
+            % (utility, token),
+        )
+        if token == NET_CHIP_DELTA:
             return lambda delta: float(delta)
+
+        self.assertNotEqual(
+            total,
+            0.0,
+            "the divisor is the game's chips in play, which must not be zero or the "
+            "transform is undefined (utilities.md §4): %r delivered by %r on %r"
+            % (total, utility, shape or J.shape_names()[0]),
+        )
+        if token == NORMALISED_NET_CHIP_DELTA:
+            return lambda delta: float(delta) / total
 
         def shortfall(stack):
             return (total - float(stack)) ** 2
@@ -413,12 +443,14 @@ class ResolutionAtTheJoin(J.JoinCase):
         place at that seat's terminal decision — **at every transition of a resolved
         episode**, not only at the seat's last; and the utility is applied to both sides by
         the same function, so the equality survives the transform (`counterfactual.md` §4,
-        §6, `utilities.md` §2, §4, FAM-22, D-43).  The case plays one resolved hand on the
-        default shape and one on the six-seat shape, walks **every** decision of each — each
-        decision's own acting seat — and holds the engine's branch, the hand's payoffs, the
-        decision's own reward where the engine placed it, and the transform of each branch
-        under **both** catalogue utilities to each other.  The fold branch is checked too,
-        because it is the one branch §4 values without the reveal at all (`fold → −C`).
+        §6, `utilities.md` §2, §4, `reward-scale.md` §2, FAM-22, D-43).  The case plays one
+        resolved hand on the default shape and one on the six-seat shape, walks **every**
+        decision of each — each decision's own acting seat — and holds the engine's branch,
+        the hand's payoffs, the decision's own reward where the engine placed it, and the
+        transform of each branch under **every** catalogue utility to each other, the
+        normalised member's `Δ / T` included, so the third member is a scale applied to the
+        same quantity and never a second outcome.  The fold branch is checked too, because
+        it is the one branch §4 values without the reveal at all (`fold → −C`).
 
         The transform is recomputed from `engine.game_config`'s own chips and starting stack
         (`transformer`), which is a **check** of `training`'s transform and not a second

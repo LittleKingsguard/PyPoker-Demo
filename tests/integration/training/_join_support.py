@@ -154,6 +154,15 @@ UTILITY_RUNG = "rung-invented-utility-9"        # its rung label, invented
 UTILITY_LEFT = "chips-arm-invented-9"           # its two arms' names, invented
 UTILITY_RIGHT = "shortfall-arm-invented-9"
 UTILITY_POOL = "pool-invented-utility-9"        # the pool id it declares, invented
+# The two-scale pair's invented labels: a rung, two arms and a pool id of its own, so the
+# artefacts it writes are its own and never the two-member run's (`battery.md` §4, D-65).
+UTILITY_NORMALISED_RUNG = "rung-invented-normalised-9"
+UTILITY_NORMALISED_LEFT = "chips-scale-arm-invented-9"
+UTILITY_NORMALISED_RIGHT = "normalised-scale-arm-invented-9"
+UTILITY_NORMALISED_POOL = "pool-invented-normalised-9"
+#: The reward token `docs/L1/reward-scale.md` §2 declares for the third utility member:
+#: the seat's net chip delta over the chips in play, `Δ / T` (D-65, ASM-45).
+NORMALISED_REWARD_TOKEN = "normalised-net-chip-delta"
 COUNTERFACTUAL_RUNG = "rung-invented-counterfactual-11"   # D-43's run's invented labels
 COUNTERFACTUAL_VARIANT = "member-arm-invented-11"
 COUNTERFACTUAL_POOL = "pool-invented-counterfactual-11"
@@ -722,10 +731,44 @@ def utility_names():
     """The utilities `agents.learners()` publishes, in its declared order (`utilities.md` §2).
 
     The catalogue is the only vocabulary a `utility` is judged against, so a case reads the
-    two members from that call and never restates a name (D-20, `utilities.md` §2, §5).
+    **three** members from that call and never restates a name: the first is `net-chips`,
+    the declared default (`utilities.md` §2, §5), and the third is the normalised reward
+    `reward-scale.md` §2 appends after the two of Rev 1 so no existing member's position
+    moves (D-20, D-65).
     """
     published = learners()["utilities"]
     return [str(name) for name in published]
+
+
+def utility_by_reward(token):
+    """The catalogue member whose declared `reward` token is `token` (`utilities.md` §2).
+
+    A case that must tell one reward from another reads the member off the catalogue by the
+    token the document declares -- `reward-scale.md` §2 names the third member's
+    `normalised-net-chip-delta` -- rather than by a position or a restated name, so the
+    member it drives is the one that delivers that reward and no neighbour
+    (`utilities.md` §2, `reward-scale.md` §2, §4, D-20, D-65).
+    """
+    published = learners()["utilities"]
+    if isinstance(published, Mapping):
+        entries = list(published.items())
+    else:
+        entries = [
+            (entry.get("name") if isinstance(entry, Mapping) else None, entry)
+            for entry in published
+        ]
+    found = [
+        str(name)
+        for name, record in entries
+        if isinstance(record, Mapping) and str(record.get("reward")) == str(token)
+    ]
+    if len(found) != 1:
+        raise AssertionError(
+            "agents.learners()['utilities'] must carry exactly one member delivering the "
+            "reward token %r, and it carries %r of %r"
+            % (token, found, utility_names())
+        )
+    return found[0]
 
 
 def policy_utility(policy):
@@ -1037,14 +1080,16 @@ def other_seed_run():
 
 
 def two_utility_configuration():
-    """A two-variant configuration whose arms declare the two catalogue utilities (D-20).
+    """A two-variant configuration whose arms declare the catalogue's first two utilities.
 
     A configuration in no design document (`docs/L1/battery.md` §4, D-15), written to
     `records.md` §2's shape: the registry's own R1 entry, declared twice under two variant
     names, with only the `utility` differing — one backend, one encoding, one
     architecture, one rule, one `hyper`, one seed set and one budget — so the two arms are
     one capacity trained on two rewards (`utilities.md` §3, §7, D-20). The utilities are
-    read from `agents.learners()`, so no member name is restated here.
+    read from `agents.learners()`, so no member name is restated here: the pair takes the
+    catalogue's first two members in its declared order, which leaves the third to the pair
+    `normalised_utility_configuration` builds on this same shape (D-65).
     """
     first_utility, second_utility = utility_names()[:2]
     template = clone(variant_entry(rung("R1"), "naive-numeric"))
@@ -1092,6 +1137,49 @@ def two_utility_run():
             budget=UTILITY_BUDGET,
         )
     return _SHARED["utility"]
+
+
+def normalised_utility_configuration():
+    """`two_utility_configuration()`'s shape with its two arms on two reward **scales** (D-65).
+
+    The registry's own R1 entry declared twice — one backend, one encoding, one
+    architecture, one rule, one `hyper`, one seed set and one budget — with only the
+    `utility` differing: the catalogue's first member (`net-chips`, the declared default of
+    `utilities.md` §5) against the member whose declared reward token is
+    `normalised-net-chip-delta` (`reward-scale.md` §2).  Those two members differ in
+    **scale and in nothing else** — one terminal number, one zero on every other decision,
+    one bootstrap rule, one state layout, one `param_count` (`reward-scale.md` §2, §4) —
+    which is what makes a difference between the arms attributable to the reward's scale
+    (`utilities.md` §2, §3, §8, ASM-10, D-3, D-65).  The variant names and the pool id are
+    this file's own (`docs/L1/battery.md` §4, D-15), so the pair writes its own artefacts.
+    """
+    configuration = clone(two_utility_configuration())
+    left, right = configuration["variants"]
+    left["name"] = UTILITY_NORMALISED_LEFT
+    left["utility"] = utility_names()[0]
+    right["name"] = UTILITY_NORMALISED_RIGHT
+    right["utility"] = utility_by_reward(NORMALISED_REWARD_TOKEN)
+    configuration["name"] = UTILITY_NORMALISED_RUNG
+    configuration["primary"] = UTILITY_NORMALISED_LEFT
+    configuration["pool"]["id"] = UTILITY_NORMALISED_POOL
+    return configuration
+
+
+def normalised_utility_run():
+    """One run of it, built once per process: two arms, two scales, one run record.
+
+    Both arms are trained — the objective is a parameter a variant names — so the record is
+    the observable that says the third member reached a run and was not refused: a curve, a
+    final model and a utility per arm, and the member's own name in the record's
+    `utilities` set (`utilities.md` §7, `records.md` §12, `reward-scale.md` §4, D-65).
+    """
+    if "normalised" not in _SHARED:
+        _SHARED["normalised"] = run(
+            normalised_utility_configuration(),
+            seeds=[UTILITY_SEED, UTILITY_SEED_OTHER],
+            budget=UTILITY_BUDGET,
+        )
+    return _SHARED["normalised"]
 
 
 def counterfactual_configuration():

@@ -1748,6 +1748,32 @@ def shaped_episode(shape, seed=EPISODE_SEED):
     return _EPISODES[key]
 
 
+def seated_episode(shape, seed=EPISODE_SEED):
+    """One real episode on one declared shape, seated by the shape's **whole** seating.
+
+    A shape with more than two seats is played through `engine.play_hand`'s `seats`
+    sequence — one fresh always-call policy per seat, in seat order — because the two
+    positional arguments seat two policies and no more (`seats.md` §4,
+    `e2e-surface.md` §3.1).  The seat count is the shape's own declaration,
+    `engine.game_config(shape)['seats']`, so no `2` or `6` is written down here, and the
+    readout's stacks and pot are that shape's — 40, 200 or 600 chips in play
+    (`shapes.md` §2, `utilities.md` §4, ASM-44).
+    """
+    key = ("seated", str(shape), int(seed))
+    if key not in _EPISODES:
+        seats = as_int(
+            as_mapping(engine().game_config(shape), "a shape's game configuration")["seats"],
+            "a shape's seat count",
+        )
+        seating = tuple(
+            baseline_policy("always-call", BASELINE_SEED) for _ in range(seats)
+        )
+        _EPISODES[key] = engine().play_hand(
+            int(seed), seats=tuple(seating), shape=shape
+        )
+    return _EPISODES[key]
+
+
 def decisions_of(record):
     """An episode record's ordered decisions (`records.md` §5)."""
     return [

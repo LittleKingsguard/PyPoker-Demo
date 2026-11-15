@@ -24,6 +24,7 @@ mapping cannot reach the next call's.
 |---|---|---|
 | `net-chips` | `net-chip-delta` — the seat's unshaped net chip delta (ASM-12) | `none` |
 | `stack-shortfall` | `squared-stack-shortfall-delta` — `(U(s_before) − U(s_after)) / U(s_0)`, `U(s) = (T − s)²` | `U(s_0)` |
+| `net-chips-normalised` | `normalised-net-chip-delta` — that same delta over the chips in play, `Δ / T` (`reward-scale.md` §2) | `T` |
 
 - **Three keys per member, and the order is contract.** Each member states its own `name`, its `reward` and
   its `normaliser`; the catalogue's order is the surface because its first member is the declared default
@@ -31,17 +32,20 @@ mapping cannot reach the next call's.
 - **The first member is `net-chips`, the declared default.** A spec naming no `utility` is built under it,
   and the default is declared here and in `utilities.md` §5 and never inferred from a caller's silence
   (§2, `records.md` §3, D-20).
+- **The third member is D-65's, and it is appended** after the two so no existing position and so that default
+  moves: it divides the same delta by the game's chips in play `T`, so a `net-chips`-versus-normalised pair differs
+  on **scale alone** — one capacity, one contract (`reward-scale.md` §2, §4, ASM-45, ASM-46, D-65).
 - **One catalogue, not two copies.** `training` and `evaluation` refuse an unknown name against this call:
   `training` through `declarations.utilities()` and `evaluation` through the same granted arrow, so the names
   this module publishes are the only names either accepts (`module-map.md` §2, D-20).
 
 ## 2. `build_learner`'s optional `utility`, and the refusal
 
-- **Optional, and validated before anything is drawn.** `utility` is a `records.md` §3 key of the spec: a
-  catalogue name, absent meaning the first member. It is read beside `learning_rule` and **before** a
-  parameter is drawn, so a refused name leaves nothing built (`surface.md` §4, `errors.md` §1, D-20).
+- **Optional, and validated before anything is drawn.** `utility` is a `records.md` §3 key of the spec — a catalogue
+  name, absent meaning the first member — read before a parameter is drawn, so a refused name leaves nothing built
+  (`surface.md` §4, `errors.md` §1, D-20).
 - **`UnknownUtility`.** A name outside the catalogue — a non-string and an uncarried string alike — raises
-  `agents`' own `UnknownUtility` naming `build_learner`, the catalogue's two names and the offending value,
+  `agents`' own `UnknownUtility` naming `build_learner`, the catalogue's names and the offending value,
   and the name is never mapped onto the declared default (`errors.md` §3, `utilities.md` §5).
 - **Two axes, one build.** The rule and the utility are read from one spec, an axis each; neither is an
   argument of another entry point, and no caller branches on either (`surface.md` §1, `rules.md` §3, D-19,
@@ -53,9 +57,8 @@ mapping cannot reach the next call's.
   carries. Nothing in this module's arithmetic reads it — the reward is the caller's and the transform is
   `training`'s (`utilities.md` §4, D-20).
 - **The policy** `as_policy` returns carries `utility` beside `learning_rule`, the two attributes
-  `e2e-surface.md` §2 makes part of the policy protocol. `evaluation` reads them to label a table's members,
-  so a cell names the objectives that met even when a variant was built in process and no record of it exists
-  yet (`surface.md` §10, `rules.md` §7, `utilities.md` §7, D-20).
+  `e2e-surface.md` §2 makes part of the policy protocol; `evaluation` reads them to label a table's members, so a
+  cell names the objectives that met (`surface.md` §10, `utilities.md` §7, D-20).
 - **A baseline's policy carries neither.** No rule trained it and no reward was its target, and this module
   invents no attribute a policy did not earn (`surface.md` §11, §12, D-6).
 - **Neither attribute changes a decision.** Two policies of one learner at one seed answer the same index
@@ -72,9 +75,9 @@ mapping cannot reach the next call's.
 - **Version 3 and 4 both require both members.** A missing `utility` is the same "metadata.json without the field"
   refusal a missing `learning_rule` gets, and a `utility` the catalogue does not carry is `UnknownUtility` naming the
   field, the catalogue and the value (`docs/L3/agents/checkpoint.md` §3).
-- **Version 2 requires `learning_rule` and must not carry `utility`.** A version-2 container carrying it is refused by
-  name, exactly as a version-1 container carrying `learning_rule` is; **version 1** requires neither and must carry
-  neither (`docs/L3/agents/checkpoint.md` §3, D-20).
+- **Version 2 requires `learning_rule` and must not carry `utility`**, a version-2 container carrying it being
+  refused by name exactly as a version-1 container carrying `learning_rule` is; **version 1** requires neither and
+  must carry neither (`docs/L3/agents/checkpoint.md` §3, D-20).
 - **A version-1 or version-2 container is read as `net-chips`.** The reading is one assignment beside the version-1
   `learning_rule` default, so a comparison and a rebuild both see the member the file is read as. The 18 shipped
   containers are version 1 and load unchanged as `net-chips`; none is regenerated (`utilities.md` §6, ASM-5).
@@ -96,15 +99,12 @@ default, drops the field, or repairs a container (`e2e-surface.md` §2, `errors.
 ## 6. What the rest of the surface does **not** become
 
 - **Ten entry points, unchanged.** The utility adds no entry point, renames none, and adds no argument to one
-  beyond the spec's own key; the count stays 10 and `modules.json` does not move (D-12, `e2e-surface.md` §1,
-  §3.3).
-- **`learn`'s terminal branch is not this axis's.** `learn` aims at `record["reward"]` at a terminal
-  transition and at the rule's bootstrap elsewhere; the utility changes *what number* the caller places in
-  that record, in `training`'s transition step, and never *how* this module learns from it (`utilities.md`
-  §4, ASM-12, ASM-25, D-19, D-20).
+  beyond the spec's own key; the count stays 10 and `modules.json` does not move (D-12, `e2e-surface.md` §1, §3.3).
+- **`learn`'s terminal branch is not this axis's.** `learn` aims at `record["reward"]` at a terminal transition
+  and at the rule's bootstrap elsewhere; the utility changes *what number* the caller places in that record, in
+  `training`'s transition step, never *how* this module learns from it (`utilities.md` §4, ASM-12, ASM-25, D-20).
 - **`act`, `param_count` and the container's array are utility-free.** One utility changes the number a
   terminal transition carries and nothing of the state layout, so one architecture reports one count and one
-  checkpoint carries one `2·P + M` array under either (`utilities.md` §3, ASM-10, D-20).
-- **No value is read for a result.** The catalogue states what a member *delivers*; which utility plays
-  better is a measurement recorded in a record and never a claim this surface makes (D-20, `battery.md` §5,
-  ASM-29).
+  checkpoint carries one `2·P + M` array under any of them (`utilities.md` §3, ASM-10, D-20).
+- **No value is read for a result.** The catalogue states what a member *delivers*; which utility plays better is a
+  measurement recorded in a record and never a claim this surface makes (D-20, `battery.md` §5, ASM-29).

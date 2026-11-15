@@ -3,10 +3,13 @@
 Drives `docs/L3/agents/utility.md` §2-§8 and `docs/L3/agents/checkpoint.md` §2.1-§4,
 beside the L1 statements the same contracts are published under — `docs/L1/utilities.md`
 §2, §5, §6, `docs/L1/records.md` §3, §7, `docs/L1/e2e-surface.md` §2, §3.3,
-`docs/L1/battery.md` §5 and `strata/decisions.md` D-20: `learners()` publishes a
-terminal-reward **catalogue** of two members in a declared order — `net-chips`, the
-unshaped net chip delta of ASM-12 and the declared default, then `stack-shortfall`, the
-delta of the squared stack shortfall over the chips in play — each a record of exactly
+`docs/L1/battery.md` §5, `docs/L1/reward-scale.md` §2, §4 and `strata/decisions.md`
+D-20: `learners()` publishes a terminal-reward **catalogue** of three members in a
+declared order — `net-chips`, the unshaped net chip delta of ASM-12 and the declared
+default, then `stack-shortfall`, the delta of the squared stack shortfall over the chips
+in play, then D-65's `net-chips-normalised`, that same delta divided by the game's chips
+in play, `Δ / T`, appended third so no existing member's position — and so the default —
+moves (`reward-scale.md` §2, ASM-45, D-65) — each a record of exactly
 three keys, its `name`, the `reward` it delivers as a stable token and the `normaliser`
 that reward is divided by (`utility.md` §2); a learner spec selects one with `utility`,
 an absent key being the catalogue's first member and never a value inferred from the
@@ -49,13 +52,16 @@ from _agents_support import (
     write_container,
 )
 
-#: The catalogue's two members, in `utilities.md` §2's declared order, with the reward
+#: The catalogue's three members, in `utilities.md` §2's declared order, with the reward
 #: each delivers as a stable token and the normaliser that reward is divided by.  These
 #: are design tokens — the same spelling `learners()` publishes — and not invented
-#: instances: §2's table and D-20 fix every one of them.
+#: instances: §2's table and D-20 fix every one of them, and `reward-scale.md` §2 fixes
+#: the third member's (`normalised-net-chip-delta`, divided by the chips in play `T`,
+#: ASM-45, D-65).
 DECLARED_UTILITIES = (
     ("net-chips", "net-chip-delta", "none"),
     ("stack-shortfall", "squared-stack-shortfall-delta", "U(s_0)"),
+    ("net-chips-normalised", "normalised-net-chip-delta", "T"),
 )
 
 #: The declared default of `utilities.md` §5: the catalogue's **first** member.
@@ -82,16 +88,18 @@ def utility_of(learner):
 class UtilityCatalogueTest(AgentsCase):
     """The catalogue's shape and default, the spec's selection, and the refusals."""
 
-    def test_agt15_1_utilities_is_the_two_member_reward_catalogue(self):
-        """AGT-15.1 `utilities` is exactly two members in the declared order, each carrying only `name`, `reward` and `normaliser` (`utilities.md` §2, §5, `surface.md` §3, D-20).
+    def test_agt15_1_utilities_is_the_three_member_reward_catalogue(self):
+        """AGT-15.1 `utilities` is exactly three members in the declared order, each carrying only `name`, `reward` and `normaliser` (`utilities.md` §2, §5, `reward-scale.md` §2, `surface.md` §3, D-20, D-65).
 
-        §2 publishes the catalogue through `learners()`: two members, in that order, each
-        a plain record of its `name`, the `reward` it delivers as a **stable token and
-        never a sentence**, and the `normaliser` that reward is divided by.  The order is
-        contract and not decoration: its first member is the declared default of §5, so
-        the order and the default are one statement.  A member carrying a fourth key
-        would be a catalogue a report could not quote by name, and §2's tokens are what
-        a record states.
+        §2 publishes the catalogue through `learners()`: three members, in that order,
+        each a plain record of its `name`, the `reward` it delivers as a **stable token
+        and never a sentence**, and the `normaliser` that reward is divided by.  The order
+        is contract and not decoration: its first member is the declared default of §5, so
+        the order and the default are one statement, and the third member is D-65's —
+        **appended** after the two of §2 so no existing member's position, and so that
+        default, moves (`reward-scale.md` §2, §4, ASM-45, D-65).  A member carrying a
+        fourth key would be a catalogue a report could not quote by name, and §2's tokens
+        are what a record states.
         """
         catalogue = self.agents().learners()["utilities"]
         self.assertIsInstance(
@@ -103,9 +111,10 @@ class UtilityCatalogueTest(AgentsCase):
         self.assertEqual(
             tuple(catalogue),
             tuple(name for name, _reward, _normaliser in DECLARED_UTILITIES),
-            "utilities is keyed by the two catalogue members in utilities.md §2's "
-            "declared order — net-chips first, the declared default of §5 — and each "
-            "key is the member's own name (surface.md §3, D-20)",
+            "utilities is keyed by the three catalogue members in utilities.md §2's "
+            "declared order — net-chips first, the declared default of §5, and D-65's "
+            "net-chips-normalised appended third — and each key is the member's own name "
+            "(surface.md §3, reward-scale.md §2, D-20, D-65)",
         )
         for name, entry in catalogue.items():
             with self.subTest(utility=name):
@@ -165,26 +174,27 @@ class UtilityCatalogueTest(AgentsCase):
             % (DECLARED_DEFAULT,),
         )
 
-    def test_agt15_2_the_spec_selects_the_member_and_one_capacity_serves_both(self):
-        """AGT-15.2 no `utility` builds the declared default and a named one builds that member, both reported by the learner and its policy, at one `param_count` (`utilities.md` §3, §5, `records.md` §3, `surface.md` §4, §5, §10, e2e-surface.md §2, ASM-10, D-20).
+    def test_agt15_2_the_spec_selects_the_member_and_one_capacity_serves_all_three(self):
+        """AGT-15.2 no `utility` builds the declared default and a named one builds that member, both reported by the learner and its policy, at one `param_count` — for every catalogued member (`utilities.md` §3, §5, `records.md` §3, `surface.md` §4, §5, §10, e2e-surface.md §2, ASM-10, D-20, D-65).
 
         Absent, the utility is the catalogue's **first** member and never a value inferred
         from the caller's silence; present, it is the member the spec names (§5,
-        `records.md` §3).  The two members are **one capacity**: a utility changes the
+        `records.md` §3).  The three members are **one capacity**: a utility changes the
         number a terminal transition carries and nothing of the state layout, so
         `param_count` cannot tell them apart (§3, ASM-10) while the member each reports
         can — the learner's own `utility` and the `utility` its `as_policy` policy carries
-        (`e2e-surface.md` §2).
+        (`e2e-surface.md` §2).  The third member is D-65's scale-only change, so it is
+        selected and reported exactly as its two siblings are (`reward-scale.md` §2, §4).
         """
         package = self.agents()
         catalogue = tuple(package.learners()["utilities"])
         self.assertEqual(
             catalogue,
             tuple(name for name, _reward, _normaliser in DECLARED_UTILITIES),
-            "the catalogue's two members, in utilities.md §2's order, are what this case "
-            "selects between (D-20)",
+            "the catalogue's three members, in utilities.md §2's order, are what this case "
+            "selects between (D-20, reward-scale.md §2, D-65)",
         )
-        default, second = catalogue[0], catalogue[1]
+        default = catalogue[0]
 
         def policy_of(learner):
             return package.as_policy(learner, flat_encoder(), LEARNER_SEED)
@@ -204,34 +214,38 @@ class UtilityCatalogueTest(AgentsCase):
             "(e2e-surface.md §2, utilities.md §7)",
         )
 
-        named = package.build_learner(
-            learner_spec(kind=DENSE_KIND, extra={"utility": second})
-        )
-        self.assertEqual(
-            utility_of(named),
-            second,
-            "a spec naming %r builds a learner trained on that member's reward "
-            "(utilities.md §5, surface.md §4, D-20)" % (second,),
-        )
-        self.assertEqual(
-            getattr(policy_of(named), "utility", None),
-            second,
-            "the policy built from a learner under %r reports that member, and no "
-            "decision it makes reads it (e2e-surface.md §2, utilities.md §7)"
-            % (second,),
-        )
-        self.assertEqual(
-            package.param_count(named),
-            package.param_count(silent),
-            "the two utilities are one capacity: param_count is the matched-budget "
-            "measurement no utility changes (utilities.md §3, ASM-10, D-20)",
-        )
-        self.assertGreater(
-            package.param_count(named),
-            0,
-            "a learner built under either catalogue member is sized like a learner "
-            "(surface.md §5, utilities.md §3)",
-        )
+        for second in catalogue[1:]:
+            with self.subTest(utility=second):
+                named = package.build_learner(
+                    learner_spec(kind=DENSE_KIND, extra={"utility": second})
+                )
+                self.assertEqual(
+                    utility_of(named),
+                    second,
+                    "a spec naming %r builds a learner trained on that member's reward "
+                    "(utilities.md §5, surface.md §4, D-20)" % (second,),
+                )
+                self.assertEqual(
+                    getattr(policy_of(named), "utility", None),
+                    second,
+                    "the policy built from a learner under %r reports that member, and no "
+                    "decision it makes reads it (e2e-surface.md §2, utilities.md §7)"
+                    % (second,),
+                )
+                self.assertEqual(
+                    package.param_count(named),
+                    package.param_count(silent),
+                    "the utilities are one capacity: param_count is the matched-budget "
+                    "measurement no utility changes (utilities.md §3, ASM-10, D-20): %r "
+                    "against %r under %r"
+                    % (package.param_count(named), package.param_count(silent), second),
+                )
+                self.assertGreater(
+                    package.param_count(named),
+                    0,
+                    "a learner built under either catalogue member is sized like a learner "
+                    "(surface.md §5, utilities.md §3)",
+                )
 
     def test_agt15_3_an_uncatalogued_utility_is_refused_by_name(self):
         """AGT-15.3 `build_learner` refuses a `utility` the catalogue does not carry, and a value that is not a string, naming the entry point, the key, the value and the catalogue's names (`surface.md` §4, §9, `utilities.md` §5, `errors.md` §3-§4, D-20).
@@ -241,7 +255,9 @@ class UtilityCatalogueTest(AgentsCase):
         its spec does not name; a non-string is refused the same way, so no `str()` and no
         lookup coerces a caller's value.  The refusal is this module's own (`errors.md`
         §2): a caller catching `AgentsError` catches it, which a `KeyError` from a mistyped
-        catalogue would escape.
+        catalogue would escape.  The appended third member widens no name's admission: the
+        message names every member the catalogue does carry, the third among them
+        (`reward-scale.md` §2, D-65).
         """
         package = self.agents()
         catalogue = tuple(package.learners()["utilities"])
@@ -264,9 +280,183 @@ class UtilityCatalogueTest(AgentsCase):
                         (str(value),),
                         (catalogue[0],),
                         (catalogue[1],),
+                        (catalogue[2],),
                     ),
                     label="%s: utility = %r" % (label, value),
                 )
+
+    def test_agt15_10_the_normalised_member_is_appended_with_its_three_keys(self):
+        """AGT-15.10 `net-chips-normalised` is the catalogue's **third** member — appended after the two of `utilities.md` §2 so no existing member's position, and so the declared default, moves — carrying exactly `name`, `reward` (`normalised-net-chip-delta`) and `normaliser` (`T`), and the first two members' records are the two they were (`utilities.md` §2, §5, `reward-scale.md` §2, §4, ASM-45, D-65).
+
+        The design appends the member rather than inserting it, so the surface this case
+        reads is its **position**: index 2 of the catalogue's own order, the two members
+        before it unchanged, and index 0 still `net-chips` — which is what makes the
+        derived default (§5) unmoved and a spec naming no `utility` still a `net-chips`
+        build.  The record grows no key and loses none: `reward-scale.md` §4's cost-free
+        claim rests on exactly that, so the third member is read here beside its siblings
+        and not through a shape of its own (`reward-scale.md` §2, ASM-46, D-65).
+        """
+        package = self.agents()
+        catalogue = package.learners()["utilities"]
+        names = tuple(catalogue)
+        self.assertEqual(
+            names,
+            tuple(name for name, _reward, _normaliser in DECLARED_UTILITIES),
+            "the catalogue is the three members of utilities.md §2 in declared order — "
+            "net-chips, stack-shortfall, then D-65's appended third (utilities.md §2, "
+            "reward-scale.md §2, D-20, D-65): it publishes %r" % (names,),
+        )
+        third_name, third_reward, third_normaliser = DECLARED_UTILITIES[2]
+        self.assertEqual(
+            names[2],
+            third_name,
+            "the member appended third is %r, the name every place a utility is named "
+            "carries — a spec, a variant entry, a container and a pool member "
+            "(utilities.md §2, §5, §6, reward-scale.md §2): it publishes %r third"
+            % (third_name, names[2]),
+        )
+        self.assertEqual(
+            set(catalogue[third_name]),
+            {"name", "reward", "normaliser"},
+            "the third member keeps the three keys utilities.md §2 gives every member, so "
+            "no published record grows (reward-scale.md §4, ASM-46): it carries %r"
+            % (sorted(catalogue[third_name]),),
+        )
+        for field, value in (("name", third_name), ("reward", third_reward),
+                             ("normaliser", third_normaliser)):
+            self.assertEqual(
+                catalogue[third_name][field],
+                value,
+                "the third member's `%s` is %r, the token reward-scale.md §2 and "
+                "utilities.md §2 state for it (ASM-45, D-65): it states %r"
+                % (field, value, catalogue[third_name][field]),
+            )
+        for name, reward, normaliser in DECLARED_UTILITIES[:2]:
+            with self.subTest(utility=name):
+                self.assertEqual(
+                    catalogue[name]["reward"],
+                    reward,
+                    "the two members before the appended one keep the reward token they "
+                    "declared, so the change is additive and no existing member moves "
+                    "(utilities.md §2, reward-scale.md §4, ASM-46): %r"
+                    % (catalogue[name]["reward"],),
+                )
+                self.assertEqual(
+                    catalogue[name]["normaliser"],
+                    normaliser,
+                    "and the normaliser they declared, unchanged (utilities.md §2, §4, "
+                    "reward-scale.md §4, ASM-46): %r"
+                    % (catalogue[name]["normaliser"],),
+                )
+        self.assertEqual(
+            names[0],
+            DECLARED_DEFAULT,
+            "the catalogue's first member — the declared default of utilities.md §5 — is "
+            "still %r, because the third member is appended after it "
+            "(utilities.md §2, §5, records.md §3, reward-scale.md §2, D-65): it publishes "
+            "%r first" % (DECLARED_DEFAULT, names[0]),
+        )
+        silent = package.build_learner(learner_spec(kind=DENSE_KIND))
+        self.assertEqual(
+            utility_of(silent),
+            DECLARED_DEFAULT,
+            "the derived default did not move: a spec naming no `utility` is still built "
+            "under %r after the catalogue grew its third member (utilities.md §5, "
+            "records.md §3, reward-scale.md §2, D-65): it built %r"
+            % (DECLARED_DEFAULT, utility_of(silent)),
+        )
+        self.assertEqual(
+            getattr(
+                package.as_policy(silent, flat_encoder(), LEARNER_SEED), "utility", None
+            ),
+            DECLARED_DEFAULT,
+            "and the policy built from it still reports %r, so a table's labelling is "
+            "unmoved by the appended member (e2e-surface.md §2, utilities.md §7)"
+            % (DECLARED_DEFAULT,),
+        )
+
+    def test_agt15_11_the_third_member_is_one_capacity_with_net_chips(self):
+        """AGT-15.11 a learner built under `net-chips-normalised` reports the same `param_count` and writes the same checkpoint array as one built under `net-chips` at one architecture and one shape — one capacity, two rewards — and its container's `utility` field is the only member of the document that moves (`utilities.md` §3, §6, `reward-scale.md` §2, §4, ASM-10, ASM-45, ASM-46, D-65).
+
+        The design's claim is that the third member differs from `net-chips` **in scale
+        and in nothing else**: one terminal number, one zero elsewhere, one bootstrap
+        rule, one state layout.  So the observable is an equality — one architecture at
+        one seed under two utilities is one capacity (`param_count`) and one `2·P + M`
+        array — and the array is read out of the two containers the module writes, which
+        is the surface a comparison of two models actually compares (`checkpoint.md` §2,
+        `reward-scale.md` §4).  The document is read too, so the case can say that the
+        name is the only field that travelled (`utilities.md` §6, §7).
+        """
+        package = self.agents()
+        catalogue = tuple(package.learners()["utilities"])
+        default, third = catalogue[0], DECLARED_UTILITIES[2][0]
+        self.assertIn(third, catalogue)
+        self.assertIn(default, catalogue)
+        first = package.build_learner(learner_spec(kind=DENSE_KIND, width=8, depth=1))
+        second = package.build_learner(
+            learner_spec(kind=DENSE_KIND, width=8, depth=1, extra={"utility": third})
+        )
+        self.assertEqual(
+            utility_of(first),
+            default,
+            "the first learner of the pair is built under the catalogue's first member, so "
+            "the comparison is two rewards and not one twice (utilities.md §3, §7, "
+            "reward-scale.md §2): %r" % (utility_of(first),),
+        )
+        self.assertEqual(
+            utility_of(second),
+            third,
+            "the second learner of the pair is built under %r and says so, so one capacity "
+            "is asserted between two members (utilities.md §3, §7, reward-scale.md §2): %r"
+            % (third, utility_of(second)),
+        )
+        self.assertEqual(
+            package.param_count(first),
+            package.param_count(second),
+            "a utility changes the number a terminal transition carries and nothing of the "
+            "state layout, so the two members report one param_count at one architecture "
+            "(utilities.md §3, ASM-10, reward-scale.md §2, §4, D-65): %r against %r"
+            % (package.param_count(first), package.param_count(second)),
+        )
+        folder = self.tempdir()
+        paths = {}
+        for label, learner in (("net-chips", first), (third, second)):
+            paths[label] = package.save(
+                learner, os.path.join(folder, "capacity-%s-8127.ckpt" % (label,))
+            )
+        documents = {}
+        for label, path in paths.items():
+            documents[label] = container_document(path)
+        first_metadata, first_parameters = documents["net-chips"]
+        second_metadata, second_parameters = documents[third]
+        self.assertEqual(
+            first_parameters,
+            second_parameters,
+            "the checkpoint's parameter array is one capacity's under either member — the "
+            "same `2·P + M` values from one seed and one architecture — so the third "
+            "member moves no stored parameter (utilities.md §3, ASM-10, reward-scale.md "
+            "§4, ASM-46): %d bytes against %d bytes"
+            % (len(first_parameters), len(second_parameters)),
+        )
+        self.assertEqual(
+            sorted(
+                field
+                for field in set(first_metadata) | set(second_metadata)
+                if first_metadata.get(field) != second_metadata.get(field)
+            ),
+            ["utility"],
+            "the utility's name is the only member of the document that moves between the "
+            "two containers, because format version, kind, settings, representation size "
+            "and seed are one capacity's (utilities.md §6, §7, reward-scale.md §4): the "
+            "documents were %r and %r" % (first_metadata, second_metadata),
+        )
+        self.assertEqual(
+            second_metadata["utility"],
+            third,
+            "and the field that moved names the member the second learner carries, so the "
+            "container is the witness of the objective (utilities.md §6, ASM-27): %r"
+            % (second_metadata.get("utility"),),
+        )
 
 
 class UtilityCheckpointTest(AgentsCase):
@@ -629,6 +819,127 @@ class UtilityCheckpointTest(AgentsCase):
             package.param_count(learner),
             "a spec naming the file's own utility agrees on that compared key and loads "
             "(utilities.md §6, checkpoint.md §3)",
+        )
+
+    def normalised_member(self):
+        """A learned `net-chips-normalised` learner, at a state a checkpoint records.
+
+        The third member is the one D-65 appended, and the container is its only carrier:
+        a round trip is what says the name travels inside format 3 and comes back off the
+        file rather than off the caller's spec (`utilities.md` §6, §7, `reward-scale.md`
+        §4, ASM-45, D-65).  Annealed, so its parameters are past the initial draw and its
+        recorded schedule position is a real one, as :meth:`member`'s are.
+        """
+        learner = self.annealed_learner(
+            "utility-checkpoint-normalised",
+            {
+                "kind": DENSE_KIND,
+                "width": 8,
+                "depth": 1,
+                "extra": {"utility": DECLARED_UTILITIES[2][0]},
+            },
+        )
+        self.assertEqual(
+            utility_of(learner),
+            DECLARED_UTILITIES[2][0],
+            "the source learner of these cases is trained on the catalogue's third member, "
+            "so a container that dropped the name would differ from what was written "
+            "(utilities.md §6, reward-scale.md §4): %r" % (utility_of(learner),),
+        )
+        return learner
+
+    def test_agt15_12_a_container_under_the_normalised_member_round_trips(self):
+        """AGT-15.12 a container written under `net-chips-normalised` records that name, `load(None, path)` and `as_policy(...).utility` report it back off the file, a `load` spec naming it loads at one capacity, and a spec naming either of the other two — or a name outside the catalogue — is refused, the disagreement naming both values (`utilities.md` §6, §7, `reward-scale.md` §4, `surface.md` §9, ASM-5, ASM-45, D-65).
+
+        `reward-scale.md` §4 keeps the container where it is — format 3, the version it
+        already is — and makes the **required `utility` field** the only carrier of the
+        new name, so the reading asserted here is the one a shipped artefact would go
+        through: the document's own field, then the learner a load restores, then the
+        policy a table labels (`utilities.md` §6, §7, `e2e-surface.md` §2).  The
+        disagreement is the comparison family's refusal and names both values, exactly as
+        a contradicting `learning_rule` or `seed` does (`surface.md` §9).
+        """
+        package = self.agents()
+        third = DECLARED_UTILITIES[2][0]
+        learner = self.normalised_member()
+        path = package.save(learner, self.path("v3-normalised-8127.pt"))
+        metadata, _parameters = container_document(path)
+        self.assertEqual(
+            plain_int(metadata["format_version"], "metadata['format_version']"),
+            3,
+            "a container written under the third member is still format version 3, because "
+            "the change adds no version and no geometry (utilities.md §6, reward-scale.md "
+            "§4, ASM-46, D-65): %r" % (metadata["format_version"],),
+        )
+        self.assertEqual(
+            metadata["utility"],
+            third,
+            "the container's required `utility` field carries the appended member's name "
+            "(utilities.md §6, reward-scale.md §4): %r" % (metadata.get("utility"),),
+        )
+        restored = package.load(None, path)
+        self.assertEqual(
+            utility_of(restored),
+            third,
+            "a learner restored from the container carries the member the file records, so "
+            "the name came back off the file and not off a default (utilities.md §6, "
+            "surface.md §9, ASM-5): %r" % (utility_of(restored),),
+        )
+        self.assertEqual(
+            getattr(
+                package.as_policy(restored, flat_encoder(), LEARNER_SEED), "utility", None
+            ),
+            third,
+            "the policy built from the restored learner reports the third member, which is "
+            "how a table names the objective it measured (utilities.md §6, §7, "
+            "e2e-surface.md §2): %r"
+            % (getattr(
+                package.as_policy(restored, flat_encoder(), LEARNER_SEED), "utility", None
+            ),),
+        )
+        via_spec = package.load(
+            learner_spec(
+                kind=DENSE_KIND, width=8, depth=1, extra={"utility": third}
+            ),
+            path,
+        )
+        self.assertEqual(
+            package.param_count(via_spec),
+            package.param_count(learner),
+            "a spec naming the file's own member agrees on that compared key and loads at "
+            "the file's own capacity (utilities.md §3, §6, checkpoint.md §3): %r" % (path,),
+        )
+        for other in (DECLARED_UTILITIES[0][0], DECLARED_UTILITIES[1][0]):
+            with self.subTest(contradicting=other):
+                self.assert_refused(
+                    package.load,
+                    learner_spec(
+                        kind=DENSE_KIND, width=8, depth=1, extra={"utility": other}
+                    ),
+                    path,
+                    entry="load",
+                    groups=(("load(spec)",), ("utility",), (other,), (third,)),
+                    label="a spec naming %r for a container trained under %r"
+                    % (other, third),
+                )
+        self.assert_agents_refusal(
+            package.load,
+            learner_spec(
+                kind=DENSE_KIND,
+                width=8,
+                depth=1,
+                extra={"utility": UNCATALOGUED_UTILITY},
+            ),
+            path,
+            entry="load",
+            groups=(
+                ("utility",),
+                (UNCATALOGUED_UTILITY,),
+                (DECLARED_UTILITIES[0][0],),
+                (DECLARED_UTILITIES[1][0],),
+                (third,),
+            ),
+            label="a spec naming a name one word away from the third member",
         )
 
 

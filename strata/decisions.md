@@ -1764,3 +1764,34 @@ learning rate works** — 1e-3 explodes the weights in 300 hands and 1e-6 never 
 term in that arithmetic is the reward's magnitude, and it is the one the utility axis owns. If the trunk dies
 under a normalised reward too, the cause was not the scale and the RCA must be reopened; **no threshold will be
 invented to rescue it**.
+
+---
+
+## D-67 — The normalised reward revives the trunk: D-65's mechanism is confirmed causally
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Proceed with normalized reward test"
+
+**Result:** every part of D-66's stated prediction held, on 18 concurrent runs at six seats, 15,000 hands ×
+seeds 0–2:
+
+| measure | `net-chips` (recorded) | normalised | predicted |
+|---|---|---|---|
+| ‖w_in‖ | 298.6–313 | **8.44–10.01** | order 10 ✔ |
+| active units L1 / L2 | **0 / 0** | **14–30 / 12.9–26.9** | alive ✔ |
+| distinct scores ÷ distinct observations | **1** over thousands | **1.000 in all 18 runs** | state-dependent ✔ |
+
+**The mechanism is confirmed causally:** the reward's magnitude set the step size, the step size exploded the
+weights, the explosion killed the rectifiers, a dead rectifier froze the parameters. Normalising the reward
+puts the declared rate inside the window and the network reads its input again — the first state-dependent
+policy this project has produced outside `stack-shortfall`.
+
+**Behaviour:** flat cells fold 4–21 % at −3.4 to −7.1 chips/hand; token cells fold **55.3 %** at **−0.15 to
+−1.2** — four to forty times smaller losses than flat. The estimator axis is **inert even in a live network**
+(active units 15.0 / 15.4 / 15.3 at flat and 26.3 / 26.2 / 26.5 at tokens; fold 6.1 / 6.6 / 9.6 %), a stronger
+statement than the dead-trunk null it replaces.
+
+**Flagged, unexplained:** all nine token runs report **exactly 55.3 %** fold across three cells and three
+seeds. That is too exact to be independent convergence and is recorded as unexplained rather than as
+behaviour; it is the first thing to check if this line continues.

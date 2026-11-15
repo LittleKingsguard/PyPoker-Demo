@@ -19,8 +19,10 @@ the hand; the transform re-expresses that number as the reward of the utility th
 is trained on, at that terminal decision only, and every other decision keeps `0.0`.  The
 arithmetic is selected by the **reward token** the catalogue states for the member — the
 catalogue's own description of what a member delivers — so no member name is copied into
-this module: `net-chip-delta` is the delta itself and `squared-stack-shortfall-delta` is
-`(U(s_before) − U(s_after)) / U(s_0)` with `U(s) = (T − s)²` (`utilities.md` §2, §4).
+this module: `net-chip-delta` is the delta itself, `squared-stack-shortfall-delta` is
+`(U(s_before) − U(s_after)) / U(s_0)` with `U(s) = (T − s)²`, and
+`normalised-net-chip-delta` is that same delta divided by the game's chips in play,
+`r = Δ / T` (`utilities.md` §2, §4, `reward-scale.md` §2, D-65).
 
 **This is also where D-43's two transition facts are written** (`counterfactual.md` §2, §4,
 §6).  Every record carries `episode`, the episode's own `seed`, so two transitions of one hand
@@ -162,12 +164,34 @@ def _stack_shortfall(decision, seed, seat, shape=None, delta=None):
     return (before - after) / before
 
 
+def _net_chips_normalised(decision, seed, seat, shape=None, delta=None):
+    """`r = delta / T`: the seat's net chip delta divided by the chips in play (§2, D-65).
+
+    `T` is read through the conservation guard `stack-shortfall` reads it through, so a hand
+    whose readout total disagrees with the run's own shape is refused by the same named
+    error — `ChipConservationBroken` — rather than divided by a substituted number, and the
+    divisor is the game's `seats × starting_stack` and never the hand's pot or the starting
+    stack alone (`reward-scale.md` §2–§3, ASM-45, ASM-28, `utilities.md` §4).
+
+    `delta` is the number the arithmetic is applied to, and its absence is the terminal
+    decision's own `reward` — the same transform on the counterfactual branch values
+    `counterfactual.md` §4 requires, exactly as `stack-shortfall` applies it (`episode.md`
+    §5, `reward.md` §3).  **No clamp and no clipping**: a seat loses at most its stack and
+    wins at most the rest of the table, so `r` is in `[−1/S, (S−1)/S]` because `T` is the
+    game's total and not because anything here bounds it (`reward-scale.md` §2, §3).
+    """
+    total, _starting_stack = _chips_in_play(decision, seed, seat, shape)
+    realised = float(decision["reward"]) if delta is None else float(delta)
+    return realised / total
+
+
 #: The arithmetic each catalogue reward token names (`utilities.md` §2).  A token with
 #: no arithmetic here is a reward this module cannot deliver, and is refused by name
 #: rather than defaulted to the net chip delta (`utilities.md` §4, D-20).
 REWARDS = {
     "net-chip-delta": _net_chips,
     "squared-stack-shortfall-delta": _stack_shortfall,
+    "normalised-net-chip-delta": _net_chips_normalised,
 }
 
 

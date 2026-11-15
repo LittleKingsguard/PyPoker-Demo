@@ -1,9 +1,10 @@
 """JOIN-AGT-12 — the utility axis at the join.
 
 `docs/L3/agents/utility.md` §4, §7, `docs/L3/agents/checkpoint.md` §4,
-`docs/L1/utilities.md` §3, §5, §6, §7 and D-20: a learner spec selects the terminal
-reward it is trained on, the two catalogue members are **one capacity**, and a version
-carries the member it was trained under so a table can name the objective it measured.
+`docs/L1/utilities.md` §3, §5, §6, §7, `docs/L1/reward-scale.md` §2, §4 and D-20, D-65:
+a learner spec selects the terminal reward it is trained on, the catalogue's three
+members are **one capacity**, and a version carries the member it was trained under so a
+table can name the objective it measured.
 Every one of those is a join and not a module's own statement — the member is selected
 through `agents.build_learner`, the model is driven by observations `features.encode`
 makes of readouts `engine.readout` dealt, the reward the terminal transition carries is
@@ -44,6 +45,31 @@ else:
     sys.modules["agents_join_support"] = J
     _spec.loader.exec_module(J)
 
+#: The three utilities `docs/L1/utilities.md` §2 declares, **in its declared order**: the
+#: first is the declared default of §5, and the third is the member
+#: `docs/L1/reward-scale.md` §2 appends after the two of Rev 1 so no existing member's
+#: position -- and so that default -- moves.  The names are spelled here only so the
+#: catalogue can be held to the document's order; every value a case reads is read off
+#: `agents.learners()`.
+UTILITIES = ("net-chips", "stack-shortfall", "net-chips-normalised")
+
+#: That order's first member -- the declared default (`utilities.md` §5) -- and its third.
+DEFAULT_UTILITY = UTILITIES[0]
+NORMALISED_UTILITY = UTILITIES[2]
+
+#: The three keys `docs/L1/utilities.md` §2 gives every member's record -- its `name`, the
+#: `reward` it delivers as a stable token and the `normaliser` it is divided by, in the
+#: order the declaration carries them -- and the reward token and normaliser
+#: `docs/L1/reward-scale.md` §2 gives the third member.
+UTILITY_KEYS = ("name", "reward", "normaliser")
+NORMALISED_REWARD = "normalised-net-chip-delta"
+NORMALISED_BY = "T"
+
+#: A utility name **outside** the catalogue, one word away from the third member's, so a
+#: membership test that is a prefix or a substring test would let it through
+#: (`utilities.md` §5, D-20).
+UNDECLARED_UTILITY = "net-chips-normalised-battery"
+
 
 class UtilityAtTheJoin(J.JoinCase):
     """One learner per catalogue utility, driven through the join and restored."""
@@ -51,18 +77,57 @@ class UtilityAtTheJoin(J.JoinCase):
     def catalogue(self):
         """The utility catalogue `agents.learners()` publishes, in its declared order.
 
-        `docs/L1/utilities.md` §2 makes `learners()` publish it and §5 makes its first
-        member the declared default, so the order is read rather than assumed; a
-        catalogue of fewer than two members cannot state this file's claim at all.
+        `docs/L1/utilities.md` §2 makes `learners()` publish **exactly three** members, in
+        the order `net-chips`, `stack-shortfall`, `net-chips-normalised`, and §5 makes the
+        first the declared default — which `docs/L1/reward-scale.md` §2 keeps in place by
+        appending the third after the other two.  So the order is held to the document's,
+        the first member to that default, and each member's record to its exactly three
+        keys: a catalogue that lost a member, moved the default or grew a record fails here
+        rather than in whichever case happened to read one name (`docs/L1/utilities.md` §2,
+        §5, `docs/L1/reward-scale.md` §2, §4, D-20).
         """
-        declared = J.learners()["utilities"]
-        names = list(declared)
-        self.assertGreaterEqual(
-            len(names),
-            2,
-            "agents.learners()['utilities'] must publish the two members "
-            "docs/L1/utilities.md §2 declares, and it published %r" % (names,),
+        names = list(J.utility_names())
+        self.assertEqual(
+            tuple(names),
+            UTILITIES,
+            "agents.learners()['utilities'] publishes docs/L1/utilities.md §2's three "
+            "members in its declared order, the third appended by "
+            "docs/L1/reward-scale.md §2 so no existing member's position moves: %r"
+            % (names,),
         )
+        self.assertEqual(
+            names[0],
+            DEFAULT_UTILITY,
+            "the catalogue's first member is still `net-chips`, the declared default "
+            "docs/L1/utilities.md §5 gives a spec that names none — a claim the third "
+            "member's arrival must not move (docs/L1/reward-scale.md §2, §4, D-20): %r"
+            % (names,),
+        )
+        for name in names:
+            record = J.utility_record(name)
+            self.assertEqual(
+                tuple(record),
+                UTILITY_KEYS,
+                "every catalogue member is a record of exactly the three keys "
+                "docs/L1/utilities.md §2 declares — `name`, `reward`, `normaliser`, in "
+                "that order — so no published record grows with the third member "
+                "(docs/L1/reward-scale.md §4): %r carries %r"
+                % (name, sorted(record)),
+            )
+            self.assertEqual(
+                str(record["name"]),
+                str(name),
+                "a member's record carries its own catalogue name, which is the token a "
+                "spec, a pool member and a container spell "
+                "(docs/L1/utilities.md §2, §5): %r" % (record,),
+            )
+            for key in ("reward", "normaliser"):
+                self.assertIsInstance(
+                    record[key],
+                    str,
+                    "a member's %r is a stable token and never a sentence "
+                    "(docs/L1/utilities.md §2): %r" % (key, record[key]),
+                )
         return names
 
     def spec(self, utility):
@@ -208,21 +273,23 @@ class UtilityAtTheJoin(J.JoinCase):
                             "surface.md §10, docs/L1/protocol.md §5), deal %r" % (deal,),
                         )
 
-    def test_join_agt_12_2_the_two_utilities_learners_are_one_capacity(self):
-        """JOIN-AGT-12.2 the two catalogue members' learners report one `param_count`.
+    def test_join_agt_12_2_the_catalogue_members_are_one_capacity(self):
+        """JOIN-AGT-12.2 every catalogue member's learner reports one `param_count`.
 
-        `docs/L1/utilities.md` §3, ASM-10 and D-20: a utility changes the number a
-        terminal transition carries and nothing of the state layout, so `param_count` — the
-        matched-budget measurement — is identical under either member.  That is what lets
-        two arms of a pair differ on the `utility` axis alone and still be comparable
-        (`docs/L1/utilities.md` §8, D-3); the member each reports then differs, so the
-        equality is a claim about capacity and not about the two learners being one.
+        `docs/L1/utilities.md` §3, ASM-10, D-20 and `docs/L1/reward-scale.md` §4: a
+        utility changes the number a terminal transition carries and nothing of the state
+        layout, so `param_count` — the matched-budget measurement — is identical under
+        **every** member, the normalised third included.  That is what lets two arms of a
+        pair differ on the `utility` axis alone and still be comparable
+        (`docs/L1/utilities.md` §8, D-3, `docs/L1/reward-scale.md` §2); the member each
+        reports then differs, so the equality is a claim about capacity and not about the
+        learners being one.
         """
         names = self.catalogue()
-        first, second = names[0], names[1]
+        first = names[0]
         encoder = J.build_encoder(J.encoding_for("naive-stack"))
         learners = {}
-        for utility in (first, second):
+        for utility in names:
             with self.subTest(utility=utility):
                 learner = J.build_learner(self.spec(utility))
                 self.assertGreater(
@@ -233,22 +300,216 @@ class UtilityAtTheJoin(J.JoinCase):
                     "docs/L1/utilities.md §3)" % (utility,),
                 )
                 learners[utility] = learner
-        self.assertEqual(
-            J.param_count(learners[first]),
-            J.param_count(learners[second]),
-            "the two utilities are one capacity: a pair may differ on the utility axis "
-            "and be matched on parameters (docs/L1/utilities.md §3, §8, ASM-10, D-20)",
-        )
+        for utility in names[1:]:
+            self.assertEqual(
+                J.param_count(learners[utility]),
+                J.param_count(learners[first]),
+                "the catalogue's members are one capacity: a pair may differ on the "
+                "utility axis and be matched on parameters, so %r reports the "
+                "`param_count` %r reports (docs/L1/utilities.md §3, §8, "
+                "docs/L1/reward-scale.md §4, ASM-10, D-20): %r against %r"
+                % (
+                    utility,
+                    first,
+                    J.param_count(learners[utility]),
+                    J.param_count(learners[first]),
+                ),
+            )
         policies = [
             J.as_policy(learners[utility], encoder, J.LEARNER_SEED)
-            for utility in (first, second)
+            for utility in names
         ]
         self.assertEqual(
             [getattr(policy, "utility", None) for policy in policies],
-            [first, second],
-            "each policy names its own catalogue member, so one capacity under two "
-            "utilities is still two named objectives (docs/L1/e2e-surface.md §2, "
+            list(names),
+            "each policy names its own catalogue member, so one capacity under three "
+            "utilities is still three named objectives (docs/L1/e2e-surface.md §2, "
+            "docs/L1/utilities.md §7, D-20): %r"
+            % ([getattr(policy, "utility", None) for policy in policies],),
+        )
+
+    def test_join_agt_12_3_the_normalised_member_is_a_member_one_capacity_and_a_container(self):
+        """JOIN-AGT-12.3 the normalised reward is the third member, one capacity with `net-chips`, and a container records it.
+
+        `docs/L1/reward-scale.md` §2 and `docs/L1/utilities.md` §2 make
+        `net-chips-normalised` a catalogue member whose record carries the reward token
+        `normalised-net-chip-delta` and the normaliser `T` — the game's chips in play —
+        appended after the two of Rev 1 so `net-chips` stays the catalogue's **first**
+        member and the declared default of §5, which is what a spec naming no `utility` is
+        built under and must still report.  `docs/L1/reward-scale.md` §4 and ASM-10 then
+        make it **one capacity** with `net-chips`: the reward is one arithmetic on a
+        terminal transition, so at one architecture and one shape the two members' learners
+        report the same `param_count`.  §4's container claim is driven on the same file:
+        `agents.save` writes the member, `agents.load` restores the learner under it, and a
+        `load` spec naming a different catalogue member is refused naming **both** values —
+        so a model trained on one reward is never read as one trained on another
+        (`docs/L1/utilities.md` §6, `docs/L1/protocol.md` §5, D-20, D-65, ASM-5).
+        """
+        names = self.catalogue()
+        self.assertIn(
+            NORMALISED_UTILITY,
+            names,
+            "the normalised reward is a catalogue member and not a reward `training` "
+            "carries privately (docs/L1/reward-scale.md §2, docs/L1/utilities.md §2, "
+            "D-65): %r" % (names,),
+        )
+        record = J.utility_record(NORMALISED_UTILITY)
+        self.assertEqual(
+            record["reward"],
+            NORMALISED_REWARD,
+            "the third member's record states its reward as the stable token "
+            "`normalised-net-chip-delta`, the name `training`'s reward table is selected "
+            "by (docs/L1/reward-scale.md §2, docs/L1/utilities.md §2): %r" % (record,),
+        )
+        self.assertEqual(
+            record["normaliser"],
+            NORMALISED_BY,
+            "and its normaliser is `T`, the game's chips in play, and neither the "
+            "starting stack alone nor the hand's own pot "
+            "(docs/L1/reward-scale.md §2, §3, ASM-45): %r" % (record,),
+        )
+        spec_without_utility = dict(
+            J.learner_spec("naive-stack", J.WIDTH_ONE, J.DEPTH_ONE, J.LEARNER_SEED)
+        )
+        spec_without_utility.pop("utility", None)
+        by_default = J.build_learner(spec_without_utility)
+        self.assertEqual(
+            getattr(by_default, "utility", None),
+            DEFAULT_UTILITY,
+            "a learner spec that names no `utility` is built under the catalogue's "
+            "**first** member — the declared default `net-chips` — and reports it, so the "
+            "third member's arrival moved no default (docs/L1/utilities.md §5, "
+            "docs/L1/reward-scale.md §2, §4, D-20): %r"
+            % (getattr(by_default, "utility", None),),
+        )
+        self.assertGreater(
+            J.param_count(by_default),
+            0,
+            "the default member's learner is sized like a learner, or there is no "
+            "capacity to compare (docs/L2/agents/surface.md §5)",
+        )
+        normalised = J.build_learner(self.spec(NORMALISED_UTILITY))
+        self.assertEqual(
+            J.param_count(normalised),
+            J.param_count(by_default),
+            "at one architecture and one shape the normalised member's learner reports "
+            "the `param_count` the default member's does, because the third member changes "
+            "one terminal number and nothing of the state layout (docs/L1/reward-scale.md "
+            "§4, docs/L1/utilities.md §3, ASM-10, D-65): %r against %r"
+            % (J.param_count(normalised), J.param_count(by_default)),
+        )
+        path = self.checkpoint_path("%s-%s" % (NORMALISED_UTILITY, J.CHECKPOINT_BETA))
+        encoder, saved = self.trained(NORMALISED_UTILITY, path)
+        self.assertEqual(
+            getattr(saved, "utility", None),
+            NORMALISED_UTILITY,
+            "the learner a spec names the third member to is trained under it and reads "
+            "it back as the catalogue's own name (docs/L1/utilities.md §5, "
+            "docs/L3/agents/checkpoint.md §1): %r" % (getattr(saved, "utility", None),),
+        )
+        metadata = J.container_metadata(path)
+        self.assertEqual(
+            str(metadata["utility"]),
+            NORMALISED_UTILITY,
+            "the container records the utility its learner was trained under, in the "
+            "required `utility` field format 3 already carries, so no container geometry "
+            "moved for the third member (docs/L1/reward-scale.md §4, "
+            "docs/L1/utilities.md §6, D-20): %r" % (metadata.get("utility"),),
+        )
+        restored = J.load(None, path)
+        self.assertEqual(
+            getattr(restored, "utility", None),
+            NORMALISED_UTILITY,
+            "a member loaded from its path alone is restored under the member its file "
+            "records (docs/L1/utilities.md §6, ASM-5): %r"
+            % (getattr(restored, "utility", None),),
+        )
+        self.assertEqual(
+            getattr(J.as_policy(restored, encoder, J.LEARNER_SEED), "utility", None),
+            NORMALISED_UTILITY,
+            "and the policy built from it carries the same member, so a table can name "
+            "the objective the model was trained on (docs/L1/e2e-surface.md §2, "
             "docs/L1/utilities.md §7, D-20)",
+        )
+        by_spec = J.load(self.spec(NORMALISED_UTILITY), path)
+        self.assertEqual(
+            getattr(by_spec, "utility", None),
+            NORMALISED_UTILITY,
+            "a `load` spec naming the file's own member agrees on that compared key and "
+            "loads under it (docs/L1/utilities.md §6): %r"
+            % (getattr(by_spec, "utility", None),),
+        )
+        message = self.assert_refusal(
+            "load",
+            ((DEFAULT_UTILITY,), (NORMALISED_UTILITY,)),
+            lambda: J.load(self.spec(DEFAULT_UTILITY), path),
+            note="JOIN-AGT-12.3 a load spec naming %r against a %r container"
+            % (DEFAULT_UTILITY, NORMALISED_UTILITY),
+        )
+        self.assertIn(
+            DEFAULT_UTILITY,
+            message,
+            "the refusal names the member the spec asked for, so a reader can tell which "
+            "side moved (docs/L1/utilities.md §6, D-20): %r" % (message,),
+        )
+        self.assertIn(
+            NORMALISED_UTILITY,
+            message,
+            "and the member the file records, because a disagreement is refused naming "
+            "**both** values and never resolved (docs/L1/utilities.md §6, D-20): %r"
+            % (message,),
+        )
+
+    def test_join_agt_12_4_a_name_one_word_away_is_refused_at_the_spec_and_at_a_load(self):
+        """JOIN-AGT-12.4 a utility name outside the catalogue is refused by name where it is declared and where a load spec carries it.
+
+        `docs/L1/utilities.md` §5: "A name outside the catalogue is refused where it is
+        declared, by name, and never mapped onto the default", and §6 makes a `load` spec's
+        `utility` compared with the file's — a name the catalogue does not carry refused
+        naming it, never read as the default.  The value this case spells is one word away
+        from the third member's, so a membership test written as a prefix or a substring
+        test would accept it; the catalogue is also checked to be **named** in the refusal,
+        by requiring the one member's spelling the stray name does not contain, which no
+        message can satisfy while silently reading the closest member.  Two of §5's three
+        carriers are in this battery's reach — the learner spec `agents.build_learner`
+        reads and the `load` spec `agents.load` compares — while the third, a pool member's
+        `utility`, is `evaluation.build_pool`'s to refuse and is driven in that module's
+        battery (`docs/L1/records.md` §7, D-20).
+        """
+        path = self.checkpoint_path("%s-%s" % (NORMALISED_UTILITY, J.CHECKPOINT_GAMMA))
+        self.trained(NORMALISED_UTILITY, path)
+        stray = self.spec(UNDECLARED_UTILITY)
+        message = self.assert_refusal(
+            "build_learner",
+            (("utility",), (UNDECLARED_UTILITY,), (UTILITIES[1],)),
+            lambda: J.build_learner(stray),
+            note="JOIN-AGT-12.4 a spec naming %r" % (UNDECLARED_UTILITY,),
+        )
+        self.assertIn(
+            UNDECLARED_UTILITY,
+            message,
+            "the refusal names the value the spec carried, so the caller can see which "
+            "spelling it must fix (docs/L1/utilities.md §5, "
+            "docs/L3/agents/errors.md §3): %r" % (message,),
+        )
+        refusal = self.assert_refusal(
+            "load",
+            (("utility",), (UNDECLARED_UTILITY,), (UTILITIES[1],)),
+            lambda: J.load(stray, path),
+            note="JOIN-AGT-12.4 a load spec naming %r" % (UNDECLARED_UTILITY,),
+        )
+        self.assertIn(
+            UNDECLARED_UTILITY,
+            refusal,
+            "a `load` spec carrying a name the catalogue does not carry is refused naming "
+            "it, and is never compared as the member it resembles "
+            "(docs/L1/utilities.md §6, D-20): %r" % (refusal,),
+        )
+        self.assertTrue(
+            os.path.exists(path),
+            "the container the load spec is refused against is a file `agents.save` "
+            "wrote, so the refusal is the name's and not a missing file's "
+            "(docs/L1/utilities.md §6, ASM-5): %r" % (path,),
         )
 
 

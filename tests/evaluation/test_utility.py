@@ -38,10 +38,12 @@ from unittest import mock
 
 from _evaluation_support import (
     BASELINES,
+    CATALOGUE_UTILITIES,
     DEFAULT_RULE,
     DEFAULT_UTILITY,
     MATCH_HANDS,
     MATCH_SEED,
+    NORMALISED_UTILITY,
     OTHER_RULE,
     OTHER_UTILITY,
     POOL_M,
@@ -196,11 +198,14 @@ class UtilityCase(EvaluationCase):
         )
         self.assertEqual(
             tuple(catalogue),
-            UTILITIES,
-            "utilities.md §2 publishes exactly two members, so a third arriving without "
-            "a case of its own is visible here (D-20): %r" % (catalogue,),
+            CATALOGUE_UTILITIES,
+            "utilities.md §2 publishes exactly three members in declared order — the two of "
+            "D-20 and D-65's `net-chips-normalised` appended third, so no existing member's "
+            "position and so the declared default move — so a fourth arriving without a "
+            "case of its own is visible here (utilities.md §2, reward-scale.md §2, §4, "
+            "D-20, D-65): %r" % (catalogue,),
         )
-        for utility in (DEFAULT_UTILITY, OTHER_UTILITY):
+        for utility in CATALOGUE_UTILITIES:
             with self.subTest(utility=utility):
                 declared = version_record(VERSION_IDS[0], START_LABEL, utility=utility)
                 read = self.members_of_read(
@@ -230,6 +235,7 @@ class UtilityCase(EvaluationCase):
                         (INVENTED_UTILITY,),
                         (DEFAULT_UTILITY,),
                         (OTHER_UTILITY,),
+                        (NORMALISED_UTILITY,),
                     )
                     kind = "UnknownUtility"
                 else:
@@ -262,9 +268,11 @@ class UtilityCase(EvaluationCase):
         with patch:
             self.assertEqual(
                 tuple(self.catalogue_utilities()),
-                (DEFAULT_UTILITY, OTHER_UTILITY, INVENTED_UTILITY),
-                "the case's catalogue is the one the module must read, in its order "
-                "(utilities.md §2, D-20): %r" % (declared["utilities"],),
+                CATALOGUE_UTILITIES + (INVENTED_UTILITY,),
+                "the case's catalogue is the one the module must read, in its order — the "
+                "three declared members, D-65's appended third among them, with the "
+                "invented name appended after them (utilities.md §2, reward-scale.md §2, "
+                "D-20, D-65): %r" % (declared["utilities"],),
             )
             member = version_record(
                 VERSION_IDS[0], START_LABEL, utility=INVENTED_UTILITY
@@ -347,9 +355,11 @@ class UtilityCase(EvaluationCase):
                 )
         self.assertEqual(
             tuple(self.catalogue_utilities()),
-            UTILITIES,
-            "the patch is the case's own: outside it the real catalogue governs again "
-            "(utilities.md §2, D-20): %r" % (self.catalogue_utilities(),),
+            CATALOGUE_UTILITIES,
+            "the patch is the case's own: outside it the real catalogue governs again — "
+            "the three declared members, D-65's appended third among them "
+            "(utilities.md §2, reward-scale.md §2, D-20, D-65): %r"
+            % (self.catalogue_utilities(),),
         )
 
     # -- the required key, refused by name (records.md §7, utilities.md §5) ---

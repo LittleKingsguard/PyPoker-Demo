@@ -56,5 +56,5 @@ member writes no such key, and a run a guard refused writes no record — its re
 conditionality what keeps the two committed captures byte-identical (`counterfactual.md` §9, §10, `battery.md` §3 FAM-23).
 
 The guards are **comparisons only**: no clipping, rescaling, gradient normalisation or change of `rate`, `HYPER`, either backend,
-the two rules, the two utilities, the initialisation, the tie-break, the schedule or the step counts, so a finite run's digits are
+the two rules, the three utilities, the initialisation, the tie-break, the schedule or the step counts, so a finite run's digits are
 unchanged and every artefact keeps its bytes (ASM-7, D-19, D-20, `divergence.md` §4, `counterfactual.md` §9).

@@ -3,27 +3,33 @@
 `docs/L1/battery.md` §3 FAM-18, `docs/L1/utilities.md` §1–§10 and D-20.  The terminal
 reward stops being a module constant — the seat's net chip delta (ASM-12) — and becomes
 a **catalogue** a learner spec selects from: `net-chips`, the unshaped net chip delta
-and the declared default, and `stack-shortfall`, the delta of the squared stack
-shortfall over the chips in play, normalised by the shortfall a hand begins with.  One
-utility is **one capacity** with the other — a utility changes the number a terminal
-transition carries and nothing of the state layout (§2, §3) — one default, and one name
-a checkpoint records.  A configuration may declare its variants under different
+and the declared default, `stack-shortfall`, the delta of the squared stack
+shortfall over the chips in play, normalised by the shortfall a hand begins with, and —
+since Rev 15 — `net-chips-normalised`, that same delta divided by the game's chips in
+play, appended third so no existing member's position moves (`reward-scale.md` §2,
+D-65).  One utility is **one capacity** with the others — a utility changes the number a
+terminal transition carries and nothing of the state layout (§2, §3) — one default, and
+one name a checkpoint records.  A configuration may declare its variants under different
 utilities and **every variant it declares is trained**, so a run of two utilities
 carries two sets of curves, two sets of artefacts and a run record that names each
 variant's utility.
 
 The instances below — the two invented utility names (`tournament-payout-battery`,
-`chips-per-hour-battery`), the configuration `R11-dual-utility`, its variant names
-(`chips-arm`, `shortfall-arm`), its width and depth and its pool id — appear in no
-design document; they are the battery's own, invented from the surface alone
-(`battery.md` §4, D-15).  D-43 leaves this catalogue exactly two members — its member is a
-**third** catalogue under `learners()`'s `counterfactuals` key (`counterfactual.md` §6,
-FAM-22) — so FAM-18.1 asserts the count and the first member while the record's key set
-admits the sibling.  `tournament-payout-battery` drives the three refusal sites that
+`chips-per-hour-battery`), the third member's near miss
+(`net-chips-normalised-battery`), the configuration `R11-dual-utility`, its variant names
+(`chips-arm`, `shortfall-arm`, and `normalised-arm` for the arm FAM-18.15 trains on
+D-65's member), its width and depth and its pool id — appear in no design document; they
+are the battery's own, invented from the surface alone (`battery.md` §4, D-15).  D-43
+widens this catalogue not at all — its member is a **third** catalogue under
+`learners()`'s `counterfactuals` key (`counterfactual.md` §6, FAM-22) — so FAM-18.1
+asserts the count, the order and the first member while the record's key set admits the
+sibling.  `tournament-payout-battery` drives the three refusal sites that
 read a utility from a caller's declaration — a learner spec (FAM-18.3), a pool member
 (FAM-18.12) and a `load` spec (FAM-18.13) — and `chips-per-hour-battery` the fourth, a
 variant entry (FAM-18.9), so a name outside the catalogue is refused where it is declared
-in all four places `utilities.md` §5 and `e2e-surface.md` §2 name.
+in all four places `utilities.md` §5 and `e2e-surface.md` §2 name; FAM-18.17 repeats the
+four on the third member's own near miss, so the appended member widens no name's
+admission.
 
 FAM-18.6's subject is the **shipped version-1 set**: `training.checkpoints()` indexes the
 18 containers the repository carries, every entry names a utility and every one names the
@@ -58,15 +64,23 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
 
 #: The reward token `utilities.md` §2 pins for each catalogue member: the reward is the
 #: design's own stable name for what the member delivers at the terminal decision, so a
-#: case asserts the token and not a spelling this battery invented.
+#: case asserts the token and not a spelling this battery invented.  The third member's
+#: token is `reward-scale.md` §2's — the same delta, divided by the chips in play — and is
+#: stated there as `normalised-net-chip-delta` (D-65).
 REWARD_TOKENS = {
     S.UTILITY_DEFAULT: "net-chip-delta",
     S.UTILITY_SECOND: "squared-stack-shortfall-delta",
+    S.UTILITY_THIRD: "normalised-net-chip-delta",
 }
+
+#: The name FAM-18.15 and FAM-18.18 give the arm trained on the third member, so a run of
+#: the battery's own pair says which of its two arms was asked D-65's question.  It is the
+#: battery's own and appears in no design document (`battery.md` §4, D-15).
+NORMALISED_ARM = "normalised-arm"
 
 
 class FAM18Utilities(S.SurfaceCase):
-    """The catalogue, one capacity under two utilities, and a run that trains both."""
+    """The catalogue of three, one capacity under any utility, and a run that trains two."""
 
     # -- helpers -----------------------------------------------------------
     def catalogue(self):
@@ -157,14 +171,18 @@ class FAM18Utilities(S.SurfaceCase):
 
     # -- the catalogue -----------------------------------------------------
     def test_fam18_1_agents_learners_publishes_the_utility_catalogue(self):
-        """FAM-18.1 learners() publishes a catalogue of more than one named utility.
+        """FAM-18.1 learners() publishes a catalogue of three named utilities, in order.
 
-        The catalogue is still **exactly** the two utilities of `utilities.md` §2.  D-43's
-        counterfactual member is a third catalogue under `learners()`'s `counterfactuals`
-        key and never a third utility — a utility owns one terminal number that `training`
-        reads and `learn` never does, while the member is `A` numbers per decision that
-        `learn` reads (`counterfactual.md` §6, `utilities.md` §3, D-20, D-43) — so the
-        objectives a spec selects from stay two, the first being `net-chips`.
+        The catalogue is **exactly** the three members of `utilities.md` §2 — `net-chips`
+        first and the declared default, `stack-shortfall` second, and D-65's
+        `net-chips-normalised` appended third so no existing member's position moves
+        (`reward-scale.md` §2, D-65) — with each member's record stating the reward it
+        delivers and the normaliser it is divided by.  D-43's counterfactual member is a
+        third **catalogue** under `learners()`'s `counterfactuals` key and never a fourth
+        utility — a utility owns one terminal number that `training` reads and `learn`
+        never does, while the member is `A` numbers per decision that `learn` reads
+        (`counterfactual.md` §6, `utilities.md` §3, D-20, D-43) — so the objectives a spec
+        selects from are these three, the first being `net-chips`.
         """
         pairs = self.catalogue()
         names = [name for name, _member in pairs]
@@ -177,19 +195,20 @@ class FAM18Utilities(S.SurfaceCase):
         )
         self.assertEqual(
             len(pairs),
-            len(S.UTILITIES),
-            "the utility catalogue is exactly the two members of utilities.md §2 and no "
-            "third: D-43's counterfactual member is a sibling catalogue under its own key, "
-            "not an objective (utilities.md §2, §3, counterfactual.md §6, D-20, D-43): it "
-            "publishes %r" % (names,),
+            len(S.UTILITY_CATALOGUE),
+            "the utility catalogue is exactly the three members of utilities.md §2 — the "
+            "two of D-20 and D-65's normalised reward appended third — and no fourth: "
+            "D-43's counterfactual member is a sibling catalogue under its own key, not an "
+            "objective (utilities.md §2, §3, reward-scale.md §2, counterfactual.md §6, "
+            "D-20, D-43, D-65): it publishes %r" % (names,),
         )
-        for wanted in (S.UTILITY_DEFAULT, S.UTILITY_SECOND):
+        for wanted in S.UTILITY_CATALOGUE:
             self.assertIn(
                 wanted,
                 names,
                 "the catalogue carries %r by that name, because it is the name a learner "
                 "spec, a variant entry, a checkpoint and a pool member all use "
-                "(utilities.md §2, §5): it carries %r" % (wanted, names),
+                "(utilities.md §2, §5, reward-scale.md §2): it carries %r" % (wanted, names),
             )
         self.assertEqual(
             names[0],
@@ -235,6 +254,58 @@ class FAM18Utilities(S.SurfaceCase):
                 "so one utility's reward is commensurable with the next and neither is "
                 "reshaped by the rule (utilities.md §2, ASM-28): the member %r states %r"
                 % (name, sorted(str(key) for key in member)),
+            )
+
+        # The third member is D-65's, appended after the two of utilities.md §2 so the
+        # declared default and every existing member's position stay where they were: its
+        # record states its own name, the reward token it delivers and the normaliser that
+        # reward is divided by — the game's chips in play — and the two members before it
+        # are the two they were (`reward-scale.md` §2, §4, `utilities.md` §2, D-65).
+        self.assertEqual(
+            len(pairs),
+            len(S.UTILITY_CATALOGUE),
+            "the third member is *appended*: this case reads its position from the "
+            "catalogue's own order and needs three members to read one at index 2 "
+            "(reward-scale.md §2, utilities.md §2): it publishes %r" % (names,),
+        )
+        self.assertEqual(
+            names[:2],
+            [S.UTILITY_DEFAULT, S.UTILITY_SECOND],
+            "the two members of utilities.md §2 keep the positions they had, so no existing "
+            "member of the catalogue moves and a `net-chips` run is the run it was "
+            "(reward-scale.md §2, §4, D-65): it publishes %r" % (names,),
+        )
+        third_name, third = pairs[2]
+        self.assertEqual(
+            third_name,
+            S.UTILITY_THIRD,
+            "the member appended third is %r, because that is the name every place a "
+            "utility is named will carry — a spec, a variant entry, a container, a pool "
+            "member and the run record (reward-scale.md §2, utilities.md §2, §5, §6, D-65): "
+            "it publishes %r third" % (S.UTILITY_THIRD, third_name),
+        )
+        self.assertEqual(
+            S.member_utility(third),
+            S.UTILITY_THIRD,
+            "the third member's record states its own name, `name` being the first of the "
+            "three keys utilities.md §2 gives every member (reward-scale.md §2, §4): its "
+            "record states %r" % (S.member_utility(third),),
+        )
+        for field, value in (("reward", S.member_reward(third)),
+                             ("normaliser", S.member_normaliser(third))):
+            self.assertIsInstance(
+                value,
+                str,
+                "the third member keeps the three keys utilities.md §2 gives every member, "
+                "so its `%s` is a string as the other two members' are — the record grows no "
+                "key and loses none (reward-scale.md §2, §4, utilities.md §2, D-65): it "
+                "states %r" % (field, value),
+            )
+            self.assertTrue(
+                value,
+                "the third member's `%s` is stated and not empty, because the catalogue "
+                "declares what that reward delivers and what it is divided by "
+                "(reward-scale.md §2, utilities.md §2): it states %r" % (field, value),
             )
 
     # -- the declared default ---------------------------------------------
@@ -1088,6 +1159,636 @@ class FAM18Utilities(S.SurfaceCase):
             "decision boundary, so it is the uncatalogued name that was refused and not "
             "the load (utilities.md §6): %r" % (path,),
         )
+
+    # -- the third member: one capacity, one name, four sites (D-65) --------
+    def normalised_rung(self, seeds=(S.SEED_A,)):
+        """The battery's own two-utility configuration, D-65's member as its far arm.
+
+        The sibling of :meth:`S.SurfaceCase.two_utility_rung` one catalogue member over:
+        its two arms agree on `backend`, `encoding`, `architecture`, `learning_rule`,
+        `param_budget`, `samples`, `seeds` and `device` and differ on `utility` alone —
+        `net-chips` in the first and `net-chips-normalised` in the second — so a run of it
+        asks its two arms one question about two scales of the same terminal number, which
+        is the comparison `reward-scale.md` §2 exists to make (`utilities.md` §7, §8,
+        D-65).  The far arm's name and the seeds are the battery's own (`battery.md` §4);
+        everything else is the configuration FAM-18.7 already trains.
+        """
+        config = self.two_utility_rung(seeds=seeds)
+        config["variants"][1]["name"] = NORMALISED_ARM
+        config["variants"][1]["utility"] = S.UTILITY_THIRD
+        return config
+
+    def test_fam18_14_the_normalised_member_is_one_capacity_with_net_chips(self):
+        """FAM-18.14 the third member's learner holds one capacity with net-chips's.
+
+        `reward-scale.md` §2 appends `net-chips-normalised` as a **scale and nothing
+        else**: one terminal number, one zero on every other decision, one bootstrap rule,
+        one state layout — so a learner built under it reports the `param_count` of a
+        `net-chips` learner at the same architecture and at the same shape, and a spec
+        naming no utility is still built on the catalogue's declared default, which the
+        third member does not move (`utilities.md` §2, §3, §5, `reward-scale.md` §2, §4,
+        ASM-10, ASM-45, D-65).
+        """
+        names = self.catalogue_names()
+        self.assertIn(
+            S.UTILITY_THIRD,
+            names,
+            "the catalogue carries %r, the member this case builds a learner under "
+            "(utilities.md §2, reward-scale.md §2, D-65): it publishes %r"
+            % (S.UTILITY_THIRD, names),
+        )
+        self.assertEqual(
+            names[0],
+            S.UTILITY_DEFAULT,
+            "the first member is still the declared default of utilities.md §5, because "
+            "the third member is appended after it (utilities.md §2, §5, reward-scale.md "
+            "§2): it publishes %r" % (names,),
+        )
+        spec = self.learner_spec(width=S.UTILITY_WIDTH, depth=S.UTILITY_DEPTH,
+                                 seed=S.SEED_I)
+        self.assertNotIn(
+            "utility",
+            spec,
+            "this case's spec names no utility at all, which is the default utilities.md §5 "
+            "declares: %r" % (spec,),
+        )
+        default_learner = self.ep("agents", "build_learner")(spec)
+        self.assertEqual(
+            self.utility_of_learner(default_learner),
+            S.UTILITY_DEFAULT,
+            "a spec naming no `utility` is still built under %r after the catalogue grew "
+            "its third member, so the default is unchanged and no caller is moved "
+            "(utilities.md §2, §5, records.md §3, D-65): the policy carries %r"
+            % (S.UTILITY_DEFAULT, self.utility_of_learner(default_learner)),
+        )
+
+        count = self.ep("agents", "param_count")
+        chips = self.utility_learner(S.UTILITY_DEFAULT, seed=S.SEED_I)
+        normalised = self.utility_learner(S.UTILITY_THIRD, seed=S.SEED_I)
+        self.assertEqual(
+            self.utility_of_learner(normalised),
+            S.UTILITY_THIRD,
+            "the second learner this case counts is built under %r and says so, so the pair "
+            "compared below is one architecture under two rewards and not one model with "
+            "itself (utilities.md §3, §7, e2e-surface.md §2, reward-scale.md §2): the policy "
+            "carries %r" % (S.UTILITY_THIRD, self.utility_of_learner(normalised)),
+        )
+        chips_count = count(chips)
+        normalised_count = count(normalised)
+        for value in (chips_count, normalised_count):
+            self.assertTrue(
+                S.is_count(value),
+                "param_count returns one integer, the matched-budget measurement "
+                "(utilities.md §3, ASM-10): %r" % (value,),
+            )
+        self.assertGreater(
+            int(chips_count),
+            0,
+            "a learner of the battery's own architecture has trainable parameters "
+            "(utilities.md §3, ASM-10): %r" % (chips_count,),
+        )
+        self.assertEqual(
+            int(chips_count),
+            int(normalised_count),
+            "the third member divides the terminal reward by the game's chips in play and "
+            "moves nothing of the state layout, so two learners of one architecture at one "
+            "shape under `net-chips` and `net-chips-normalised` hold one capacity and report "
+            "one param_count (utilities.md §3, reward-scale.md §2, §4, ASM-10, ASM-45, "
+            "D-65): %r against %r" % (chips_count, normalised_count),
+        )
+
+        encoder = self.encoder()
+        readout, legal = self.one_readout()
+        indices = [int(index) for index in self.ep("features", "legal_indices")(legal)]
+        index = self.action_index(self.act(normalised, encoder, readout))
+        self.assertIn(
+            int(index),
+            indices,
+            "under %r, agents.act returns one index of the decision's legal mask, as under "
+            "any other utility: `act` is utility-free (utilities.md §3, e2e-surface.md "
+            "§3.3, reward-scale.md §4): %r not in %r" % (S.UTILITY_THIRD, index, indices),
+        )
+
+    def test_fam18_15_a_configuration_training_the_normalised_member_trains_both_arms(self):
+        """FAM-18.15 a pair declaring the third member trains both arms and names each.
+
+        `utilities.md` §7 makes every variant a configuration declares trained, with its
+        own curve and its own final checkpoint, and names the utility in the run record
+        per variant and as the run's `utilities` set; `reward-scale.md` §2 makes the
+        changed reward observable exactly there — two arms on the same hands, the same
+        initial draw, one rule and one capacity, whose curves **differ** — so a pair whose
+        far arm is `net-chips-normalised` is two models trained on two scales of the same
+        terminal number and never one model under two names (D-20, D-65, `battery.md` §3
+        FAM-18).
+        """
+        seeds = (S.SEED_A,)
+        config = self.normalised_rung(seeds=seeds)
+        names = [str(entry["name"]) for entry in config["variants"]]
+        self.assertEqual(
+            names[1],
+            NORMALISED_ARM,
+            "this case's far arm is the one the helper names, and its entry declares %r "
+            "(utilities.md §7, reward-scale.md §2): the configuration declares %r"
+            % (S.UTILITY_THIRD, names),
+        )
+        record = self.run_record(config, seeds, S.BUDGET_TINY)
+
+        curves = S.family_value(record, "curves")
+        self.assertIsNotNone(
+            curves,
+            "the run record carries its curves family (records.md §12): %r"
+            % (sorted(str(key) for key in record),),
+        )
+        if S.is_mapping(curves):
+            self.assertEqual(
+                sorted(str(key) for key in curves),
+                sorted(names),
+                "every variant a configuration declares is trained, so the curves hold one "
+                "entry per variant — not one arm and its opposition (utilities.md §7, "
+                "reward-scale.md §2): %r" % (sorted(str(key) for key in curves),),
+            )
+        else:
+            body = R.tok(S.flatten_text(curves))
+            for name in names:
+                self.assertIn(
+                    R.tok(name),
+                    body,
+                    "the curves the run reports name the variant %r that trained them "
+                    "(utilities.md §7): %r" % (name, curves),
+                )
+
+        block = S.family_value(record, "checkpoints")
+        self.assertIsNotNone(
+            block,
+            "the run record carries its checkpoints family (records.md §12): %r"
+            % (sorted(str(key) for key in record),),
+        )
+        artefacts = {}
+        for name in names:
+            subtree = self.named_subtree(block, name)
+            self.assertIsNotNone(
+                subtree,
+                "the checkpoints entry names the artefacts of the variant %r, because each "
+                "variant produces its own final model per seed (utilities.md §7, "
+                "records.md §12): %r" % (name, block),
+            )
+            paths = S.checkpoint_paths(subtree)
+            self.assertGreaterEqual(
+                len(paths),
+                len(seeds),
+                "the variant %r writes one final model per seed, so its entry names at "
+                "least %d artefact (records.md §12, ASM-18): %r"
+                % (name, len(seeds), paths),
+            )
+            for path in paths:
+                self.assertTrue(
+                    os.path.exists(path),
+                    "a checkpoint the run record names is on disk, because the two arms' "
+                    "models are two artefacts and not one name twice (protocol.md §5): %r"
+                    % (path,),
+                )
+            finals = S.checkpoint_paths(S.find_values(subtree, "final"))
+            if finals:
+                self.assertGreaterEqual(
+                    len(finals),
+                    len(seeds),
+                    "the variant %r names one **final** model per seed, so %d seed is %d "
+                    "distinct final artefact — one trained model per variant per seed "
+                    "(records.md §12, utilities.md §7, ASM-18): %r"
+                    % (name, len(seeds), len(seeds), finals),
+                )
+            artefacts[name] = paths
+
+        chips_arm, normalised_arm = names
+        self.assertEqual(
+            set(artefacts[chips_arm]) & set(artefacts[normalised_arm]),
+            set(),
+            "the two arms are two trained models, so no artefact is both arms' model — the "
+            "arm trained on the normalised reward is its own model and not a second name "
+            "for the `net-chips` one (utilities.md §7, reward-scale.md §2, §4, D-65): %r "
+            "against %r" % (artefacts[chips_arm], artefacts[normalised_arm]),
+        )
+        self.assertEqual(
+            {os.path.dirname(path) for path in artefacts[chips_arm]}
+            & {os.path.dirname(path) for path in artefacts[normalised_arm]},
+            set(),
+            "the two arms' final checkpoints are written to two different directories, so "
+            "one utility's model never overwrites the other's (utilities.md §7): %r "
+            "against %r"
+            % (artefacts[chips_arm], artefacts[normalised_arm]),
+        )
+
+        declared = S.run_utilities(record)
+        self.assertEqual(
+            sorted(S.utility_names_of(declared)),
+            sorted([S.UTILITY_DEFAULT, S.UTILITY_THIRD]),
+            "the run records the set of utilities it declared and trained — both of them, "
+            "`net-chips` and the third member appended after it — so a reader can see which "
+            "objectives a run was asked for (records.md §12, utilities.md §7, "
+            "reward-scale.md §2, D-65): %r" % (declared,),
+        )
+        entries = S.family_value(record, "variants")
+        if S.is_mapping(entries):
+            entries = list(entries.values())
+        entries = [entry for entry in (entries or ()) if S.is_mapping(entry)]
+        self.assertEqual(
+            len(entries),
+            len(names),
+            "the run record carries one entry per declared variant (records.md §12): %r"
+            % (entries,),
+        )
+        for name, utility in ((chips_arm, S.UTILITY_DEFAULT),
+                              (normalised_arm, S.UTILITY_THIRD)):
+            entry = None
+            for candidate in entries:
+                if R.tok(S.variant_name(candidate)) == R.tok(name):
+                    entry = candidate
+                    break
+            self.assertIsNotNone(
+                entry, "the run record names no variant %r: %r" % (name, entries)
+            )
+            self.assertEqual(
+                S.variant_utility(entry),
+                utility,
+                "the run record names each variant's utility, so a run says which objective "
+                "produced which curve — the third member among them, by its own name "
+                "(records.md §12, utilities.md §7, reward-scale.md §2, D-65): %r"
+                % (entry,),
+            )
+
+        # This case's own point: the two arms were trained on two scales of one terminal
+        # number — the same hands, the same initial draw, one rule, one capacity — so their
+        # curves differ, and an identical pair means the transform never happened
+        # (utilities.md §4, §7, reward-scale.md §2, §4, battery.md §3 FAM-18).
+        chips_curves = S.variant_curves(curves, chips_arm)
+        normalised_curves = S.variant_curves(curves, normalised_arm)
+        for name, body in ((chips_arm, chips_curves),
+                           (normalised_arm, normalised_curves)):
+            self.assertIsNotNone(
+                body,
+                "the curves family says which variant each curve belongs to, so two arms' "
+                "curves can be compared at all — records.md §12 makes the family per "
+                "variant per seed (utilities.md §7): %r names no curve for %r"
+                % (curves, name),
+            )
+            self.assertTrue(
+                S.numbers(body),
+                "each variant's curves carry the curve arrays themselves — the sample axis "
+                "and a learning signal — so the two arms are comparable "
+                "(records.md §12): %r holds %r" % (name, body),
+            )
+        self.assertNotEqual(
+            S.canon(S.numbers(chips_curves)),
+            S.canon(S.numbers(normalised_curves)),
+            "the two arms are trained on two rewards — `net-chip-delta` against the same "
+            "delta divided by the chips in play, on the same hands and the same initial "
+            "draw — so their curves differ: an identical pair means the normalised reward "
+            "never reached the transition record or that the third member resolved onto "
+            "`net-chips` (utilities.md §4, §7, reward-scale.md §2, §4, D-65): %r against %r"
+            % (chips_curves, normalised_curves),
+        )
+
+    def test_fam18_16_a_container_under_the_normalised_member_round_trips(self):
+        """FAM-18.16 a container written under the third member records it and round-trips.
+
+        `reward-scale.md` §4 keeps the container where it is — format 3, the version it
+        already is — and only its required `utility` field carries the new name; so a
+        learner saved under it records the name, `evaluation.policy_from` reports it,
+        `agents.load` restores the learner at its decision boundary, and a `load` spec
+        naming a different utility is refused naming both, as a contradicting rule or seed
+        is (`utilities.md` §6, §7, reward-scale.md §4, ASM-5, D-65).
+        """
+        encoder = self.encoder()
+        readout, _legal = self.one_readout()
+        learner = self.utility_learner(S.UTILITY_THIRD, seed=S.SEED_I)
+        path = self.ep("agents", "save")(
+            learner, os.path.join(self.scratch(), "fam18-16-normalised.ckpt")
+        )
+        self.assertEqual(
+            self.policy_utility(self.ep("evaluation", "policy_from")(path)),
+            S.UTILITY_THIRD,
+            "a checkpoint records the utility its learner was trained under, so the "
+            "container of a learner built on the third member carries that name and "
+            "evaluation.policy_from reports the utility the file records "
+            "(utilities.md §6, §7, reward-scale.md §4, e2e-surface.md §3.4, D-65): %r"
+            % (path,),
+        )
+        matching = self.learner_spec(
+            width=S.UTILITY_WIDTH,
+            depth=S.UTILITY_DEPTH,
+            seed=S.SEED_I,
+            utility=S.UTILITY_THIRD,
+        )
+        restored = self.ep("agents", "load")(matching, path)
+        self.assertEqual(
+            int(self.ep("agents", "param_count")(restored)),
+            int(self.ep("agents", "param_count")(learner)),
+            "the restored learner reports the parameter count of the learner that wrote the "
+            "file, because the normalised reward moves what a terminal transition carries "
+            "and not what the container stores (utilities.md §3, §6, reward-scale.md §4, "
+            "ASM-10): %r" % (path,),
+        )
+        self.assertEqual(
+            self.action_index(self.act(restored, encoder, readout)),
+            self.action_index(self.act(learner, encoder, readout)),
+            "a load spec naming the utility the file records restores the learner and keeps "
+            "its decision boundary, as a load under either of the other two utilities does "
+            "(utilities.md §6, §3, reward-scale.md §4): %r" % (path,),
+        )
+
+        for other in (S.UTILITY_DEFAULT, S.UTILITY_SECOND):
+            contradicting = self.learner_spec(
+                width=S.UTILITY_WIDTH,
+                depth=S.UTILITY_DEPTH,
+                seed=S.SEED_I,
+                utility=other,
+            )
+            text = S.refusal_text(lambda: self.ep("agents", "load")(contradicting, path))
+            self.assertIsNotNone(
+                text,
+                "agents.load compares a spec's `utility` with the file's, so a spec naming "
+                "%r for a checkpoint trained under %r is refused rather than restored "
+                "(utilities.md §6, reward-scale.md §4, D-65): %r"
+                % (other, S.UTILITY_THIRD, path),
+            )
+            for named in (S.UTILITY_THIRD, other):
+                self.assertIn(
+                    R.tok(named),
+                    R.tok(text),
+                    "the refusal names both utilities — the checkpoint's %r and the spec's "
+                    "%r — as a spec's `learning_rule` and `seed` disagreement is refused "
+                    "naming both (utilities.md §6): %r"
+                    % (S.UTILITY_THIRD, other, text),
+                )
+
+    def test_fam18_17_the_third_member_is_honoured_at_four_sites_and_its_near_miss_refused(
+        self,
+    ):
+        """FAM-18.17 the third member is honoured at four sites, its near miss refused.
+
+        `utilities.md` §5 names the four places a utility reaches the surface from a
+        caller's declaration — a learner spec, a variant entry, a pool member and a `load`
+        spec — and refuses a name the catalogue does not carry where it is declared, by
+        name.  Appending the third member widens none of the four: each honours
+        `net-chips-normalised` and refuses a name one word away from it rather than
+        resolving it onto the member it resembles (`utilities.md` §5, §6, §7,
+        `reward-scale.md` §2, D-65).
+        """
+        # 1. A learner spec: the third member builds a learner, its near miss is refused.
+        learner = self.utility_learner(S.UTILITY_THIRD, seed=S.SEED_I)
+        self.assertEqual(
+            self.utility_of_learner(learner),
+            S.UTILITY_THIRD,
+            "a learner spec naming the third member is built under it, so the appended "
+            "member reaches agents.build_learner as any other does (utilities.md §2, §5, "
+            "reward-scale.md §2): the policy carries %r" % (self.utility_of_learner(learner),),
+        )
+        spec = self.learner_spec(
+            width=S.UTILITY_WIDTH,
+            depth=S.UTILITY_DEPTH,
+            seed=S.SEED_I,
+            utility=S.UNKNOWN_NORMALISED_UTILITY,
+        )
+        text = S.refusal_text(lambda: self.ep("agents", "build_learner")(spec))
+        self.assertIsNotNone(
+            text,
+            "a learner spec naming a utility outside the catalogue is refused and never "
+            "resolved onto the member whose name it resembles (utilities.md §5, "
+            "reward-scale.md §2, e2e-surface.md §2 'Failure', D-65): the spec %r built a "
+            "learner" % (spec,),
+        )
+        self.assertIn(
+            R.tok(S.UNKNOWN_NORMALISED_UTILITY),
+            R.tok(text),
+            "the refusal names the utility it refused, because a name outside the catalogue "
+            "is refused where it is declared, by name (utilities.md §5): %r" % (text,),
+        )
+        self.assertIn(
+            R.tok("build_learner"),
+            R.tok(text),
+            "the refusal is agents.build_learner's own, raised where the spec is read, so no "
+            "learner is built under a name the catalogue lacks (utilities.md §5, "
+            "e2e-surface.md §2 'Failure'): %r" % (text,),
+        )
+
+        # 2. A variant entry: the pair is a reportable comparison, a name outside the
+        #    catalogue in an entry is refused when the configuration is run.
+        config = self.normalised_rung()
+        left, right = config["variants"]
+        pair = S.refusal_text(lambda: self.ep("training", "fairness")(left, right))
+        self.assertIsNone(
+            pair,
+            "an entry declaring the third member is read against the catalogue and honoured "
+            "— the pair differs on `utility` alone and is a comparison, not a refusal "
+            "(utilities.md §7, §8, reward-scale.md §2, D-65): the pair was refused with %r"
+            % (pair,),
+        )
+        doctored = self.normalised_rung()
+        doctored["variants"][1]["utility"] = S.UNKNOWN_NORMALISED_UTILITY
+        text = S.refusal_text(
+            lambda: self.run_record(doctored, (S.SEED_A,), S.BUDGET_TINY)
+        )
+        said = "%s…" % (text[:400],) if text and len(text) > 400 else text
+        self.assertTrue(
+            R.tok(S.UNKNOWN_NORMALISED_UTILITY) in R.tok(text or ""),
+            "a variant entry declaring a utility the catalogue does not carry is a "
+            "declaration the run would not honour, so the run refuses it by name instead of "
+            "training it under another utility — the appended member admits its own name and "
+            "no near miss (utilities.md §5, §7, reward-scale.md §2, D-65): the run said %r"
+            % (said,),
+        )
+
+        # 3. A pool member: the container written under the third member is certified, a
+        #    member declaring a name the catalogue lacks is refused.
+        learned = self.version("kestrel", utility=S.UTILITY_THIRD)
+        self.assertEqual(
+            learned.get("utility"),
+            S.UTILITY_THIRD,
+            "this case's member declares the third member, which is the pair records.md §7 "
+            "requires of a version and the name its own container records "
+            "(utilities.md §6, §7, reward-scale.md §4): %r" % (learned,),
+        )
+        pooled = self.pool(
+            {"members": [dict(learned)], "m": S.LEAGUE_BOUND, "frozen": True}
+        )
+        row = self.members(pooled)
+        member = self.member_record(row, learned["id"])
+        self.assertIsNotNone(
+            member,
+            "evaluation.pool_members returns the membership the declaration made, the "
+            "version %r among its members (records.md §8): %r"
+            % (learned["id"], R.member_ids(row)),
+        )
+        self.assertEqual(
+            S.version_utility(member),
+            S.UTILITY_THIRD,
+            "a version member of a pool carries the utility it was trained under, so a pool "
+            "can certify a member built on the third member as it certifies the other two "
+            "(records.md §7, utilities.md §6, §7, ASM-27, D-65): %r" % (member,),
+        )
+        offending = dict(learned)
+        offending["utility"] = S.UNKNOWN_NORMALISED_UTILITY
+        text = S.refusal_text(
+            lambda: self.pool(
+                {"members": [offending], "m": S.LEAGUE_BOUND, "frozen": True}
+            )
+        )
+        self.assertIsNotNone(
+            text,
+            "a pool member declaring a utility outside the catalogue is refused where it is "
+            "declared and never resolved onto the member it resembles, because a pool must "
+            "be able to certify what its member was trained under (utilities.md §5, §6, "
+            "records.md §7, reward-scale.md §2, D-65): the declaration %r built a pool"
+            % (offending,),
+        )
+        self.assertIn(
+            R.tok(S.UNKNOWN_NORMALISED_UTILITY),
+            R.tok(text),
+            "the refusal names the utility it refused, because a name outside the catalogue "
+            "is refused where it is declared, by name (utilities.md §5): %r" % (text,),
+        )
+        self.assertIn(
+            R.tok("build_pool"),
+            R.tok(text),
+            "the refusal is evaluation.build_pool's own, raised where the declaration is "
+            "read (e2e-surface.md §3.4, records.md §8): %r" % (text,),
+        )
+
+        # 4. A `load` spec: the container round-trips under its own name, and a spec naming
+        #    a name the catalogue lacks is refused.
+        encoder = self.encoder()
+        readout, _legal = self.one_readout()
+        written = self.utility_learner(S.UTILITY_THIRD, seed=S.SEED_I)
+        path = self.ep("agents", "save")(
+            written, os.path.join(self.scratch(), "fam18-17-load.ckpt")
+        )
+        matching = self.learner_spec(
+            width=S.UTILITY_WIDTH,
+            depth=S.UTILITY_DEPTH,
+            seed=S.SEED_I,
+            utility=S.UTILITY_THIRD,
+        )
+        restored = self.ep("agents", "load")(matching, path)
+        self.assertEqual(
+            self.action_index(self.act(restored, encoder, readout)),
+            self.action_index(self.act(written, encoder, readout)),
+            "a `load` spec naming the third member restores the learner that wrote the file "
+            "at its decision boundary, so the new name travels in the same container as the "
+            "other two (utilities.md §6, reward-scale.md §4, D-65): %r" % (path,),
+        )
+        bad_spec = self.learner_spec(
+            width=S.UTILITY_WIDTH,
+            depth=S.UTILITY_DEPTH,
+            seed=S.SEED_I,
+            utility=S.UNKNOWN_NORMALISED_UTILITY,
+        )
+        text = S.refusal_text(lambda: self.ep("agents", "load")(bad_spec, path))
+        self.assertIsNotNone(
+            text,
+            "a `load` spec carrying a utility outside the catalogue is refused and never "
+            "silently restored under the file's utility, as a spec's contradicting "
+            "`learning_rule` is (utilities.md §6, e2e-surface.md §2 'Utility', "
+            "reward-scale.md §2, D-65): the spec %r loaded %r" % (bad_spec, path),
+        )
+        self.assertIn(
+            R.tok(S.UNKNOWN_NORMALISED_UTILITY),
+            R.tok(text),
+            "the refusal names the utility it refused, because a name outside the catalogue "
+            "is refused where it is declared, by name (utilities.md §5, §6): %r" % (text,),
+        )
+        self.assertIn(
+            R.tok("load"),
+            R.tok(text),
+            "the refusal is agents.load's own, raised where the spec is read against the "
+            "file, so the learner is never restored under a name the catalogue lacks "
+            "(e2e-surface.md §3.3, utilities.md §6): %r" % (text,),
+        )
+
+    def test_fam18_18_fairness_reports_the_normalised_member_s_axis_and_set(self):
+        """FAM-18.18 a pair one of whose arms names the third member is reported on `utility`.
+
+        `utilities.md` §8 makes `utility` an axis beside the others, so a pair whose arms
+        declare `net-chips` and `net-chips-normalised` is a reportable comparison that
+        differs on that axis and reports the **set** of utilities it read; a pair that
+        differs on the utility **and** on another axis is refused, both axes named — which
+        is what keeps the appended member one axis of comparison and not two
+        (`utilities.md` §8, `reward-scale.md` §2, `ladder.md` §4, D-3, D-65).
+        """
+        config = self.normalised_rung()
+        left, right = config["variants"]
+        names = self.catalogue_names()
+        for utility in (S.UTILITY_DEFAULT, S.UTILITY_THIRD):
+            self.assertIn(
+                utility,
+                names,
+                "the pair this case reports differs on two **catalogued** utilities, so both "
+                "names are members before the comparison means anything: %r is missing from "
+                "the catalogue %r (utilities.md §2, §8, reward-scale.md §2, D-65)"
+                % (utility, names),
+            )
+        text = S.refusal_text(lambda: self.ep("training", "fairness")(left, right))
+        self.assertIsNone(
+            text,
+            "a pair whose two arms declare two utilities — the third member among them — is "
+            "a reportable comparison that differs on the utility, and not a refused pair "
+            "(utilities.md §8, reward-scale.md §2, D-65): %r" % (text,),
+        )
+        result = self.ep("training", "fairness")(left, right)
+        axis = S.axis_text(result)
+        self.assertIn(
+            "utility",
+            axis,
+            "the pair differs on the utility, so the axis fairness returns is the utility "
+            "(training.fairness returns `axis['of']`: utilities.md §8, e2e-surface.md §3.5): "
+            "%r" % (axis,),
+        )
+        reported = S.find_values(result, "utilit")
+        self.assertTrue(
+            reported,
+            "training.fairness reports the **set** of utilities the pair declares, not one "
+            "side's utility (utilities.md §8, reward-scale.md §2): %r" % (result,),
+        )
+        body = R.tok(S.flatten_text(reported))
+        for utility in (S.UTILITY_DEFAULT, S.UTILITY_THIRD):
+            self.assertIn(
+                R.tok(utility),
+                body,
+                "the reported set holds both utilities the two arms declare — the third "
+                "member by its own name: %r is missing from %r"
+                % (utility, reported),
+            )
+        constants = R.tok(S.flatten_text(result))
+        for token in ("budget", "seed", "param"):
+            self.assertIn(
+                token,
+                constants,
+                "the pair still reports what it holds constant, including %r, beside the "
+                "axis it differs on (ladder.md §4, utilities.md §8): %r" % (token, result),
+            )
+
+        # One axis of difference: two arms that declare two utilities **and** differ on
+        # `backend` are refused, and both axes are named (utilities.md §8, D-3, D-6).
+        doctored = self.normalised_rung()
+        doctored["variants"][1]["backend"] = "torch"
+        refusal = S.refusal_text(
+            lambda: self.ep("training", "fairness")(
+                doctored["variants"][0], doctored["variants"][1]
+            )
+        )
+        self.assertIsNotNone(
+            refusal,
+            "a pair whose arms declare two utilities and differ on `backend` differs on two "
+            "axes, and such a pair is refused by name (utilities.md §8, reward-scale.md §2, "
+            "D-3, D-6): it was reported as %r" % (refusal,),
+        )
+        for axis_name in ("backend", "utility"):
+            self.assertIn(
+                R.tok(axis_name),
+                R.tok(refusal),
+                "the refusal names both axes the pair differs on — %r among them — so a "
+                "reader can see which comparison the pair was not (utilities.md §8, "
+                "ladder.md §4): %r" % (axis_name, refusal),
+            )
 
     # -- one checkpoint under a named utility -------------------------------
     def write_version(self, name, utility, seed):

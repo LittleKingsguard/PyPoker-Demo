@@ -136,7 +136,7 @@ The container answers a second and a third shape with a **format version, not a 
 
 ## 7. What the shape does not move
 
-The two learning rules, the two utilities, the six hyper-declarations and the six baselines stay one declaration for the
+The two learning rules, the three utilities, the six hyper-declarations and the six baselines stay one declaration for the
 catalogue; the readout keeps its eleven facts; both encodings keep their nine fields, their block order, their block
 widths before the history and their dtype, and the default and two-seat rows keep the token vocabulary of 96 ids
 (`sizing.md` §5, `docs/L2/features/shapes.md` §5, `utility.md` §1, `rule.md` §6, `seats.md` §7). What moves is the amount

@@ -14,8 +14,8 @@ this document for the rule it obeys, so no rule has a second home to drift from 
 
 ## 1. The catalogue, through the granted arrow
 
-`agents.learners()["utilities"]` publishes the catalogue in declared order — `net-chips` first, `stack-shortfall`
-second, each stated with the reward it delivers (`utilities.md` §2, D-20). `pool._utility_catalogue()` reads it on
+`agents.learners()["utilities"]` publishes the catalogue in declared order — `net-chips` first and still the declared default, `stack-shortfall` second,
+`net-chips-normalised` third, each stated with the reward it delivers (`utilities.md` §2, `reward-scale.md` §2, D-20). `pool._utility_catalogue()` reads it on
 **every call** and keeps no copy of the names, because a copy is a second catalogue that drifts from the one a learner
 spec selects from (`utilities.md` §5, `module-map.md` §2, D-19, D-20). A name this module accepts is therefore a name
 `agents.build_learner` accepts.
@@ -86,7 +86,7 @@ D-19, D-20). Canonical spellings, as `src/evaluation/pool.py` and `policy.py` ra
     build_pool(member 'version-kestrel'): the member is missing the required key 'utility'
     offer(version 'version-osprey'): the member is missing the required key 'utility'
     build_pool(member 'version-kestrel'): the utility must be a non-empty string without a newline or the digest's separator, got ''
-    build_pool(member 'version-kestrel'): the utility 'chips-per-hour' is not one of the catalogue's ('net-chips', 'stack-shortfall')
+    build_pool(member 'version-kestrel'): the utility 'chips-per-hour' is not one of the catalogue's ('net-chips', 'stack-shortfall', 'net-chips-normalised')
     build_pool(member 'version-osprey'): the utility 'stack-shortfall' is not the utility 'net-chips' of the family it extends, whose start is 'R3/start'
     offer(version 'version-osprey'): the utility 'stack-shortfall' is not the utility 'net-chips' of the family it extends, whose newest member is 'version-marlin'
     match(left): the member 'version-kestrel' records the utility 'stack-shortfall' and its checkpoint 'checkpoints/x.pt' records 'net-chips', and a member is trained under one objective

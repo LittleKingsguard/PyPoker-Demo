@@ -1,7 +1,7 @@
 # PyPoker-Demo — L1 utilities: the reward catalogue
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 1 · **Date:** 2026-11-09
-- **Covers:** D-20's utility axis — the catalogue, the reward each member delivers, where it is consumed and why there, what every record and container carries, the fairness rule, what a table may not be read as, and the verification D-20 asks for
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 2 · **Date:** 2026-11-14
+- **Covers:** D-20's utility axis — the catalogue (three members since Rev 2: `net-chips`, `stack-shortfall`, and the normalised reward of `reward-scale.md`), the reward each delivers, where it is consumed and why there, what every record and container carries, the fairness rule, what a table may not be read as, and the verification D-20 asks for
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
 ## 1. Why the reward is a parameter
@@ -10,18 +10,30 @@ The terminal reward was one module constant for the whole ladder: the seat's net
 
 ## 2. The catalogue
 
-`agents.learners()["utilities"]` publishes exactly two members, in this order, each carrying its `name`, the `reward` it delivers as a stable token, and the `normaliser` that reward is divided by. The first is the declared default of §5. Both consume one `hyper` declaration and one state layout, so a utility swap is one axis and no budget moves with it (D-20, D-19, ASM-7, ASM-28).
+`agents.learners()["utilities"]` publishes exactly three members, in this order, each carrying its `name`, the `reward` it delivers as a stable token, and the `normaliser` that reward is divided by. The first is the declared default of §5, and the third is appended after the two of Rev 13 so no existing member's position — and so that default — moves. All three consume one `hyper` declaration and one state layout, so a utility swap is one axis and no budget moves with it (D-20, D-19, ASM-7, ASM-28).
 
 | Utility | The reward it delivers at the terminal decision | What it reads |
 |---|---|---|
 | `net-chips` | `net-chip-delta` — the seat's net chip delta for the completed hand, unnormalised (ASM-12) | `engine.payoffs`' payoff for that seat |
 | `stack-shortfall` | `squared-stack-shortfall-delta` — `(U(s_before) − U(s_after)) / U(s_0)`, with `U(s) = (T − s)²` | the same payoff, and the chips in play (§4) |
+| `net-chips-normalised` | `normalised-net-chip-delta` — that same delta divided by the chips in play, `Δ / T` | the same payoff, and the chips in play (§4) |
+
+**The third member is D-65's fix, and it is a scale and nothing else.** `T` is the chips in play,
+`seats × starting_stack` — 40, 200 and **600** on the declared shapes — so the reward is bounded by 1
+in magnitude on every shape and a seat's first TD error is |δ| ≲ 1 where `net-chips` hands it ≈600.
+That divides the step `lr·δ·x` by the same factor, which is the term the trunk-death RCA measured
+operating: at 600 the declared 1e-3 explodes the weights by hand 600 and 1e-6 stalls them, and no rate
+between the two works (`strata/records/trunk-death-rca.md`, D-65). It changes the reward's **scale**
+and not its preference: one terminal number, one zero on every other decision, one bootstrap rule, so
+a `net-chips`-versus-`net-chips-normalised` pair differs on one axis and its difference is attributable
+to scale alone (D-3, `reward-scale.md` §2–§3). No record's chips move with it, because a record's chips
+are `engine.payoffs`' raw figure and never the reward (`records.md` §15, `reward-scale.md` §5).
 
 `T` is the total chips in play, `s` one seat's stack, `s_0` the stack a hand begins from, and `s_before`/`s_after` that seat's stack before and after the hand's outcome. At the fixed game both seats begin every hand at 20 chips against a total of 40, so a hand that wins or loses 2 chips scores **+0.190 / −0.210** and one that wins or loses all 20 scores **+1.000 / −3.000**: a loss of a given size always costs more than a win of the same size pays, and an all-in is penalised threefold (D-20, ASM-6, ASM-28).
 
 ## 3. The one contract every utility answers
 
-Whatever its utility, a learner is one object built by `agents.build_learner` and it answers the same six calls with the same shapes — `act`, `learn`, `save`, `load`, `param_count`, `as_policy` (`e2e-surface.md` §3.3); the two utilities are **one capacity**, because a utility changes the number a terminal transition carries and nothing of the state layout, so `param_count`, the checkpoint's `2·P + M` array and the ±2% budget match of ASM-10 are identical under either (§2, ASM-10, D-20).
+Whatever its utility, a learner is one object built by `agents.build_learner` and it answers the same six calls with the same shapes — `act`, `learn`, `save`, `load`, `param_count`, `as_policy` (`e2e-surface.md` §3.3); the three utilities are **one capacity**, because a utility changes the number a terminal transition carries and nothing of the state layout, so `param_count`, the checkpoint's `2·P + M` array and the ±2% budget match of ASM-10 are identical under any of them (§2, ASM-10, D-20).
 
 The reward is **terminal only**: every non-terminal decision carries `0.0`, exactly as ASM-12 places it, `learn`'s terminal branch stays `target = reward` and its non-terminal branch stays the rule's, so the utility decides what a terminal transition is worth while the rule decides how a non-terminal one is bootstrapped and neither reads the other (D-19, D-20). A utility is never an argument of `learn`: accepting one there would make the record `learn` admits depend on which utility its learner carries, which is the interface difference between catalogue members that ASM-25 refuses for the rules (ASM-25, D-20).
 
@@ -35,7 +47,7 @@ The transform is applied in **`training`'s transition record** — the step that
 
 `agents` still **owns the identity** — the catalogue, the spec's selection, the refusal of an unknown name and the container's field — because a pool certifies what a member is, and a learner that cannot say which utility it was trained under cannot be certified whatever arithmetic produced its numbers (§7, §8; D-20). The one risk the split leaves is stated rather than hidden: a caller that builds its own transition records and hands them to `agents.learn` gets the reward it wrote, because the reward in a transition record is the caller's — and the loop is the only caller (`records.md` §4, D-13).
 
-The two quantities the transform needs are read, not assumed: `T` is `sum(readout["stacks"]) + readout["pot"]` at the terminal decision, and `s_0` is `engine.game_config()["starting_stack"]`, the stack the fixed game deals every hand from (D-2, ASM-6). A hand whose two totals disagree is refused by name with the hand's seed and both totals, because a normaliser that is not the game's own would make one reward incommensurable with the next (ASM-28).
+The two quantities the transform needs are read, not assumed: `T` is `sum(readout["stacks"]) + readout["pot"]` at the terminal decision, and `s_0` is `engine.game_config()["starting_stack"]`, the stack the fixed game deals every hand from (D-2, ASM-6). A hand whose two totals disagree is refused by name with the hand's seed and both totals, because a normaliser that is not the game's own would make one reward incommensurable with the next (ASM-28). `T` is also the divisor the third member divides by — it is the game's chips in play, `seats × starting_stack`, which the readout's own total must agree with — so the reward that bounds the value and the reward that scores the shortfall are normalised by one number and neither can drift from the game it was measured on (`reward-scale.md` §2, ASM-45).
 
 ## 5. The declared default, and where a utility is named
 
