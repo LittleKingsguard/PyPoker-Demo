@@ -2034,3 +2034,35 @@ flat encoding, which has no pooling and is the only card-aware encoding in the p
 representation received **0.4 %** of the learning signal the flat encoding's did, throughout. D-52, D-56, D-67,
 D-71 and D-73 are statements about an **untrained embedding**, not about tokenisation as an idea, and must be
 reported that way.
+
+---
+
+## D-76 — The three dilution remedies, run under the flat encoding's best configuration
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Try the first three, in parallel, using the current best performing training
+combination from the flat encodings"
+
+**The three remedies** become a declared axis on the token path only, each defaulting to today's behaviour so
+every existing run reproduces byte-identically:
+
+1. **`mean-real`** — divide the pooled gradient by the **non-padding** token count (14), not by `len(ids)` (122):
+   recovers **8.7×**.
+2. **`no-squash`** — drop the bounded embedding `(1 + tanh θ)/2`: recovers up to **2×** and removes saturation.
+3. **`sum-pool`** — sum rather than mean: removes the denominator entirely.
+
+**The configuration is the flat encoding's best, not the token default:** `stack-shortfall` (the best chips among
+the flat arms, −1.14 to −1.20 against −1.8 to −7.1 elsewhere), masked-Q, six seats, the mixed pool, **15,000 hands
+× seeds 0–2**, the three arms concurrent.
+
+**What decides it:** embedding movement against its own initialization (does the table leave its draw at all), the
+appearance of rank/suit structure, the greedy census and chips, and — decisively — the **loaded-deal probe**:
+`AA` against `72o` offsuit on the **same dry board**, at the opening seat where folding is legal and at the
+big-blind seat where it is not. Three remedies have already moved *which constant* the models choose without
+moving card-dependence (D-67, D-72, D-73); this asks whether the representation was the missing term.
+
+**Falsifiable prediction, stated before the run:** with the dilution removed the embedding should move by roughly
+the recovered factor and the token arms should **start discriminating AA from 72o** in the loaded-deal probe — the
+test that has failed for every token model so far. If the embedding moves and the decisions still do not depend on
+the cards, the representation was not the only missing term and D-75's remedy list is incomplete.
