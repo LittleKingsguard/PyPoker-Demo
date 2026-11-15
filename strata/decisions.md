@@ -1956,3 +1956,29 @@ locks it in.
 92.9 % to 0.0 % — and, if that is not enough, **estimate the values of actions not taken**, which is exactly what
 D-39/D-40's reveal-only counterfactual does. It was set aside because it did not fix folding in a two-player
 pool; this RCA says it was aimed at the wrong symptom.
+
+---
+
+## D-73 — The counterfactual breaks the fold loop but not the card-blindness; the failure has two layers
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Try the second option" — D-72's second remedy, the off-policy counterfactual.
+
+**Result, one key apart, 5,000 hands × seeds 0–1:** the `reveal-counterfactual` member cuts fold from **93.1 % to
+29.6 %** and raises decisions per run by 57 % — the agent plays on, so the samples that price playing on arrive.
+D-72's mechanism is confirmed by a second, independent remedy.
+
+**But it does not touch the card-blindness.** On the loaded-deal probe (same dry board, same seat, three hole
+sets): control folds AA, 72o and KQs alike at both seeds; the counterfactual **calls all three at seed 0 and folds
+all three at seed 1**. It changes *which constant* the model picks, not *whether it picks by its cards*.
+
+**The failure therefore has two layers**, and the three remedies tried separate cleanly across them: the **reward
+scale** (D-67) and the **exploration floor** (D-72) and the **counterfactual** all move the control layer — which
+action the policy settles on — while **none moves the discrimination layer**, whether the decision depends on the
+hole cards. The only card-dependent models in the project remain the **flat** encodings under the scenario suite
+(D-71).
+
+**The sharpest open question:** why a token model whose score vectors are demonstrably live (8–24 distinct
+vectors per seating) still maps every hand to one action. That is now the question a further pass should attack,
+and it is a representation question, not a reward or exploration one.
