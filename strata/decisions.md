@@ -1795,3 +1795,32 @@ statement than the dead-trunk null it replaces.
 **Flagged, unexplained:** all nine token runs report **exactly 55.3 %** fold across three cells and three
 seeds. That is too exact to be independent convergence and is recorded as unexplained rather than as
 behaviour; it is the first thing to check if this line continues.
+
+---
+
+## D-68 — The 55.3 % was one policy reported nine times, and folding is conditional on the opposition
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source:** D-67's flagged anomaly — nine token runs, three estimators × three seeds, all reporting exactly
+55.3 % fold.
+
+**Finding:** they are **the same function**. Four token models replayed on one fixed 150-hand table chose fold at
+every decision, and all six pairwise action-sequence comparisons were **identical**. On the census pool, folding
+is legal in **55.3 %** of the learner's decisions — exactly the reported share — so the models fold *whenever
+they can*, and 55.3 % is how often the pool offers it.
+
+**But they are not constant folders:** on a table of two folders and a caller the same models diverge — `norm-tok`
+folds 120/120, `short-flat` 88/120, `norm-flat` 20/120, and `short-tok` **0/120**. Behaviour is conditional on
+the opposition, and the token+shortfall model that folds 92.7 % on its pool folds not once against an all-passive
+table.
+
+**Consequences:** (1) the estimator axis's apparent agreement at tokens is **one measurement, not three**;
+(2) the encoding claim is better stated as *tokens fold whenever the pool lets them, flat folds three times in
+four* — a real difference and a cleaner one to explain; (3) **both claims must be re-measured on the other's
+table before either is presented**, because the direction reverses with the opposition.
+
+**For the talk:** the defensible sentence is narrower than the prepared one — *the risk-averse utility makes the
+agent fold whenever folding is legal against a betting pool, and the token encoding makes it do so more
+consistently, while against an all-passive table the same models stop folding entirely.* Conditionality is the
+finding; the percentage is a property of the opposition.
