@@ -31,7 +31,7 @@ from .actions import apply_action, raise_amount, raise_interval
 from .cards import card_spelling, parse_card
 from .config import SEAT_COUNT, game_config, require_shape, seat_count
 from .errors import InvalidAction, InvalidPolicy, InvalidSeating
-from .hand import is_terminal, new_hand, payoffs, player_index, validate_seed
+from .hand import is_terminal, new_hand, payoffs, player_index, validate_deal, validate_seed
 from .readout import readout
 
 #: The two positional policies' argument names, which is what a two-policy refusal names
@@ -45,6 +45,7 @@ def play_hand(
     seat1_policy=None,
     shape=None,
     seats=None,
+    deal=None,
 ) -> dict:
     """One episode: its seed, its decisions and the hand's payoffs (episode.md §3).
 
@@ -85,8 +86,12 @@ def play_hand(
     validate_seed(seed)
     name = require_shape(shape, "play_hand")
     policies, labels = _seating(name, seat0_policy, seat1_policy, seats)
+    # The deal is validated here as well as in `new_hand`, because the record carries it
+    # as played: both checks are pure and precede the stream, so one malformed deal has
+    # one message and deals nothing (loaded-deal.md §3–§4).
+    laid = None if deal is None else validate_deal(deal, name, seat_count(name))
 
-    hand = new_hand(seed, name)
+    hand = new_hand(seed, name, deal)
     count = seat_count(hand._shape)
     decisions = []
     holes = None  # every seat's two cards, captured once, at the first decision
@@ -142,7 +147,15 @@ def play_hand(
     if values is not None:
         for decision, value in zip(decisions, values):
             decision["counterfactual"] = value
-    return {"seed": seed, "decisions": decisions, "payoffs": outcome, "reveal": reveal}
+    record = {"seed": seed, "decisions": decisions, "payoffs": outcome, "reveal": reveal}
+    if laid is not None:
+        # The fifth key, present exactly when a deal was supplied, so a seeded record is
+        # today's record key for key (D-43, records.md §5, loaded-deal.md §4).  It is the
+        # deal **as played**: the caller's own values, normalised, with no card added and
+        # none dropped, and it replays at the record's own seed (§4).
+        holes, board = laid
+        record["deal"] = {"holes": holes, "board": board}
+    return record
 
 
 def _seating(name: str, seat0_policy, seat1_policy, seats):

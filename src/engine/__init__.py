@@ -43,9 +43,13 @@ def game_config(shape=None) -> dict:
     return _config.game_config(shape)
 
 
-def new_hand(seed: int, shape=None) -> "Hand":
-    """Deal one hand from `seed` on `shape`, the project's single seeding point (surface.md §4)."""
-    return _hand.new_hand(seed, shape)
+def new_hand(seed: int, shape=None, deal=None) -> "Hand":
+    """Deal one hand from `seed` on `shape`, the project's single seeding point (surface.md §4).
+
+    `deal` is the optional prescribed holes per seat and board; its absence is today's
+    deal, the whole deck from the stream (loaded-deal.md §1, §5).
+    """
+    return _hand.new_hand(seed, shape, deal)
 
 
 def readout(hand: "Hand") -> dict:
@@ -73,14 +77,23 @@ def payoffs(hand: "Hand") -> dict[int, int]:
     return _hand.payoffs(hand)
 
 
-def play_hand(seed: int, seat0_policy=None, seat1_policy=None, shape=None, seats=None) -> dict:
+def play_hand(
+    seed: int,
+    seat0_policy=None,
+    seat1_policy=None,
+    shape=None,
+    seats=None,
+    deal=None,
+) -> dict:
     """One whole hand driven by the policies, on `shape` (surface.md §10).
 
     The two positional policies are today's call; the optional `seats` sequence is the
     shape's whole seating, one policy per seat in seat order, and is the form a
-    six-seat hand takes (seats.md §4).
+    six-seat hand takes (seats.md §4).  The optional `deal` is the prescribed holes and
+    board: absent, the record is today's record key for key, and supplied, it carries a
+    fifth key `deal` and replays at its own seed (loaded-deal.md §4).
     """
-    return _episode.play_hand(seed, seat0_policy, seat1_policy, shape, seats)
+    return _episode.play_hand(seed, seat0_policy, seat1_policy, shape, seats, deal)
 
 
 def equity(decision: "Hand | dict", seed: int, samples: int) -> float:

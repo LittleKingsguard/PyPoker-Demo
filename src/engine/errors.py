@@ -36,6 +36,17 @@ class InvalidPolicy(EngineError):
     """A `play_hand` policy that is not callable (errors.md §2, episode.md §1)."""
 
 
+class InvalidDeal(EngineError):
+    """A prescribed deal that breaks one of the six named rules (errors.md §2, loaded-deal.md §3).
+
+    A deal names hole cards per seat and a board, and every malformation is a refusal of
+    **one** of six named rules — `not-a-deal`, `seat-coverage`, `hole-size`,
+    `board-length`, `card-outside-deck`, `duplicate-card` — tried in that order, so one
+    malformed deal has exactly one message.  It sits beside `InvalidSeed` because both are
+    `new_hand`'s: one refuses the stream's input and the other the cards'.
+    """
+
+
 class InvalidSeating(EngineError):
     """A `play_hand` seating of the wrong length, or beside the positional policies.
 

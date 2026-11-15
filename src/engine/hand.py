@@ -13,13 +13,17 @@ else (hand.md §3, seats.md §3).
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import random
+from collections.abc import Iterable, Mapping
 
+import pokerkit.state as _pokerkit_state
 from pokerkit import Automation, FixedLimitTexasHoldem, NoLimitTexasHoldem
 
+from .cards import card_spelling, is_card_spelling
 from .config import SEAT_COUNT, STREETS, require_shape, seat_count, shape_row
-from .errors import InvalidHand, InvalidSeed
+from .errors import InvalidDeal, InvalidHand, InvalidSeed
 
 # The automations make the betting decisions the only manual operations: hole cards
 # exist from the first decision on and each street's board is dealt as the previous
@@ -111,6 +115,218 @@ def validate_seed(seed, entry_point: str = "new_hand") -> None:
         )
 
 
+#: The two keys a deal carries, both required and no third (loaded-deal.md §2).
+DEAL_KEYS = ("holes", "board")
+
+#: Where a deal's board cards sit relative to the first card after the hole dealing:
+#: the flop's three, then the burn, the turn's one, the burn and the river's one.  The
+#: convention is `pokerkit`'s own consumption order, established against the library: the
+#: pre-flop hole dealing is round-robin from player 0, two passes, and each street after it
+#: burns one card before dealing its board (probe against `state.py:1238-1242`, `:3535-3562`).
+BOARD_OFFSETS = (1, 2, 3, 5, 7)
+
+
+def _sequence(value):
+    """The items of an ordered sequence of facts, or `None` for anything else.
+
+    A `str`, `bytes` or mapping is refused rather than read, exactly as the seating is
+    (`seats.md` §4): each is iterable and none is a sequence of pairs or of cards.  This is
+    the one home of that rule for every level of a deal (loaded-deal.md §3).
+    """
+    if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Iterable):
+        return None
+    return tuple(value)
+
+
+def _places(places) -> str:
+    """One card's every place, as a sentence a refusal can end on (loaded-deal.md §3)."""
+    listed = list(places)
+    if len(listed) == 1:
+        return listed[0]
+    return ", ".join(listed[:-1]) + " and " + listed[-1]
+
+
+def validate_deal(deal, name: str, seats: int, entry_point: str = "new_hand"):
+    """The deal as `(holes, board)` of spellings, or the one refusal it breaks.
+
+    Six rules, tried in this order and never reordered, so one malformed deal has exactly
+    one message: `not-a-deal` (not a mapping, a key outside the two, a key missing),
+    `seat-coverage` (`holes` is no ordered sequence of pairs, or holds another number of
+    pairs than the shape seats), `hole-size` (a pair that is not two cards),
+    `board-length` (`board` is no ordered sequence, or holds fewer than three or more than
+    five cards), `card-outside-deck` (a spelling that is not two characters, a rank from
+    `23456789TJQKA` then a suit from `cdhs`) and `duplicate-card` (one card named twice
+    anywhere, naming every place it appears) (loaded-deal.md §3).
+
+    Every rule is checked **before** `new_hand` seeds the stream and before the state is
+    created, so a refused deal deals nothing and leaves the global stream where it was
+    (hand.md §2, ASM-2).  The message begins `new_hand(deal)` on both entry points, as the
+    seed's begins `new_hand(seed)` when reached through `play_hand` (messages.md §1,
+    loaded-deal.md §3).  Nothing is repaired: no card is defaulted, no board truncated, no
+    seat filled from the deck and no ordering imposed on the caller's pairs (D-13).
+    """
+    prefix = "%s(deal): " % (entry_point,)
+
+    if not isinstance(deal, Mapping):
+        raise InvalidDeal(
+            prefix + "the deal must be a mapping with exactly the keys 'holes' and "
+            "'board', got %s" % (type(deal).__name__,)
+        )
+    for key in deal:
+        if key not in DEAL_KEYS:
+            raise InvalidDeal(
+                prefix + "the deal must carry exactly the keys 'holes' and 'board', and "
+                "%r is not one of them" % (key,)
+            )
+    for key in DEAL_KEYS:
+        if key not in deal:
+            raise InvalidDeal(
+                prefix + "the deal must carry exactly the keys 'holes' and 'board', and "
+                "%r is missing" % (key,)
+            )
+
+    holes = _sequence(deal["holes"])
+    if holes is None:
+        raise InvalidDeal(
+            prefix + "'holes' must be an ordered sequence of one pair per seat, got %s"
+            % (type(deal["holes"]).__name__,)
+        )
+    if len(holes) != seats:
+        raise InvalidDeal(
+            prefix + "the shape %r seats %d, so 'holes' must hold %d pairs in seat order, "
+            "got %d" % (name, seats, seats, len(holes))
+        )
+
+    pairs = []
+    for index, pair in enumerate(holes):
+        cards = _sequence(pair)
+        if cards is None:
+            raise InvalidDeal(
+                prefix + "holes[%d] must be a pair of two cards, got %s"
+                % (index, type(pair).__name__)
+            )
+        if len(cards) != 2:
+            raise InvalidDeal(
+                prefix + "holes[%d] must be a pair of two cards, got %d"
+                % (index, len(cards))
+            )
+        pairs.append(cards)
+
+    board = _sequence(deal["board"])
+    if board is None:
+        raise InvalidDeal(
+            prefix + "'board' must be an ordered sequence of cards, got %s"
+            % (type(deal["board"]).__name__,)
+        )
+    if not 3 <= len(board) <= 5:
+        raise InvalidDeal(
+            prefix + "'board' must hold 3..5 cards in dealing order, got %d"
+            % (len(board),)
+        )
+
+    places = []
+    for index, cards in enumerate(pairs):
+        for position, spelling in enumerate(cards):
+            if not is_card_spelling(spelling):
+                raise InvalidDeal(
+                    prefix + "%r at holes[%d][%d] is not a card: a spelling is two "
+                    "characters, a rank from '23456789TJQKA' then a suit from 'cdhs'"
+                    % (spelling, index, position)
+                )
+            places.append(("holes[%d][%d]" % (index, position), spelling))
+    for position, spelling in enumerate(board):
+        if not is_card_spelling(spelling):
+            raise InvalidDeal(
+                prefix + "%r at board[%d] is not a card: a spelling is two characters, a "
+                "rank from '23456789TJQKA' then a suit from 'cdhs'"
+                % (spelling, position)
+            )
+        places.append(("board[%d]" % (position,), spelling))
+
+    named = {}
+    for place, spelling in places:
+        named.setdefault(spelling, []).append(place)
+    for _place, spelling in places:
+        if len(named[spelling]) > 1:
+            raise InvalidDeal(
+                prefix + "the card %r is named %d times, at %s; a deal names every "
+                "card of it distinctly"
+                % (spelling, len(named[spelling]), _places(named[spelling]))
+            )
+    return tuple(tuple(cards) for cards in pairs), tuple(board)
+
+
+def _wanted(holes, board, seats: int) -> dict[int, str]:
+    """The deck position each named card must occupy, by spelling (loaded-deal.md §8).
+
+    The pre-flop hole dealing is round-robin from `pokerkit` player 0, so the first card of
+    player `p` is drawn at deck position `p` and the second at `seats + p`; engine seat `s`
+    is player `(s - 1) mod seats`, so a deal's seat order maps through `player_index`.  The
+    board follows the hole dealing, each street's own burn taken from the stream between
+    the flop and the turn and between the turn and the river (`BOARD_OFFSETS`).
+    """
+    wanted = {}
+    for seat, cards in enumerate(holes):
+        player = player_index(seat, seats)
+        wanted[player] = cards[0]
+        wanted[seats + player] = cards[1]
+    first = 2 * seats
+    for position, spelling in enumerate(board):
+        wanted[first + BOARD_OFFSETS[position]] = spelling
+    return wanted
+
+
+def _arranged(cards, holes, board, seats: int):
+    """The deck with the deal's cards at the positions the engine will draw them.
+
+    `cards` is the deck as the stream shuffled it, so every card the deal does not name —
+    the three burns, a three- or four-card deal's remaining street or streets, and the
+    undealt rest — keeps the order the stream gave it (`loaded-deal.md` §5).  The deck is
+    `pokerkit`'s own; its card consumption removes a named card from wherever it sits, by
+    value, so the arrangement is an order and not a substitution.
+    """
+    base = tuple(cards)
+    by_spelling = {card_spelling(card): card for card in base}
+    order = [None] * len(base)
+    named = []
+    for position, spelling in sorted(_wanted(holes, board, seats).items()):
+        card = by_spelling[spelling]
+        order[position] = card
+        named.append(card)
+    rest = [card for card in base if card not in named]
+    remaining = iter(rest)
+    for position, card in enumerate(order):
+        if card is None:
+            order[position] = next(remaining)
+    return order
+
+
+@contextlib.contextmanager
+def _imposed_deal(holes, board, seats: int):
+    """Impose one deal on the deck `create_state` shuffles, for the duration of the call.
+
+    `pokerkit` shuffles the deck inside `State._setup` and resolves the name `shuffle` at
+    module level (`state.py:13`, `:1241`), so the one seam that reaches the deck without
+    changing `create_state`'s signature is that name.  The stream's own shuffle is taken
+    first — so every card the deal does not name comes from the seed as it always did —
+    and the deal's cards are then laid where the engine will draw them.  The name is put
+    back whatever happens, so a creation that raises leaves the library as it found it.
+    """
+    original = _pokerkit_state.shuffle
+
+    def impose(deck):
+        original(deck)
+        arranged = _arranged(tuple(deck), holes, board, seats)
+        deck.clear()
+        deck.extend(arranged)
+
+    _pokerkit_state.shuffle = impose
+    try:
+        yield
+    finally:
+        _pokerkit_state.shuffle = original
+
+
 def create_state(row: dict):
     """The `pokerkit` state one row of the catalogue declares (config.md §2).
 
@@ -148,7 +364,7 @@ def create_state(row: dict):
     )
 
 
-def new_hand(seed: int, shape=None) -> Hand:
+def new_hand(seed: int, shape=None, deal=None) -> Hand:
     """Deal one hand from `seed` on `shape`, the project's only seeding point (hand.md §2).
 
     `shape` is optional and **absence is the default shape**, so today's call deals
@@ -156,12 +372,26 @@ def new_hand(seed: int, shape=None) -> Hand:
     `random.seed`, so a refused call cannot move the stream.  `pokerkit` shuffles the
     deck inside `create_state`, so seeding the global stream immediately before creation
     fixes the whole deck order (ASM-2).
+
+    `deal` is the prescribed hole cards per seat and the prescribed board, and **absence
+    is today's call**: with no deal the whole deck comes from the stream and the hand is
+    the hand this entry point has always dealt (loaded-deal.md §1, §5).  A deal is
+    validated by its six rules before the stream is seeded and before the state exists, so
+    a refused deal deals nothing and leaves the global stream where it was (§3).  When it
+    is valid its cards are laid where this hand's own dealing would have drawn them, and
+    the flop, the turn and the river are then dealt by `apply_action` exactly as before
+    (§1, §8).
     """
     validate_seed(seed)
     name = require_shape(shape, "new_hand")
     row = shape_row(name)
+    laid = None if deal is None else validate_deal(deal, name, row["seats"])
     random.seed(seed)
-    return Hand(create_state(row), (), name)
+    if laid is None:
+        return Hand(create_state(row), (), name)
+    holes, board = laid
+    with _imposed_deal(holes, board, row["seats"]):
+        return Hand(create_state(row), (), name)
 
 
 def advance(hand: Hand, action: str, amount=None) -> Hand:

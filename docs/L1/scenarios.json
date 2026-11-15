@@ -1,0 +1,317 @@
+{
+  "unit": "phase1-scenarios",
+  "decision": "D-70",
+  "rev": 2,
+  "date": "2026-11-15",
+  "shape": "six-seat-no-limit-100",
+  "card_spelling": "two characters: a rank from 23456789TJQKA then a suit from cdhs, exactly the spelling engine.readout gives a card",
+  "era": {
+    "label": "post-D-61",
+    "admitted_root": "/tmp/reward-scale/checkpoints",
+    "admitted_cells": [
+      "norm-masked-flat",
+      "norm-masked-tokens",
+      "norm-doubleq-flat",
+      "norm-doubleq-tokens",
+      "norm-cf-flat",
+      "norm-cf-tokens"
+    ],
+    "path_pattern": "<admitted_root>/<cell>/<cell>/seed-<seed>/final.ckpt",
+    "excluded": "every container trained before D-61's bounded embedding, in /tmp/token-shortfall, /tmp/token-shortfall-seeds36, /tmp/token-build, /tmp/token-dq and every fixed-limit container under the repository's checkpoints/",
+    "why": "D-69: the bounded embedding is applied at forward time, so a pre-squash token checkpoint is silently reinterpreted and its recorded policy cannot be reproduced today. Only the norm-* family was trained and evaluated after the squash, so only it is internally consistent."
+  },
+  "opponents": {
+    "assignment": "these five holdings are seated in ascending seat index among the five seats the model does not hold, so one block serves every scenario and both seatings",
+    "slots": [
+      {
+        "slot": 0,
+        "baseline": "fold-no-pair-or-face",
+        "hole": ["3c", "4d"],
+        "why": "unpaired and neither card a face card, so the folder folds before the flop"
+      },
+      {
+        "slot": 1,
+        "baseline": "always-call",
+        "hole": ["Jc", "Td"],
+        "why": "the caller: it never folds and never raises, so a pot is always contested and the model always has one live opponent to the river"
+      },
+      {
+        "slot": 2,
+        "baseline": "fold-no-pair-or-face",
+        "hole": ["3h", "5h"],
+        "why": "folds before the flop when a fold is legal; in the opening seating this slot holds the big blind, which is not offered a fold"
+      },
+      {
+        "slot": 3,
+        "baseline": "fold-no-pair-or-face",
+        "hole": ["4s", "6c"],
+        "why": "folds before the flop"
+      },
+      {
+        "slot": 4,
+        "baseline": "fold-no-pair-or-face",
+        "hole": ["5d", "6s"],
+        "why": "folds before the flop"
+      }
+    ]
+  },
+  "seatings": [
+    {
+      "id": "big-blind",
+      "role": "primary",
+      "model_seat": 2,
+      "preflop_order": [3, 4, 5, 0, 1, 2],
+      "postflop_order": [1, 2, 3, 4, 5, 0],
+      "fold_legal_preflop": false,
+      "live_seats_at_the_flop": 2,
+      "why": "the model posts the big blind and acts last before the flop, after seat 1 has called, so its preflop decision is made with to_call 0 and folding is not legal; post-flop it acts second, immediately after seat 1 checks, again with to_call 0. Both reported decisions are therefore choices between continuing actions, the flop is always reached, and the pot is heads-up from the flop on."
+    },
+    {
+      "id": "opening",
+      "role": "supplementary",
+      "model_seat": 3,
+      "preflop_order": [3, 4, 5, 0, 1, 2],
+      "postflop_order": [1, 2, 3, 4, 5, 0],
+      "fold_legal_preflop": true,
+      "live_seats_at_the_flop": 3,
+      "why": "the model is first to act before the flop facing the big blind, so folding is offered and every descriptor is legal; this is the seating in which a fold-when-legal policy shows itself. A hand the model folds here ends its participation before the flop and reports no flop decision. The big blind is seat 2, which holds a folder: it is not offered a fold, its bet already equalling the maximum, so it checks and stays in — making the pot three-handed after the model check-calls — unless the model raises, in which case it faces a call and folds and the pot is heads-up."
+    }
+  ],
+  "boards": {
+    "common-dry": {
+      "cards": ["3s", "6d", "9d", "4c", "Jh"],
+      "role": "the one board every hole set is played on, and the non-helper for all eight",
+      "why": "no ace, king, queen, deuce, seven or eight, so no hole pair is made or set and the board itself pairs nothing; at most one board card of any suit a suited hole holds two of, so no hand is within one card of a flush, a draw being four; and 8-7 makes no straight against it, its 6-7-8-9 being four to a run that needs a five or a ten"
+    },
+    "ace-on-board": {
+      "cards": ["Ah", "Kd", "7c", "5s", "2c"],
+      "role": "the helper for paired aces",
+      "why": "an ace turns the pair into trips"
+    },
+    "king-flush-draw": {
+      "cards": ["Kh", "9s", "8s", "4h", "2d"],
+      "role": "the helper for K-Q suited",
+      "why": "the board's king gives top pair and its two spades give four to a flush"
+    },
+    "king-top-pair": {
+      "cards": ["Kc", "9h", "4h", "2s", "8c"],
+      "role": "the helper for K-Q offsuit",
+      "why": "the board's king gives top pair, with no suit to draw at"
+    },
+    "deuce-set": {
+      "cards": ["2c", "Kd", "9c", "6d", "5c"],
+      "role": "the helper for paired deuces",
+      "why": "a deuce turns the pair into a set"
+    },
+    "straight-eight-seven": {
+      "cards": ["Js", "Th", "9d", "2h", "4c"],
+      "role": "the helper for 8-7, suited and offsuit",
+      "why": "the nine, ten and jack complete 7-8-9-T-J"
+    },
+    "two-pair-seven-deuce": {
+      "cards": ["7d", "2s", "Kc", "8d", "4h"],
+      "role": "the helper for 7-2, suited and offsuit",
+      "why": "a seven and a deuce on the board give 7-2 two pair"
+    }
+  },
+  "scenarios": [
+    {
+      "id": "AA-helper",
+      "hole_class": "paired aces",
+      "hole": ["As", "Ad"],
+      "board": "ace-on-board",
+      "board_role": "helper",
+      "flop_hand_class": 3,
+      "flop_hand": "trip aces"
+    },
+    {
+      "id": "AA-dry",
+      "hole_class": "paired aces",
+      "hole": ["As", "Ad"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 1,
+      "flop_hand": "one pair, aces, unimproved"
+    },
+    {
+      "id": "KQs-helper",
+      "hole_class": "K-Q suited",
+      "hole": ["Ks", "Qs"],
+      "board": "king-flush-draw",
+      "board_role": "helper",
+      "flop_hand_class": 1,
+      "flop_hand": "top pair, four to a flush"
+    },
+    {
+      "id": "KQs-dry",
+      "hole_class": "K-Q suited",
+      "hole": ["Ks", "Qs"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 0,
+      "flop_hand": "high card, three to a flush and no draw"
+    },
+    {
+      "id": "KQo-helper",
+      "hole_class": "K-Q offsuit",
+      "hole": ["Kh", "Qd"],
+      "board": "king-top-pair",
+      "board_role": "helper",
+      "flop_hand_class": 1,
+      "flop_hand": "top pair"
+    },
+    {
+      "id": "KQo-dry",
+      "hole_class": "K-Q offsuit",
+      "hole": ["Kh", "Qd"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 0,
+      "flop_hand": "high card"
+    },
+    {
+      "id": "22-helper",
+      "hole_class": "paired deuces",
+      "hole": ["2s", "2h"],
+      "board": "deuce-set",
+      "board_role": "helper",
+      "flop_hand_class": 3,
+      "flop_hand": "trip deuces"
+    },
+    {
+      "id": "22-dry",
+      "hole_class": "paired deuces",
+      "hole": ["2s", "2h"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 1,
+      "flop_hand": "one pair, deuces, under a board that pairs nothing"
+    },
+    {
+      "id": "87s-helper",
+      "hole_class": "8-7 suited",
+      "hole": ["8s", "7s"],
+      "board": "straight-eight-seven",
+      "board_role": "helper",
+      "flop_hand_class": 4,
+      "flop_hand": "straight, seven to jack"
+    },
+    {
+      "id": "87s-dry",
+      "hole_class": "8-7 suited",
+      "hole": ["8s", "7s"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 0,
+      "flop_hand": "high card, four to a straight and no draw"
+    },
+    {
+      "id": "87o-helper",
+      "hole_class": "8-7 offsuit",
+      "hole": ["8h", "7d"],
+      "board": "straight-eight-seven",
+      "board_role": "helper",
+      "flop_hand_class": 4,
+      "flop_hand": "straight, seven to jack"
+    },
+    {
+      "id": "87o-dry",
+      "hole_class": "8-7 offsuit",
+      "hole": ["8h", "7d"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 0,
+      "flop_hand": "high card, four to a straight and no draw"
+    },
+    {
+      "id": "72s-helper",
+      "hole_class": "7-2 suited",
+      "hole": ["7h", "2h"],
+      "board": "two-pair-seven-deuce",
+      "board_role": "helper",
+      "flop_hand_class": 2,
+      "flop_hand": "two pair, sevens and deuces"
+    },
+    {
+      "id": "72s-dry",
+      "hole_class": "7-2 suited",
+      "hole": ["7h", "2h"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 0,
+      "flop_hand": "high card, no draw"
+    },
+    {
+      "id": "72o-helper",
+      "hole_class": "7-2 offsuit",
+      "hole": ["7c", "2d"],
+      "board": "two-pair-seven-deuce",
+      "board_role": "helper",
+      "flop_hand_class": 2,
+      "flop_hand": "two pair, sevens and deuces"
+    },
+    {
+      "id": "72o-dry",
+      "hole_class": "7-2 offsuit",
+      "hole": ["7c", "2d"],
+      "board": "common-dry",
+      "board_role": "non-helper",
+      "flop_hand_class": 0,
+      "flop_hand": "high card, no draw"
+    }
+  ],
+  "models": {
+    "seeds": [0, 1, 2],
+    "cells": [
+      {"cell": "norm-masked-flat", "rule": "masked-q-learning", "encoding": "flat-numeric"},
+      {"cell": "norm-masked-tokens", "rule": "masked-q-learning", "encoding": "card-tokens"},
+      {"cell": "norm-doubleq-flat", "rule": "double-q-learning", "encoding": "flat-numeric"},
+      {"cell": "norm-doubleq-tokens", "rule": "double-q-learning", "encoding": "card-tokens"},
+      {"cell": "norm-cf-flat", "rule": "reveal-counterfactual", "encoding": "flat-numeric"},
+      {"cell": "norm-cf-tokens", "rule": "reveal-counterfactual", "encoding": "card-tokens"}
+    ],
+    "declared_rule_and_encoding": "the directory's name says which cell a container should belong to; the report reads the rule, the utility, the encoding and the shape from the container itself and refuses a container that contradicts its directory",
+    "exploration": "off",
+    "exploration_why": "a decision read off the schedule measures the exploration ramp and not the model, so every reported decision is the masked maximum and the tie-break alone"
+  },
+  "run": {
+    "seed": 20261115,
+    "plays_per_scenario_per_seating": 1,
+    "write_root": "/tmp/loaded-deal/",
+    "artefact": "<write_root>/report.json",
+    "never_writes": "anything under the repository's checkpoints/, tables/ or checkpoints/evidence/",
+    "reproducible_from": "this file, the eighteen containers it names and the run seed, together with the repository's own code"
+  },
+  "report": {
+    "per_decision_keys": [
+      "street",
+      "seat",
+      "on_button",
+      "hole",
+      "board",
+      "hand_class",
+      "legal",
+      "action",
+      "index",
+      "amount",
+      "scores"
+    ],
+    "scores": "the shape's six entries in its declared index order, each entry an object with the descriptor, the legality flag and the value, so an illegal action's score is reported as masked rather than omitted",
+    "tables": [
+      "T1a: one row per scenario, one column per cell at seed 0, each cell the preflop and the flop decision with the scored values, big-blind seating",
+      "T1b: the same table for the opening seating, where a folded hand reports no flop decision",
+      "T2: one row per model (six cells times three seeds) per seating, the number of distinct score vectors over that seating's decisions, and whether its three seeds agree action for action"
+    ]
+  },
+  "checks": [
+    "every scenario's 17 cards are distinct: two hole cards, five board cards and the ten opponent cards",
+    "every card this file names as a hole or a board card avoids the ten opponent cards, so one opponent block serves every scenario and both seatings",
+    "the five opponent slots are seated in ascending seat index among the seats the model does not hold, so the caller holds seat 1 in both seatings",
+    "each helper scenario's flop_hand_class is strictly greater than its partner's on common-dry, for the same hole",
+    "in the big-blind seating the model's preflop decision comes after every folding opponent and after the caller has called, so its legal set holds no fold; in the opening seating it comes first, so its legal set holds fold",
+    "each reported decision's hole equals the deal's pair for that seat, its board is the deal's spelling prefix of the length that street has dealt, and its hand_class equals flop_hand_class on the flop",
+    "each reported score vector reproduces the reported action under the greedy rule, or the row is refused by name",
+    "each model's container records the shape six-seat-no-limit-100, and its rule and encoding match the directory it was found in"
+  ],
+  "measurement_state": "NOT RUN as of this Rev: the session that filed this file has no execution surface, so no battery, no lint run and no report was performed. See docs/L1/scenarios.md section 8 for the commands and the order they must run in."
+}

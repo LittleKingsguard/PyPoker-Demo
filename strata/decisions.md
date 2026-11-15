@@ -1889,3 +1889,35 @@ validates every malformed deal by name, and leaves the seeded path byte-identica
 
 This supersedes the census as the primary behavioural instrument; censuses stay for population-level questions,
 but every "the model does X%" claim in the talk must be backed by a scenario table showing *when* it does X.
+
+---
+
+## D-71 — The scenario suite refutes the behavioural reading of the token encoding claim
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Set up a test suite that contains loaded games setting up a variety of hands of
+different strengths … with both helpful and unhelpful community cards for each hole set"
+
+**Built:** the loaded-deal surface (`new_hand(seed, shape, deal)`, `play_hand(..., deal=)`, six named refusals,
+`InvalidDeal`, endpoints still 50) with the seeded path proven **byte-identical — 71,774 of 71,774 leaves** —
+and sixteen scenarios run against the six post-D-61 cells × seeds 0–2 in two seatings (576 decisions).
+
+**The answer:** **flat models use their cards; token models do not.** For flat, AA and 72o diverge and a helpful
+board moves the flop action for **3–7 of 8** hole sets at every seed. For tokens, **all sixteen hands are folded
+at every seed** wherever folding is offered, regardless of holding aces.
+
+**And the token arms are blind rather than collapsed:** they produce 8–24 distinct score vectors per seating, so
+their values move with the hole, but the argmax is pinned to `fold`-when-legal. Their *decisions* cannot change.
+
+**Consequence:** this **refutes the behavioural reading** of the encoding claim. D-56's "tokens fold 92.7 %
+against flat's 77.5 %" and D-67's "tokens lose four to forty times less" are both true and both mean the opposite
+of what the percentages suggested: the token models lose less **because they fold cheaply**, not because they
+play better. **The flat models are the only ones in this project whose decisions depend on the cards.**
+
+**Also recorded:** `norm-doubleq-tokens` seed 2 shoves all-in preflop in all sixteen scenarios (an all-in, not a
+missing row), and seeds agree action-for-action only for the token cells in the opening seating — the attractor
+lottery, unchanged.
+
+This supersedes every aggregate-census claim about what the models "do": the census is retired as the primary
+behavioural instrument (D-70), and the scenario table is now the form of record.
