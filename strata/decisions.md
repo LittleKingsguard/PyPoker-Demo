@@ -2380,3 +2380,33 @@ construction.
 "the embedding is not the limit" is task-specific** — it holds where position does not matter, and a poker board is
 where it does; (3) **the flat encoding is the right choice for any board-aware module today**, and a token path needs
 positional embeddings, per-slot pools or attention before it can compete.
+
+---
+
+## D-88 — Attention with positional embeddings is the fix: 28.1 %, beating the flat encoding
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test with attention to see if that works as a fix"
+
+**Result:** the masked-mean pool replaced by **self-attention over the 7 slots** (2 layers, 5 heads, 50-wide,
+LayerNorm + feed-forward, masked mean of the transformed rows) on the same 720,000-sample street data:
+
+| representation | flop | turn | river | overall |
+|---|---|---|---|---|
+| tokens, masked mean | 8.8 % | 13.6 % | 16.8 % | 13.1 % |
+| flat one-hot | 14.4 % | 20.9 % | 26.0 % | 20.4 % |
+| **attention + positional** | **17.4 %** | **30.6 %** | **36.3 %** | **28.1 %** |
+| attention, **no** positional | 4.3 % | 14.9 % | 18.9 % | 12.7 % |
+
+**It works.** Attention with **learned positional embeddings** beats the flat encoding by **38 %** overall and wins on
+every street, most at the turn (30.6 against 20.9) and river (36.3 against 26.0) — where slot identity matters most.
+
+**And position is the whole fix:** the same attention *without* positional embeddings scores 12.7 % — mean-pool level,
+and unstable (flop 10.5 % → 4.3 % between epochs 20 and 60). Attention alone is permutation-invariant too; attention
+**plus positions** carries the information.
+
+**Consequences:** (1) **the flat encoding was not a ceiling**, only the best simple representation, and a positional
+sequence model clears it by a wide margin; (2) the supervised module should be **attention + positional embeddings**;
+(3) per D-85, 28.1 % is a **lower bound** — the turn and river figures were still rising at epoch 60. This also makes
+the user's original intuition concrete: **the board is a sequence, and a sequence model is what reads it.**
