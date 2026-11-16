@@ -2212,3 +2212,29 @@ the attractor the annealed end cannot leave — the same rate D-72 showed pins t
 
 **Conclusion:** annealing is not the missing mechanism. The pinning is the **exploration loop** (D-72) and the
 discrimination is the **representation** (D-79/D-80); a schedule over the learning rate touches neither.
+
+---
+
+## D-82 — The token flicker does not survive the budget: three seeds, one constant each
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Proceed with that attempt" — D-80's masked-no-squash arm at **15,000 hands × seeds
+0–2**, fixed rate.
+
+**Result:** **every seed plays every hand identically**, in both seatings, on five hole sets (AA, KQs, 22, 87s,
+72o): seed 0 all `raise-quarter`, seed 1 all `raise-half`, seed 2 all `check-call`. Fold share 88.6 / 86.5 / 90.3 %.
+**Distinct sequences: 1 of 5 in all six cells.**
+
+**So D-80 is corrected:** the 5,000-hand card separation was a **transient of short training**, not the token
+encoding beginning to read its hand. At three times the budget the pinning reasserts completely, and the only thing
+that varies is which constant — the attractor lottery.
+
+**Why more hands erase rather than build:** the mask and squash-removal work (padding row stops absorbing the
+learning, card rows move 9.5× further, D-78), but a card is addressed once or twice per decision, so 15,000 hands
+move a card row ~10⁻⁴ against a row scale of 0.55; meanwhile exploration decays to 0.05, so the longer run converges
+**harder** onto the constant and the short run's noise was exactly what produced the flicker.
+
+**Standing rule, re-learned:** a behavioural difference measured at the live budget must be re-measured at a longer
+budget before it is called a capability. The token encoding's card-blindness is now measured at 5,000 **and** 15,000
+hands, three seeds, two seatings, five hole sets, with the padding masked and the squash dropped.
