@@ -2097,3 +2097,30 @@ by a margin the cards do not enter. The card signal reaches the trunk; the decis
 **Practical consequence:** the **flat encoding is the only card-aware family** (D-71) and should carry any
 demonstration of card-dependent play. The token path needs a change that reaches the *decision*, not the
 representation — a different and larger piece of work than a pooling fix.
+
+---
+
+## D-78 — The card rows of the embedding barely move; D-77's 8.4× was the padding row
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "How different are the embeddings in the mean-real version"
+
+**Answer:** essentially not at all. Row-by-row cosine between the baseline and `mean-real` over the 52 card rows is
+**1.000000 (min and max), a turn of 0.01°**; the card rows moved max **1.2 × 10⁻⁵ → 7.7 × 10⁻⁵** (6.3×) while the
+**padding row moved 0.0056 → 0.0468 (8.4×)**. The whole-table difference I reported as "the embedding moves 8.4×"
+in D-77 was **the padding row**, not the cards.
+
+**Why:** the backward scatter writes to **every** addressed position, and 108 of 122 positions are padding. Raising
+every share 8.7× therefore inflates the row addressed 108 times per decision, while a card row addressed once or
+twice gains 6.3× from a negligible base.
+
+**Only the `masked-both` probe fixes the right row**: padding excluded from pool and scatter gives a padding-row
+movement of **exactly 0** and card-row movement of **1.2 × 10⁻⁴ (9.5×)** — which is still **0.02 %** of the initial
+row scale of 0.55.
+
+**Consequences:** (1) D-77's "trains 8.4× faster" is corrected to a padding artefact — the dilution is real and the
+remedy real, but the **absolute** card learning stays negligible, a second independent reason a 108-padding pooler
+cannot learn card identity in thousands of hands; (2) the behavioural null it reported stands, now with a much
+better explanation; (3) any future token work must **mask padding out of both passes and check the card rows
+specifically** — never the table-wide maximum, which is dominated by scaffolding.
