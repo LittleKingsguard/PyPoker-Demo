@@ -2295,3 +2295,27 @@ D-79's 89 %-padding pool was starving it.
 **information ceiling is 2.4 %** of a six-way outcome (D-83). The project's negatives are one problem — a small
 learnable signal delivered by a method too weak to extract it — and the supervised probability the user proposed is
 precisely the fix.
+
+---
+
+## D-85 — The tokens had not converged at 12 epochs; converged they reach 96 % of flat
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Did the tokens stop at convergence or were they still moving at the end of the run?"
+
+**Answer:** **still moving.** Traced to 40 epochs on the same data and split:
+
+- **flat one-hot**: converged by **epoch 16 at 2.45 %** of variance explained, then stationary (2.41–2.44 %, oscillating
+  ±0.00004) — the later epochs are noise.
+- **tokens**: at 12 epochs **still improving** — 2.07 % → **2.34 % by epoch 32**, embedding movement decaying 0.026 →
+  0.013 per epoch, then stationary.
+
+**Correction:** D-84's "88 % of flat" was a **12-epoch snapshot**; converged, the token path reaches **96 %**
+(2.34 against 2.45), a residual gap of **0.11 points of variance** and ~2× the epochs. The argument is unchanged in
+direction and stronger in size: the token representation comes within 4 % of the flat one's explanatory power on a
+task where learning succeeds, so the policy's card-blindness was never an embedding-capacity limit.
+
+**Method rule recorded:** a behaviour or a loss quoted without a convergence trace is a **snapshot mistaken for a
+ceiling** — the same class of error as quoting a behavioural difference from the live budget (D-82), and it cost a
+wrong number here within one turn of writing it.
