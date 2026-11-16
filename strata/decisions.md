@@ -2066,3 +2066,34 @@ moving card-dependence (D-67, D-72, D-73); this asks whether the representation 
 the recovered factor and the token arms should **start discriminating AA from 72o** in the loaded-deal probe — the
 test that has failed for every token model so far. If the embedding moves and the decisions still do not depend on
 the cards, the representation was not the only missing term and D-75's remedy list is incomplete.
+
+---
+
+## D-77 — The dilution remedies work on the embedding and leave behaviour unchanged
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Try the first three, in parallel, using the current best performing training
+combination from the flat encodings"
+
+**Executed as probes** (the declared axis needs three shipped assertions rev'd and a `src/training/` change, which
+L4 reported rather than shipping). Applied to the **torch** backend, which is R3's; patching numpy first produced
+four identical arms and was caught by comparing embeddings — a probe error, recorded.
+
+**The remedies work exactly as the arithmetic predicted:** embedding movement from initialization **0.0056 →
+0.0468 (8.4×)** for `mean-real` (predicted 8.7×), **0.0179 (3.2×)** for `no-squash` (predicted ≤ 2×), and
+`sum-pool` **diverges** past the 1e6 band (the 122× amplification). **D-75's dilution was real and is fixed.**
+
+**And behaviour does not move at all:** fold 93.0 / 92.7 / 93.0 / 93.1 % for today / `mean-real` / `no-squash`
+(masked-both); the loaded-deal probe returns **the same decision for AA, 72o and KQs in every arm** — `fold` in
+three, `raise-half` for `no-squash`. **Not one remedy makes the model treat aces differently from seven-deuce.**
+
+**The honest conclusion:** D-74/D-75 correctly explained the *slow learning* and were **wrong about the
+blindness**. D-75's remedy list is incomplete — the failure mode D-76 named before the run. What remains
+consistent with every measurement: the policy is set by the **exploration loop** (D-72: 93 % at ε_end 0.05, 0 % at
+ε_end 0.60), and inside that loop the risk terms make the six action values nearly equal, so the winner is decided
+by a margin the cards do not enter. The card signal reaches the trunk; the decision does not use it.
+
+**Practical consequence:** the **flat encoding is the only card-aware family** (D-71) and should carry any
+demonstration of card-dependent play. The token path needs a change that reaches the *decision*, not the
+representation — a different and larger piece of work than a pooling fix.
