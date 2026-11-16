@@ -2784,3 +2784,32 @@ this project that depends on the **opponents** rather than only on the cards.
 **Caveats:** the league is three checkpoints plus a scripted caller rather than the product's pool machinery, chosen
 for behavioural spread not strength; the probe is still not the product's learner; and seed 1 is **genuinely
 unresolved**, its ±5.3 interval straddling both the control and zero.
+
+---
+
+## D-102 — Authorising the strength input and supervised embedding seeding (the gate D-92 priced)
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Make that change, and also seed the card inputs to use the same learned embeddings as the
+strength model"
+
+**Gate (D-10):** passed by L1's design (`docs/L1/strength-design.md`, 473 lines) with **six recorded assumptions** —
+ASM-46 opt-in block (absence is byte-identical, so no checkpoint is reinterpreted), ASM-47 an **injected derived key**
+rather than a twelfth readout fact (the engine stays model-free), ASM-48 an eight-band idle ladder 102–109 with
+vocabulary 110, ASM-49 a **parameter-space** seed because a read-space seed needs `arctanh` which is undefined for
+`nn.Embedding` rows, ASM-50 format **version 6**, ASM-51 sources `attn-60` (default) and `attn-400`.
+
+**The design corrected two of my brief's claims, both important:** `IgnoredDeclaration` lives in
+`training/errors.py`, not `agents/errors.py`; and — materially — **the shipped token pooler is UNMASKED**
+(`numpy_backend.py:115-116`, `torch_backend.py:136-137`), so the mask of D-79/D-80 existed **only in my probes**. The
+product's token path still dilutes over 108 padding positions, and this change is therefore **forbidden from shipping
+a mask change alongside it** (D-3).
+
+**Authorised**: stages S1 (features block, opt-in), S2 (catalogue key, format v6, seeding API), S3 (card model +
+loop injection), then S4/S5 as measured runs. **Not authorised**: making the block unconditional, putting the model in
+`engine`, a seventh module, or a read-space seed.
+
+**Era boundary declared**: every prior `flat-numeric` (203/329/433) and `card-tokens` (40/82/122 over 96/102) result is
+**pre-strength** and may not be mixed with post-change runs; the card models themselves (`.probe/attn60.pt`,
+`attnconv.pt`) are frozen inputs and stay current.
