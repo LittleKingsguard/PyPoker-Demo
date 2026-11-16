@@ -2149,3 +2149,34 @@ learning signal** — which is exactly the per-row asymmetry D-78 measured (pad 
 **The fix is the mask, not the width:** keep 122 tokens, exclude pads from pool and scatter. The `masked-both`
 probe is that change and moved card rows 9.5×, still only 0.02 % of their scale in 5,000 hands — the second,
 separate limit D-78 recorded.
+
+---
+
+## D-80 — Masked token models: the first non-zero card sensitivity, narrow and fragile
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Rerun the last training test with a mask"
+
+**Result** (`stack-shortfall`, `card-tokens`, 5,000 hands × seed 0, padding masked out of pool **and** scatter):
+
+| arm | fold | pad-row movement | card-row movement | card-sensitive |
+|---|---|---|---|---|
+| **mask** | 93.1 % | **0.0 exactly** | 1.17 × 10⁻⁴ | **no** — every hand folds |
+| **mask + `no-squash`** | 89.5 % | **0.0 exactly** | 1.33 × 10⁻⁴ | **yes, weakly** |
+| mask + `sum-pool` | diverged past the 1e6 band | — | — | — |
+
+**The mask works**: the padding row moves exactly zero in both surviving arms, against 8.4× the card rows'
+movement without it (D-78).
+
+**The sensitivity, stated narrowly:** with mask + `no-squash`, five hole sets on one dry board give **two distinct
+action sequences at the opening seat** — `72o` separated from AA, KQs, 22 and 87s on the flop — and **one sequence
+at the big-blind seat**. It separates only the weakest hand, only on one street, only where folding is legal.
+
+**Why it is narrow:** both changes were necessary (the mask alone leaves every hand folding; `no-squash` alone
+changes the constant without discriminating), and the card rows still move only **1.3 × 10⁻⁴** against a row scale
+of 0.55 — 0.02 % — because a card is addressed once or twice per decision.
+
+**What it means:** the token representation **can** carry card information once the padding stops dominating it, so
+D-71/D-73/D-77's unanimous null is broken — and this is still not a card-aware agent. The flat encoding remains the
+only family that discriminates broadly (AA ≠ 72o, 3–7 of 8 board contrasts, D-71).
