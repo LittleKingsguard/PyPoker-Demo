@@ -2180,3 +2180,35 @@ of 0.55 — 0.02 % — because a card is addressed once or twice per decision.
 **What it means:** the token representation **can** carry card information once the padding stops dominating it, so
 D-71/D-73/D-77's unanimous null is broken — and this is still not a card-aware agent. The flat encoding remains the
 only family that discriminates broadly (AA ≠ 72o, 3–7 of 8 board contrasts, D-71).
+
+---
+
+## D-81 — Annealing from a hot start rescues nothing and erases the token flicker
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Run a pass with annealing behavior to start with very aggressive learning and tone
+down to current speed"
+
+**Run:** learning rate scheduled geometrically from **3 × 10⁻² to the declared 10⁻³** over the first 60 % of 5,000
+hands (verified in-run), at `stack-shortfall`, six seats, seed 0, on the flat baseline and on the token frontier
+(mask + `no-squash`).
+
+| arm | fold | fixed-rate record | card-dependent |
+|---|---|---|---|
+| **flat** | **91.3 %** | 78–87 % | **yes** — 2/5 opening, 3/5 big-blind |
+| **tokens** | **90.8 %** | 89.5 % | **no** — 1/5 both |
+
+**It helped neither arm and hurt one:** the fold share rose on both, and the token arm's single card-sensitivity
+(D-80: 72o separated at the opening seat) is **gone** — all five hands identical at both seats under annealing.
+
+**And what discrimination remained is not sound play:** the annealed flat model **folds AA** at the opening seat
+while shoving all-in with KQs — it reads the cards and reads them wrongly, a reminder that card-dependence is
+necessary for a poker agent and far from sufficient.
+
+**Why:** a 30× hotter start drives the first few hundred updates well above the usable `lr × reward-scale` window
+D-65 measured, moves the parameters a long way before the exploration ramp yields diverse experience, and lands in
+the attractor the annealed end cannot leave — the same rate D-72 showed pins the policy to fold on its own.
+
+**Conclusion:** annealing is not the missing mechanism. The pinning is the **exploration loop** (D-72) and the
+discrimination is the **representation** (D-79/D-80); a schedule over the learning rate touches neither.
