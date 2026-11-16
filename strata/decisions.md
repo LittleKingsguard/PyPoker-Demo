@@ -2410,3 +2410,34 @@ and unstable (flop 10.5 % → 4.3 % between epochs 20 and 60). Attention alone i
 sequence model clears it by a wide margin; (2) the supervised module should be **attention + positional embeddings**;
 (3) per D-85, 28.1 % is a **lower bound** — the turn and river figures were still rising at epoch 60. This also makes
 the user's original intuition concrete: **the board is a sequence, and a sequence model is what reads it.**
+
+---
+
+## D-89 — Positions add 2.2 points, attention adds 12.8; the relation between cards is the signal
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test token + positional embedding to see how much of a difference the attention layer
+made over just the positional input"
+
+**Result** (token embedding + positional embedding + masked mean, **no attention**, 17,305 parameters, 180 epochs):
+
+| variant | flop | turn | river | overall |
+|---|---|---|---|---|
+| tokens, mean, no positions | 8.8 % | 13.6 % | 16.8 % | **13.1 %** |
+| tokens, mean, **+ positions** | 10.0 % | 15.4 % | 20.6 % | **15.3 %** |
+| attention, no positions | 4.3 % | 14.9 % | 18.9 % | 12.7 % |
+| **attention + positions** | 17.4 % | 30.6 % | 36.3 % | **28.1 %** |
+
+**Positions alone: +2.2 points** (+17 %, concentrated on the later streets). **Attention alone: nothing** (12.7 %
+against 13.1 % — without positional signal it is permutation-invariant, like the mean pool it replaced). **Together:
++12.8 points over the positional mean** for the attention layer's own contribution — it **nearly doubles** the
+variance explained.
+
+**Why:** a positional mean can say *"the river is the 9♠ and I hold 9♥ 9♦"* but cannot **relate** them — pooling sums
+the slots, so a pair across cards is only an accident of arithmetic. Self-attention compares every slot with every
+other, so "the river paired my hole card" is directly expressible, and that relation is where the river's 36.3 % comes
+from.
+
+**Caveats:** the attention figure was still rising at 60 epochs, so **28.1 % is a lower bound** and the +12.8 gap is
+understated; the no-position attention run was unstable (flop 10.5 % → 4.3 % between epochs 20 and 60).
