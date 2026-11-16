@@ -2672,3 +2672,32 @@ representation and the policy reads hands.
 **What it does not establish:** that the judgement is *sound* — it shoves 87s while folding 22, which is variation, not
 skill; it is one run, one seed, and a hand-rolled semi-gradient step rather than the product's learner. The next step
 is the product's own rule with this input, across seeds, judged by the scenario battery.
+
+---
+
+## D-98 — Three card models, no performance difference, and card-dependence that tracks training not calibration
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Didn't the 400 checkpoint have bad error rates on middling-strength hands? Test play with
+multiple checkpoints at the same table and compare performance"
+
+**Result** (same policy head, 4,000 training hands, same opponents and seed; only the frozen card model differs):
+
+| card model | battery mean err | chips/hand (500 greedy) | distinct decisions |
+|---|---|---|---|
+| tok-60 | **11.9** | **+10.96 ± 7.16** | 2 / 5 |
+| tok-400 | **24.2** | +4.62 ± 7.59 | **5 / 5** |
+| onehot-200 | — | +2.64 ± 15.13 | 3 / 5 |
+
+**The premise is confirmed** — the 400-epoch model is the worst-calibrated of the three — but **its consequence is not
+worse play**: all three chip intervals overlap, so the calibration ranking does not translate into a resolvable
+difference at this sample size.
+
+**What does track is card-dependence**: the more-trained the card representation, the more the policy varies (2 → 5
+distinct of 5), while the *best-calibrated* arm is the least varied. So the integration buys **variation, not measured
+skill** — exactly the distinction D-97 flagged.
+
+**The lesson recorded:** at 500 evaluation hands, ±7–15 chips/hand is wider than any difference this integration
+produces, so performance claims here need a much larger sample — or none. What is measurable is **behaviour** (distinct
+decisions and the ablation that removes it).
