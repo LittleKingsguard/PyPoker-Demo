@@ -2494,3 +2494,29 @@ the training mean, the same effect D-83 saw on aces preflop.
 **Why the battery earns its place:** an aggregate R² of ~28 % coexists with a **34-point error on a specific hand**.
 The R² says the model learned something; the battery says exactly where it is wrong. Both are needed, and the
 battery is now the form of record for calibration claims, as the scenario suite (D-71) is for policy behaviour.
+
+---
+
+## D-92 — Copying the supervised embeddings into the policy changes nothing, because the policy ignores its input
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test on the 400-epoch model and then wire into the policy agent, using the predicted
+strength as an input and copying the learned card embeddings from the supervised run"
+
+**Part 1 — the embeddings, done:** the supervised model's 52 card rows (50 dims each) copied into a freshly trained
+product token policy learner and scored on the loaded-deal suite. **Both tables give 1 of 5 distinct decisions** —
+every hand `raise-quarter`, before and after. The copy is exact and the effect is nil, because **the policy is a
+constant function of its input** (D-82).
+
+**Part 2 — the strength input, not done, and why:** the six-seat observation is 122 ids (vocabulary 102) and the
+dense layout 433 slots, all fully allocated; a continuous strength needs a **tenth fact or an extra token band** — the
+surface change D-61 priced, requiring the gate (D-10) and the three pinned catalogue assertions (D-76).
+
+**The decisive consequence:** a constant decision rule fed a better representation still ignores it. **Wiring is worth
+doing only alongside the credit-assignment fix** — a supervised auxiliary target, or an exploration regime that keeps
+the other actions sampled (D-72) — because representation is not the binding limit (D-84) and credit assignment is.
+
+**Also recorded:** the 400-epoch attention run was relaunched with weight saving after the first attempt was found to
+save nothing; its battery re-score is the outstanding item, and the session's **disk exhaustion** (my probe artefacts
+plus unaccounted tmpfs use, 27 GB cleaned) truncated one script during the work.
