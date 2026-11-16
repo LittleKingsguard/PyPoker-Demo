@@ -2238,3 +2238,29 @@ move a card row ~10⁻⁴ against a row scale of 0.55; meanwhile exploration dec
 **Standing rule, re-learned:** a behavioural difference measured at the live budget must be re-measured at a longer
 budget before it is called a capability. The token encoding's card-blindness is now measured at 5,000 **and** 15,000
 hands, three seeds, two seatings, five hole sets, with the padding masked and the squash dropped.
+
+---
+
+## D-83 — A simplified equity model works, and its 2.4 % ceiling explains the policy failure
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Try a simplified model: instead of trying to game pass/raise/fold, try to estimate the
+odds that a hand will win in a six-player game, using just the cards. Later this probability can be fitted into the
+model if it proves more capable of learning"
+
+**Result:** a 34-input one-hot (rank + suit per hole card) into a 64-64 MLP, trained on **900,000 samples from
+150,000 random six-way deals**, learns the win probability: **most hands within 1–3 points of the empirical rate**
+(AA 44.7 against 52.2, KQs 29.6 against 29.8, 22 12.8 against 14.1, 72o 10.4 against 8.7), the ordering correct, and
+the **calibration curve close to the diagonal by decile**. **The network can estimate poker equity from cards** —
+precisely what it never managed for the policy.
+
+**And the same measurement sizes the original problem:** card identity explains **2.4 % of the variance** in a
+six-way win/lose outcome (held-out MSE 0.13004 against the constant predictor's 0.13325). The board and five unknown
+opponent hands account for the rest. That is the signal the value function was trying to bootstrap from — the same
+structure that left the action values nearly equal (D-72) and the game "nearly a coin flip".
+
+**On the proposed next step:** feeding this probability into the policy model is right and cheap, because it is a
+well-calibrated supervised estimate of exactly the quantity the value function estimates from noisy returns. Two
+caveats stated: it is **marginal over random opponents**, so it must be recomputed or conditioned for a real pool; and
+its 2.4 % ceiling means it should sharpen the **ranking** of hands, not make decisions profitable by itself.
