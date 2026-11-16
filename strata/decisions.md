@@ -2520,3 +2520,34 @@ the other actions sampled (D-72) — because representation is not the binding l
 **Also recorded:** the 400-epoch attention run was relaunched with weight saving after the first attempt was found to
 save nothing; its battery re-score is the outstanding item, and the session's **disk exhaustion** (my probe artefacts
 plus unaccounted tmpfs use, 27 GB cleaned) truncated one script during the work.
+
+---
+
+## D-93 — The attention card model converges at 40 % pooled and 52.8 % at the river
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test on the 400-epoch model and then wire into the policy agent…"
+
+**Result:** the attention + positional model at **400 epochs** — four times the longest previous run — with held-out
+figures every 40 epochs:
+
+| epoch | pooled | flop | turn | river |
+|---|---|---|---|---|
+| 60 | 28.14 % | 17.41 % | 30.58 % | 36.30 % |
+| 120 | 32.37 % | 18.13 % | 36.93 % | 41.91 % |
+| 240 | 35.58 % | 14.44 % | 43.91 % | 48.20 % |
+| 320 | 37.83 % | 16.24 % | 47.48 % | 49.60 % |
+| **360** | **40.16 %** (peak) | 17.66 % | 49.77 % | 52.86 % |
+| 400 | 39.99 % | 16.64 % | 50.32 % | **52.81 %** |
+
+**Converged**, with the last two checkpoints flat (−0.2) and the peak at epoch 360 — so this figure, unlike every
+earlier one in this line, is **not a lower bound**.
+
+**What the extra training bought:** **+7.6 points** from epoch 120 to 360, and it moved the *late* streets (river
+41.9 → 52.8, turn 36.9 → 49.8) while the **flop stalled first** (17.7 % peak, then drifting down) — the early street is
+where the information runs out, not where the optimiser is short of budget.
+
+**Outstanding:** the run that produced these numbers **saved no weights** (my checkpoint patch was lost when its
+launching job was killed), so the extremes battery is still scored against the 60-epoch model (D-91). A re-run with
+verified saving is in flight; its weights will carry the battery column and the policy-wiring re-test (D-92).
