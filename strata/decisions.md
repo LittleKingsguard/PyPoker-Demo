@@ -2701,3 +2701,31 @@ skill** — exactly the distinction D-97 flagged.
 **The lesson recorded:** at 500 evaluation hands, ±7–15 chips/hand is wider than any difference this integration
 produces, so performance claims here need a much larger sample — or none. What is measurable is **behaviour** (distinct
 decisions and the ablation that removes it).
+
+---
+
+## D-99 — Deep, seed-replicated: the card representation is worth +11.6 chips/hand with a clean ablation
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Do a deep run with the best-chips model"
+
+**Run:** the tok-60 card model frozen behind a policy head, **15,000 training + 2,000 greedy evaluation hands** per
+arm, six seats, **seeds 0–2 for both arms** — same head, facts, opponents and seed; only the card inputs ablated.
+
+| arm | seed 0 | seed 1 | seed 2 | mean | distinct |
+|---|---|---|---|---|---|
+| **card** | +14.26 ±4.58 | +10.10 ±4.70 | +10.53 ±4.15 | **+11.63** | 4 / 3 / 3 of 5 |
+| **zeroed** | −0.18 ±0.08 | −3.03 ±3.75 | −0.09 ±0.18 | **−1.10** | 1 / 1 / 1 of 5 |
+
+**Every card interval excludes every control point estimate** — the lowest card result is **+5.40** against the
+highest control **−0.09** — a **+12.7 chip/hand gap** with a seed spread of only 2.3. **Card-dependence replicates in
+all three card seeds and in none of the three controls.**
+
+**Mechanism, observed**: the card arm's census (seed 0) is `check-call` 45 %, `raise-minimum` 33 %, `raise-quarter`
+18 %, all-in 4 %, fold 0 % — it **raises into a mostly-folding table** and never folds, while the controls fold half
+or call everything. The representation lets the policy find the exploit the scripted opponents leave open.
+
+**What it does not establish:** good poker. The opponents are three scripted baselines, so the exploit is "raise at a
+table that folds", not equilibrium skill, and the judgement remains unsound (seed 1 folds KQs and 87s while shoving AA
+and 22). The next test is the same run against the **league pool** instead of the fixed scripts.

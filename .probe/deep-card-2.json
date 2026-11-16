@@ -1,0 +1,1 @@
+{"arm": "card", "seed": 2, "hands": 2000, "chips": 10.53, "ci": 4.147, "distinct": 3, "census": {"fold": 20.2, "raise-minimum": 18.0, "check-call": 53.1, "raise-all-in": 8.2, "raise-quarter": 0.5}, "table": {"AA": ["raise-all-in"], "KQs": ["fold"], "22": ["fold"], "87s": ["fold"], "72o": ["check-call", "check-call"]}}
