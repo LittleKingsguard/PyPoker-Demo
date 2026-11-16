@@ -2264,3 +2264,34 @@ structure that left the action values nearly equal (D-72) and the game "nearly a
 well-calibrated supervised estimate of exactly the quantity the value function estimates from noisy returns. Two
 caveats stated: it is **marginal over random opponents**, so it must be recomputed or conditioned for a real pool; and
 its 2.4 % ceiling means it should sharpen the **ranking** of hands, not make decisions profitable by itself.
+
+---
+
+## D-84 — The token path learns equity; the policy failure is credit assignment, not representation
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Try tokenized card training"
+
+**Result:** D-83's supervised task through the **token architecture** — two card ids → embedding (53 × 50) → mean over
+the two real rows → 64-64 trunk → sigmoid, same data and split, **no padding in play**:
+
+| representation | R² over the constant | AA (empirical 52.2) |
+|---|---|---|
+| flat one-hot (34) | **2.41 %** | 44.7 |
+| **tokens, no squash** | **2.13 %** (= 88 % of flat) | 40.9 |
+| tokens + squash | 1.73 % | 32.8 |
+
+**The token representation learns poker equity from cards** — correct ordering, calibration tracking the diagonal —
+so its inability to read its hand in the policy runs is **not a representational limit**. It is the
+**credit-assignment problem** of the policy task, which a supervised target removes.
+
+**Two secondary findings:** the **squash costs a third** of the explanatory power (2.13 → 1.73 %, aces 40.9 → 32.8),
+confirming D-77's `no-squash` remedy on a task where learning succeeds; and **the padding pathology was an
+implementation bug, not a token property** — with two real tokens and no padding, the same embedding learns, so
+D-79's 89 %-padding pool was starving it.
+
+**The completed picture:** representation is **not** the binding limit; **credit assignment** is; and the
+**information ceiling is 2.4 %** of a six-way outcome (D-83). The project's negatives are one problem — a small
+learnable signal delivered by a method too weak to extract it — and the supervised probability the user proposed is
+precisely the fix.
