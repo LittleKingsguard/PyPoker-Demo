@@ -2729,3 +2729,27 @@ or call everything. The representation lets the policy find the exploit the scri
 **What it does not establish:** good poker. The opponents are three scripted baselines, so the exploit is "raise at a
 table that folds", not equilibrium skill, and the judgement remains unsound (seed 1 folds KQs and 87s while shoving AA
 and 22). The next test is the same run against the **league pool** instead of the fixed scripts.
+
+---
+
+## D-100 — A GPU would not speed the integration up; 99 % of its cost is the probe's own overhead
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Could the training be run faster if the attention-model used for input was run on the GPU?"
+
+**Answer: no, for two independent reasons.**
+
+1. **No GPU is reachable here**: `torch 2.13.0+rocm7.1` is installed but `torch.cuda.is_available()` is **False** in
+   this environment — the sandbox denies `/dev/kfd` and `/dev/dri/renderD128` (D-17).
+2. **The card model is 0.2 % of the cost anyway**: the engine is **14.3 ms/hand**, the card-model forward
+   **3.9 ms/hand** (197 µs × 20 decisions), and the deep arm's actual cost **~2,100 ms/hand** — so **99 % is the
+   probe's own Python plumbing** (per-decision tensor assembly, backward pass and Adam step).
+
+**And per-sample GPU work would be slower**: the model is 57 k parameters, so at batch 1 CPU needs **197 µs** while
+batch 512 needs **5.0 µs per sample** — batching is the 40× lever, and a GPU at batch 1 is the worst case for it.
+Play is sequential, so a hand's decisions cannot be batched ahead.
+
+**The speed-ups that do exist, none needing a GPU:** use the **product's learner** (0.19 s/hand measured, a 10×
+gain); take **one update per hand or street** instead of per decision; keep the **process-level parallelism** the
+six-arm run used; and batch the card model over a hand's decision points only if the hand is replayed afterwards.
