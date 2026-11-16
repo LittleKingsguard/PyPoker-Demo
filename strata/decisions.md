@@ -2469,3 +2469,28 @@ while still rising.
 **still gaining +1.3 points per twenty epochs** — so a 400-epoch run is in flight and **32.4 % is a lower bound**. The
 presentation record carries the trajectory table rather than a single figure, per the rule this project keeps
 re-learning.
+
+---
+
+## D-91 — Battery at the extremes: the model orders hands well and compresses the strong ones
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Make a test battery that contains scenarios where the model has the best- (ex. paired
+pocket cards --> highest 3-kind with no flush/straight possible) or worst-possible hand (lowest unpaired cards, no
+flush/straight)"
+
+**Built:** eight loaded states at the extremes — quad aces, nut flush, ace-high straight, trip aces, a dry pair of
+kings, and three junk hands (2-3 and 2-7 offsuit, one against an all-high board) — each **verified programmatically**
+for the property it claims (no flush possible, no straight possible), with ground truth from 20,000-draw Monte Carlo
+over five random opponents. Script: `.probe/extremes.py` (scenarios + truth), `.probe/extremes_model.py` (scoring).
+
+**Result:** truth spans **0.00 % to 100 %**; the attention card model (60 epochs) achieves **rank correlation
+ρ = 0.976** — the ordering is nearly perfect — with errors split by region: hands below **1 %** true equity carry a
+mean error of **0.09 points**, hands above **40 %** carry **19.0 points**. The two worst misses are the ace-high
+straight (−33.8) and a dry pair of kings (−33.1), and **every strong hand is under-predicted** — compression toward
+the training mean, the same effect D-83 saw on aces preflop.
+
+**Why the battery earns its place:** an aggregate R² of ~28 % coexists with a **34-point error on a specific hand**.
+The R² says the model learned something; the battery says exactly where it is wrong. Both are needed, and the
+battery is now the form of record for calibration claims, as the scenario suite (D-71) is for policy behaviour.
