@@ -2616,3 +2616,33 @@ modelling claim that used an aggregate should be read as provisional until a sce
 
 **The fix it earns:** train on a **continuous target** (Monte-Carlo equity per sample) rather than a binary outcome, so
 the model must regress the conditional probability instead of classifying the majority outcome.
+
+---
+
+## D-96 — Attention works on the one-hot encoding too; the learned embedding buys the ceiling
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Can the attention mechanism be tested on the one-hot flat encoding?"
+
+**Answer:** yes. Each 17-dim card one-hot is projected by `Linear(17 → 50)`, a positional embedding is added, and the
+same attention stack follows (55,847 parameters against 57,597):
+
+| epochs | one-hot + attention | tokens + attention |
+|---|---|---|
+| 40–60 | **29.3 %** (slightly ahead) | 28.1 % |
+| 80 | 29.43 % — **peak** | 30.58 % |
+| 120 | 29.09 % | 32.37 % |
+| 200 | **27.08 %** — declining | 34.09 % |
+| 400 | — | **40.0 %** |
+
+**Attention does not require a learned embedding** — early on the one-hot version is competitive and marginally ahead.
+But it **peaks at 29.4 % around epoch 80 and then degrades** while the token version keeps climbing to 40 %: the
+learned embedding buys **late-training capacity** (52 free vectors against a projection that must share weights
+across all seven positions).
+
+**The honest form of the "tokenise the cards" claim:** the embedding is **not needed for the mechanism** (attention +
+positions alone reach ~29 %) and **is needed for the ceiling** (it is what keeps the model improving past 30 %).
+
+**Caveat:** the one-hot arm was **declining** at 200 epochs, so its 27.1 % is a settled decline rather than an
+unfinished climb — the opposite of every other curve in this line (D-85).
