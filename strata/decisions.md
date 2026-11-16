@@ -2646,3 +2646,29 @@ positions alone reach ~29 %) and **is needed for the ceiling** (it is what keeps
 
 **Caveat:** the one-hot arm was **declining** at 200 epochs, so its 27.1 % is a settled decline rather than an
 unfinished climb — the opposite of every other curve in this line (D-85).
+
+---
+
+## D-97 — Integrating the supervised representation gives the project's first card-dependent policy
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "move on to integrating the best-performing checkpoint of the tokenized attention model
+into the policy model, feeding in the probability estimate from the supervised model and copying over the learned card
+embeddings"
+
+**Result:** a policy head taking the card model's **pooled representation (50)** + **probability (1)** + five table
+facts, trained by masked-Q on the terminal chip reward (six seats, 4,000 hands, frozen epoch-400 card model) produces
+**2 of 5 distinct decisions** on the loaded-deal suite: `raise-all-in` for AA, KQs and 87s; `fold` for 22 and 72o.
+
+**The control:** the identical run with the card inputs **zeroed** gives **1 of 5** — every hand `fold`. So the
+discrimination comes from the supervised representation, not from the table facts, the opponents or the optimisation
+noise.
+
+**This is the first card-dependent policy in the project** — seven previous experiments (D-71, D-73, D-77, D-82, D-92)
+all reported one action for every hand — and it makes D-84's two-layer diagnosis **actionable**: supply a card
+representation and the policy reads hands.
+
+**What it does not establish:** that the judgement is *sound* — it shoves 87s while folding 22, which is variation, not
+skill; it is one run, one seed, and a hand-rolled semi-gradient step rather than the product's learner. The next step
+is the product's own rule with this input, across seeds, judged by the scenario battery.

@@ -26,13 +26,3 @@ target 1.0 win / 1/n tie / 0.0 loss, cross-entropy, Adam 1e-3, batch 4,096.
 | 6 (turn) | **30.6 %** | flat one-hot | 20,929 | 20.4 % |
 | 7 (river) | **36.3 %** | **positions + attention** | **57,597** | **28.1 %** |
 | pooled | **28.1 %** | | | |
-## For the presentation
-- **Say**: cards explain **2.4 %** of a six-way outcome preflop and **36 %** at the river — the signal arrives with
-  the board — and the sequence model reads it **38 % better** than a flat encoding once relations between cards are
-  expressible.
-- **Say**: it is **calibrated**, not merely ordered — predicted deciles track empirical win rates at every street
-  (river 1.1 → 61.6 %).
-- **Do not say** it is a poker agent: no legal mask, no action head, and its target integrates over **random**
-  opponents rather than the league's folders and raisers.
-- **Do not say** these are ceilings: the attention model was still gaining **+1.3 points per twenty epochs** at 120,
-  so 32.4 % is a **lower bound** and a longer run is in flight (D-85's rule — the curve, never the point).
