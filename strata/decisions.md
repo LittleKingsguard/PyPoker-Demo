@@ -2319,3 +2319,34 @@ task where learning succeeds, so the policy's card-blindness was never an embedd
 **Method rule recorded:** a behaviour or a loss quoted without a convergence trace is a **snapshot mistaken for a
 ceiling** — the same class of error as quoting a behavioural difference from the live budget (D-82), and it cost a
 wrong number here within one turn of writing it.
+
+---
+
+## D-86 — Supervised equity with the board known: 2.4 % → 26 % of variance as the board arrives
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Expand the supervised set to include community state at 3, 4, and all 5 known cards"
+
+**Result:** 40,000 six-way deals → **720,000 samples** (240,000 at each of flop/turn/river), 119 one-hot inputs
+(2 hole + up to 5 board), 96-96 trunk, 60 epochs, 85/15 split:
+
+| known cards | variance explained | calibration 1 → 10 |
+|---|---|---|
+| 2 (preflop) | **2.4 %** | 10.8 → 28.3 |
+| 5 (flop) | **14.4 %** | 3.3 → 49.9 |
+| 6 (turn) | **20.9 %** | 2.0 → 56.3 |
+| 7 (river) | **26.0 %** | 1.1 → 61.6 |
+
+**Every added board card multiplies the signal** — an eleven-fold rise from the preflop view to the river — and the
+calibration curve is monotone and near-diagonal at every street, so these are usable probabilities, not just
+orderings.
+
+**Per D-85: the river figure was still creeping** (25.11 → 25.72 → 25.98 over the last three checkpoints), so 26.0 % is
+a **lower bound** and the flop's 14.4 % is the least converged of the three.
+
+**What it settles for the policy question:** the card signal available to a decision **depends on the street**, and the
+spread is large — preflop, where every learned policy in this project collapsed to one action, cards explain **2.4 %**;
+by the river, **26 %**. So the uniform preflop behaviour is both a credit-assignment failure (D-84) and the street with
+the least to learn from, while the postflop streets the folding policies never reached carry ten times as much. **The
+supervised estimate is worth feeding in, and most where the policy has least to go on.**
