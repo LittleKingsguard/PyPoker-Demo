@@ -2551,3 +2551,36 @@ where the information runs out, not where the optimiser is short of budget.
 **Outstanding:** the run that produced these numbers **saved no weights** (my checkpoint patch was lost when its
 launching job was killed), so the extremes battery is still scored against the 60-epoch model (D-91). A re-run with
 verified saving is in flight; its weights will carry the battery column and the policy-wiring re-test (D-92).
+
+---
+
+## D-94 — At epoch 280 the battery is exact at the poles and 23 points off in the strong region
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test on the 400-epoch model…"
+
+**Result:** the extremes battery re-scored against the **epoch-280** checkpoint, identified by its held-out figures
+matching that row exactly (35.21 / 13.70 / 44.66 / 47.08 %):
+
+| scenario | truth | model | error |
+|---|---|---|---|
+| quad aces | 100.00 % | **99.95 %** | −0.05 |
+| nut flush | 100.00 % | **99.91 %** | −0.09 |
+| ace-high straight | 97.77 % | 46.66 % | **−51.11** |
+| trip aces | 91.84 % | 69.80 % | −22.04 |
+| pair of kings, dry | 45.07 % | **4.24 %** | **−40.83** |
+| 2-3 / 2-7 junk, and 2-3 all-high | 0.00–0.02 % | 0.00–0.77 % | ≤ 0.75 |
+
+**Mean |error| 14.4 points; 22.8 in the strong region; 0.26 at the floor.**
+
+**What the extra epochs did:** the two *unbeatable* hands improved to within a tenth of a point and the junk floor is
+exact, while the hands **in between got worse** — a dry pair of kings at 4 % against a true 45 %, an ace-high straight
+at 47 % against 98 %.
+
+**Cause:** the supervised target is **binary**, and in a six-way pot a non-nut strong hand wins a minority of
+showdowns while a nut hand wins them all. Cross-entropy on that label pulls the **poles** to their exact values and
+leaves the middle compressed — which is what a 22.8-point error beside a 0.26-point error looks like.
+
+**Next:** re-scored on the converged (400-epoch) weights when they land, and — the substantive fix — a **continuous
+target** (Monte-Carlo equity per sample) instead of a binary outcome, which gives the middle of the range a signal.
