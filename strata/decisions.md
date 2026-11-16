@@ -2350,3 +2350,33 @@ spread is large — preflop, where every learned policy in this project collapse
 by the river, **26 %**. So the uniform preflop behaviour is both a credit-assignment failure (D-84) and the street with
 the least to learn from, while the postflop streets the folding policies never reached carry ten times as much. **The
 supervised estimate is worth feeding in, and most where the policy has least to go on.**
+
+---
+
+## D-87 — Embeddings on the street task reach 65 % of flat; the mean pool destroys board position
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test with embeddings"
+
+**Result:** D-86's 720,000-sample three-street data through the token architecture (up to 7 card ids → embedding 53 ×
+50 → **masked mean** → 96-96 trunk, 16,955 parameters), taken to **180 epochs** so it is compared at convergence:
+
+| representation | flop | turn | river | overall |
+|---|---|---|---|---|
+| **flat one-hot** | **14.4 %** | **20.9 %** | **26.0 %** | **20.4 %** |
+| **tokens, masked mean** | 8.8 % | 13.6 % | 16.8 % | **13.1 %** |
+| tokens + squash | 4.2 % | 4.6 % | 5.3 % | 4.7 % (still climbing) |
+
+**65 % of the flat encoding's explanatory power**, with the deficit growing as state is added — against **96 %** on the
+two-card task (D-85).
+
+**Cause:** `mean over rows` is **permutation-invariant**, which is right for two hole cards and wrong for a board,
+where **slot position carries information** — the pooled vector cannot tell the turn from a flop card, nor which card
+is the river, nor distinguish "the river paired my hole" from "a flop card did". The flat encoding preserves that by
+construction.
+
+**Consequences:** (1) **the squash costs most of the signal again** (4.7 % against 13.1 % at equal epochs); (2) **D-84's
+"the embedding is not the limit" is task-specific** — it holds where position does not matter, and a poker board is
+where it does; (3) **the flat encoding is the right choice for any board-aware module today**, and a token path needs
+positional embeddings, per-slot pools or attention before it can compete.
