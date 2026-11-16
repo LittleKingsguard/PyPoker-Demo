@@ -2124,3 +2124,28 @@ remedy real, but the **absolute** card learning stays negligible, a second indep
 cannot learn card identity in thousands of hands; (2) the behavioural null it reported stands, now with a much
 better explanation; (3) any future token work must **mask padding out of both passes and check the card rows
 specifically** — never the table-wide maximum, which is dominated by scaffolding.
+
+---
+
+## D-79 — The padding is pre-allocated worst-case capacity; the missing mask is the defect
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "What are the padding rows for?"
+
+**Answer:** the observation is a **fixed-width sequence** — every decision on every street must produce the same
+tensor — so its width fits the **worst case** and the unused remainder is filled with the pad id 0. At six seats
+that width is 122: **24 tokens before the history** (street 1, seat block 6, hole 2, board 5, stacks 6, `pot` 1,
+`to_call` 1, `limit` 2) plus a **98-token history block** sized for the longest legal hand at this shape.
+
+**Measured on a preflop decision: 14 real, 108 pad — 89 %.** The history block is the bulk of it (zero entries
+preflop, a handful even in a long hand), and the board's five slots are empty until cards are dealt.
+
+**The padding is correct; the mask is missing.** A fixed width is ordinary sequence practice and its standard
+companion is a mask. This project pools `rows.mean(dim=0)` over all 122 positions and scatters the gradient to all
+108 pad positions, so **89 % of the trunk's input is one constant vector and the pad row absorbs most of the
+learning signal** — which is exactly the per-row asymmetry D-78 measured (pad row 8.4×, card rows 0.01°).
+
+**The fix is the mask, not the width:** keep 122 tokens, exclude pads from pool and scatter. The `masked-both`
+probe is that change and moved card rows 9.5×, still only 0.02 % of their scale in 5,000 hands — the second,
+separate limit D-78 recorded.
