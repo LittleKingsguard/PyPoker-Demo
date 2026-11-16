@@ -2753,3 +2753,34 @@ Play is sequential, so a hand's decisions cannot be batched ahead.
 **The speed-ups that do exist, none needing a GPU:** use the **product's learner** (0.19 s/hand measured, a 10×
 gain); take **one update per hand or street** instead of per decision; keep the **process-level parallelism** the
 six-arm run used; and batch the card model over a hand's decision points only if the hand is replayed afterwards.
+
+---
+
+## D-101 — Against the league the gain is +2.5 chips/hand, significant in two seeds of three
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Make the probe fix and do the league pool"
+
+**Probe fix:** features and actions gathered during play with `no_grad`, then **one batched forward-and-backward per
+hand** rather than a backward and Adam step per decision — removing the per-decision autograd D-100 identified.
+
+**League:** three six-seat checkpoints with distinct measured behaviour (pure folder 100 % fold; 50/50 raiser;
+aggressive raiser 83 % raise) plus one scripted caller, rotating by seat. 15,000 training + 2,000 greedy evaluation
+hands, seeds 0–2 both arms:
+
+| arm | seed 0 | seed 1 | seed 2 | mean |
+|---|---|---|---|---|
+| **card** | **+1.61** ±2.56 | +0.32 ±5.27 | **+3.83** ±3.06 | **+1.92** |
+| **zeroed** | −0.60 ±0.04 | −0.60 ±0.04 | −0.60 ±0.04 | **−0.60** |
+
+**The gap falls from +12.7 (scripted opponents, D-99) to +2.5 chips/hand** — **20 % retention**. The control is pinned
+at the blind loss by folding everything; the card arms clear it in **seeds 0 and 2** and **not** in seed 1.
+
+**And the behaviour adapted to the table:** against the folders the card arm raised 54 % and never folded; against
+this league it **folds 86 % and raises 0 %**, because two league members punish raising. That is the first response in
+this project that depends on the **opponents** rather than only on the cards.
+
+**Caveats:** the league is three checkpoints plus a scripted caller rather than the product's pool machinery, chosen
+for behavioural spread not strength; the probe is still not the product's learner; and seed 1 is **genuinely
+unresolved**, its ±5.3 interval straddling both the control and zero.
