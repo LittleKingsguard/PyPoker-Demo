@@ -2584,3 +2584,35 @@ leaves the middle compressed — which is what a 22.8-point error beside a 0.26-
 
 **Next:** re-scored on the converged (400-epoch) weights when they land, and — the substantive fix — a **continuous
 target** (Monte-Carlo equity per sample) instead of a binary outcome, which gives the middle of the range a signal.
+
+---
+
+## D-95 — At convergence the pooled R² rose to 40 % and the battery's error rose to 24 points
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test on the 400-epoch model…"
+
+**Result:** the extremes battery at the three checkpoints:
+
+| model | pooled R² | straight (truth 97.8) | trip aces (91.8) | KK dry (45.1) | mean abs error |
+|---|---|---|---|---|---|
+| 60 ep | 28.1 % | 63.94 | 70.60 | 12.01 | **11.90** |
+| 280 ep | 35.2 % | 46.66 | 69.80 | 4.24 | 14.36 |
+| **400 ep** | **40.0 %** | **11.21** | **2.71** | 28.03 | **24.22** |
+
+**The two curves move in opposite directions:** pooled variance explained **rises 28 → 40 %** while mean absolute
+error on the battery **rises 12 → 24 points**. At convergence the model predicts **2.71 %** for trip aces with a true
+equity of **91.84 %** — an 89-point error on a near-lock — and ~100 % only for the two *unbeatable* hands: it has
+become a **threshold detector of locks**, not an equity estimator.
+
+**Why both are true:** the target is **binary**, and pooled R² rewards the bulk of the distribution (most samples sit
+near the 1/6 base rate). Cross-entropy resolves each non-nut hand's mixed labels by pushing the output to an extreme
+and letting the average absorb the error.
+
+**Consequence for the record:** this is the clearest demonstration in the project that **an aggregate metric can hide a
+severe local regression** — the same lesson as D-82 and D-85, now with an 89-point example. Every behavioural or
+modelling claim that used an aggregate should be read as provisional until a scenario battery checks it.
+
+**The fix it earns:** train on a **continuous target** (Monte-Carlo equity per sample) rather than a binary outcome, so
+the model must regress the conditional probability instead of classifying the majority outcome.
