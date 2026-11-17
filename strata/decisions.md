@@ -3019,3 +3019,36 @@ raisers, losing **−9.97** chips/hand, sixteen times the blind.
 
 **The corrected answer:** with a live trunk the agent **never goes to the reveal**; it folds to any bet and keeps the
 blind loss.
+
+---
+
+## D-110 — The unmasked pooler is the cause: diluted input reproduces the product's exact failure
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Closes:** D-104, D-109
+
+**Source (user, verbatim):** "Run that test" — the equal-budget probe-vs-product comparison with a live trunk and a
+non-degenerate credit signal.
+
+**Result** (15,000 hands, same league, same seed, live trunk):
+
+| probe's card input | chips/hand | fold when facing a bet | census |
+|---|---|---|---|
+| **the product's pooler (diluted)** | **−0.600 ±0.04** | **100.0 %** | **fold 100 %** |
+| the probe's own pooled representation (masked) | −0.22 ±6.98 | 2.3 % | call 97.7 % |
+| *the product's own control arm* | −0.600 ±0.04 | 100.0 % | fold 100 % |
+
+**The diluted probe reproduces the product to three decimals** (−0.600 against −0.600, fold 100 % against fold 100 %)
+while the same probe undiluted behaves completely differently.
+
+**So the probe/product difference is not the target** (a TD-style probe arm scored higher than the Monte-Carlo one,
++7.11 against +4.93), **not the utility**, and **not the trunk** (live in both: 22/50 product, 34/64 probe). **It is the
+pooler**: 108 of 123 token positions are padding, so cards reach the trunk at ~**12 % amplitude**, the policy cannot
+separate hands, and ε → 0.05 locks whichever corner the early updates reach (D-72).
+
+**Caveat:** the masked probe arm is unstable across hand seeds (fold 61 % in one run, call 97.7 % in another), so the
+claim is not "the probe works" — it is that **the diluted input reproduces the product's exact failure**, which
+identifies the mechanism.
+
+**The change this earns:** **mask the product's token pooler** (D-79's remedy), which the strength change was forbidden
+from shipping alongside (D-3). With the trunk already revived at `net-chips-normalised`, it is now the single
+highest-value change in the project.

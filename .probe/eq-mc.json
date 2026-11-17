@@ -1,0 +1,1 @@
+{"mode": "mc", "train": 15000, "chips": 4.934, "ci": 4.29, "showdown": 0.0, "fold_facing": 61.3, "fold_not_facing": 0.0, "census": {"fold": 61.3, "check-call": 38.7}, "trunk_alive_l1": 34, "units": 64, "distinct_acts": 126}

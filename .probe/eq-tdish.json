@@ -1,0 +1,1 @@
+{"mode": "tdish", "train": 15000, "chips": 7.109, "ci": 5.143, "showdown": 0.0, "fold_facing": 47.5, "fold_not_facing": 0.0, "census": {"check-call": 52.4, "fold": 47.5, "raise-half": 0.0}, "trunk_alive_l1": 28, "units": 64, "distinct_acts": 128}
