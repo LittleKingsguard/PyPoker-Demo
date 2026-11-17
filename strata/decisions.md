@@ -2991,3 +2991,31 @@ probe's chip reward and reproduced the defect on three of the last four records.
 measurement of a **constant-action** policy; D-104 is correct but non-informative, because with a dead trunk no input
 can matter. D-106 is unaffected (its members were trained independently, two of three normalised). The same 15,000-hand
 comparison at `net-chips-normalised` is in flight and re-opens all three questions.
+
+---
+
+## D-109 — With a live trunk the policy folds to every bet; the strength input makes it worse
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Corrects:** D-107 · **Supersedes:** D-104
+
+**Source (user, verbatim):** "Did it die at the trunk again?" — answered yes (D-108), then the same comparison re-run at
+the trunk-reviving utility.
+
+| configuration | trunk alive | fold when facing a bet | showdown | chips/hand |
+|---|---|---|---|---|
+| `net-chips` 15k (D-107's) | **0/50 · 0/50** | 0 % | — | −0.600 |
+| **`net-chips-normalised` control** | **22/50 · 23/50** | **100 %** | **0.0 %** | −0.600 |
+| **`net-chips-normalised` strength + seeded** | live | **83 %** (raises 15 %) | **0.0 %** | **−9.97 ±0.88** |
+
+**Two corrections.** (1) **My showdown measure was wrong**: the record's `reveal` field is always present (the cards
+shown to the agent, not a showdown flag), so D-107's "100 % reached the reveal" was measuring nothing; the correct
+measure is `reveal["showdown"]`, and the live policy reaches it in **0.0 %** of hands. (2) **D-107's behaviour was the
+dead trunk**: with a live trunk the policy **folds to every bet** and never shows down — D-72's fold pinning confirmed
+on a policy that can see its input.
+
+**D-104 superseded:** with a dead trunk the strength input could not matter; **with a live trunk it does, and its effect
+is harmful** — it converts a folding policy into one that raises half-pot 15 % of the time into a league containing
+raisers, losing **−9.97** chips/hand, sixteen times the blind.
+
+**The corrected answer:** with a live trunk the agent **never goes to the reveal**; it folds to any bet and keeps the
+blind loss.
