@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lorem Ipsum Poker Deck — demo talk deck</title>
+<style>
+/* ==========================================================================
+   presentation/index.html — the talk deck (D-118, docs/presentation/design.md)
+   One file: inline CSS + JS, no network request of any kind.
+   Design surface: 1280x720.  44 + 1192 + 44 = 1280.  44 + 568 + 24 + 40 + 44 = 720.
+   ========================================================================== */
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+/* --- section 3: theme tokens (one :root owns every value) ----------------- */
+:root {
+  --felt-1: #12523a;
+  --felt-2: #0b3a29;
+  --felt-3: #061f16;
+  --scene: radial-gradient(120% 90% at 50% 40%, var(--felt-1) 0%, var(--felt-2) 55%, var(--felt-3) 100%);
+  --weave:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, rgba(255, 255, 255, 0) 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, .05) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+  --rail-hi: #e0b667;
+  --rail: #c99a3e;
+  --rail-lo: #7a5a1e;
+  --gold: #e8c368;
+  --gold-dim: #b99a52;
+  --card-face: #f7f2e6;
+  --card-edge: #d8cdb4;
+  --ink: #1b2a25;
+  --ink-muted: #4a5b52;
+  --suit-red: #a3231f;
+  --status-a: #0072B2;
+  --status-b: #D55E00;
+  --shadow: rgba(3, 14, 10, .45);
+  --card-shadow: 0 16px 32px var(--shadow), 0 1px 0 rgba(255, 255, 255, .85) inset, inset 0 0 0 2px rgba(201, 154, 62, .55);
+  --radius: 18px;
+  --pad: 28px;
+
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", "Liberation Serif", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --fs-display: 72px; --lh-display: 80px; --ls-display: -.5px;
+  --fs-quote: 48px;   --lh-quote: 60px;   --ls-quote: 0px;
+  --fs-h1: 56px;      --lh-h1: 64px;      --ls-h1: -.25px;
+  --fs-h2: 40px;      --lh-h2: 48px;      --ls-h2: 0px;
+  --fs-h3: 28px;      --lh-h3: 36px;      --ls-h3: 0px;
+  --fs-body: 28px;    --lh-body: 38px;    --ls-body: 0px;
+  --fs-small: 20px;   --lh-small: 28px;   --ls-small: .5px;
+  --fs-badge: 18px;   --lh-badge: 24px;   --ls-badge: 1.5px;
+
+  --scale: 1;
+}
+
+/* --- section 2: the stage ------------------------------------------------- */
+body {
+  width: 1280px;
+  background-color: var(--felt-3);
+  background-image: var(--weave), var(--scene);
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+html { background-color: var(--felt-3); }   /* canvas: felt, never a white bar */
+
+#stage {
+  position: relative;
+  width: 1280px;
+  padding: 44px;
+  background-color: var(--felt-3);
+  background-image: var(--weave), var(--scene);
+  transform-origin: 50% 50%;
+}
+
+/* Every scaling / fixed / clipped / single-slide rule lives under html.js, so
+   with JS off the base CSS below stays a readable stacked document. */
+html.js { height: 100%; }
+html.js body { width: auto; height: 100%; padding: 0; overflow: hidden; }
+
+html.js #stage {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  height: 720px;
+  margin-left: -640px;
+  margin-top: -360px;
+  transform: scale(var(--scale));
+  overflow: hidden;
+}
+
+/* table rail: 12px ring at inset 22px, radius 36px, brass */
+.rail {
+  position: absolute;
+  inset: 22px;
+  border-radius: 36px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 12px var(--rail),
+    0 0 0 13px var(--rail-lo),
+    0 0 0 1px var(--rail-hi) inset,
+    inset 0 0 40px var(--shadow);
+}
+
+/* --- section 2/4: deck, slide, card -------------------------------------- */
+.deck { position: relative; width: 1192px; }
+html.js .deck { height: 568px; }
+
+.slide {
+  position: relative;
+  display: block;
+  width: 1192px;
+  height: 568px;
+  margin: 0 0 24px;
+}
+html.js .slide { display: none; margin: 0; }
+html.js .slide[data-active] { display: block; }
+/* 320ms opacity / 8px-translate enter, only on a real navigation: the first
+   painted slide is never animated, so a load renders fully opaque */
+html.js .slide[data-active].is-entering { animation: slide-enter 320ms ease-out both; }
+html.no-motion .slide[data-active].is-entering { animation: none; }
+
+.card {
+  position: absolute;
+  border-radius: var(--radius);
+  padding: var(--pad);
+  background: var(--card-face);
+  box-shadow: var(--card-shadow);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+/* the overflow guarantee: the card clips, and every block inside clips itself */
+html.js .card { overflow: hidden; }
+html.js .card > *:not(.suit) { overflow: hidden; }
+/* the fixed-height boxes one level deeper than .card clip themselves; a cell's height is only a minimum, so its line is one line */
+html.js #s3 .a-body .t-list li,
+html.js #s4 .a-side .t-group p,
+html.js #s4 .a-wide .t-table th,
+html.js #s4 .a-wide .t-table td { overflow: hidden; }
+html.js #s4 .a-wide .t-table th,
+html.js #s4 .a-wide .t-table td { white-space: nowrap; }
+
+/* section 4: area classes, in literal px inside the 1192x568 slide box */
+.a-hero        { left: 0;    top: 0;   width: 1192px; height: 568px; } /* inner 1136x512 */
+.a-lead        { left: 0;    top: 0;   width: 1192px; height: 236px; } /* inner 1136x180 */
+.a-body        { left: 0;    top: 260px; width: 1192px; height: 308px; } /* 236+24 = 260; inner 1136x252 */
+.a-wide        { left: 0;    top: 0;   width: 776px;  height: 568px; } /* inner 720x512 */
+.a-side        { left: 800px; top: 0;  width: 392px;  height: 568px; } /* 776+24 = 800; inner 336x512 */
+.a-chart       { left: 0;    top: 0;   width: 1192px; height: 420px; } /* inner 1136x364 */
+.a-legend      { left: 0;    top: 444px; width: 1192px; height: 124px; } /* 420+24 = 444; inner 1136x68 */
+.a-side-top    { left: 800px; top: 0;   width: 392px; height: 272px; } /* inner 336x216 */
+.a-side-bottom { left: 800px; top: 296px; width: 392px; height: 272px; } /* 272+24 = 296; inner 336x216 */
+
+/* --- section 3: the type ramp, verbatim ---------------------------------- */
+.t-display { font-family: var(--font-display); font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--ls-display); font-weight: 600; }
+.t-quote   { font-family: var(--font-display); font-size: var(--fs-quote);   line-height: var(--lh-quote);   letter-spacing: var(--ls-quote);   font-weight: 400; }
+.t-h1      { font-family: var(--font-display); font-size: var(--fs-h1);      line-height: var(--lh-h1);      letter-spacing: var(--ls-h1);      font-weight: 600; }
+.t-h2      { font-family: var(--font-display); font-size: var(--fs-h2);      line-height: var(--lh-h2);      letter-spacing: var(--ls-h2);      font-weight: 600; }
+.t-h3      { font-family: var(--font-body);    font-size: var(--fs-h3);      line-height: var(--lh-h3);      letter-spacing: var(--ls-h3);      font-weight: 600; }
+.t-body    { font-family: var(--font-body);    font-size: var(--fs-body);    line-height: var(--lh-body);    letter-spacing: var(--ls-body);    font-weight: 400; }
+.t-note    { font-family: var(--font-body);    font-size: var(--fs-small);   line-height: var(--lh-small);   letter-spacing: var(--ls-small);   font-weight: 400; color: var(--ink-muted); }
+
+/* demo badge: --fs-badge, uppercase, flat ink chip on the card face */
+.demo-badge {
+  display: inline-block;
+  height: var(--lh-badge);
+  padding: 0 10px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--card-face);
+  font-family: var(--font-body);
+  font-size: var(--fs-badge);
+  line-height: var(--lh-badge);
+  letter-spacing: var(--ls-badge);
+  text-transform: uppercase;
+  vertical-align: top;
+}
+
+/* 1px hairline under a card heading (2px box, 1px visible line) */
+.card__rule {
+  display: block;
+  height: 2px;
+  border: 0;
+  border-top: 1px solid var(--ink-muted);
+  background: none;
+  font-style: normal;
+}
+
+/* the only card decoration: one suit glyph top-left, the same rotated bottom-right */
+.suit, .pip, .suit-circle__pip { color: var(--gold-dim); font-style: normal; }
+.suit--red, .pip--red { color: var(--suit-red); }
+.suit {
+  position: absolute;
+  font-size: 34px;
+  line-height: 34px;
+  pointer-events: none;
+}
+.suit--tl { top: 6px; left: 8px; }
+.suit--br { bottom: 6px; right: 8px; transform: rotate(180deg); }
+
+/* --- 5.1 title — card.a-hero, inner 512: 24+12 . 160+16 . 2+18 . 72+12 . 28 = 344 / 512 */
+#s1 .a-hero .t-badge   { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
+#s1 .a-hero .t-display { height: 160px; margin: 0 0 16px; }
+#s1 .a-hero .card__rule { height: 2px; margin: 0 0 18px; }
+#s1 .a-hero .t-h3      { height: 72px; margin: 0 0 12px; }
+#s1 .a-hero .t-note    { height: 28px; margin: 0; }
+
+/* --- 5.2 section divider — card.a-hero, inner 512: 96+24 . 24+12 . 64+12 . 36 = 268 / 512 */
+#s2 .a-hero { text-align: center; }
+#s2 .suit-circle {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 24px;
+  border: 2px solid var(--suit-red);
+  border-radius: 50%;
+  line-height: 94px;
+  text-align: center;
+  font-size: 34px;
+}
+#s2 .suit-circle__pip { color: var(--suit-red); }
+#s2 .a-hero .t-badge { height: 24px; margin: 0 0 12px; line-height: 24px; }
+#s2 .a-hero .t-h1    { height: 64px; margin: 0 0 12px; }
+#s2 .a-hero .t-h3    { height: 36px; margin: 0; }
+
+/* --- 5.3 bullets — a-lead inner 180: 24+12 . 48 = 84 / 180
+       a-body inner 252: 3x38 + 2x16 (=146) +12 . 28 = 186 / 252 */
+#s3 .a-lead .t-badge { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
+#s3 .a-lead .t-h2    { height: 48px; margin: 0; }
+#s3 .a-body .t-list  { height: 146px; margin: 0 0 12px; padding: 0; list-style: disc; list-style-position: inside; }
+#s3 .a-body .t-list li { height: 38px; margin: 0; }
+#s3 .a-body .t-list li + li { margin-top: 16px; }
+#s3 .a-body .t-note  { height: 28px; margin: 0; }
+
+/* --- 5.4 comparison — a-wide inner 512: 48+16 . 44+6x44 (=308) +16 . 28 = 416 / 512
+       a-side inner 512: 48+16 . 3x120 . 24+12 = 460 / 512 */
+#s4 .a-wide .t-h2   { height: 48px; margin: 0 0 16px; }
+#s4 .a-wide .t-table { width: 100%; height: 308px; margin: 0 0 16px; border-collapse: collapse; table-layout: fixed; }
+#s4 .a-wide .t-table th,
+#s4 .a-wide .t-table td {
+  height: 44px;
+  padding: 0 8px 0 0;
+  border: 0;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: 400;
+}
+#s4 .a-wide .t-table thead th { color: var(--ink-muted); font-weight: 600; letter-spacing: var(--ls-small); }
+#s4 .a-wide .t-table tbody th { font-weight: 600; }
+#s4 .a-wide .cell-num { font-family: var(--font-mono); }
+#s4 .a-wide .t-note { height: 28px; margin: 0; }
+
+#s4 .a-side .t-h2    { height: 48px; margin: 0 0 16px; }
+#s4 .a-side .t-group { height: 120px; margin: 0; }
+#s4 .a-side .t-group h3 { height: 36px; margin: 0 0 8px; }
+#s4 .a-side .t-group p  { height: 76px; margin: 0; }
+#s4 .a-side .t-badge { height: 24px; margin: 12px 0 0; line-height: 24px; }
+
+/* --- 5.5 chart placeholder — inner 364: 48+12 . 256 . +12 . 24 = 352 / 364 */
+#s5 .a-chart .t-h2 { height: 48px; margin: 0 0 12px; }
+#s5 .plot {
+  position: relative;
+  height: 256px;
+  margin: 0 0 12px;
+  background-image: repeating-linear-gradient(0deg, rgba(27, 42, 37, .09) 0 1px, rgba(27, 42, 37, 0) 1px 32px);
+}
+#s5 .bar { position: absolute; bottom: 0; width: 120px; }
+#s5 .bar--a { left: 80px;  height: 96px;  background: var(--status-a); }
+#s5 .bar--b { left: 294px; height: 148px; background: var(--status-a); }
+#s5 .bar--c { left: 508px; height: 180px; background: var(--status-a); }
+#s5 .bar--d { left: 722px; height: 124px; background: var(--status-b); }
+#s5 .bar--e { left: 936px; height: 64px;  background: var(--status-b); }
+#s5 .bar__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -32px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-small);
+  color: var(--ink);
+}
+#s5 .axis { position: relative; height: 24px; margin: 0; }
+#s5 .axis__label {
+  position: absolute;
+  top: 0;
+  width: 120px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-small);
+  color: var(--ink-muted);
+}
+#s5 .axis__label:nth-child(1) { left: 80px; }
+#s5 .axis__label:nth-child(2) { left: 294px; }
+#s5 .axis__label:nth-child(3) { left: 508px; }
+#s5 .axis__label:nth-child(4) { left: 722px; }
+#s5 .axis__label:nth-child(5) { left: 936px; }
+
+/* legend card, inner 68: 28+8 . 28 = 64 / 68 */
+#s5 .a-legend .t-note { height: 28px; margin: 0 0 8px; }
+#s5 .a-legend .t-note:last-child { margin: 0; }
+
+/* --- 5.6 quote — card.a-hero, inner 512: 56+16 . 180+16 . 2+16 . 38+12 . 24 = 360 / 512 */
+#s6 .a-hero { text-align: center; }
+/* 60+12 = 56+16: the box is 4px taller so the display face's line box is not
+   cut by the clip rule (checks.md 3.1), and the ink does not move */
+#s6 .quote-mark { display: block; height: 60px; margin: 0 0 12px; font-family: var(--font-display); font-size: 56px; line-height: 56px; color: var(--gold-dim); }
+#s6 .a-hero .t-quote { height: 180px; margin: 0 0 16px; }
+#s6 .a-hero .card__rule { width: 120px; height: 2px; margin: 0 auto 16px; }
+#s6 .a-hero .t-body  { height: 38px; margin: 0 0 12px; }
+#s6 .a-hero .t-badge { height: 24px; margin: 0; line-height: 24px; }
+
+/* --- 5.7 closing — a-wide inner 512: 24+12 . 64+16 . 76+24 . 96+24 . 28 = 364 / 512
+       a-side-top inner 216: 36+8 . 76 = 120 / 216
+       a-side-bottom inner 216: 36+8 . 56 = 100 / 216 */
+#s7 .a-wide .t-badge { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
+#s7 .a-wide .t-h1    { height: 64px; margin: 0 0 16px; }
+#s7 .a-wide .t-body  { height: 76px; margin: 0 0 24px; }
+#s7 .a-wide .pips { display: flex; align-items: center; gap: 18px; height: 96px; margin: 0 0 24px; }
+#s7 .a-wide .pips .pip { font-size: 34px; line-height: 34px; }
+#s7 .a-wide .t-note  { height: 28px; margin: 0; }
+#s7 .a-side-top .t-h3    { height: 36px; margin: 0 0 8px; }
+#s7 .a-side-top .t-body  { height: 76px; margin: 0; }
+#s7 .a-side-bottom .t-h3 { height: 36px; margin: 0 0 8px; }
+#s7 .a-side-bottom .t-note { height: 56px; margin: 0; }
+
+/* --- section 6: HUD in the 40px footer strip, and the live region -------- */
+#hud { display: none; }
+html.js #hud {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 1192px;
+  height: 40px;
+  margin-top: 24px;
+  color: var(--gold);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-small);
+  pointer-events: none;
+}
+.dots { display: flex; align-items: center; gap: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold-dim); opacity: .7; }
+.dot.is-on { background: var(--gold); opacity: 1; }
+#counter { font-family: var(--font-mono); letter-spacing: var(--ls-small); }
+.hint { color: var(--gold-dim); }
+.demo-note { margin-left: auto; color: var(--gold-dim); }
+
+/* announced, never displayed: clipped, not display:none */
+#live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+@keyframes slide-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.js .slide[data-active].is-entering { animation: none; }
+}
+
+/* ==========================================================================
+   presenter.md §2/§3/§4: the notes and sources drawer.
+   It is NOT a descendant of #stage, so it gets neither scale(var(--scale)) nor
+   the stage's clipping, and it is specified in window px: §2's stage
+   arithmetic and §5's card sums are unchanged by construction.
+   ========================================================================== */
+
+/* no JS: all three are absent, so the stacked document carries no notes and no
+   sources at all; the templates below are inert and never render */
+#presenter, #notes, #more { display: none; }
+
+#presenter {
+  --note-fs: 20px;      /* design §3 --fs-small, unscaled */
+  --note-lh: 28px;
+  --note-fs-sm: 16px;   /* the panel's only new size: a citation under its claim */
+  --note-lh-sm: 24px;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(460px, 34vw);
+  padding: 24px;
+  flex-direction: column;
+  z-index: 2;
+  background: rgba(6, 31, 22, .97);   /* --felt-3 at 97% */
+  color: var(--card-face);
+  border-left: 1px solid var(--rail);
+  border-radius: var(--radius) 0 0 var(--radius);
+  box-shadow: -16px 0 32px var(--shadow);
+  font-family: var(--font-body);
+  font-size: var(--note-fs);
+  line-height: var(--note-lh);
+}
+/* html.js re-enables the drawer only in the open state: no later rule can
+   un-hide a [hidden] pane (presenter.md §4) */
+html.js #presenter:not([hidden]) { display: flex; }
+html.js #presenter > section:not([hidden]) { display: flex; flex-direction: column; min-height: 0; }
+
+/* both panes open at once: stacked in one drawer, each scrolling its own body */
+#notes { flex: 1 1 auto; }
+#more { flex: 0 0 auto; height: min(320px, 38%); border-top: 1px solid var(--rail); }
+
+.panel__head { display: flex; align-items: center; gap: 12px; min-height: 32px; margin: 0 0 12px; }
+/* the same string as the #live line; plain text, never a live region */
+.panel__where { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--note-fs); line-height: var(--note-lh); font-weight: 600; }
+.panel__close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--rail);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--card-face);
+  font-family: var(--font-body);
+  font-size: var(--note-fs);
+  line-height: 30px;
+  cursor: pointer;
+}
+.panel__close:focus-visible, .more-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* the declared scroller: overscroll-behavior kills the wheel that would also
+   step a slide; long notes scroll and are never clipped or shrunk */
+.panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-dim) transparent;
+}
+
+.note-list, .src-list { max-width: 46ch; margin: 0; padding: 0; }
+.note-list { list-style: disc; list-style-position: outside; padding-left: 24px; }
+.note-list li { margin: 0 0 12px; font-size: var(--note-fs); line-height: var(--note-lh); }
+.src-list { list-style: none; }
+.src-list li { margin: 0 0 12px; }
+.src-claim { display: block; font-size: var(--note-fs); line-height: var(--note-lh); }
+.src-ref { display: block; font-size: var(--note-fs-sm); line-height: var(--note-lh-sm); color: var(--gold-dim); }
+.panel__empty { margin: 0; font-size: var(--note-fs-sm); line-height: var(--note-lh-sm); color: var(--gold-dim); }
+
+/* the reveal: 160ms opacity on the drawer plus an 8px x-translate on its pane.
+   The translate sits on the pane, not on #presenter, so the drawer's own
+   computed transform stays none (presenter.md §6, P9). */
+@keyframes drawer-fade {
+  from { opacity: 0; }
+}
+@keyframes panel-reveal {
+  from { opacity: 0; transform: translateX(8px); }
+}
+html.js #presenter:not([hidden]) { animation: drawer-fade 160ms ease-out; }
+html.js #presenter > section:not([hidden]) { animation: panel-reveal 160ms ease-out; }
+html.no-motion #presenter:not([hidden]),
+html.no-motion #presenter > section:not([hidden]) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  html.js #presenter:not([hidden]),
+  html.js #presenter > section:not([hidden]) { animation: none; }
+}
+
+/* the HUD's one pointer-enabled control, inside a pointer-events: none strip;
+   aria-disabled (not disabled) so it stays focusable and is announced */
+.more-btn {
+  height: 28px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--gold-dim);
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
+  line-height: 26px;
+  letter-spacing: var(--ls-small);
+  cursor: pointer;
+}
+.more-btn[aria-disabled="true"] { cursor: default; }
+html.js .more-btn { pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div class="rail" aria-hidden="true"></div>
+
+  <div class="deck">
+
+    <!-- 5.1 title -->
+    <section class="slide" id="s1" data-shape="title">
+      <article class="card a-hero">
+        <span class="suit suit--tl" aria-hidden="true">&#9824;</span>
+        <span class="suit suit--br" aria-hidden="true">&#9824;</span>
+        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
+        <h1 class="t-display">Lorem Ipsum Poker Deck — demo title</h1>
+        <i class="card__rule"></i>
+        <p class="t-h3">A placeholder subtitle, two lines, demo only</p>
+        <p class="t-note">placeholder content — not measured</p>
+      </article>
+      <!-- presenter.md §1: notes live in an inert template, a direct child of the slide -->
+      <template class="talk">
+        <ul class="note-list">
+          <li>Demo notes, placeholder text: this is the title frame. Open with the one sentence that says what the talk is about, then step on.</li>
+          <li>Demo notes: every slide in this sampler carries the DEMO badge, so nothing on the screen behind the drawer is a measurement.</li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- 5.2 section divider -->
+    <section class="slide" id="s2" data-shape="divider">
+      <article class="card a-hero">
+        <span class="suit suit--tl suit--red" aria-hidden="true">&#9829;</span>
+        <span class="suit suit--br suit--red" aria-hidden="true">&#9829;</span>
+        <div class="suit-circle"><span class="suit-circle__pip" aria-hidden="true">&#9829;</span></div>
+        <div class="t-badge"><span class="demo-badge">SECTION 01 — DEMO</span></div>
+        <h1 class="t-h1">Lorem ipsum, act one</h1>
+        <p class="t-h3">A demo divider — no real content yet</p>
+      </article>
+    </section>
+
+    <!-- 5.3 bullets -->
+    <section class="slide" id="s3" data-shape="bullets">
+      <article class="card a-lead">
+        <span class="suit suit--tl" aria-hidden="true">&#9830;</span>
+        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
+        <h2 class="t-h2">Demo bullet card</h2>
+      </article>
+      <article class="card a-body">
+        <span class="suit suit--br" aria-hidden="true">&#9830;</span>
+        <ul class="t-list t-body">
+          <li>Lorem ipsum dolor — demo</li>
+          <li>Consectetur adipiscing — demo</li>
+          <li>Sed do eiusmod — demo</li>
+        </ul>
+        <p class="t-note">Placeholder list; real bullets arrive in a later pass</p>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Demo notes: three placeholder bullets stand in for the real list, and none of them measured anything.</li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- 5.4 comparison / table -->
+    <section class="slide" id="s4" data-shape="comparison">
+      <article class="card a-wide">
+        <h2 class="t-h2">Demo comparison table</h2>
+        <table class="t-table">
+          <thead>
+            <tr>
+              <th scope="col">Demo arm</th>
+              <th scope="col">Demo value</th>
+              <th scope="col">Demo note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Arm A</th><td class="cell-num">00</td><td>lorem</td></tr>
+            <tr><th scope="row">Arm B</th><td class="cell-num">00</td><td>lorem</td></tr>
+            <tr><th scope="row">Arm C</th><td class="cell-num">00</td><td>lorem</td></tr>
+            <tr><th scope="row">Arm D</th><td class="cell-num">00</td><td>lorem</td></tr>
+            <tr><th scope="row">Arm E</th><td class="cell-num">00</td><td>lorem</td></tr>
+            <tr><th scope="row">Arm F</th><td class="cell-num">00</td><td>lorem</td></tr>
+          </tbody>
+        </table>
+        <p class="t-note">All cells are placeholder text; no value here is a measurement.</p>
+      </article>
+      <article class="card a-side">
+        <h2 class="t-h2">Demo notes</h2>
+        <div class="t-group">
+          <h3 class="t-h3">Reading rule</h3>
+          <p class="t-body">Placeholder only; nothing measured.</p>
+        </div>
+        <div class="t-group">
+          <h3 class="t-h3">Table cells</h3>
+          <p class="t-body">00 and lorem are filler, not results.</p>
+        </div>
+        <div class="t-group">
+          <h3 class="t-h3">Later pass</h3>
+          <p class="t-body">Real notes come with the talk.</p>
+        </div>
+        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Demo notes: the six table rows are filler, so never read the 00 column aloud as a result.</li>
+          <li>Demo notes: the two source entries below are demo placeholders for this sampler, not measured figures and not the real citation.</li>
+        </ul>
+      </template>
+      <!-- presenter.md §3: one li per figure, a src-claim then a src-ref naming a decision row or record path plus an ISO date -->
+      <template class="more">
+        <ul class="src-list">
+          <li>
+            <span class="src-claim">Demo claim, placeholder: the deck ships as one self-contained file.</span>
+            <span class="src-ref">strata/decisions.md D-118 &#183; 2026-11-17</span>
+          </li>
+          <li>
+            <span class="src-claim">Demo claim, placeholder: presenter notes and sources come from the deck-kit research.</span>
+            <span class="src-ref">strata/records/presentation-deck-kit-research.md &#183; 2026-11-17</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- 5.5 chart placeholder -->
+    <section class="slide" id="s5" data-shape="chart">
+      <article class="card a-chart">
+        <h2 class="t-h2">Demo chart placeholder <span class="demo-badge">DEMO</span></h2>
+        <div class="plot">
+          <div class="bar bar--a"><span class="bar__label">demo A</span></div>
+          <div class="bar bar--b"><span class="bar__label">demo B</span></div>
+          <div class="bar bar--c"><span class="bar__label">demo C</span></div>
+          <div class="bar bar--d"><span class="bar__label">demo D</span></div>
+          <div class="bar bar--e"><span class="bar__label">demo E</span></div>
+        </div>
+        <div class="axis">
+          <span class="axis__label">demo A</span>
+          <span class="axis__label">demo B</span>
+          <span class="axis__label">demo C</span>
+          <span class="axis__label">demo D</span>
+          <span class="axis__label">demo E</span>
+        </div>
+      </article>
+      <article class="card a-legend">
+        <p class="t-note">DEMO — five invented bars; no measured series</p>
+        <p class="t-note">Placeholder axis — hard-coded demo values, not measured</p>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Demo notes: the five bars are invented heights, so never quote one; the shape of the argument is all this slide shows.</li>
+          <li>Demo notes: both source entries are demo placeholders for this sampler, not measured figures.</li>
+        </ul>
+      </template>
+      <template class="more">
+        <ul class="src-list">
+          <li>
+            <span class="src-claim">Demo claim, placeholder: the talk deck stays a single static file.</span>
+            <span class="src-ref">strata/decisions.md D-118 &#183; 2026-11-17</span>
+          </li>
+          <li>
+            <span class="src-claim">Demo claim, placeholder: this chart is hand-written px, with no chart library.</span>
+            <span class="src-ref">strata/records/presentation-deck-kit-research.md &#183; 2026-11-17</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- 5.6 quote -->
+    <section class="slide" id="s6" data-shape="quote">
+      <article class="card a-hero">
+        <span class="suit suit--tl suit--red" aria-hidden="true">&#9830;</span>
+        <span class="suit suit--br suit--red" aria-hidden="true">&#9830;</span>
+        <span class="quote-mark">&#8220;</span>
+        <blockquote class="t-quote">Lorem ipsum dolor sit amet — a demo quotation with no author</blockquote>
+        <i class="card__rule"></i>
+        <p class="t-body">— Demo attribution, placeholder, not measured</p>
+        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Demo notes: read the quotation slowly, then name the attribution as the placeholder it is.</li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- 5.7 closing -->
+    <section class="slide" id="s7" data-shape="closing">
+      <article class="card a-wide">
+        <span class="suit suit--br" aria-hidden="true">&#9827;</span>
+        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
+        <h1 class="t-h1">Lorem ipsum — thank you</h1>
+        <p class="t-body">A demo closing card; the real closing slide lands in a later pass</p>
+        <div class="pips">
+          <span class="pip" aria-hidden="true">&#9824;</span>
+          <span class="pip pip--red" aria-hidden="true">&#9829;</span>
+          <span class="pip pip--red" aria-hidden="true">&#9830;</span>
+          <span class="pip" aria-hidden="true">&#9827;</span>
+        </div>
+        <p class="t-note">placeholder content — not measured</p>
+      </article>
+      <article class="card a-side-top">
+        <h3 class="t-h3">Demo closing</h3>
+        <p class="t-body">A demo card; real content lands later.</p>
+      </article>
+      <article class="card a-side-bottom">
+        <h3 class="t-h3">Demo pips</h3>
+        <p class="t-note">Four suits, placeholder text only.</p>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Demo notes: the closing card is placeholder text; the real ask lands here in the content pass.</li>
+        </ul>
+      </template>
+    </section>
+
+  </div>
+
+  <footer id="hud">
+    <div class="dots" aria-hidden="true">
+      <span class="dot is-on"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+    <span id="counter">1 / 7</span>
+    <span class="hint">&#8592; &#8594; space &#183; F</span>
+    <button type="button" class="more-btn" aria-expanded="false" aria-disabled="true">More (M)</button>
+    <span class="demo-note">placeholder content — not measured</span>
+  </footer>
+
+  <div id="live" role="status" aria-live="polite"></div>
+</div>
+
+<!-- presenter.md §2: a window-fixed right drawer, a direct child of <body>,
+     outside #stage: it inherits neither the stage's scale nor its clipping and
+     takes no space in any flow. Each pane owns its own [hidden]. -->
+<aside id="presenter" hidden aria-label="Presenter overlay" tabindex="-1">
+  <section id="notes" hidden role="region" aria-label="Presenter notes">
+    <header class="panel__head">
+      <span class="panel__where"></span>
+      <button type="button" class="panel__close" data-pane="notes" aria-label="Close notes">&#215;</button>
+    </header>
+    <div class="panel__body"></div>
+  </section>
+  <section id="more" hidden role="region" aria-label="Sources for this slide">
+    <header class="panel__head">
+      <span class="panel__where"></span>
+      <button type="button" class="panel__close" data-pane="sources" aria-label="Close sources">&#215;</button>
+    </header>
+    <div class="panel__body"></div>
+  </section>
+</aside>
+
+<script>
+(function () {
+  /* The first statement adds the html.js switch: every scaling, fixed, clipping
+     and single-slide CSS rule lives under it, so no-JS stays a stacked document. */
+  document.documentElement.classList.add('js');
+
+  var STAGE_W = 1280;
+  var STAGE_H = 720;
+  var WHEEL_STEP = 60;       /* px of accumulated deltaY per slide step */
+  var WHEEL_QUIET = 250;     /* ms of quiet that resets the accumulator */
+  var WHEEL_COOLDOWN = 400;  /* ms of wheel lock after a navigation */
+  var LEFT_ZONE = 0.30;      /* x < 0.30 * innerWidth  -> previous */
+  var RIGHT_ZONE = 0.70;     /* x > 0.70 * innerWidth  -> next */
+
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.deck .slide'));
+  var dots = Array.prototype.slice.call(document.querySelectorAll('.dots .dot'));
+  var counter = document.getElementById('counter');
+  var live = document.getElementById('live');
+  var total = slides.length;
+  var current = -1;          /* -1 until the first show(), so show() stays idempotent after */
+  var firstPaint = true;     /* the first slide appears without the enter pass */
+
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced) {
+    document.documentElement.classList.add('no-motion');  /* skip the enter pass */
+  }
+
+  /* ---- presenter mode: two panes in one drawer, outside the stage --------
+     presenter.md §4 ties the three hidden states together: each pane owns its
+     own [hidden] and #presenter is shown exactly when at least one is shown.
+     'notes' / 'sources' is one variable holding the most recently opened pane,
+     not a history. Nothing here is persisted: no storage, no hash, no query. */
+  var presenter = document.getElementById('presenter');
+  var notesPane = document.getElementById('notes');
+  var morePane = document.getElementById('more');
+  var moreBtn = document.querySelector('.more-btn');
+  var lastOpened = '';       /* 'notes' | 'sources' | '' */
+
+  /* the literal line for a slide with no template.talk, so "no notes" is never
+     a silent keypress (P4); built with textContent, never with a markup write */
+  var notesEmpty = document.createElement('p');
+  notesEmpty.className = 'panel__empty';
+  notesEmpty.textContent = 'No notes for this slide';
+
+  function clampIndex(n) {
+    if (!isFinite(n)) { return 0; }
+    if (n < 0) { return 0; }
+    if (n > total - 1) { return total - 1; }
+    return n;
+  }
+
+  function indexFromHash() {
+    var match = /^#\/(\d{1,2})$/.exec(window.location.hash || '');
+    if (!match) { return 0; }
+    return clampIndex(parseInt(match[1], 10) - 1);
+  }
+
+  function writeHash(n) {
+    /* a fragment assignment, never a History API state push: the hash write
+       works on a file:// document and still leaves a back-entry, so
+       back/forward walk the slides */
+    try {
+      window.location.hash = '#/' + (n + 1);
+    } catch (error) {
+      /* refused: the deck still navigates, only the address bar goes stale */
+    }
+  }
+
+  function show(next, write) {
+    var n = clampIndex(next);
+    if (n === current) { return; }   /* idempotent: popstate + hashchange cannot loop */
+    current = n;
+    wheelLockedUntil = Date.now() + WHEEL_COOLDOWN;   /* drop wheel events 400ms after a navigation */
+
+    var i;
+    var animate = !firstPaint && !reduced;
+    firstPaint = false;
+    for (i = 0; i < total; i += 1) {
+      if (i === n) {
+        slides[i].setAttribute('data-active', '');
+        if (animate) { slides[i].classList.add('is-entering'); }
+      } else {
+        slides[i].removeAttribute('data-active');
+        slides[i].classList.remove('is-entering');
+      }
+    }
+
+    for (i = 0; i < dots.length; i += 1) {
+      dots[i].classList.toggle('is-on', i === n);
+    }
+
+    if (counter) { counter.textContent = (n + 1) + ' / ' + total; }
+
+    if (live) {
+      live.textContent = 'Slide ' + (n + 1) + ' of ' + total + ' — ' + slides[n].getAttribute('data-shape');
+    }
+
+    syncMoreBtn();
+    refreshPanels();   /* an open drawer follows the slide; #live never carries a note */
+
+    if (write) { writeHash(n); }
+  }
+
+  function step(delta) {
+    show(current + delta, true);   /* show() clamps: never wrap, never scroll */
+  }
+
+  /* ---- stage scaling: one resize listener, one rAF, one read per frame ----
+     The FIRST --scale is written synchronously by applyScale() at startup, so a
+     window that is not 1280x720 never paints a frame at scale 1; the rAF below
+     coalesces later resize events only. */
+  var framePending = false;
+
+  function applyScale() {
+    var scale = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+    document.documentElement.style.setProperty('--scale', String(scale));
+  }
+
+  function onResize() {
+    if (framePending) { return; }
+    framePending = true;
+    window.requestAnimationFrame(function () {
+      framePending = false;
+      applyScale();
+    });
+  }
+
+  window.addEventListener('resize', onResize, { passive: true });
+
+  /* ---- keys --------------------------------------------------------------- */
+  document.addEventListener('keydown', function (event) {
+    if (event.altKey || event.ctrlKey || event.metaKey) { return; }
+    var key = event.key;
+    var handled = true;
+
+    if (key === 'ArrowRight' || key === 'ArrowDown' || key === 'PageDown') {
+      step(1);
+    } else if (key === 'ArrowLeft' || key === 'ArrowUp' || key === 'PageUp') {
+      step(-1);
+    } else if (key === ' ' || key === 'Spacebar') {
+      step(event.shiftKey ? -1 : 1);   /* Shift+Space is previous */
+    } else if (key === 'Home') {
+      show(0, true);
+    } else if (key === 'End') {
+      show(total - 1, true);
+    } else if (key === 'f' || key === 'F') {
+      goFullscreen();   /* handled: preventDefault like every other handled key */
+    } else if (key === 'n' || key === 'N') {
+      toggleNotes();    /* presenter.md §4: opens the drawer, or toggles only #notes */
+    } else if (key === 'm' || key === 'M') {
+      toggleSources();  /* a no-op on a slide with no template.more; it opens nothing else */
+    } else if (key === 'Escape') {
+      /* closes the most recently opened pane and navigates nothing; with no
+         pane open Esc is left to the browser, which owns it for fullscreen */
+      handled = closeNewest();
+    } else {
+      handled = false;
+    }
+
+    if (handled) { event.preventDefault(); }
+  });
+
+  /* ---- wheel: 60px per step, 250ms quiet reset, 400ms cooldown ------------ */
+  var wheelAccum = 0;
+  var wheelLast = 0;
+  var wheelLockedUntil = 0;
+
+  window.addEventListener('wheel', function (event) {
+    if (drawerOpen()) { return; }   /* no navigation while the drawer is open (P8) */
+    var now = Date.now();
+    if (now < wheelLockedUntil) { return; }
+    if (now - wheelLast > WHEEL_QUIET) { wheelAccum = 0; }
+    wheelLast = now;
+    if ((wheelAccum > 0 && event.deltaY < 0) || (wheelAccum < 0 && event.deltaY > 0)) {
+      wheelAccum = 0;
+    }
+    wheelAccum += event.deltaY;
+    if (Math.abs(wheelAccum) >= WHEEL_STEP) {
+      var delta = wheelAccum > 0 ? 1 : -1;
+      wheelAccum = 0;
+      step(delta);        /* show() takes the 400ms wheel lock */
+    }
+  }, { passive: true });
+
+  /* ---- click zones on the viewport; the middle stays inert ---------------- */
+  window.addEventListener('click', function (event) {
+    if (drawerOpen()) { return; }   /* the drawer covers the right zone (P8) */
+    if (event.button !== 0) { return; }
+    var fraction = event.clientX / window.innerWidth;
+    if (fraction < LEFT_ZONE) {
+      step(-1);
+    } else if (fraction > RIGHT_ZONE) {
+      step(1);
+    }
+  });
+
+  /* ---- presenter mode: the panes, their keys, the More control -----------
+
+     Template content reaches a pane with cloneNode(true) or replaceChildren:
+     the file's copy rule for this layer, and no markup write anywhere. */
+
+  function drawerOpen() {
+    return !presenter.hidden;
+  }
+
+  function slideTemplate(slide, kind) {
+    /* the notes and sources are templates and direct children of section.slide,
+       never inside a card: no other element can be given that name */
+    if (!slide) { return null; }
+    var i;
+    for (i = 0; i < slide.children.length; i += 1) {
+      var child = slide.children[i];
+      if (child.tagName === 'TEMPLATE' && child.classList.contains(kind)) { return child; }
+    }
+    return null;
+  }
+
+  function whereText() {
+    var slide = slides[current];
+    if (!slide) { return ''; }
+    return 'Slide ' + (current + 1) + ' of ' + total + ' \u2014 ' + slide.getAttribute('data-shape');
+  }
+
+  function fillPane(pane, template) {
+    var body = pane.querySelector('.panel__body');
+    if (!body) { return null; }
+    body.replaceChildren();
+    if (template) { body.appendChild(template.content.cloneNode(true)); }
+    return body;
+  }
+
+  function renderNotes() {
+    var body = fillPane(notesPane, slideTemplate(slides[current], 'talk'));
+    if (body && !body.firstChild) { body.appendChild(notesEmpty); }
+  }
+
+  function renderSources() {
+    fillPane(morePane, slideTemplate(slides[current], 'more'));
+  }
+
+  function whereAll() {
+    var wheres = presenter.querySelectorAll('.panel__where');
+    var text = whereText();
+    var i;
+    for (i = 0; i < wheres.length; i += 1) { wheres[i].textContent = text; }
+  }
+
+  function syncDrawer() {
+    presenter.hidden = notesPane.hidden && morePane.hidden;
+    if (moreBtn) { moreBtn.setAttribute('aria-expanded', morePane.hidden ? 'false' : 'true'); }
+  }
+
+  function syncMoreBtn() {
+    if (!moreBtn) { return; }
+    var has = slideTemplate(slides[current], 'more') !== null;
+    moreBtn.setAttribute('aria-disabled', has ? 'false' : 'true');
+  }
+
+  function openNotes() {
+    renderNotes();
+    notesPane.hidden = false;
+    lastOpened = 'notes';
+    whereAll();
+    syncDrawer();
+  }
+
+  function openSources() {
+    if (!slideTemplate(slides[current], 'more')) { return; }   /* opens nothing, not even the drawer */
+    renderSources();
+    morePane.hidden = false;
+    lastOpened = 'sources';
+    whereAll();
+    syncDrawer();
+  }
+
+  function closePane(name) {
+    if (name === 'notes') { notesPane.hidden = true; } else { morePane.hidden = true; }
+    var other = name === 'notes' ? morePane : notesPane;
+    lastOpened = other.hidden ? '' : (name === 'notes' ? 'sources' : 'notes');
+    syncDrawer();
+  }
+
+  function toggleNotes() {
+    if (notesPane.hidden) { openNotes(); } else { closePane('notes'); }
+  }
+
+  function toggleSources() {
+    if (morePane.hidden) { openSources(); } else { closePane('sources'); }
+  }
+
+  function closeNewest() {
+    var target = '';
+    if (!notesPane.hidden && !morePane.hidden) {
+      target = lastOpened === 'sources' ? 'sources' : 'notes';
+    } else if (!notesPane.hidden) {
+      target = 'notes';
+    } else if (!morePane.hidden) {
+      target = 'sources';
+    }
+    if (target) { closePane(target); }
+    return target !== '';
+  }
+
+  function refreshPanels() {
+    if (!drawerOpen()) { return; }
+    if (!notesPane.hidden) { renderNotes(); }
+    if (!morePane.hidden) {
+      /* a source never outlives its slide: no template.more closes the pane */
+      if (slideTemplate(slides[current], 'more')) {
+        renderSources();
+      } else {
+        morePane.hidden = true;
+        lastOpened = notesPane.hidden ? '' : 'notes';
+      }
+    }
+    whereAll();
+    syncDrawer();
+  }
+
+  if (moreBtn) {
+    moreBtn.addEventListener('click', function (event) {
+      event.stopPropagation();   /* the click-zone handler never sees this control */
+      toggleSources();
+    });
+  }
+
+  (function bindCloseButtons() {
+    var buttons = presenter.querySelectorAll('.panel__close');
+    var i;
+    for (i = 0; i < buttons.length; i += 1) {
+      (function (button) {
+        button.addEventListener('click', function (event) {
+          event.stopPropagation();
+          closePane(button.getAttribute('data-pane'));
+        });
+      }(buttons[i]));
+    }
+  }());
+
+  /* ---- fullscreen: guarded, silent, and never a prerequisite to navigate -- */
+  function goFullscreen() {
+    if (!document.fullscreenEnabled ||
+        typeof document.documentElement.requestFullscreen !== 'function') { return; }
+    try {
+      var request = document.documentElement.requestFullscreen();
+      if (request && typeof request.catch === 'function') {
+        request.catch(function () {});
+      }
+    } catch (error) {
+      /* unsupported or refused: a silent no-op; Esc stays the browser's */
+    }
+  }
+
+  /* ---- hash: read on load, written on change, replayed on history --------- */
+  function onHistory() {
+    show(indexFromHash(), false);
+  }
+
+  window.addEventListener('popstate', onHistory);
+  window.addEventListener('hashchange', onHistory);
+
+  show(indexFromHash(), false);
+  syncMoreBtn();   /* the More control states its slide's truth before the first keypress */
+  syncDrawer();
+  applyScale();   /* synchronous: the first painted frame already has the right scale */
+})();
+</script>
+</body>
+</html>

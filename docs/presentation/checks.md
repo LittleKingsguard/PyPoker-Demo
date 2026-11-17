@@ -1,0 +1,92 @@
+# presentation — the dev-only check gate and the fact-check form (L3 design)
+
+- **Layer:** L3 · **Artifact:** `presentation/check.mjs` (L4, new) · `presentation/FACTCHECK.md` (content pass, new) · **Rev:** 1 · **Date:** 2026-11-17 · **Ceiling:** 120 lines
+- **Realises D-121 §2** (the gate) and **D-121 §3** (the fact-check form).
+- **Dev-only, and that is a rule, not a note.** `presentation/index.html` is presented alone, from `file://`, with nothing installed. The gate is a Node script run by a developer on this repo before a talk; the deck never loads it, never needs it and is never built by it, so **D-118's no-build-step rule stands** and `index.html` stays the shipped artefact.
+- **Read with:** `docs/presentation/design.md` (A1–A15, §2 stage, §5 budgets, §6 navigation), `docs/presentation/presenter.md` (P1–P10, the panel DOM and geometry), `docs/presentation/content-rules.md`, `presentation/README.md`.
+
+## 1. Environment, measured this session (do not re-litigate)
+
+| Fact | Consequence for the gate |
+|---|---|
+| Snap Chromium cannot start here: `snap-confine is packaged without necessary permissions` | Chrome/CDP is not an option; the kit's `v3/check.mjs` cannot be ported as it stands |
+| There is no `chromedriver` and no `geckodriver` | no WebDriver-classic path; the gate speaks BiDi over a WebSocket directly |
+| **Firefox 155 works**: `firefox --headless --no-remote --profile <dir> --remote-debugging-port=<port> about:blank` serves **WebDriver BiDi** at `ws://127.0.0.1:<port>/session` | the gate is a dependency-free Node 24 client using the global `WebSocket` and `fetch`, no `npm install` |
+| Measured working commands: `session.new`, `browsingContext.getTree`, `browsingContext.navigate`, `script.evaluate` (**needs `awaitPromise: true`**), `browsingContext.captureScreenshot` | the gate's whole vocabulary is these five plus the launch; a check that needs a sixth command is a design change, not an implementation detail |
+| A probe read slide `s4` as **32 boxes, 0 clipped, min font 20px** and captured a **207 kB** frame | the probe in §3 is measured against this deck and cheap enough to run 7 slides × 2 sizes × 2 panel states with no timeout tuning |
+| The profile directory must **pre-exist** (Firefox otherwise says "Could not find profile folder") | `mkdirSync` the profile before `spawn` |
+| The port must be **polled for readiness** before connecting | poll the WebSocket open, not the process, up to ~12 s, then fail loudly with the exact command it ran |
+
+## 2. What the gate drives
+
+The gate uses **only the deck's public surface**: `location.hash = '#/N'` to select a slide (the deck's own navigation, design §6), a dispatched `KeyboardEvent('keydown', {key: 'n'})` on `document` for the notes pane, a dispatched `WheelEvent` / `MouseEvent` for P8, and `script.evaluate` with `awaitPromise: true` for the probe. It needs **no test hook** in `index.html`: no `window.deckGo`, no `data-testid`, no exported function. That is deliberate, because a hook is presented code that exists only for the gate.
+**Window size is verified, never assumed.** Firefox is launched with the size flags **and** the probe returns `innerWidth` / `innerHeight`; a mismatch of more than 1px is itself an issue, because a silently ignored flag would otherwise turn every geometry check into a check of the wrong surface. Two launches, one per size (**1280×720**, the design surface, and **1600×1000**, the letterbox case where `--scale` is 1.25), because separate launches use only the measured launch form.
+**Screenshots** are PNG (so the IHDR records the size) written to the temp dir as `s<N>-<w>x<h>[-notes].png`, one per slide per size, plus one per size with `#notes` open.
+
+## 3. What is checked, per slide, at both sizes
+
+Every probe reads the **active slide** (`section.slide[data-active]`), the stage and the presenter drawer. Tolerances are stated in **design px** and divided by the measured `--scale` when compared against rendered rects, so a 1600×1000 run is judged on the same drawing as a 1280×720 run.
+
+1. **Off-slide ink.** Every box that carries text and is not `aria-hidden` must lie inside the active slide's rect (± 2 design px); every `article.card` must lie inside `#stage`'s rect; `#stage`'s rect must lie inside the viewport (letterboxing is allowed, overflow is not).
+2. **Clipped text.** An element whose computed `overflow` is not `visible` is an issue when `scrollHeight > clientHeight + 3` **or** `scrollWidth > clientWidth + 3`, where the element carries an own text node. Details in §3.1.
+3. **Overlapping text.** Two text boxes overlap when their intersection exceeds **4 design px on both axes**; ancestor/descendant pairs are skipped, and `aria-hidden` elements are excluded from the set (the deck's corner suits, divider pip and closing pips are all `aria-hidden`, design A14, and a corner glyph's box can come within one line of a title's top edge, which is why the set is filtered by `aria-hidden` rather than by the tolerance).
+4. **Text under 14px.** `parseFloat(getComputedStyle(el).fontSize) < 14` on any element with an own text node. This is measured **pre-transform**, in design px, which is the floor the design states; it must not be divided by `--scale`.
+5. **Slide count, and the hash round-trip against it.** The total is **derived from the deck** — `document.querySelectorAll('section.slide').length` read once in the first launch, printed as `slides: N (derived from section.slide)` — and everything below is checked against that number, never against a constant in the gate: slide `n` has `id="s<N>"` and a non-empty `data-shape` (distinct across slides, since a copied section otherwise keeps the old word); `#/1` … `#/N` each put `n` in `#counter` and `Slide n of N — <shape>` in `#live`; the HUD holds exactly `N` `#hud .dots .dot`, exactly one of them `.is-on`, on the active slide's index; `#/0` → 1, `#/<N+1>` → `N`, `#/abc` → 1. Because design §6 clamps for display and leaves the address bar stale, the assertion is on **`#counter`, not on `location.hash`**; one extra assertion proves the documented follow-on — after a clamped load, a move that **changes slides** (an `ArrowLeft` from the clamped last slide) rewrites the hash to the true index, and a press at the clamped end does not (design §6, A3).
+6. **Presenter panels.** With `#notes` open: `#presenter` and `#notes` are inside the viewport at both sizes; every text element inside them is ≥ 14px; `#presenter`'s computed `font-size` and width are **identical at both window sizes** (it is not scaled by `--scale`); `#stage`'s rect and `--scale` are unchanged by opening it; and a pane whose `scrollHeight` exceeds its `clientHeight` is a **scroll, not a clip**, because `.panel__body` is the declared scroller (§3.1's exemption). `M` on a slide with no `template.more` leaves `#more[hidden]` and `.more-btn[aria-disabled="true"]`.
+
+### 3.1 The clip rule, decided
+
+The deck clips **on purpose**: `html.js .card`, its children and the enumerated nested boxes carry `overflow: hidden` (design §2), so an over-long line is cut off at its own fixed-height box instead of painting over its neighbour. A gate that flagged every clip would therefore flag the design itself; a gate that accepted every clip would accept text loss. **The rule: any hidden text in shipped copy is an issue, on either axis.**
+Reasons. (a) There is no acceptable clip in the shipped file: §5's character budgets exist so every block fits its box, and A8(b) proves the mechanism by injecting over-long copy, which is a test of the mechanism and is never run against the file the gate sees. (b) The **horizontal axis is the case the kit's rule misses**: `#s4`'s cells clip *and* carry `white-space: nowrap` so a row stays 44px, and a too-long cell then reports `scrollHeight == clientHeight` while its text is cut off to the right. `scrollWidth` catches it. (c) The 3px tolerance is fractional line boxes and padding only; it is not a character allowance.
+Rejected: the "clipped text beyond a stated character budget" rule. It would let the gate pass a slide whose visible words are not the words in the file, which is the worst failure for a talk deck, since the front of the room cannot see what is missing. Instead a **declared, per-element exemption** exists for a block that truncates on purpose: `data-truncate="ok"`, greppable, unused in this pass, and refused on any element without it.
+The other declared exemption: a **scroll container** whose overflow is deliberate and reachable (`.panel__body`), recognised by `overflow-y: auto` rather than `hidden` and by a readable scrollbar. `overflow: hidden` never earns it.
+
+## 4. CLI contract
+
+    node presentation/check.mjs [--out <tmpdir>] [--slides 1,3] [--port 9300] [--deck <file>]
+
+- `--out` defaults to a fresh directory under the OS temp dir; the script **resolves the path and exits non-zero if it is inside the repo**. It never writes anywhere else, never touches `presentation/index.html`, and never edits a file.
+- `--slides` is a 1-based comma list, absent meaning every slide. It is validated **against the derived total**, so it accepts any list inside `1..N` and nothing outside it: an index of `0`, a negative, a non-integer or an index above `N` is a usage error that prints the derived total beside the flag and exits **1** through the same `fail()` path as the other argument errors — the derivation has already launched Firefox at that point, so that path must still reach the `finally` that kills it. `--port` defaults to **9300** and is passed to both launches.
+- stdout carries the derived total first, then the issues: the line `slides: N (derived from section.slide)` once per run as soon as the first launch has derived it, then one line per issue, `<slide> <w>x<h> <kind>: <detail>`, kinds being `outside`, `clipped`, `overlap`, `small`, `hash`, `panel`, `leak`. The total is on stdout because a human reads stdout at the end of a run and a count that moved unexpectedly has to be the first thing they see. With no issue the last line is `no issues` and the exit code is **0**; any issue exits **1**. A launch failure exits 1 with the command it ran and the last stderr line, never as "no issues".
+- **Explicit instruction to L4 — the slide total has exactly one home, and that home is the deck.** Delete `const SLIDE_TOTAL = 7`; derive `total` once from the first launch's own slide map (`scene.slides.length`, which `PROBE_SCENE` already returns) and thread it into every comparison that used the constant: the readiness poll on `#counter`, the per-slide `n / N` check, the `#live` and `.panel__where` strings, and the clamped-form expectation. Nothing else in the gate may hold a slide count. `opts.slideList` is therefore resolved **after** the derivation too: `parseArgs` keeps validating only the syntax, an absent `--slides` becomes `1..N`, and an explicit list is range-checked against `N` at that point.
+- **What the derived total buys, and what the gate must now check with it:** per slide `n`, `id="s<N>"` and a non-empty `data-shape` distinct from every other slide's (a copied section otherwise keeps the old word, and `#live` then names a shape the slide is not); `#N` `.dot` elements in the HUD, exactly one `.is-on`, on the active slide's index. Both are honest against the deck and impossible against a constant.
+- **The clamped forms are computed, never typed:** `#/0` → slide 1, `#/` + (N + 1) → slide `N` (today that is `#/99`), `#/abc` → slide 1. The follow-on assertion presses `ArrowLeft` from the clamped last slide, because a press *at* the clamped end is a no-op that rewrites nothing (design §6, A3).
+- **The two launches must agree on N.** Each launch derives the total from the deck it loaded; a disagreement means the deck changed mid-run, so report it as a kind `hash` issue and do not trust that run's strings.
+- A `finally` block always kills the Firefox process it spawned and removes the temp profile; the screenshots stay in `--out` for the developer to look at.
+- It is not wired into any test runner, CI job, `package.json` script or git hook: it is run by hand, and its absence from a talk machine is expected.
+
+## 5. A clean check is not a design review
+
+The gate is a geometry test. **A clean check is not a design review**, and it is not a fact check. What it structurally cannot see: a slide that is inside every box and still wrong to look at; a true sentence in the wrong place; a table whose columns do not correspond to each other; a figure with **no source** (that is §7's job); a claim the source does not support; whether the deck says what the presenter says; whether the talk's thread holds; the pacing; and the projector itself (colour, gamma, contrast at distance: design §3's ratios are computed, not looked at). It also cannot tell a shortened sentence that still fits from one that lost its meaning on the way, and it cannot tell whether the deck has the number of slides `design.md` A3 declares: the total is **derived from the file** and printed, so a count the documents have not caught up with is a mismatch for the reader to spot in that printed line, never an issue the gate raises. Look at the screenshots.
+
+## 6. Checks
+
+| # | Check |
+|---|---|
+| G1 | Static: exactly one `<style>` and one `<script>`, neither with `src`/`href`; `grep -c 'http'` = 0; no `url(`, `@import`, `@font-face`, `<link`, `<img`, `src=`; no `eval`, `new Function`, `innerHTML`; file ≥ 12 kB (carries A1, A2, A6 forward mechanically) |
+| G2 | Stage fits: `#stage` inside the viewport at both sizes; `--scale` equals `min(innerWidth/1280, innerHeight/720)` ± 0.001; the active slide's rect is `1192 × 568` design px ± 1; the reported `innerWidth`/`innerHeight` equal the requested size ± 1px |
+| G3 | Derived count and hash round-trip: `N` is read from the deck (`section.slide` count) and printed as `slides: N (derived from section.slide)`; slide `n` has `id="s<N>"` and a non-empty, distinct `data-shape`; `#/1`…`#/N` → counter `n / N` and `Slide n of N — <data-shape>`; the HUD holds `N` `.dot` with exactly one `.is-on` on the active index; `#/0` → 1, `#/`+(N+1) → `N`, `#/abc` → 1; a move that changes slides after a clamped load rewrites the hash to the true index, a press at the clamped end does not |
+| G4 | Clipped text on either axis, tolerance 3px, exemptions exactly as §3.1 |
+| G5 | Overlapping text boxes, 4 design px on both axes, `aria-hidden` excluded, ancestor pairs skipped |
+| G6 | Text under 14px, computed pre-transform, on every text-bearing element of the active slide |
+| G7 | Off-slide ink: text boxes inside the active slide ± 2 design px, cards inside the stage, stage inside the viewport |
+| G8 | Presenter panels: `#notes` opens on `N` and fits the viewport at both sizes; `Esc` closes it with the active slide and `location.hash` unchanged; a dispatched wheel and a click at `0.9 × innerWidth` navigate nothing while it is open and one step each after it closes; its text ≥ 14px; its type and width are size-independent; `--scale` and `#stage`'s rect are unchanged by opening it; a pane's scroller is a scroll, not a clip (P2–P4, P6–P9) |
+| G9 | Sources: exactly one `.more-btn` in the HUD; `aria-disabled="true"` on every slide without `template.more`, and `M` opens nothing there; on a slide that has one, `#more` opens and every `.src-ref` matches `D-\d+` or `strata/records/` **and** a `\d{4}-\d{2}-\d{2}` date (numbers rule, mechanically) |
+| G10 | Audience leak: with no pane open, `document.body.innerText` and `#live`'s text contain none of the strings inside any `.talk` / `.more` template (P10) |
+
+## 7. The fact-check form: `presentation/FACTCHECK.md`
+
+The trace is `presentation/FACTCHECK.md` (D-121 §3's path, one file, the current deck's). It is written in the content pass, and when a content rewrite supersedes it the old one is archived as `presentation/archive/FACTCHECK-YYYY-MM-DD.md` beside that rewrite's dated deck copy (`content-rules.md` R9). **A figure with no row here never reaches a slide**: it is left out, or the claim is weakened until the source carries it. This is the artefact that D-118's numbers rule has so far done without.
+
+    # Fact check, <YYYY-MM-DD>
+    - Deck: <file copied aside> · Slot: <minutes> · Scope: every figure on every slide
+    - Evidence grade, per row, is the kit's distinction, kept: "read directly" vs "search summary"
+
+    | # | slide | claim as it appears on the slide | source (strata/decisions.md row, or strata/records/ path) | source date | what the source does NOT support | disposition |
+    |---|---|---|---|---|---|---|
+
+    ## Unresolved / needs the user
+    - <claim>, <slide>: <what is missing, and the two readings the user must choose between>
+
+Rules for the table: the claim column quotes the slide **as it appears**, not as it was meant; the source column names a `strata/decisions.md` row or a `strata/records/` path with the **date the record carries**, and where a figure was read on a different date than the record's, both dates appear; "what the source does not support" is filled in every row, and an empty cell means the row is unfinished, not that there is nothing to say; disposition is one of **VERIFIED**, **CORRECTED** (with the old and new wording side by side) or **REMOVED**. A row in `Unresolved` blocks the talk's figure, not the whole deck: the deck ships without that figure or with the weakened claim named there.
+Demo values are **not** figures: `DEMO` copy and the sampler's placeholder numbers carry the badge (design A4) and need no row, but a demo value that reaches a real slide does.

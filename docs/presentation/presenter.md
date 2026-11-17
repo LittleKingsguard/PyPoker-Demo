@@ -1,0 +1,92 @@
+# presentation — presenter mode (L3 design)
+
+- **Layer:** L3 · **Artifact:** `presentation/index.html` (L4) · **Rev:** 1 · **Date:** 2026-11-17 · **Ceiling:** 120 lines
+- **Realises D-121 §1** — `N` toggles per-slide presenter notes, `M` (or the HUD's More control) toggles per-slide sources. Both are overlays inside the one presented file, so D-118's frame stands untouched: inline CSS + JS, no network, no build step, fixed 1280×720 stage.
+- **Read with:** `docs/presentation/design.md` (§2 stage, §3 tokens, §5 budgets, §6 navigation, A1–A15), `docs/presentation/checks.md` (the gate and G1–G10), `docs/presentation/content-rules.md` (what a note and a source must say), `presentation/README.md` (the walkthrough's script).
+- **Scope:** the notes layer, the sources layer, their keys, geometry, type and checks. The sampler's seven slides ship with demo notes on six of them and with demo sources on **two** — `#/4` and `#/5`, **two entries each**, four in the file — every entry demo-marked, so every surface below is exercised in both its filled and its empty state; real notes and real sources arrive with the content pass (D-121 Scope).
+
+## 1. Where the text lives: a `<template>` per slide
+
+Each slide may carry up to two inert templates, and nothing else:
+
+    section.slide#s3[data-shape]
+      article.card.a-lead …            the slide as design.md §5 budgets it
+      article.card.a-body …
+      template.talk    ul.note-list > li ×N          presenter notes
+      template.more    ul.src-list  > li ×N          sources
+
+**Why `<template>` and not `data-notes` / a hidden element.** Template content is inert: no box, no line box, not rendered, not in the accessibility tree, not in `innerText`, and it cannot be revealed by a failed CSS rule or by JavaScript being off. A hidden element's text becomes visible in exactly those two failure modes, and the no-JS fallback is a long stacked document (design §6) where leaked notes would be on the projector. A `data-notes` attribute forces one escaped string per slide, which is unreadable in the file and cannot hold the list-of-points structure the notes rule asks for. The template is also **per slide**, so it travels when a slide is copied, and it sits as a direct child of `section.slide` rather than inside a card, so §5's per-card px sums and A8's re-adding of them stay exactly as written.
+**Copy rule for L4:** template content reaches the panel with `cloneNode(true)` / `replaceChildren`, never `innerHTML` (design A6 forbids it and the ban stays).
+**Both templates are optional on any slide — including a slide added later — and omitting either is legal.** A slide with no `template.talk` opens the notes pane reading `No notes for this slide` (P4); a slide with no `template.more` leaves `.more-btn` at `aria-disabled="true"` and `M` opens nothing (P5). Neither is a defect and neither is silent, which is exactly why the editor of a new slide makes the choice deliberately rather than by forgetting (`presentation/README.md`, §Editing a slide).
+**What the shipped sampler actually carries:** `template.talk` on six of the seven slides (`#/2`, the divider, has none, and that is what makes `No notes for this slide` a state you can see), and `template.more` on **two** slides only — `#/4` and `#/5`, **two `li` each**, so four `.src-claim` / `.src-ref` pairs in the file, every one demo-marked; `#/3`, `#/6` and `#/7` carry no sources and say so through `aria-disabled` (§3).
+
+## 2. The panel: one drawer, window-fixed, outside the stage
+
+    body
+      #stage …                                  transformed by --scale, overflow hidden
+      aside#presenter[hidden][aria-label="Presenter overlay"]
+        section#notes[hidden][role=region][aria-label="Presenter notes"]
+          header.panel__head   span.panel__where · button.panel__close[aria-label="Close notes"]
+          div.panel__body      ul.note-list (cloned from template.talk)
+        section#more[hidden][role=region][aria-label="Sources for this slide"]
+          header.panel__head   span.panel__where · button.panel__close
+          div.panel__body      ul.src-list > li > span.src-claim + span.src-ref
+
+**Form: a window-fixed right drawer, not a bottom sheet and not a floating card.** It is `position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 34vw); padding: 24px; display: flex; flex-direction: column; z-index: 2`, face `rgba(6, 31, 22, .97)` (`--felt-3` at 97%), ink `--card-face`, `border-left: 1px solid var(--rail)`, `border-radius: 18px 0 0 18px` (`--radius`), `box-shadow: -16px 0 32px var(--shadow)`.
+**Why a drawer.** A bottom sheet would sit on the HUD strip, whose 40px is already spent in §2's `44 + 568 + 24 + 40 + 44 = 720`, and would cover the counter; a floating card would overlay the middle of the slide, which is where the fact is. A right-edge drawer is the one band the design does not put content in for a presenter reading notes, and its height is not a stage budget.
+**Why it cannot disturb the stage.** It is not a descendant of `#stage`, so it inherits neither `transform: scale(var(--scale))` nor `overflow: hidden`; it is `position: fixed`, so it takes no space in any flow and cannot move a card; it is specified in **window** px, so §2's stage arithmetic and (§5's) card sums are unchanged by construction; and it never touches `--scale`, `--stage`'s rect or the `#/N` hash, which P3 and P9 measure.
+**It never covers the counter, arithmetically.** The counter group starts at stage x `44` and is `≈179` stage px wide (7 dots × 8px + 6 × 8px gaps = 104, 20px gap, `n / 7` in `--font-mono` ≈ 55), so at scale `s` its right edge is `(W − 1280s)/2 + 223s = W/2 − 417s`, strictly left of the window centre for every `s > 0`; the drawer's left edge is `W − min(460px, 0.34W) ≥ 0.66W`, strictly right of it. The drawer does cover the stage's right side and, at a 16:9 window, the `.demo-note` and the right click zone; that is accepted and stated, because the presenter is reading, not presenting, while it is open.
+**Type ramp, window px, system stacks only.** §3's tokens are reused at their own values, unscaled: `--note-fs: 20px / 28px` (design §3's `--fs-small`) for note body, source claim and `.panel__where`, which is `font-weight: 600`; `--note-fs-sm: 16px / 24px` for `.src-ref` and the "No notes for this slide" line. **16px is the panel's only new size**, and it exists because a citation must sit below its claim while staying clear of the 14px floor; nothing is added to §3's ramp, which stays the stage's. The floor is 16px on purpose, not 14px: the panel is read at arm's length and, on a mirrored screen, from further away. Contrast by §3's formula: `--card-face` on `--felt-3` ≈ **15:1**; `--gold-dim` on `--felt-3` ≈ **6.3:1** (require ≥ 4.5:1). Measure is capped at `max-width: 46ch`. At 1920×1080 the drawer is 460 of 1920 window px and its body type is still 20px, because nothing in it is ever scaled: that is the reason the drawer is specified in window px rather than stage px.
+**Scrolling:** `.panel__body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding-right: 8px; scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent }`. `overscroll-behavior: contain` is what stops a wheel that reaches the end of the notes from also stepping a slide. Long notes scroll; they are never clipped and never shrink (G8).
+**`panel__where`** carries the same string as the `#live` line, `Slide 3 of 7 — bullets`, so the presenter can confirm the slide without looking at the staged HUD. It is plain text, never a live region.
+
+## 3. Sources ("More")
+
+**Data form:** `template.more` holds `<ul class="src-list">` with one `<li>` per figure: `<span class="src-claim">` the claim as spoken or shown, then `<span class="src-ref">` naming a `strata/decisions.md` row (`D-121`) or a `strata/records/` path, **plus an ISO date** (`YYYY-MM-DD`). Markup in a template rather than the kit's `[label, text]` array: that array is a build-time data form and we have no build step, and markup in the file is greppable, which is what lets G9 check the numbers rule mechanically. Every `.src-ref` must match `D-\d+` or `strata/records/` **and** `\d{4}-\d{2}-\d{2}`.
+**A slide with no sources: the control reads `aria-disabled`, it is not hidden.** All seven sampler slides keep exactly one pointer-enabled control in the HUD, `button.more-btn` labelled `More (M)`, with `pointer-events: auto` inside the otherwise `pointer-events: none` HUD and `stopPropagation()` on its click so the click-zone handler never sees it. On a slide with no `template.more` the button carries `aria-disabled="true"` and stays in the layout, and `M` is a no-op that opens nothing. Reasons: a control that disappears between slides moves the HUD's layout and the presenter's aim mid-talk; a control that vanishes cannot tell you whether the slide has no sources or your keypress failed; and the disabled chip keeps full `--gold-dim` (≈6.3:1 on `--felt-3`, §2) where `opacity: .4` would composite to ≈2:1, under the 3:1 non-text threshold, hiding the statement instead of making it. The `disabled` attribute itself is not used, because a `disabled` button is not focusable and so not discoverable, while `aria-disabled` on a focusable button is announced.
+**Both panels open at once: allowed, in one drawer, stacked.** `#notes { flex: 1 1 auto }`, `#more { flex: 0 0 auto; height: min(320px, 38%); border-top: 1px solid var(--rail) }`, each pane scrolling its own body. A single pane grows to the full drawer, so opening the second never moves the first. This is the one pairing the talk needs: what to say, beside what the figure rests on.
+
+## 4. Keys and interactions
+
+| Key | Action |
+|---|---|
+| `N` / `n` | toggle notes: opens the drawer if it is closed, toggles only `#notes` if it is open |
+| `M` / `m` | toggle sources; a no-op on a slide whose `template.more` is absent, and it opens nothing else |
+| `Esc` | closes the **most recently opened** pane: with both open the first `Esc` closes the newer one, the second closes the other, and a third does nothing |
+| arrows, `↓`/`↑`, Space, Shift+Space, PageUp/PageDown, Home, End, `f` | unchanged, design §6, panels open or closed |
+| any of Ctrl / Alt / Meta held | no deck key at all, panel keys included (design §6) |
+| wheel, click zones | **no navigation while `#presenter` is open** |
+
+**One rule ties the three hidden states:** `#notes` and `#more` each own their `[hidden]`, and `#presenter` is shown exactly when at least one pane is shown, so closing the last pane hides the drawer. "Most recently opened" is one variable holding `'notes'` or `'sources'`, not a history.
+
+**Why wheel and click go quiet.** The drawer covers the right click zone by construction, and the presenter's pointer is over the panel whenever notes are open; a wheel meant to scroll four lines of caveats must never put two slides on the projector mid-sentence (D-118's own rejected alternative). Keys and the hash still navigate, so presenting never stops working; the cost is one `N`/`M`/`Esc` to get the pointer back. Both handlers take one guard, `if (!drawer.hidden) return;`, which is what P8 and G8 measure.
+**`Esc` and fullscreen, honestly.** A browser in fullscreen may consume `Esc` to leave fullscreen before the page sees it, so closing a panel never depends on `Esc`: `N` and `M` also toggle, and `.panel__close` is a real 32×32 pointer target for a clicker. Design §6 states the same rule from the deck's side, `Esc` being the browser's for fullscreen and the presenter's for an open panel.
+**No focus trap, no focus move.** Opening a pane does not move focus and does not trap it. A trap would need a restore path on close, would make Space and the arrows ambiguous between stepping and scrolling, and can strand a presenter mid-talk. `#presenter` is `tabindex="-1"` so it can be focused deliberately; it is not focused by the deck.
+**Motion:** a 160ms opacity + 8px x-translate reveal on `#presenter`, and `html.no-motion #presenter { transition: none }` under `prefers-reduced-motion: reduce` (the IIFE already sets that class; design §6).
+**No JS:** the base CSS hides all three (`#presenter, #notes, #more { display: none }`) and `html.js` re-enables them **only in the open state** (`#presenter:not([hidden]) { display: flex }`, and each pane `:not([hidden])`), so no later rule can un-hide a `[hidden]` pane; the templates never render. The stacked no-JS document (design §6) therefore contains no notes and no sources, and the deck still reads as seven slides in order.
+
+## 5. Presenter and audience, separated
+
+**Nothing in the notes or the sources can reach the audience's view without a keypress or a click on `More`.** The drawer is `[hidden]` at load, its state is never persisted (no `localStorage`, no `sessionStorage`, no hash, no query), it is not opened by hover, focus, scroll, a URL or a slide change, and the notes are absent from `innerText` and from `#live`. A note can only be read by pressing `N` or opening `More` on a screen the presenter is looking at.
+**Failure modes designed out:** opening automatically on load or on a slide change; remembering the state across a reload, so a mid-talk refresh re-opens notes on the projector (what an open pane does as you step is the next paragraph, and it differs by pane; no pane's state survives the reload); an `aria-live` region carrying notes, so a screen reader on the presenting machine would read them aloud; the notes living inside `#stage`, where they would scale, be cropped, and be visible in A9's screenshots; the notes living in the flow as a hidden element, which JS-off or a broken CSS rule would print into the stacked document; covering the counter, so the presenter loses the one number that says where they are; and a panel that survives `Esc` because fullscreen ate the keypress.
+**A slide change is the one thing that touches an open pane, and the two panes answer differently.** *Notes* follow the slide: the pane stays open across every step, re-rendered for the slide you land on, and a slide with no `template.talk` shows the literal line `No notes for this slide`, so an empty pane is never a broken keypress. *Sources* never outlive their slide, because a citation belongs to the one figure it names: `#more` open on `#/4` and one `→` to `#/5` — the other source slide — re-renders in place and stays open, but a step onto a slide with no `template.more` closes the pane, and **when it was the only open pane the drawer closes with it**: `#more` open on `#/5`, one `→` to `#/6` (the quote, which has no sources), and `#presenter` and `#more` are both `[hidden]`, with nothing on screen to say the step took anything away. Nothing reopens automatically — not the next slide, not the way back (`←` to `#/5` leaves both closed), not a reload — and the recovery is the key that opened it, pressed on a slide that can hold it: `M` (or a click on `More`) on a slide with sources returns the pane and the drawer, while on a slide with none `M` stays §4's no-op, so step forward to one that has sources first; `N` returns the notes on any slide. With both panes open the rule stays per pane: `#more` closes alone and `#notes` stays up, so the drawer survives.
+**If the presenter mirrors their screen, the panel is on the projector.** No CSS can prevent that, so the deck's guarantee is narrower and stated: notes are closed unless opened deliberately, and one key closes them. The panel is styled in the deck's own tokens so that if it does appear it does not look broken.
+
+## 6. Acceptance checks
+
+Rendered checks run through `docs/presentation/checks.md`'s gate (G-numbers cited); static ones are `grep`/reads on the one file. `--scale` is read as `document.documentElement.style.getPropertyValue('--scale')`.
+
+| # | Check |
+|---|---|
+| P1 | Static: every `template.talk` / `template.more` is a direct child of `section.slide`, none inside `article.card`; `grep -c 'template class="talk"'` is between 1 and the deck's slide total (design A3; the gate derives that total and does not hold it) and at least one slide has neither template; `grep -c 'data-notes'` = 0; `grep -c 'innerHTML'` = 0 |
+| P2 | Rendered (G8): `#presenter`, `#notes`, `#more` exist, `#presenter` is a direct child of `<body>`, and `#presenter.closest('#stage')` is `null` |
+| P3 | Rendered (G8): `N` toggles `[hidden]` on `#notes`, and `--scale` **and** `#stage`'s rect are identical before and after |
+| P4 | Rendered (G8): a slide with `template.talk` shows its lines; a slide without shows the literal line `No notes for this slide`; both render at 1280×720, so "no notes" is never a silent keypress |
+| P5 | Rendered (G9): `M` on a slide with no `template.more` leaves `#more` `[hidden]` and `.more-btn` at `aria-disabled="true"`; on each of `#/4` and `#/5` — the two source slides — both flip. **Reviewer, not gate:** with `#more` alone open, `→` onto a slide with no sources leaves `#presenter` and `#more` both `[hidden]`, and `←` back reopens neither (§5) |
+| P6 | Rendered (G8): every text-bearing element inside `#presenter` has computed `font-size` ≥ 14px (the ramp states 16px as the design value) |
+| P7 | Rendered (G8): `Esc` with a pane open closes it and navigates nothing: the active `#sN` and `location.hash` are identical before and after; with both open, two `Esc`s close both and a third changes nothing |
+| P8 | Rendered (G8): with `#presenter` open, a dispatched `WheelEvent` (`deltaY` ±120) and a `click` at `0.9 × innerWidth` change no slide; after closing, the same two inputs step one slide each |
+| P9 | Rendered (G8): `#presenter` is not scaled: with `--scale` set to `1` and then to `0.5`, its computed `font-size` and `getBoundingClientRect().width` are unchanged and `getComputedStyle(#presenter).transform` is `none` |
+| P10 | Rendered (G10): with no pane open, `document.body.innerText` and `#live`'s text contain none of the strings inside any `.talk` / `.more` template; with `#notes` open, `#live`'s text still contains none of them |
+
+**L4 must not soften:** no library, no network, no build step (design §1); `innerHTML` stays at zero; the panel stays outside `#stage`; the notes and sources stay templates; `--scale`, the stage arithmetic, §5's budgets and A1–A15 are untouched by this layer.
