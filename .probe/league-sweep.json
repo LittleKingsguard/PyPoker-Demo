@@ -1,0 +1,86 @@
+[
+ {
+  "name": "raiser-83",
+  "chips": -0.051,
+  "ci": 10.094,
+  "top": {
+   "check-call": 83.3,
+   "raise-minimum": 16.7
+  }
+ },
+ {
+  "name": "ours-s0",
+  "chips": -0.051,
+  "ci": 10.094,
+  "top": {
+   "check-call": 83.3,
+   "raise-quarter": 16.7
+  }
+ },
+ {
+  "name": "raiser-50-50",
+  "chips": -0.083,
+  "ci": 3.96,
+  "top": {
+   "fold": 80.0,
+   "raise-all-in": 20.0
+  }
+ },
+ {
+  "name": "folder",
+  "chips": -0.6,
+  "ci": 0.051,
+  "top": {
+   "fold": 100.0
+  }
+ },
+ {
+  "name": "mask-only",
+  "chips": -0.6,
+  "ci": 0.051,
+  "top": {
+   "fold": 100.0
+  }
+ },
+ {
+  "name": "pool-today",
+  "chips": -0.6,
+  "ci": 0.051,
+  "top": {
+   "fold": 100.0
+  }
+ },
+ {
+  "name": "pool-mean-real",
+  "chips": -0.6,
+  "ci": 0.051,
+  "top": {
+   "fold": 100.0
+  }
+ },
+ {
+  "name": "pool-no-squash",
+  "chips": -0.6,
+  "ci": 0.051,
+  "top": {
+   "fold": 100.0
+  }
+ },
+ {
+  "name": "pool-sum",
+  "chips": -0.6,
+  "ci": 0.051,
+  "top": {
+   "fold": 100.0
+  }
+ },
+ {
+  "name": "mask-no-squash",
+  "chips": -6.2,
+  "ci": 0.691,
+  "top": {
+   "fold": 83.3,
+   "raise-quarter": 16.7
+  }
+ }
+]

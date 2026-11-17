@@ -2904,3 +2904,32 @@ whose caller never folds, not a strong strategy.
 **What would strengthen the answer**: more seeds (three give ±8.8; six roughly halve it), a stronger league through the
 product's own pool machinery, and the head-to-head Bradley–Terry instrument (D-21) rather than a chip mean against a
 fixed mix.
+
+---
+
+## D-106 — There is no stable best member: the league is near-break-even plus one folder plus one loser
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Softens:** D-105
+
+**Source (user, verbatim):** "What's the best member in the league?"
+
+**Measured** (ten six-seat checkpoints, 1,000 hands each, same mix and seats):
+
+| member | chips/hand | 95 % |
+|---|---|---|
+| 83 % raiser | −0.05 | ±10.09 |
+| our model (15k, seed 0) | −0.05 | ±10.09 |
+| 50-50 raiser | −0.08 | ±3.96 |
+| folder, mask-only, and the four pool-probe arms (7 members) | −0.60 | ±0.05 |
+| **mask-no-squash** | **−6.20** | **±0.69** |
+
+**The ranking does not reproduce**: the 50-50 raiser scored **+2.24 ±3.33** at 1,500 hands in D-105 and **−0.08 ±3.96**
+here, a 2.3-chip swing on a different hand set. So D-105's "level with the league's best member" is **softened**: on
+this hand set the top three are within **0.03 chips** with intervals of ±4–10, and there is no top to be level with.
+
+**Stable facts:** the folder is exactly **−0.60**; **seven of ten members are −0.60** (the league is mostly folders);
+**`mask-no-squash` is genuinely bad at −6.20 ±0.69** — the D-77 "remedy" arm is the worst policy measured in the
+project on this table; and everything between is **break-even within noise**.
+
+**Conclusion:** ranking these members needs the head-to-head instrument (D-21) with far more games or a much stronger
+pool — the same conclusion D-105 reached from the other side.
