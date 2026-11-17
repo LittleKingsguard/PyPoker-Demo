@@ -3414,3 +3414,34 @@ mixed every opponent into one table-level label — not because the architecture
 policy in D-119 was trained on that biased target, which is why its output was near-constant and destructive.
 
 **Limits:** 759 held-out rows, 400 hands per opponent, four opponents, self-play — directional, not calibrated.
+
+---
+
+## D-123 — The better opponent model still collapses the policy: prediction quality is not the problem
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Closes the loop on** D-119/D-122
+
+**Source (user, verbatim):** "Start run" — wire the per-seat, identity-conditioned artefact (D-122) into the policy.
+
+| arm | dim | chips/hand | census | card-dep |
+|---|---|---|---|---|
+| **base** | 56 | **+3.68 ±3.22** | fold 78 %, call 22 % | 3/5 |
+| **+ per-seat opponent** | 59 | **−0.56 ±0.11** | **fold 99.7 %** | 1/5 |
+| + table-level opponent (D-119) | 60 | −0.60 ±0.04 | fold 100 % | 1/5 |
+| + table-level opponent + bet size (D-119) | 61 | −0.60 ±0.04 | fold 100 % | 1/5 |
+
+**The collapse is not caused by the model's accuracy.** A predictor with **raise recall 1.00** and **0.82 balanced
+accuracy** (D-122) does exactly what the near-constant table-level model did: it drives the policy into the fold
+corner. So neither the input's content nor the predictor's quality is the deciding factor — **three extra dimensions,
+whatever they contain, move this learner off the only configuration it reliably finds.**
+
+**That is the credit-assignment fragility of D-72/D-116 again**: the policy sits at a corner of the action simplex, and
+perturbing its input space changes *which* corner it reaches rather than adding skill.
+
+**For the opponent goal:** a better estimator is **necessary and not sufficient** — it can be measured, improved and
+validated, and still be unusable as a policy input under this rule. The bottleneck has moved to the **learner**, which
+has been every record's finding since D-84.
+
+**Caveats:** one seed each; the base arm ranged +3.68 to +9.09 across seeds (D-120); the probe's learner; and the
+"extra dimensions collapse it" claim is an observation, not a mechanism — a controlled test of three irrelevant *varying*
+dimensions against three constant ones would separate perturbation from degeneracy.
