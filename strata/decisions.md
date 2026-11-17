@@ -3358,3 +3358,31 @@ every hand.
 
 **Still owed:** the same comparison on the product's learner, and the monotonicity test (D-116) on the base arm — its
 card-dependence is real but has not been shown to be *ordered* by strength.
+
+---
+
+## D-121 — The opponent model predicts fold and nothing else: lift ≤ 0 against every reviewed model
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "How closely does the opponent model prediction align to the actual behavior of the reviewed
+models"
+
+| opponent | actual F/C/R % | **predicted F/C/R %** | acc | base | lift |
+|---|---|---|---|---|---|
+| folder | 69 / 2 / 29 | 83 / 17 / 0 | 0.558 | 0.692 | **−0.135** |
+| raiser-50-50 | 83 / 0 / 17 | 100 / 0 / 0 | 0.833 | 0.833 | 0.000 |
+| **raiser-83** | **10 / 53 / 36** | **97 / 3 / 0** | **0.110** | 0.533 | **−0.423** |
+| `fold-no-pair-or-face` | 13 / 87 / 0 | 18 / 82 / 0 | 0.845 | 0.873 | −0.028 |
+| `fold-large-bet` | 0 / 100 / 0 | 4 / 96 / 0 | 0.958 | 1.000 | −0.042 |
+
+**It never predicts a raise** (0 % predicted against 36 % actual), **over-predicts fold everywhere** (precision
+0.10–0.83, recall 0.61–1.00), and **beats the majority-class baseline on no opponent** — lift ≤ 0 for all five, −0.423
+for the most active member, worse than a marginal-weighted coin.
+
+**Cause:** trained on tables where 95.9 % of labels are calls (D-113), it has no representation for "raise" and defaults
+to fold; its output is a **near-constant vector** — which is why it destroyed the policy as an input (D-119).
+
+**Verdict:** it has learned the **marginal of its training population, not any member's policy**. An "it reads
+opponents" claim would need balanced accuracy or per-class F1 on a class-balanced evaluation; with raise predictions at
+zero it cannot be made.
