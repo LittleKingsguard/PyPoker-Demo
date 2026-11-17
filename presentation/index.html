@@ -355,10 +355,9 @@ html.js #s9 .a-side-bottom .t-url { overflow: hidden; }
 #s8 > .t-note { position: absolute; left: 218px; top: 528px; width: 756px; height: 28px; margin: 8px 0 0; color: var(--card-face); }
 
 /* --- 5.3 section divider — card.a-hero, inner 512: 96+24 . 24+12 . 64+12 . 36 = 268 / 512
-       #s9 is the sampler's demo divider; #s7 is the card model's real one
-       (content.md §5), so the shape is one budget with two occupants and the
-       rules are shared. The eyebrow takes the --fs-badge tokens on its own
-       block name; it is not the demo chip. */
+       #s7 is the card model's divider; the sampler's demo divider that shared this
+       shape was deleted (D-133), so the rules below are its own now. The eyebrow
+       takes the --fs-badge tokens on its own block name; it is not the demo chip. */
 #s7 .a-hero { text-align: center; }
 #s7 .suit-circle {
   width: 96px;
@@ -902,16 +901,16 @@ html.js .more-btn { pointer-events: auto; }</style>
       </div>
       <template class="talk">
         <ul class="note-list">
-          <li>Read the title, then let the grid do the work: the same eight hands and the same equity column, with one action per street beside it.</li>
-          <li>Name the two columns: 600-scale reward, 3k hands, and 600-scale reward, raiser run. Read the key aloud: r raise, c call, f fold, one letter per street from preflop to the river.</li>
-          <li>Say the punchline: every cell in both of these columns is the same action for all eight hands.</li>
+          <li>Read the title and mean it: the plan's three steps did not survive contact with the enemy. This grid is the contact: the 600-scale reward's trunks are dead.</li>
+          <li>Name the two columns, 600-scale reward, 3k hands and 600-scale reward, raiser run, and read the key aloud: r raise, c call, f fold, one letter per street from preflop to the river.</li>
+          <li>Say the punchline: every cell in both columns is the same action for all eight hands, whatever the hand's true equity.</li>
         </ul>
       </template>
       <template class="more">
         <ul class="src-list">
           <li>
-            <span class="src-claim">The reference hands and every model's per-street action on this grid.</span>
-            <span class="src-ref">D-129 &#183; 2026-11-08 (grids regenerated 2026-11-17)</span>
+            <span class="src-claim">The eight reference hands' true equities and each dead-trunk model's one action for every hand.</span>
+            <span class="src-ref">figures/reference-grids.html &#183; regenerated 2026-11-17; D-129 &#183; 2026-11-08; D-108 &#183; 2026-11-08</span>
           </li>
         </ul>
       </template>
@@ -936,15 +935,15 @@ html.js .more-btn { pointer-events: auto; }</style>
       <template class="talk">
         <ul class="note-list">
           <li>Name the five columns left to right: foldloop-high, foldloop-control, card strength, and the two eps 0.60 probes.</li>
-          <li>Point at the rows that change: foldloop-control turns to c at the river, and the two eps 0.60 probes fold the kings and the junk.</li>
+          <li>Point at the rows that change: foldloop-control turns to c at the river on seven of the eight hands, 2-7 offsuit junk aside, and the two eps 0.60 probes fold the kings and the junk.</li>
           <li>Then point at the column that does not: foldloop-high is rrrr for all eight hands, which is why one live column is not the whole story.</li>
         </ul>
       </template>
       <template class="more">
         <ul class="src-list">
           <li>
-            <span class="src-claim">The reference hands and every model's per-street action on this grid.</span>
-            <span class="src-ref">D-129 &#183; 2026-11-08 (grids regenerated 2026-11-17)</span>
+            <span class="src-claim">The live-trunk models' per-street action on each of the eight reference hands.</span>
+            <span class="src-ref">figures/reference-grids.html &#183; regenerated 2026-11-17; D-129 &#183; 2026-11-08; D-67 &#183; 2026-11-08; D-108 &#183; 2026-11-08</span>
           </li>
         </ul>
       </template>
@@ -975,8 +974,8 @@ html.js .more-btn { pointer-events: auto; }</style>
       <template class="more">
         <ul class="src-list">
           <li>
-            <span class="src-claim">0 / 50 &#183; 0 / 50 and 23 / 50 &#183; 24 / 50, on the foldloop-high checkpoint.</span>
-            <span class="src-ref">D-132 &#183; 2026-11-17</span>
+            <span class="src-claim">Every hidden unit dead under the 600-scale reward (0 / 50 and 0 / 50, the dead-ckpt run) and 23 / 50 with 24 / 50 firing under the normalised reward (foldloop-high). Two different runs, never one curve.</span>
+            <span class="src-ref">figures/network-compare.svg &#183; generated 2026-11-17; D-60, D-67, D-108 &#183; 2026-11-08</span>
           </li>
         </ul>
       </template>
@@ -1281,7 +1280,7 @@ html.js .more-btn { pointer-events: auto; }</style>
       <span class="dot"></span>
       <span class="dot"></span>
     </div>
-    <span id="counter">1 / 14</span>
+    <span id="counter">1 / 9</span>
     <span class="hint">&#8592; &#8594; space &#183; F</span>
     <button type="button" class="more-btn" aria-expanded="false" aria-disabled="true">More (M)</button>
   </footer>

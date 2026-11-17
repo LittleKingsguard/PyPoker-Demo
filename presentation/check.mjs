@@ -646,7 +646,7 @@ function checkStatic(deckPath) {
  * string; exactly two of them; each is one of the two figures content.md
  * declares; and the copied fragment's CSS is scoped by its own .pp prefix. It
  * needs no browser, so a missing figure fails in a second rather than after
- * fourteen slides. */
+ * nine slides. */
 function checkAssetsStatic(deckPath) {
   const source = readFileSync(deckPath, 'utf8');
   const base = dirname(deckPath);

@@ -1,18 +1,29 @@
 # Fact check, 2026-11-17
 
-- Deck: `presentation/index.html` (the eight-slide deck as shipped — five demo slides and three real; no dated copy exists yet because no
-  content rewrite has happened) · Slot: not fixed yet, 8 slides · Scope: every figure on every slide
-- Evidence grade, per row, is the kit's distinction, kept: "read directly" vs "search summary"
-- **This pass carries no measured figures.** The five demo slides are `DEMO` copy (design A4: five `demo-badge` chips, the
-  HUD reads `demo slides: placeholder content`), so the table below is empty by design and binds the next
-  content pass: a figure with no row here never reaches a slide (checks.md §7, content-rules R9).
+- Deck: `presentation/index.html` (the nine-slide deck as shipped — no demo slides, no `DEMO` badge, no placeholder
+  content; no dated copy exists yet because no content rewrite has happened) · Slot: not fixed yet, 9 slides · Scope:
+  every figure on every slide
+- Evidence grade, per row, is the kit's distinction, kept: "read directly" vs "search summary" — every row below is
+  **read directly** off the generator, figure or record it cites, on 2026-11-17
+- **This pass carries four measured rows, one per figure-bearing slide:** the two reference grids (`#s4`, `#s5`), the
+  trunk's four counts (`#s6`) and the card model's two endpoints (`#s8`). The deck carries no demo content (D-133), so
+  every figure on every slide is in the table; the plan (`#s3`), the divider (`#s7`), the title and the outtro carry no
+  figure and owe no row.
 
 | # | slide | claim as it appears on the slide | source (strata/decisions.md row, or strata/records/ path) | source date | what the source does NOT support | disposition |
 |---|---|---|---|---|---|---|
+| 1 | `#s4` | The dead-trunk grid as drawn: eight reference hands with true equities `100%`, `100%`, `98%`, `92%`, `45%`, `0.0%`, `0.0%`, `0.02%`, and each model's action — `r r r r` on all eight rows under `600-scale reward, 3k hands`, a single `r` on all eight under `600-scale reward, raiser run` | `figures/reference-grids.html` — eight verified reference hands replayed through every surviving checkpoint (`.probe/make_grids.py` → `.probe/grids.json` → `.probe/make_html_grid.py`, regenerated **2026-11-17**); **D-129** · 2026-11-08 (the grids, from that replay); **D-108** · 2026-11-08 (the dead trunk) | 2026-11-08 (D-129, D-108) · figure read 2026-11-17 | That any cell is illustrative; that the one-action-for-every-hand rows are a training result rather than the dead trunk's consequence — D-108 measures 0/50 units alive in both layers with one distinct activation across 300 observations, so the policy cannot condition on its input at all; and that the equity column is an equity a model computed — it is the hands' own six-way equity from the 20,000-draw Monte Carlo in `.probe/grids.json` | VERIFIED |
+| 2 | `#s5` | The live-trunk grid as drawn, under the slide's line `Live trunk: some of these models change their action with the hand, and some do not.`: `normalised, foldloop-high` is `r r r r` on all eight; `normalised, foldloop-control` is `r r c c` on six, `r r r c` on `nut flush` and `r r r r` on `2-7 offsuit junk` (so `c` at the river on seven of eight); `normalised + card strength` is `r r r r` on seven and `f` on `2-7 offsuit junk`; `probe, eps 0.60` raises the four strong hands (`100%`, `100%`, `98%`, `92%`) and folds the kings (`45%`) and all three junk hands (`0.0%`, `0.0%`, `0.02%`); `probe, eps 0.60 + opponent` differs from all of them (`c r` on `quad aces`, `c c c c` on `trip aces`) | same replay and fragment: `figures/reference-grids.html` (`.probe/make_grids.py`, `.probe/make_html_grid.py`, regenerated **2026-11-17**); **D-129** · 2026-11-08 (the per-street replay); **D-67** · 2026-11-08 (the normalised reward revives the trunk); **D-108** · 2026-11-08 (the dead trunk, for the contrast) | 2026-11-08 (D-67, D-108, D-129) · figure read 2026-11-17 | That all five live columns change with the hand — `foldloop-high` is `rrrr` on every row and `2-7 offsuit junk` is `r r r r` under `foldloop-control` too; that the two grids are one training run — they are separate checkpoints under two reward scales (D-67, D-108); and that a fold in one probe column is a fold in the other | VERIFIED |
+| 3 | `#s6` | `600-scale reward` → `0 / 50 · 0 / 50`; `normalised reward · foldloop-high` → `23 / 50 · 24 / 50`; with the card's own key, `Two numbers per panel: hidden layer 1 and hidden layer 2, of 50 units each.` The figure's own drawn counts agree: `hidden 1: 0 / 50 firing · hidden 2: 0 / 50 firing` and `hidden 1: 23 / 50 firing · hidden 2: 24 / 50 firing` | `figures/make_network.py` (its measured `alive1, alive2` per panel, printed to stdout and drawn into `figures/network-compare.svg`); **D-60** · 2026-11-08, **D-67** · 2026-11-08, **D-108** · 2026-11-08 | 2026-11-08 (D-60, D-67, D-108) · figure read 2026-11-17 | **That `22 / 50` is the same measurement:** `figures/demo-data.json`'s `trunk_health` block says **22/50** for the normalised reward because it measures a **different run**, so the slide's 23 and 24 are not interchangeable with it; that both panels are one checkpoint — the dead panel is `.probe/dead/dead-ckpt`, the live panel is the `foldloop-high` run, so the figure is not one training curve; and that a `0 / 50` panel is merely an under-trained checkpoint — D-108 measures **one** distinct activation across 300 observations, so that policy is a constant, not an early one | VERIFIED |
+| 4 | `#s8` | `By how many are known: 2.4 % preflop, 52.8 % at the river.` and the figure's `alt`, `Bars: 2.4% preflop, 14.4% flop, 20.9% turn, 52.8% river.` | `figures/signal-by-street.svg` (its four bars are `figures/demo-data.json`'s `signal_by_street` rows); **D-83** · 2026-11-08 (2.4 % preflop), **D-86** · 2026-11-08 (14.4 % flop, 20.9 % turn), **D-93** · 2026-11-08 (52.8 % at the river) | 2026-11-08 (D-83, D-86, D-93) · figure read 2026-11-17 | That the four bars are one checkpoint's four streets — 2.4 % is the flat one-hot's preflop ceiling (D-83), 14.4 % and 20.9 % are that encoding's flop and turn as the board arrives (D-86), and 52.8 % is the attention model's converged river at epoch 400 (D-93), so the bars are different eras; and that `strata/records/card-model-design.md`'s by-street ladder (`17.4`/`30.6`/`36.3` %, 28.1 % pooled) is the current figure — it is the **epoch-60 snapshot** (D-93's epoch-60 row), superseded by 40.16 % pooled at epoch 360 and 52.81 % at the river, so the figure's bars and the record's table are different eras | VERIFIED |
 
 ## Unresolved / needs the user
 
-- Nothing is blocked, because nothing on the five demo slides is a figure and the three real slides carry none
-  either: the sampler's numbers are `00`/`lorem` filler, its bars are invented heights, every demo card carries
-  the `DEMO` badge, and no card on `#s1`, `#s2` or `#s8` carries a figure at all. The first content pass fills the
-  table above and moves anything it cannot source into this section, one reading to choose between per figure.
+- **Nothing is unresolved about these four rows.** Each claim above is the string the slide prints (or the abbreviation
+  its grid draws), each source is the generator, figure or decision row that produced it, and each "what the source does
+  NOT support" cell is filled: the two counts that look interchangeable (`#s6`'s 23/24 against `demo-data.json`'s 22/50)
+  and the two eras that look like one ladder (`#s8`'s bars against the record's epoch-60 table) are stated on the
+  slides, in the presenter notes, and here.
+- **Any future figure needs a row here first:** a figure with no row in this table never reaches a slide — it is left
+  out, or the claim is weakened until the source carries it (`docs/presentation/checks.md` §7). The plan, the divider,
+  the title and the outtro carry no figure and owe none; a number added to any of them moves into this table with it.
