@@ -50,6 +50,19 @@ split) so a slide can build a table or animate a value without re-deriving anyth
 `network-compare.svg` works as the *cause* slide before `chips-ladder`: the dead trunk is why the earlier policy could
 not use any input, and the exploration floor is why it could not escape once it could.
 
+## Reference-hand grids (HTML snippet)
+
+`reference-grids.html` is a **self-contained fragment** (inline `<style>`, no assets, no scripts) holding two grids —
+**dead trunk** and **live trunk** — one row per reference hand with its cards and its true equity, one column per model,
+and the model's action **per street** (`r` raise, `c` call, `f` fold). Inline it straight into the deck.
+
+- `reference-grids-preview.html` wraps it in a minimal page so it can be opened and checked in a browser.
+- Data comes from a real replay of the same eight deals through every surviving checkpoint
+  (`.probe/make_grids.py`, `.probe/grid_extra.py`), regenerated into HTML by `.probe/make_html_grid.py`.
+- What the grids show: **every dead-trunk model plays one action for every hand** (`rrrr`, or `r` on the raiser run),
+  while the live-trunk models differ — `foldloop-control` is a fixed `rrcc` for all eight, the strength model folds only
+  `2-7`, and the two ε 0.60 probes raise the strong hands and fold the kings and the junk.
+
 ## Regenerating the network diagrams
 
 `python figures/make_network.py` — it reads the parameters straight out of the two checkpoints

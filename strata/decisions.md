@@ -3586,3 +3586,73 @@ cluster) and were fixed before commit.
 
 **Left to the deck session:** slide layout, the felt theme, inlining, and the narrative — this record supplies only the
 data and the pictures.
+
+---
+
+## D-129 — The deck opens and closes on a real contact slide carrying the profile QR as vector
+
+**Status:** ACTIVE · **Date:** 2026-11-17
+
+**Source (user, verbatim):** "For intro (after title) and outtro (last slide), display linkedIn qr code (at
+/home/ryanr/Pictures/Screenshots/Screenshot_20261117_162012.png) and name/contact information - Ryan Rasey;
+Founder/Dev @ Auspicion; ryan.rasey@auspicion.ai; https://www.linkedin.com/in/ryan-rasey-930403a4/"
+
+**Decision:** the deck gains a real contact slide immediately after the title, and its last slide becomes an outtro
+carrying the same contact block, so the room can scan at the open and at the close. The contact block is real
+content, not a sampler shape: "Ryan Rasey", "Founder/Dev @ Auspicion", "ryan.rasey@auspicion.ai",
+"https://www.linkedin.com/in/ryan-rasey-930403a4/", with the QR beside it. Those two slides carry no `DEMO`
+badge; every other slide keeps its demo marking, and the deck's demo-badge count and slide count move with it.
+
+**The QR is carried as inline vector geometry, not as an image.** The user's PNG was sampled to its module
+matrix (29×29, version 3, EC level L, mask 2), verified by structural checks (three finders, both timing rows,
+a BCH-valid format word) and by RS syndrome on the de-interleaved codewords (55 data + 15 EC, all syndromes
+zero), and it decodes to exactly `https://www.linkedin.com/in/ryan-rasey-930403a4/`. The matrix round-trips:
+rasterised at 8 px per module with a 4-module quiet zone it re-decodes to the same string. It enters
+`presentation/index.html` as `<rect>` geometry from a run-length row encoding (29 rows, 212 dark runs), so the
+file keeps every standing rule: no `<img>`, no `src=`, no `url(`, no `http` substring, no network, one file. The
+drawn code keeps a 4-module quiet zone and draws dark modules on the ivory card face (13.4:1), never inverted and
+never themed with an accent colour, because contrast and quiet zone are what make it scannable.
+
+**Readiness needs the render, not the asset:** before the deck is called ready again, a render of the contact
+slide is screenshotted, the drawn QR is sampled out of that screenshot and decoded, and the decoded string must
+equal the URL above. A verified source matrix that is drawn wrongly is still a dead QR on the wall.
+
+Rejected: embedding the PNG as a base64 data URI (a `<img src>` or `url(data:…)` breaks the no-image rule and its
+greps, and turns a 200×198 asset into an opaque blob in a file people are meant to edit by hand); a link with no QR
+(the user asked for a scannable code); generating a new QR from the URL with a library (none is installed here, and
+the user's own asset is the authority for what their profile link is); inverting or tinting the modules to match
+the felt (scan reliability is not a styling choice); putting the contact on a demo slide with placeholder copy
+still on it (a half-real slide is the one thing the demo badges exist to prevent).
+
+**Scope:** the two contact slides and the QR only. The sampler's other six slides, their demo markings and the
+real-content pass are unchanged.
+
+---
+
+## D-129 — Reference-hand grids: an HTML snippet showing what each model does with the same eight hands
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Make html snippet grids charting what different models do with the reference set of hands,
+displaying the hand, the calculated equity, and the model's action. Show separate grids for live-trunk and dead-trunk
+variants"
+
+**Produced:** `figures/reference-grids.html` — a **self-contained fragment** (inline `<style>`, no assets, no scripts) with
+**two grids**: **dead trunk** (2 models) and **live trunk** (5 models). Each row is a reference hand with its cards and its
+true six-way equity; each column is a model; each cell is that model's action **per street** (`r` raise, `c` call,
+`f` fold). Plus `reference-grids-preview.html` (a wrapper page for opening in a browser) and the generators
+(`.probe/make_grids.py`, `.probe/grid_extra.py`, `.probe/make_html_grid.py`).
+
+**Every cell is a real replay** of the same eight deals through the surviving checkpoints — nothing is illustrative.
+
+**What the grids show:** the **dead-trunk models play one action for every hand** (`rrrr` across all eight, or a single `r`
+on the raiser run), while the live-trunk models differ: `foldloop-control` is a fixed `rrcc` for all eight, the
+normalised-plus-strength model folds only `2-7`, and the two **ε 0.60** probes raise the four strong hands and fold the
+kings and the junk — the first policy in the project whose cells are not all the same shape.
+
+**Verified in a real browser**: rendered with headless Firefox and inspected, which caught a data bug — the two hands
+with exactly 0.00 % equity were displaying as "0.02 %" because the formatter bucketed every value below 1 %. Fixed and
+re-checked.
+
+**Note for the deck session:** the live grid includes the two ε 0.60 probe policies, which required retraining and saving
+them (`.probe/saved-*.pt`) because earlier runs kept no policy artefact.
