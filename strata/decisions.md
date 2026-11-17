@@ -3681,3 +3681,30 @@ un-walked. This row supersedes the D-14 obligation for `presentation/` only; eve
 Rejected: running the loop "because the process says so" on an artifact whose whole risk is visual taste (the user
 is the only reviewer who can judge a projector, and the loop was measuring documents, not the wall); and dropping the
 gate with the loop (the gate caught a real clipped-bullet defect and is cheap enough to keep running before a talk).
+
+---
+
+## D-131 — The title slide carries the real talk title, not a demo headline
+
+**Status:** ACTIVE · **Date:** 2026-11-17
+
+**Source (user, verbatim):** "Change title slide to show \"Large Language Models Without Language - Using LLM
+Techniques in Other Domains\" as the talk title"
+
+**Decision:** the title slide's headline becomes **"Large Language Models Without Language"** and its subtitle
+becomes **"Using LLM Techniques in Other Domains"** — the user's string split at its dash into the two slots the
+title shape already has, because a headline plus one line is the deck's own rule (`content-rules.md` R2) and the
+title slide already carries both boxes. The browser tab's `<title>` follows, and the slide's presenter note says
+what the talk is in the title's own terms, with no figure and no claim (D-121 §4).
+
+The title slide is therefore **real content**, so it carries **no `DEMO` badge**, exactly as the contact slides do
+(D-129): the deck now has **five** demo-badged slides (`#s3`–`#s7`) and three real ones (`#s1`, `#s2`, `#s8`). A4's
+badge count, the title shape's copy in `design.md` §5.1 and the README's demo/real split all move with it.
+
+Rejected: one long headline with the dash inside it (a 76-character display line cannot hold two lines inside the
+160 px display box without either clipping or a type size off the ramp); a bare title change that leaves the `DEMO`
+badge on the slide (a half-real slide is the thing the badges exist to prevent); inventing a longer subtitle or an
+event/date line the user did not give.
+
+**Scope:** the title slide's two text blocks, the tab title, that slide's presenter note, and the counts those move.
+No other slide, no layout, no theme.

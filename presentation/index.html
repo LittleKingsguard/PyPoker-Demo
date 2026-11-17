@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lorem Ipsum Poker Deck — demo talk deck</title>
+<title>Large Language Models Without Language - Using LLM Techniques in Other Domains</title>
 <style>
 /* ==========================================================================
    presentation/index.html — the talk deck (D-118, docs/presentation/design.md)
@@ -240,12 +240,17 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
 .suit--tl { top: 6px; left: 8px; }
 .suit--br { bottom: 6px; right: 8px; transform: rotate(180deg); }
 
-/* --- 5.1 title — card.a-hero, inner 512: 24+12 . 160+16 . 2+18 . 72+12 . 28 = 344 / 512 */
-#s1 .a-hero .t-badge   { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
-#s1 .a-hero .t-display { height: 160px; margin: 0 0 16px; }
+/* --- 5.1 title — card.a-hero, inner 512: 102+160+16 . 2+18 . 72+12 . 28+102 = 512 / 512
+       Real content since D-131: no badge row (24+12 is gone), and the surviving
+       blocks total 308 in a 512 interior, so 102px sits above the headline and
+       102px below the note and the void is symmetric instead of gathered under
+       the text. The break in the headline is visual only: .t-line is a block
+       span, so the text node still reads "Models Without" with its space. */
+#s1 .a-hero .t-display { height: 160px; margin: 102px 0 16px; }
+#s1 .a-hero .t-display .t-line { display: block; }
 #s1 .a-hero .card__rule { height: 2px; margin: 0 0 18px; }
 #s1 .a-hero .t-h3      { height: 72px; margin: 0 0 12px; }
-#s1 .a-hero .t-note    { height: 28px; margin: 0; }
+#s1 .a-hero .t-note    { height: 28px; margin: 0 0 102px; }
 
 /* --- 5.2 contact — the deck's first real slide (contact.md §3).
        a-wide inner 512: 96+64+8 . 36+20 . 2+24 . 38+16 . 56 = 360 / 512
@@ -565,17 +570,16 @@ html.js .more-btn { pointer-events: auto; }
       <article class="card a-hero">
         <span class="suit suit--tl" aria-hidden="true">&#9824;</span>
         <span class="suit suit--br" aria-hidden="true">&#9824;</span>
-        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
-        <h1 class="t-display">Lorem Ipsum Poker Deck — demo title</h1>
+        <h1 class="t-display">Large Language Models <span class="t-line">Without Language</span></h1>
         <i class="card__rule"></i>
-        <p class="t-h3">A placeholder subtitle, two lines, demo only</p>
-        <p class="t-note">placeholder content — not measured</p>
+        <p class="t-h3">Using LLM Techniques in Other Domains</p>
+        <p class="t-note">The technique, then the domain it travels to</p>
       </article>
       <!-- presenter.md §1: notes live in an inert template, a direct child of the slide -->
       <template class="talk">
         <ul class="note-list">
-          <li>Demo notes, placeholder text: this is the title frame. Open with the one sentence that says what the talk is about, then step on.</li>
-          <li>Demo notes: every slide in this sampler carries the DEMO badge, so nothing on the screen behind the drawer is a measurement.</li>
+          <li>Read the title as its two halves: &ldquo;Large Language Models&rdquo; is the technique, &ldquo;Without Language&rdquo; is the domain it travels to.</li>
+          <li>This slide is real, not a demo: there is no DEMO badge on it, and nothing here is measured.</li>
         </ul>
       </template>
     </section>
