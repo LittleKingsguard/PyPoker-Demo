@@ -3117,3 +3117,33 @@ removing 98 pad-heavy tokens ships D-110's mask effect (K7/K14).
 
 **Corrected summary:** *one card-sensitive, transparent opponent family and one card-blind, opaque one — testable on
 the first, only interesting on the second.*
+
+---
+
+## D-113 — The opponent model: strength is not in the history; actions need identity
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Build and train the opponent model, and, to expand its possible opponents, create variants
+of the scripted opponents that randomly ignore their fold rules and raise instead"
+
+**Built:** nine noisy opponents (three folders × ignore-and-raise probability 0 / 0.25 / 0.50) plus a caller, and an
+attention model over a seat's action history with two heads (action family, hand strength). 17,216 decision rows,
+800 hands, 85/15 split.
+
+| head | result |
+|---|---|
+| action accuracy | 0.9284 against base rate 0.9574 → **lift −0.029** |
+| fold recall / precision (90 cases) | 0.26 / 0.18 |
+| raise recall / precision (20 cases) | **0.00** / 0.00 |
+| **hand strength R²** | **−0.016** |
+
+**With the opponent's identity added** (a 9-way one-hot standing in for the cross-hand memory the project lacks):
+**fold recall 0.26 → 0.83**, **raise recall 0.00 → 0.25**, accuracy 0.9388 (still below base), **strength R² −0.012**.
+
+**So: hand strength is not in the history** (R² ≈ 0 with and without identity — their action never reveals their cards),
+while **actions are partially learnable only with identity** — which is exactly the **cross-hand carrier** the critique
+found no home for (K14). And with 95.8 % of decisions being calls, **accuracy is the wrong metric** (K20).
+
+**Not established:** any deployable read — precision is too low, and one collection seed, 800 hands and a 120-draw equity
+label are not enough. The record establishes **where the signal is**, not how well it can be extracted.
