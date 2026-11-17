@@ -2873,3 +2873,34 @@ and diluting the representation like the product's pooler moves the probe the *w
 
 **What survives of D-103:** the strength input and the seeded embeddings change **nothing** — measured at 5,000 hands
 across three seeds and at 15,000 hands on both arms, with distinct containers and identical decisions.
+
+---
+
+## D-105 — Against the league the model is break-even and level with the league's best member
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "How does the current model perform against the league?"
+
+**Answer:** the product's learner at **15,000 hands**, `net-chips`, seeds 0–2, 2,000 greedy hands each:
+
+| seed | chips/hand | behaviour |
+|---|---|---|
+| 0 | +3.46 ±7.16 | call 83 %, raise 17 % |
+| 1 | −2.25 ±7.01 | call 100 % |
+| 2 | +4.26 ±7.18 | call 100 % |
+| **mean** | **+1.82, sd 3.55, 95 % CI ±8.81** | call-dominant |
+
+**The interval [−6.99, +10.63] includes zero**, so the model **cannot be distinguished from break-even** against this
+league at this budget.
+
+**Reference bars, same mix**: folder **−0.60 ±0.04**; 50-50 raiser **+2.24 ±3.33**; 83 % raiser **+1.31 ±8.27**. Our
+model's **+1.82** is **indistinguishable from the league's best member**, and the seed-to-seed spread (−2.25 to +4.26)
+is **larger than any difference between the two**.
+
+**What it is doing**: call-dominant in all three seeds — the cheap exploit of a table whose folder surrenders blinds and
+whose caller never folds, not a strong strategy.
+
+**What would strengthen the answer**: more seeds (three give ±8.8; six roughly halve it), a stronger league through the
+product's own pool machinery, and the head-to-head Bradley–Terry instrument (D-21) rather than a chip mean against a
+fixed mix.

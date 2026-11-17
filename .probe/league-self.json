@@ -1,0 +1,3 @@
+{"member": "folder", "chips": -0.6, "ci": 0.041, "census": {"fold": 100.0}}
+{"member": "raiser-50-50", "chips": 2.243, "ci": 3.328, "census": {"fold": 80.0, "raise-all-in": 20.0}}
+{"member": "raiser-83", "chips": 1.305, "ci": 8.27, "census": {"check-call": 83.3, "raise-minimum": 16.7}}
