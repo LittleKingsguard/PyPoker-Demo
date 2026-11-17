@@ -3386,3 +3386,31 @@ to fold; its output is a **near-constant vector** — which is why it destroyed 
 **Verdict:** it has learned the **marginal of its training population, not any member's policy**. An "it reads
 opponents" claim would need balanced accuracy or per-class F1 on a class-balanced evaluation; with raise predictions at
 zero it cannot be made.
+
+---
+
+## D-122 — Per-seat history fixes the opponent model; the table-level target was the bias
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Explains and supersedes:** D-121's cause
+
+**Source (user, verbatim):** "Run per-seat, at a six-player table it is much more likely that any given opponent folds
+than it is for *all* opponents to fold, and this bias is probably one issue with the training set"
+
+**The bias, measured:** the table-level training set was **95.9 % calls**; the per-seat set is **33.9 % fold / 50.4 %
+call / 15.7 % raise**.
+
+| model | accuracy | balanced acc | folder | raiser-50-50 | raiser-83 | `fold-no-pair-or-face` |
+|---|---|---|---|---|---|---|
+| table-level (D-121) | — | — | **−0.135** | 0.000 | **−0.423** | −0.028 |
+| **per-seat, no identity** | 0.702 | **0.730** | **+0.166** | **+0.127** | −0.013 | −0.212 |
+| **per-seat + identity** | **0.814** | **0.821** | **+0.278** | 0.000 | **+0.064** | 0.000 |
+
+**It predicts raises now** (raise recall 0.62 without identity, **1.00** with), **the fold bias is gone** (predictions
+track each member's own mix), and **identity adds +0.11 accuracy and +0.09 balanced accuracy** while removing the false
+raises against the scripted folder.
+
+**So D-121's conclusion is explained and fixed**: the model had learned its population's marginal because the **target**
+mixed every opponent into one table-level label — not because the architecture was wrong. The artefact wired into the
+policy in D-119 was trained on that biased target, which is why its output was near-constant and destructive.
+
+**Limits:** 759 held-out rows, 400 hands per opponent, four opponents, self-play — directional, not calibrated.
