@@ -381,8 +381,80 @@ def _trained_counterfactual(configuration, entry):
     return declarations.counterfactuals()[0]
 
 
+def _declared_strength(configuration, entry):
+    """The strength member a variant declares — its entry's, else its configuration's.
+
+    The fourth axis' side of :func:`_declared_rule`, :func:`_declared_utility` and
+    :func:`_declared_counterfactual`, read at either level so a configuration may carry the
+    declaration beside its entries and an entry may name its own; a level that declares none
+    — or declares `None` — is no claim, and `None` is returned so a caller passes no member
+    at all rather than a member this module substituted (`ASM-46`,
+    `docs/L2/training/declarations.md` §1–§2).  It is what decides whether the encoder is
+    built with the tenth block, which is what keeps a variant that declares nothing writing
+    the encoder and the container it always wrote.
+    """
+    declared = entry.get("strength")
+    if declared is not None:
+        return declared
+    declared = configuration.get("strength")
+    if declared is not None:
+        return declared
+    return None
+
+
+def _trained_strength(configuration, entry):
+    """The strength member a variant's learner is built under: the declared one, else the first.
+
+    A variant naming no member is built by `agents` as the catalogue's **first** member, so
+    the member is resolved by reading `declarations.strengths()` — the catalogue
+    `agents.learners()` publishes — and never by standing `declarations.STRENGTH` in for it,
+    because that constant is what the six rows declare and not a default this module owns
+    (`ASM-46`, `docs/L3/training/loop.md` §2).
+    """
+    declared = _declared_strength(configuration, entry)
+    if declared is not None:
+        return declared
+    return declarations.strengths()[0]
+
+
+def _declared_source(configuration, entry):
+    """The frozen estimator a variant declares — its entry's, else its configuration's.
+
+    Read beside the member it belongs to, on the same entry-first rule: a source is a
+    **spec key** and not a catalogue member, because a path is data and a catalogue is
+    rebuilt per call (`ASM-46`, `ASM-51`).  `None` is no claim, and is returned as it is.
+    """
+    declared = entry.get("strength_source")
+    if declared is not None:
+        return declared
+    declared = configuration.get("strength_source")
+    if declared is not None:
+        return declared
+    return None
+
+
+def _declared_seed(configuration, entry):
+    """The `embedding_init` record a variant declares — its entry's, else its configuration's."""
+    declared = entry.get("embedding_init")
+    if declared is not None:
+        return declared
+    declared = configuration.get("embedding_init")
+    if declared is not None:
+        return declared
+    return None
+
+
 def _train_variant_seed(
-    configuration, entry, seed, budget, device, pool=None, shape=None, counted=None
+    configuration,
+    entry,
+    seed,
+    budget,
+    device,
+    pool=None,
+    shape=None,
+    counted=None,
+    seeded=None,
+    model=None,
 ):
     """Steps 3-9 for one variant at one seed: train, snapshot, save, and pass.
 
@@ -421,12 +493,15 @@ def _train_variant_seed(
     that exists (protocol.md §5, write-root.md §1, §5,
     docs/L3/training/checkpoints.md §2).
 
-    **`counted` is the one out-parameter**, and it is the caller's dict: a run that declares
-    a counterfactual member other than the catalogue's first hands `episode._counted`'s
-    five facts in and the pair adds each hand's `episode._finiteness` to them, so the
-    record's `finiteness` block is counted where the facts are built and nothing here
-    recomputes a batch (`counterfactual.md` §10, `records.md` §12, D-45).  A case that
-    passes none gets the same four-tuple and no tally (`loop.md` §8).
+    **`counted` and `seeded` are the two out-parameters**, and each is the caller's dict: a
+    run that declares a counterfactual member other than the catalogue's first hands
+    `episode._counted`'s five facts in and the pair adds each hand's `episode._finiteness`
+    to them, so the record's `finiteness` block is counted where the facts are built and
+    nothing here recomputes a batch (`counterfactual.md` §10, `records.md` §12, D-45); and
+    `seeded` receives the five-field record of the copy that wrote the learner's embedding
+    table, read off the learner that was built rather than re-derived, so the record's
+    `seeding` and the container's `seeding` are one statement (`ASM-49`).  A case that
+    passes none gets the same four-tuple, no tally and no seed record (`loop.md` §8).
     """
     del device  # the run records it; a pair's pass measures the same work on any device
     if pool is None:
@@ -436,7 +511,14 @@ def _train_variant_seed(
     name = str(configuration.get("name"))
     variant = str(entry.get("name"))
     interval = max(1, int(budget) // declarations.SNAPSHOTS)
-    encoder = features.build_encoder(entry["encoding"], shape=shape)
+    # The member is resolved **before** the encoder is built, because the encoder's tenth
+    # block is the member's: a variant that declares `none` -- or declares nothing -- gets
+    # today's declaration byte for byte, and one that declares `supervised` gets the ten
+    # fields, the one-slot-wider observation and the vocabulary 110 (`ASM-46`, `ASM-48`).
+    trained_strength = _trained_strength(configuration, entry)
+    encoder = features.build_encoder(
+        entry["encoding"], shape=shape, strength=trained_strength
+    )
     features.observation_spec(encoder)
     spec = {
         "backend": entry["backend"],
@@ -464,8 +546,25 @@ def _train_variant_seed(
     trained_counterfactual = _declared_counterfactual(configuration, entry)
     if trained_counterfactual is not None:
         spec["counterfactual"] = trained_counterfactual
+    # The strength member is forwarded on the same rule and only when it was declared, so a
+    # spec naming none carries no key and `agents` builds the catalogue's first; the source
+    # and the seed are spec keys and travel beside it, because the seed is a record and a
+    # record is data a catalogue cannot carry (`ASM-46`, `ASM-49`).
+    declared_strength = _declared_strength(configuration, entry)
+    if declared_strength is not None:
+        spec["strength"] = declared_strength
+    declared_source = _declared_source(configuration, entry)
+    if declared_source is not None:
+        spec["strength_source"] = declared_source
+    declared_seed = _declared_seed(configuration, entry)
+    if declared_seed is not None:
+        spec["embedding_init"] = dict(declared_seed)
     learner = agents.build_learner(spec)
-    policy = policies._learner_policy(learner, encoder, shape)
+    if seeded is not None and getattr(learner, "seeding", None) is not None:
+        # The copy's own record, read off the learner `agents` built: the digest is over the
+        # rows **as they were written**, so no path here recomputes it (`ASM-49`).
+        seeded.update(dict(learner.seeding))
+    policy = policies._learner_policy(learner, encoder, shape, model)
     layout._prepare(name, variant, seed)
     curve = curves._Curve(curves._axis(int(budget), interval))
     snapshots = []
@@ -481,7 +580,12 @@ def _train_variant_seed(
         # that turns the hand into transitions — the one place D-20's reward is applied
         # (`utilities.md` §4, D-20).
         batch = episode._transitions(
-            played, seat, encoder, _trained_utility(configuration, entry), shape
+            played,
+            seat,
+            encoder,
+            _trained_utility(configuration, entry),
+            shape,
+            model,
         )
         trained = index + 1
         if batch:
@@ -513,7 +617,9 @@ def _train_variant_seed(
         shape,
         seed,
         greedy._sample(budget),
-        agents.as_policy(learner, encoder, int(seed), greedy.MODE),
+        policies._stated_policy(
+            agents.as_policy(learner, encoder, int(seed), greedy.MODE), model
+        ),
         "training.run at the variant %r and seed %r" % (variant, int(seed)),
     )
     return (
@@ -718,6 +824,16 @@ def _record(
         member = _trained_counterfactual(configuration, entry)
         if member != default_counterfactual and member not in counterfactuals:
             counterfactuals.append(member)
+    # The fourth axis' set, on exactly that rule and **conditional**: a member is listed
+    # only when it is not the catalogue's first, and an empty list writes no key at all, so
+    # a run declaring nothing leaves the record at the shape its capture took
+    # (`records.md` §12, `ASM-46`).
+    default_strength = declarations.strengths()[0]
+    strengths = []
+    for entry in configuration["variants"]:
+        member = _trained_strength(configuration, entry)
+        if member != default_strength and member not in strengths:
+            strengths.append(member)
     record = {
         "rung": configuration.get("name"),
         "game": name,
@@ -774,6 +890,8 @@ def _record(
         record["axis row"] = "n/a, single variant"
     if counterfactuals:
         record["counterfactuals"] = counterfactuals
+    if strengths:
+        record["strengths"] = strengths
     # D-45's block, on D-43's conditional rule: present exactly when some variant declares a
     # member other than the catalogue's first, so a run that declares none carries no such
     # key and its record stays at the shape its capture took (`records.md` §12,
@@ -821,7 +939,16 @@ def run(rung, seeds=None, budget=None, device=None):
     for entry in configuration["variants"]:
         variant = str(entry.get("name"))
         member = _trained_counterfactual(configuration, entry)
+        # The frozen card estimator, loaded **once per variant** -- not per seed and not per
+        # hand -- from the source the variant declares: one file read per variant, and the
+        # same model handed to every injection site (`ASM-47`, `ASM-51`).
+        probe = None
+        if _trained_strength(configuration, entry) != declarations.strengths()[0]:
+            probe = features.load_strength(_declared_source(configuration, entry))
         points = {}
+        # The variant's seed record, filled by the first seed's build: the copy does not
+        # depend on the seed, so one record describes every seed's learner (`ASM-49`).
+        seeded = {}
         for seed in seed_set:
             # The pair's finiteness tally, handed in and filled in place: the empty five
             # facts for a run that declares a member, and `None` for one that declares none
@@ -836,6 +963,8 @@ def run(rung, seeds=None, budget=None, device=None):
                 pool=pool,
                 shape=shape,
                 counted=counted,
+                seeded=seeded,
+                model=probe,
             )
             points[str(seed)] = curve
             checkpoints_block.setdefault(variant, {})[str(seed)] = written
@@ -863,6 +992,15 @@ def run(rung, seeds=None, budget=None, device=None):
         trained_counterfactual = _trained_counterfactual(configuration, entry)
         if trained_counterfactual != declarations.counterfactuals()[0]:
             row["counterfactual"] = trained_counterfactual
+        # The fourth axis appears in the row on the same conditional rule, with the seed
+        # record beside it: a variant that declares neither writes neither key, so a default
+        # declaration's record stays at the shape its capture took (`ASM-46`, `ASM-49`,
+        # `records.md` §12).
+        trained_strength = _trained_strength(configuration, entry)
+        if trained_strength != declarations.strengths()[0]:
+            row["strength"] = trained_strength
+        if seeded:
+            row["seeding"] = dict(seeded)
         variant_block.append(row)
 
     return _record(

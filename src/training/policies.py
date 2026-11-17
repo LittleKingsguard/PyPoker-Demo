@@ -22,13 +22,41 @@ import agents
 import features
 
 
-def _learner_policy(learner, encoder, shape=None):
-    """A policy in the sense of `e2e-surface.md` §2 for one learner over one encoder."""
+def _learner_policy(learner, encoder, shape=None, model=None):
+    """A policy in the sense of `e2e-surface.md` §2 for one learner over one encoder.
+
+    `model` is the frozen card estimator an encoder that declares the tenth field needs:
+    when it is handed one, the decision's readout is **stated** first -- a fresh copy
+    carrying `strength` and the caller's mapping untouched -- and when it is not, the
+    readout reaches `features.encode` as it arrived, which is exactly right for an encoder
+    that declares no such field (`ASM-47`).
+    """
 
     def policy(readout, legal_actions):
+        if model is not None:
+            readout = features.stated(model, readout)
         observation = features.encode(encoder, readout)
         mask = features.legal_indices(legal_actions)
         decision = agents.act(learner, observation, mask)
         return features.decode_action(int(decision["action"]), shape=shape)
 
     return policy
+
+
+def _stated_policy(policy, model):
+    """One policy with the readout injected before it decides (`ASM-47`).
+
+    The greedy pass plays `agents.as_policy`'s policy, which asks the readout for the facts
+    the encoder carries and encodes it itself; so the injection has to happen **outside**
+    that policy and not inside `features` or `agents`.  This wrapper is the one place it
+    happens for the pass, and `greedy.py` is untouched: its retained records carry an index,
+    a descriptor, an amount, a limit, a legal mask and a tie flag and no readout at all, so
+    nothing in the retained block changes (`ASM-47`, `records.md` §15).
+    """
+    if model is None:
+        return policy
+
+    def wrapped(readout, legal_actions):
+        return policy(features.stated(model, readout), legal_actions)
+
+    return wrapped

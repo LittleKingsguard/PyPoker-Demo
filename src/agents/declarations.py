@@ -1,5 +1,5 @@
 """The one catalogue: `BACKENDS`, `ARCHITECTURES`, `LEARNING_RULES`, `UTILITIES`,
-`COUNTERFACTUALS`, `HYPER`.
+`COUNTERFACTUALS`, `STRENGTHS`, `HYPER`.
 
 `learners()` publishes these and nothing is restated elsewhere (`README.md` §5,
 `surface.md` §3): the two backends in `numpy` then `torch` order (D-7), the seven kinds
@@ -178,6 +178,32 @@ COUNTERFACTUALS = {
 #: cannot drift.
 DEFAULT_COUNTERFACTUAL = next(iter(COUNTERFACTUALS))
 
+#: The strength catalogue, in the declared order: the **fourth** catalogue, and the one
+#: that names what a learner reads as an **input** rather than what it learns from.  Each
+#: member is a record of exactly two keys -- its `name` and the stable token it `carries`
+#: -- and no sentence, exactly as `LEARNING_RULES` spells its second key (`ASM-46`).
+#: `none` is today's learner exactly, with no model input at all; `supervised` carries a
+#: frozen estimator's predicted win probability for the decision's own deal, which reaches
+#: the learner as the encoder's tenth declared field and never as a target or a reward --
+#: that is the utility axis' business (D-20, `ASM-46`).  Nothing in this module's
+#: arithmetic branches on the member: `act`, `learn`, `param_count` and the two checkpoints'
+#: members read it for the record and not for a decision.
+STRENGTHS = {
+    "none": {
+        "name": "none",
+        "carries": "no-model-input",
+    },
+    "supervised": {
+        "name": "supervised",
+        "carries": "predicted-win-probability",
+    },
+}
+
+#: The declared default of the strength axis: the catalogue's **first** member, which is
+#: what a learner spec naming none is built as and what a version-1-to-5 checkpoint is read
+#: as (`ASM-46`).  Derived from the order above, so the declaration cannot drift.
+DEFAULT_STRENGTH = next(iter(STRENGTHS))
+
 #: The six fixed declarations both catalogue members consume (`rule.md` §6): one
 #: value each, never a per-learner argument and never a per-rule block, so a rule swap
 #: is one axis and no budget moves with it (`rules.md` §2, ASM-7).
@@ -333,7 +359,13 @@ def require_exploration(value, entry):
 
 
 def catalogue():
-    """`learners()`'s record: six keys in order, plain data, rebuilt per call."""
+    """`learners()`'s record: seven keys in order, plain data, rebuilt per call.
+
+    The fourth catalogue sits between the third and `hyper`, on D-43's own rule: a member
+    is published beside the catalogues it is not one of, so a reader learns which members
+    exist and which one is the declared default without a second copy of the names
+    (`ASM-46`).
+    """
     return {
         "backends": {name: {"name": name} for name in BACKENDS},
         "architectures": {kind: dict(entry) for kind, entry in ARCHITECTURES.items()},
@@ -344,5 +376,6 @@ def catalogue():
         "counterfactuals": {
             name: dict(entry) for name, entry in COUNTERFACTUALS.items()
         },
+        "strengths": {name: dict(entry) for name, entry in STRENGTHS.items()},
         "hyper": hyper_record(),
     }

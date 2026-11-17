@@ -35,9 +35,9 @@ __all__ = (
 
 
 def learners():
-    """The declared backends, the seven kinds, the three catalogues and their declarations.
+    """The declared backends, the seven kinds, the four catalogues and their declarations.
 
-    Six keys, plain data, rebuilt on every call: `backends` keyed `numpy` then `torch`,
+    Seven keys, plain data, rebuilt on every call: `backends` keyed `numpy` then `torch`,
     `architectures` keyed by the seven kind names in `architecture.md` §1's order,
     `learning_rules` keyed by the two catalogue members in `rules.md` §2's order, each
     carrying its `name` and the `target` it aims at, `utilities` keyed by the two
@@ -45,7 +45,8 @@ def learners():
     `reward` it delivers and the `normaliser` that reward is divided by (D-20),
     `counterfactuals` keyed by the two catalogue members in `counterfactual.md` §6's
     order, each carrying its `name`, the `reads` token it takes its residual from and the
-    `steps` token it states (D-43), and `hyper` the six fixed values all three catalogues
-    consume (`surface.md` §3, D-19).
+    `steps` token it states (D-43), `strengths` keyed by the two **input** members in the
+    declared order, each carrying its `name` and the `carries` token it states (`ASM-46`),
+    and `hyper` the six fixed values all four catalogues consume (`surface.md` §3, D-19).
     """
     return _declarations.catalogue()

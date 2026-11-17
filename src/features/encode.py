@@ -24,7 +24,7 @@ every run (encoder.md §5).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from numbers import Integral
+from numbers import Integral, Real
 
 import numpy
 
@@ -154,6 +154,31 @@ def _bucket(value, ladder):
         if value <= bound:
             return ident
     return ladder[-1][1]
+
+
+def _probability(value):
+    """The tenth field's value: a real in `[0.0, 1.0]`, or the refusal naming the key.
+
+    The one validator both writers reach, and it **refuses** and never clamps: a silently
+    clipped probability hides a broken estimator, so a value outside the interval, a
+    non-finite one and a value that is not a real at all (a `bool` included, `errors.md`
+    §4's house rule) are all this module's `InvalidReadout`, naming the injected key
+    (`ASM-46`).  The value is a probability and cannot leave the interval, which is what
+    makes its block's declared bound a statement about the writer, exactly as an
+    indicator's is.
+    """
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise InvalidReadout(
+            "encode(readout): 'strength' must be a probability in [0.0, 1.0], got %r"
+            % (value,)
+        )
+    number = float(value)
+    if not numpy.isfinite(number) or not 0.0 <= number <= 1.0:
+        raise InvalidReadout(
+            "encode(readout): 'strength' must be a probability in [0.0, 1.0], got %r"
+            % (value,)
+        )
+    return number
 
 
 # --------------------------------------------------------------------------
@@ -293,6 +318,27 @@ def _limit_ids(readout, reads, params):
     return [_bucket(bet, bet_ladder), _bucket(raises, raise_ladder)]
 
 
+def _strength_scaled(readout, reads, params):
+    """The tenth field's one slot: the probability itself, exactly (`ASM-46`).
+
+    `params` is `None` because the block reads one fact and holds no constant of its own:
+    the writer's whole rule is `_probability`, so a value outside `[0.0, 1.0]` is refused
+    and never saturated into the block's declared bound.
+    """
+    return [_probability(readout[reads[0]])]
+
+
+def _strength_bucket(readout, reads, params):
+    """The tenth field as one id of the declared eight-band ladder (`ASM-48`).
+
+    `params` is the shape-invariant ladder `declarations.STRENGTH_BANDS`: the edges are
+    the same on every row, unlike the chip ladders, and the last one is unbounded, so the
+    ladder is total over `[0, 1]`.  The lowest id is above every id any shape row
+    allocates, so the block can never emit the pad.
+    """
+    return [_bucket(_probability(readout[reads[0]]), params)]
+
+
 def _history_onehot(readout, reads, params):
     """The shape's slots of 3, one per applied action, oldest first (flat-numeric.md §5).
 
@@ -332,6 +378,7 @@ WRITERS = {
     "stacks-scaled": _stacks_scaled,
     "amount-scaled": _amount_scaled,
     "limit-scaled": _limit_scaled,
+    "strength-scaled": _strength_scaled,
     "history-onehot": _history_onehot,
     "street-id": _street_id,
     "seat-ids": _seat_ids,
@@ -340,6 +387,7 @@ WRITERS = {
     "amount-bucket": _amount_bucket,
     "limit-ids": _limit_ids,
     "history-ids": _history_ids,
+    "strength-bucket": _strength_bucket,
 }
 
 

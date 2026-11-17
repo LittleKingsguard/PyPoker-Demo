@@ -20,6 +20,25 @@ class UnknownShape(FeaturesError):
     """`build_encoder`/`action_space`/`decode_action`: a shape name outside the catalogue."""
 
 
+class UnknownSource(FeaturesError):
+    """`load_strength`: a source name outside the declared table, or an artefact the table
+    names and the tree does not carry (`ASM-51`)."""
+
+
+class InvalidModel(FeaturesError):
+    """`load_strength`/`strength`/`stated`/`card_rows`: not a frozen model this module
+    built, or an artefact whose state dict is not the declared layout row (`ASM-51`)."""
+
+
+class UnknownStrength(FeaturesError):
+    """`build_encoder`: a strength member outside the two the axis declares.
+
+    The member is never defaulted onto `none` and never mapped onto `supervised`: an
+    uncatalogued value is refused naming it and both members, exactly as an encoding or a
+    shape name is (`errors.md` §2, `ASM-46`).
+    """
+
+
 class InvalidEncoder(FeaturesError):
     """`observation_spec`/`encode`: a value that is not an encoder this module built."""
 

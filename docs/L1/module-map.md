@@ -1,6 +1,6 @@
 # PyPoker-Demo — L1 module map
 
-- **Layer:** L1 · **Unit:** phase1 · **Rev:** 8 · **Date:** 2026-11-09
+- **Layer:** L1 · **Unit:** phase1 · **Rev:** 9 · **Date:** 2026-11-16
 - **Covers:** brief §2 (the rung ladder), brief §3 (the league evaluation, D-16), the learning-rule catalogue (D-19), the utility catalogue (D-20), the six-baseline catalogue (D-21) and the two declared game shapes (D-29), Phase 1 only
 - **Ceiling:** 110 lines. At the ceiling, split by owner — never append
 
@@ -15,7 +15,7 @@ caller hands it (D-19, `rules.md` §2).
 | Module | Responsibility — one sentence | Endpoints |
 |---|---|---|
 | `engine` | the fixed game as a reinforcement-learning environment — the declared game shapes, hands, legality, readouts, reward, seeding, equity (D-2, ASM-2, D-29) | 10 |
-| `features` | the observation and action encoding of a readout — the ladder's representation axis (D-3) | 7 |
+| `features` | the observation and action encoding of a readout, and the frozen card model one of its declared fields carries — the ladder's representation axis (D-3, ASM-47) | 11 |
 | `agents` | everything that chooses or learns an action: one learner family under a catalogue of learning rules and a catalogue of terminal-reward utilities, and the six fixed baselines — the three of D-6 that anchor the rating and the three folders of D-21 (D-6, ASM-7, D-19, D-20, D-21) | 10 |
 | `evaluation` | the league: the bounded pool — which may hold models trained under different rules and objectives — the match scheduler, the pairwise matrix, the fitted rating, the shipped tables, and the complete per-rung report (D-16, D-19, D-20) | 11 |
 | `training` | the rung registry plus the one training loop every rung is a configuration of; the loop trains every declared variant against the pool (D-3, D-16, D-19) | 6 |
@@ -31,10 +31,10 @@ Calls go one way along the arrow; the direction is fixed so that no pair of modu
 |---|---|---|---|
 | `training` | `evaluation` | `protocol`, `league`, `build_pool`, `pool_members`, `opponent` | the loop freezes one pool before it trains and draws every hand's opponent from it (D-16, ASM-16) |
 | `training` | `agents` | `build_learner`, `act`, `learn`, `save`, `learners` | the loop drives one learner per declared variant, and reads the rule, utility and counterfactual catalogues it refuses an unknown name against; the resolution itself is the **engine's** — `training` forwards the values `engine.play_hand` placed at each decision and applies the utility to them, and it reads no card and imports no `pokerkit` (D-7, D-19, D-20, D-43, `counterfactual.md` §2, §4) |
-| `training` | `features` | `build_encoder`, `encode`, `observation_spec`, `legal_indices`, `decode_action` | the loop encodes readouts (D-3) |
+| `training` | `features` | `build_encoder`, `encode`, `observation_spec`, `legal_indices`, `decode_action`, `load_strength`, `stated` | the loop encodes readouts (D-3), builds the declaring encoder a strength member selects and states the value the frozen card model produces (ASM-46, ASM-47) |
 | `training` | `engine` | `game_config`, `new_hand`, `play_hand`, `payoffs` | the loop needs hands, and `play_hand`'s episode record is where the reveal and each decision's whole-hand values arrive (D-2, D-43, `counterfactual.md` §2) |
 | `evaluation` | `agents` | `baselines`, `build_baseline`, `as_policy`, `load`, `param_count`, `learners` | a table needs the catalogue's baselines as members — including which of them anchor the fit — each arm's parameter count, and the catalogues a member's rule and utility are checked against (D-6, D-16, D-19, D-20, ASM-32) |
-| `evaluation` | `features` | `build_encoder`, `encode` | a checkpoint becomes a policy only over an observation, so the league builds an encoder to load a member (D-16, D-3) |
+| `evaluation` | `features` | `build_encoder`, `encode`, `load_strength`, `stated` | a checkpoint becomes a policy only over an observation, so the league builds an encoder to load a member — **with** the strength member its container records — and states the value that member's observation carries (D-16, D-3, ASM-47) |
 | `evaluation` | `engine` | `new_hand`, `readout`, `legal_actions`, `play_hand`, `payoffs`, `game_config` | a cell is a run of hands (D-2, D-16), and `game_config` is how the scheduler and the matrix read a shape's seat count before they refuse a table that is not two seats' (`seats.md` §5, D-33) |
 | `agents` | `features` | `encode`, `observation_spec`, `action_space`, `legal_indices`, `decode_action` | a learner consumes an observation and is sized by the encoding, and `as_policy` must encode the readouts its policy receives (D-3) |
 | `agents` | `engine` | `readout`, `equity`, `game_config` | the oracle baseline reads pot and equity (ASM-4), and `fold-large-bet` reads the declared starting stack rather than holding a copy of it (`folders.md` §2, ASM-31, D-21) |
@@ -52,7 +52,7 @@ Notebooks of D-5 sit above `training` and `evaluation`; they import nothing else
 One job per module, and each "never" is what keeps the module independently testable.
 
 - `engine` never imports another project module, never encodes an observation, never chooses an action and never records a result. It depends on `pokerkit` and the standard library (D-2, ASM-2).
-- `features` never decides legality, never applies an action, never counts a parameter, and never learns which opponent it faces. It maps a readout to an observation and an index to an action (D-3).
+- `features` never decides legality, never applies an action, never counts a parameter, and never learns which opponent it faces. It maps a readout to an observation and an index to an action (D-3), and it owns the **frozen card model** a strength-declared observation's tenth field is read from — a frozen input and not a learner, which is why it is four entry points on this module rather than a seventh module (ASM-47, `module-map.md` §7).
 - `agents` never deals a hand, never measures a match, never schedules an opponent and never writes a report. It acts and it learns, under the one rule its spec named and on the reward of the one utility its spec named, and it never chooses for the caller which rule or which utility that is (D-6, D-7, D-19, D-20). It holds no copy of a game parameter and imports no game engine: a fact a rule needs arrives on the readout, a limit on the game is read through `engine`, and a card's rank is read off the one declared card spelling rather than a second spelling this module invents (`folders.md` §2, §3, ASM-30, ASM-31).
 - `evaluation` never trains and never edits a curve. It owns the pool, plays the cells and assembles evidence, and never reports a table whose members it cannot name or whose cells differ in hand count (D-16).
 - `training` never claims a result and never chooses the pool's membership: it declares the lineage it inherits and freezes the pool that lineage yields (D-3, D-16).
@@ -60,7 +60,7 @@ One job per module, and each "never" is what keeps the module independently test
 
 ## 4. Endpoints and the harness ceiling
 
-`modules.json` declares, per module, its owned paths and its entry-point count `N`. The harness ceiling is `50 + 10×N` lines for that module's harness files, computed by `strata-lint` and never asserted by a harness author (brief §5): a harness over its ceiling means the surface is too large, not that the harness may grow. The declared counts are `engine` 10, `features` 7, `agents` 10, `evaluation` 11, `training` 6, `harness` 6 — 50 endpoints across the map, the second game shape having added `engine.game_shapes` to the 49 (D-29, `shapes.md` §4) — and D-33's seat count adds no name, so `modules.json` is unchanged by it (`seats.md` §6, D-33).
+`modules.json` declares, per module, its owned paths and its entry-point count `N`. The harness ceiling is `50 + 10×N` lines for that module's harness files, computed by `strata-lint` and never asserted by a harness author (brief §5): a harness over its ceiling means the surface is too large, not that the harness may grow. The declared counts are `engine` 10, `features` 11, `agents` 10, `evaluation` 11, `training` 6, `harness` 6 — 54 endpoints across the map. The second game shape added `engine.game_shapes` to the 49 (D-29, `shapes.md` §4) and D-33's seat count adds no name (`seats.md` §6, D-33), while ASM-47's frozen card model adds the four `features` names `load_strength`, `strength`, `stated` and `card_rows` to the 50 (ASM-47, `strength-design.md` §D.1, §F.4).
 
 The authoritative list of entry points per module is `e2e-surface.md` §3, and its row count must equal the `endpoints` value here for every module. `strata-lint` prints one ceiling per module, so no ceiling in this map is implicit.
 
@@ -86,8 +86,10 @@ with ASM-19.
 
 ## 7. Deliberately absent from the map
 
-No game-expansion module, no attention or opponent-modelling module and no web UI: they are Phase 2 or later
-(D-4, D-9). No module is declared for work the brief does not name, and no module carries a Phase 2 seam in
+No game-expansion module, no **opponent-modelling** module and no web UI: they are Phase 2 or later
+(D-4, D-9). The frozen card model is not an exception and not a module either: it is a declared
+input of one encoding's tenth field, so it is four entry points on `features` and the map is still
+six modules (ASM-47, `strength-design.md` §D.1). No module is declared for work the brief does not name, and no module carries a Phase 2 seam in
 anticipation (D-4). The **second game shape is not an exception and not a module**: it is a row of `engine`'s
 catalogue and a vocabulary in `features`, so the map is still six modules and a shape costs one entry point
 rather than a subtree (`shapes.md` §1, §4, D-29). The **seat count is not one either**: D-33's six-seat shape is

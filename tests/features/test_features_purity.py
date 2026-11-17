@@ -207,7 +207,7 @@ class FEA10Purity(S.FeaturesCase):
         """FEA-10.6 a child interpreter that imports `features` itself reports: it
         imports cleanly, pokerkit, torch, engine, agents, evaluation, training and harness
         are all absent from its `sys.modules` afterwards, and `features.__all__` is the
-        seven names (layout.md §3, guardrails.md G12, G14).
+        eleven names (layout.md §3, guardrails.md G12, G14, `ASM-47`).
 
         A separate process is the only place the boundary is decidable: this process's
         `sys.modules` already holds whatever pytest collected first -- in a whole-tree
@@ -242,9 +242,9 @@ class FEA10Purity(S.FeaturesCase):
             % (sorted(report["added"])[:20],),
         )
         self.assertEqual(
-            tuple(report["all"]), S.NINE,
-            "the child's features.__all__ is exactly the seven declared entry points, in "
-            "the declared order (layout.md §2, guardrails.md G14, D-12): %r"
+            tuple(report["all"]), S.ELEVEN,
+            "the child's features.__all__ is exactly the eleven declared entry points, in "
+            "the declared order (layout.md §2, guardrails.md G14, D-12, ASM-47): %r"
             % (report["all"],),
         )
 

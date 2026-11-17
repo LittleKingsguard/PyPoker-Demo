@@ -2813,3 +2813,32 @@ loop injection), then S4/S5 as measured runs. **Not authorised**: making the blo
 **Era boundary declared**: every prior `flat-numeric` (203/329/433) and `card-tokens` (40/82/122 over 96/102) result is
 **pre-strength** and may not be mixed with post-change runs; the card models themselves (`.probe/attn60.pt`,
 `attnconv.pt`) are frozen inputs and stay current.
+
+---
+
+## D-103 — In the product's learner the strength input changes nothing; the probe's gain was the target, not the input
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Make that change, and also seed the card inputs to use the same learned embeddings as the
+strength model" — implemented as S1–S3 (D-102), then run.
+
+**Result** (six seats, `card-tokens`, `token-embedding` 50×2, `stack-shortfall`, league pool, 5,000 hands, seeds 0–2):
+
+| arm | seed 0 | seed 1 | seed 2 | census |
+|---|---|---|---|---|
+| strength + seeded (obs 123, v6) | −0.600 ±0.036 | −0.600 ±0.036 | −0.600 ±0.036 | **fold 100 %** |
+| control (obs 122, v4) | −0.600 ±0.036 | −0.600 ±0.036 | −0.600 ±0.036 | **fold 100 %** |
+
+**Identical in all six runs.** The surface is live — 123-long observations, version-6 containers, card rows seeded from
+`attn-60` — and the behaviour is unchanged: both arms fold every hand and lose exactly the blind.
+
+**What this reframes:** the probe gained **+11.6** chips/hand against scripted opponents and **+2.5** against this same
+league (D-99, D-101) with the same representation available; the product gains **nothing**. The remaining difference is
+the **learning rule** — the probe applied a **Monte-Carlo per-hand target** to every decision, the product bootstraps
+a one-step TD target per transition. **So the credit-assignment fix that mattered was the representation *plus* a
+target that carries the hand's outcome back to its decisions**; a representation is necessary and, under the product's
+rule, not sufficient.
+
+**Next**: a declared **Monte-Carlo return target** as a learning-rule axis, then the same two-arm comparison — the only
+explanation consistent with every measurement in this line.

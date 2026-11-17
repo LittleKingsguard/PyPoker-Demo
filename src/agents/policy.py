@@ -41,12 +41,14 @@ class Policy:
     utility, its counterfactual.
 
     `learning_rule` is the catalogue member the learner was built under, `utility` the
-    catalogue member whose reward its model was trained on, and `counterfactual` the
-    catalogue member it took its targets from.  They are the only things a policy carries
-    that a decision does not read: `evaluation` reads them to label a table's members, so
-    a table names the population and the objectives it measured even when a variant was
-    built in process and no record of it exists yet (`e2e-surface.md` §2, `rules.md` §7,
-    `utilities.md` §7, `counterfactual.md` §6, D-19, D-20, D-43).
+    catalogue member whose reward its model was trained on, `counterfactual` the catalogue
+    member it took its targets from, and `strength` and `seeding` the member it read as an
+    input and the record of the copy that wrote its embedding table.  They are the only
+    things a policy carries that a decision does not read: `evaluation` reads them to label a
+    table's members, so a table names the population and the objectives it measured even when
+    a variant was built in process and no record of it exists yet (`e2e-surface.md` §2,
+    `rules.md` §7, `utilities.md` §7, `counterfactual.md` §6, D-19, D-20, D-43, ASM-46,
+    ASM-49).
 
     `game` is the shape whose vocabulary the chosen index is decoded in — the learner's
     own, so a policy of a six-index learner returns one of that shape's six descriptors
@@ -67,6 +69,8 @@ class Policy:
         "learning_rule",
         "utility",
         "counterfactual",
+        "strength",
+        "seeding",
         "game",
     )
 
@@ -82,6 +86,8 @@ class Policy:
         learning_rule,
         utility,
         counterfactual,
+        strength,
+        seeding,
         game,
         exploration,
     ):
@@ -95,6 +101,8 @@ class Policy:
         self.learning_rule = learning_rule
         self.utility = utility
         self.counterfactual = counterfactual
+        self.strength = strength
+        self.seeding = seeding
         self.game = game
         self._exploration = exploration
 
@@ -198,6 +206,12 @@ def as_policy(learner, encoder, seed, exploration="schedule"):
         # name it as it names the rule and the utility -- and no decision this policy
         # makes reads it (`counterfactual.md` §6, D-43).
         held.counterfactual,
+        # ... and the catalogue member its learner read as an **input**, with the record of
+        # the copy that wrote its embedding table, so a table names what a member was fed
+        # and whether it was seeded -- and no decision this policy makes reads either
+        # (`ASM-46`, `ASM-49`).
+        held.strength,
+        held.seeding,
         # ... and the shape whose vocabulary its descriptor is decoded in, together with
         # the mode it decides under (`shapes.md` §3–§4).
         held.game,

@@ -61,6 +61,37 @@ UTILITY = "net-chips"
 #: §6, §9, D-43).
 COUNTERFACTUAL = "none"
 
+#: The strength member the six rows declare, which is the catalogue's first: no model
+#: input at all.  The run records a variant's member only when it is **not** this one, and
+#: a variant trained under it writes exactly the container it wrote before, so no shipped
+#: artefact moves (`ASM-46`, `ASM-50`).
+STRENGTH = "none"
+
+#: The declared frozen-estimator sources, restated from `features` and held equal to it row
+#: for row by the join battery -- `SHAPE_NAMES`/`SHAPE_HISTORY`'s pattern, for the same
+#: reason: this module is not granted the table's owner and a private copy would drift
+#: (`module-map.md` §2, D-13, `ASM-51`).  A row names the estimator's file, the three
+#: attribute prefixes that differ between the two training scripts' layouts -- the
+#: positional embedding and the two LayerNorms -- and nothing else: `emb`, `ff`, `mha` and
+#: `head` are the same attribute names in both, so one parameterised builder serves both.
+STRENGTH_SOURCES = {
+    "attn-60": {
+        "path": ".probe/attn60.pt",
+        "position": "pos",
+        "attention_norm": "n1",
+        "output_norm": "n2",
+    },
+    "attn-400": {
+        "path": ".probe/attnconv.pt",
+        "position": "posemb",
+        "attention_norm": "norm",
+        "output_norm": "ffn",
+    },
+}
+
+#: The one row selector a declared `embedding_init` may name (`ASM-49`).
+EMBEDDING_ROWS = "cards"
+
 #: The three declared game shapes' names, in `engine.game_shapes()`'s order — default
 #: first (`shapes.md` §2, D-29, D-33).  Only the names, their order, their descriptor
 #: counts and their history capacities are restated: `module-map.md` §2 grants this
@@ -151,10 +182,12 @@ KIND_FAMILY = {
     "plain": "token-sequence",
 }
 
-#: The eight axes a comparison is read on (`docs/L2/training/surface.md` §5,
+#: The nine axes a comparison is read on (`docs/L2/training/surface.md` §5,
 #: `docs/L3/training/fairness.md` §2, D-19, which makes the rule an axis, D-20, which
-#: makes the utility the seventh, and D-43, which makes the counterfactual the eighth —
-#: a third catalogue and neither a rule nor a utility, `counterfactual.md` §6).
+#: makes the utility the seventh, D-43, which makes the counterfactual the eighth —
+#: a third catalogue and neither a rule nor a utility, `counterfactual.md` §6 — and
+#: `ASM-46`, which makes the strength member the ninth: the axis that names what a learner
+#: reads as an **input**).
 AXES = (
     "backend",
     "encoding",
@@ -164,6 +197,7 @@ AXES = (
     "rule",
     "utility",
     "counterfactual",
+    "strength",
 )
 
 #: The **pinned** anchor baselines — the catalogue's `anchor: True` members — in the
@@ -190,6 +224,8 @@ PAIR_SETTINGS = (
     "table",
     "param_budget",
     "game",
+    "strength_source",
+    "embedding_init",
 )
 
 
@@ -230,6 +266,27 @@ def counterfactuals():
     copy of the names here (`counterfactual.md` §6, D-43, `agents/surface.py` §3).
     """
     return tuple(agents.learners()["counterfactuals"])
+
+
+def strengths():
+    """The catalogue's strength names, in `agents.learners()`'s order (`ASM-46`).
+
+    The fourth catalogue's reader, on the same terms as :func:`learning_rules`,
+    :func:`utilities` and :func:`counterfactuals`: `agents.learners()["strengths"]` is
+    keyed by its members in the declared order — `none` first, which is what a learner spec
+    naming none is built as — so a reader learns which members exist and which one is the
+    declared default without a second copy of the names here (`ASM-46`).
+    """
+    return tuple(agents.learners()["strengths"])
+
+
+def strength_sources():
+    """The declared frozen-estimator sources, as a fresh copy (`ASM-51`).
+
+    A copy, so a caller cannot edit the table a run reads: a source is declared data and
+    never a run's, exactly as the hyper-declarations are (guardrails.md G11).
+    """
+    return {name: dict(row) for name, row in STRENGTH_SOURCES.items()}
 
 
 def require_game(value, entry, argument="game"):
@@ -791,6 +848,173 @@ def _check_counterfactual(where, configuration, entries):
         )
 
 
+def _check_strength(where, configuration, entries):
+    """Refuse a `strength` the catalogue does not carry, at either level (`ASM-46`).
+
+    The fourth axis' side of :func:`_check_learning_rule`, :func:`_check_utility` and
+    :func:`_check_counterfactual`, on the same terms and named with them: the catalogue
+    `agents.learners()` publishes — read once through :func:`strengths` — is the whole
+    vocabulary a member is judged against, at the configuration first and then at each
+    entry.  A declared name no member carries, or a name that is not a string, is a member
+    no learner can be built under; a **second catalogued** member is read, forwarded and
+    trained, so what is refused here is an uncatalogued name and never a member the run is
+    not fixed to.  A level that declares no member — or declares `None` — is no claim and is
+    accepted (`ASM-46`, `docs/L2/training/declarations.md` §2).
+
+    **A `strength_source` the run would not use is refused too**, which is the trap this
+    axis has and D-19's three do not: a source names a frozen estimator's file, so a
+    declaration that names one while the variant reads no model input — and seeds no
+    embedding — is a declaration silently dropped, and the `_check_hyper` precedent refuses
+    it by name instead (`ASM-51`).
+    """
+    catalogue = strengths()
+    own = configuration.get("strength")
+    if own is not None and own not in catalogue:
+        raise errors.IgnoredDeclaration(
+            "training.run refused the configuration %r: 'strength' is %r, and the "
+            "catalogue agents.learners() publishes (src/agents/declarations.py) carries "
+            "%s — name one of those, or name none for the catalogue's first (ASM-46)"
+            % (where, own, ", ".join(catalogue))
+        )
+    for entry in entries:
+        member = entry.get("strength") if isinstance(entry, Mapping) else None
+        if member is None or member in catalogue:
+            continue
+        raise errors.IgnoredDeclaration(
+            "training.run refused the variant %r of the configuration %r: 'strength' is "
+            "%r, and the catalogue agents.learners() publishes (src/agents/"
+            "declarations.py) carries %s — name one of those, or name none for the "
+            "catalogue's first (ASM-46)"
+            % (entry.get("name"), where, member, ", ".join(catalogue))
+        )
+    default = strengths()[0]
+    named = configuration.get("strength_source")
+    if named is not None and named not in STRENGTH_SOURCES:
+        raise errors.VariantSettingInvalid(
+            "training.run refused the configuration %r: 'strength_source' is %r, and the "
+            "declared sources are %s (ASM-51)"
+            % (where, named, ", ".join(STRENGTH_SOURCES))
+        )
+    configured = configuration.get("strength")
+    configured_seed = configuration.get("embedding_init")
+    # The three declarations are resolved **entry-first**, exactly as the member is, so a
+    # configuration may carry them beside its entries and an entry may name its own.  Then
+    # the two directions of the source's rule are judged on the resolved triple, once per
+    # variant: a source nothing reads is a declaration the run would not use -- the
+    # `_check_hyper` precedent -- and a member or a seed with no source at all is half a
+    # declaration (ASM-46, ASM-49, ASM-51).
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        own_source = entry.get("strength_source")
+        if own_source is not None and own_source not in STRENGTH_SOURCES:
+            raise errors.VariantSettingInvalid(
+                "training.run refused the variant %r of the configuration %r: "
+                "'strength_source' is %r, and the declared sources are %s (ASM-51)"
+                % (entry.get("name"), where, own_source, ", ".join(STRENGTH_SOURCES))
+            )
+        member = entry.get("strength")
+        if member is None:
+            member = configured
+        if member is None:
+            member = default
+        source = own_source if own_source is not None else named
+        seed = entry.get("embedding_init")
+        if seed is None:
+            seed = configured_seed
+        level = "variant" if own_source is not None else "configuration"
+        who = entry.get("name") if level == "variant" else where
+        if source is not None and member == default and seed is None:
+            raise errors.IgnoredDeclaration(
+                "training.run refused the %s %r of the configuration %r: it declares "
+                "'strength_source' %r and 'strength' %r with no 'embedding_init', so the "
+                "run would seed nothing and read no model input -- a 'strength_source' is "
+                "required exactly when the member is not %r or a seed is declared "
+                "(ASM-46, ASM-51)"
+                % (level, who, where, source, member, default)
+            )
+        if source is None and (member != default or seed is not None):
+            raise errors.VariantSettingInvalid(
+                "training.run refused the variant %r of the configuration %r: it declares "
+                "the strength member %r or an 'embedding_init' and no 'strength_source', "
+                "and a source is required exactly when the member is not %r or a seed is "
+                "declared (ASM-46, ASM-49)"
+                % (entry.get("name"), where, member, default)
+            )
+
+
+def _check_embedding_init(where, configuration, entries):
+    """Refuse an `embedding_init` this run could not honour, at either level (`ASM-49`).
+
+    Three refusals, and each names the level and the record: a record that is not a mapping
+    of the two declared keys; a `source` the declared table does not carry, or a `rows`
+    selector that is not the declared one; and a **dense-numeric variant**, whose learner has
+    no embedding table at all, so a seed would have nothing to write into.  A
+    `strength_source` that disagrees with the record's own `source` is refused here too — a
+    run cannot be seeded from one estimator and read another — while the *required*-source
+    rule is `_check_strength`'s, so one rule lives in one place (`ASM-49`, `ASM-51`).
+
+    The family is read from the entry's own `architecture.kind` through `KIND_FAMILY`, and
+    never from an encoder: the check is raised before the pool is built and before the first
+    hand, which is where every declaration of a run is judged (`loop.md` §1 step 1).
+    """
+    levels = [("configuration", configuration)]
+    levels.extend(
+        ("variant", entry) for entry in entries if isinstance(entry, Mapping)
+    )
+    for level, block in levels:
+        record = block.get("embedding_init")
+        if record is None:
+            continue
+        label = (
+            "the configuration %r" % (where,)
+            if level == "configuration"
+            else "the variant %r of the configuration %r"
+            % (block.get("name"), where)
+        )
+        if not isinstance(record, Mapping):
+            raise errors.VariantSettingInvalid(
+                "training.run refused %s: 'embedding_init' is %r, and a seed is a mapping "
+                "of a declared 'source' and the 'rows' selector %r (ASM-49)"
+                % (label, record, EMBEDDING_ROWS)
+            )
+        source = record.get("source")
+        if not isinstance(source, str) or source not in STRENGTH_SOURCES:
+            raise errors.VariantSettingInvalid(
+                "training.run refused %s: 'embedding_init' names the source %r, and the "
+                "declared sources are %s (ASM-49, ASM-51)"
+                % (label, source, ", ".join(STRENGTH_SOURCES))
+            )
+        rows = record.get("rows")
+        if not isinstance(rows, str) or rows != EMBEDDING_ROWS:
+            raise errors.VariantSettingInvalid(
+                "training.run refused %s: 'embedding_init' names the rows %r, and the "
+                "declared selector is %r — nothing is defaulted onto it (ASM-49)"
+                % (label, rows, EMBEDDING_ROWS)
+            )
+        named_source = block.get("strength_source")
+        if named_source is None:
+            # The required-source rule is `_check_strength`'s, one statement in one place;
+            # here the record's own `source` is checked against the run's when both are
+            # declared, so a run cannot be seeded from one estimator and read another.
+            named_source = configuration.get("strength_source")
+        if named_source is not None and named_source != source:
+            raise errors.IgnoredDeclaration(
+                "training.run refused %s: 'strength_source' names %r and "
+                "'embedding_init' names %r, and one run cannot be seeded from one "
+                "estimator and read another (ASM-51)" % (label, named_source, source)
+            )
+        if level == "variant":
+            kind = (block.get("architecture") or {}).get("kind")
+            family = KIND_FAMILY.get(kind)
+            if family == FAMILY["flat-numeric"]:
+                raise errors.VariantSettingInvalid(
+                    "training.run refused %s: 'embedding_init' seeds an embedding table "
+                    "and the kind %r is %s, so its input block is a matrix and has no card "
+                    "rows to write (ASM-49)" % (label, kind, family)
+                )
+
+
 def _check_snapshot_every(configuration, where, entries):
     """Refuse a `snapshot_every`, at either level, that is not the declared samples ÷ 10.
 
@@ -847,6 +1071,8 @@ def check_declarations(configuration):
     _check_learning_rule(where, configuration, entries)
     _check_utility(where, configuration, entries)
     _check_counterfactual(where, configuration, entries)
+    _check_strength(where, configuration, entries)
+    _check_embedding_init(where, configuration, entries)
     _check_game(where, configuration, entries)
     _check_snapshot_every(configuration, where, entries)
     if len(entries) != 2:

@@ -47,6 +47,23 @@ class UnknownCounterfactual(AgentsError):
     does not declare."""
 
 
+class UnknownStrength(AgentsError):
+    """`build_learner`, `load`: a strength member `learners()['strengths']` does not
+    declare.  It is a fourth catalogue and neither a rule, a utility nor a counterfactual:
+    it names what the learner reads as an **input**, where those name what it learns from
+    (`ASM-46`)."""
+
+
+class InvalidEmbeddingInit(AgentsError):
+    """`build_learner`: an `embedding_init` record this module cannot honour.
+
+    A malformed record, a row set that is not `(52, width)` real and finite, a dense kind
+    whose learner has no embedding table, a source width or vocabulary the learner's own
+    geometry cannot hold -- each refused **before** `new_state` and before any parameter is
+    written, so a refused seed leaves nothing built (`ASM-49`).
+    """
+
+
 class UnknownShape(AgentsError):
     """`build_learner`, `load`: a game shape the module's catalogue does not declare."""
 

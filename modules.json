@@ -20,7 +20,7 @@
         "docs/L2/features",
         "docs/L3/features"
       ],
-      "endpoints": 7
+      "endpoints": 11
     },
     {
       "name": "agents",

@@ -14,6 +14,7 @@ position stays put (`divergence.md` §2, §4).
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Mapping
 from numbers import Integral, Real
 
@@ -26,6 +27,7 @@ from .errors import (
     CounterfactualUnbounded,
     EncoderMismatch,
     InvalidBatch,
+    InvalidEmbeddingInit,
     InvalidEncoder,
     InvalidLearner,
     InvalidMask,
@@ -38,6 +40,7 @@ from .errors import (
     UnknownBackend,
     UnknownCounterfactual,
     UnknownRule,
+    UnknownStrength,
     UnknownUtility,
 )
 
@@ -304,6 +307,156 @@ def counterfactual(value, entry):
     return value
 
 
+def strength(value, entry):
+    """One strength catalogue member's name, or the refusal (`ASM-46`).
+
+    A learner reads its input under one of `learners()['strengths']`'s members, named by
+    the catalogue's own spelling: a value that is not a string, or a string no member
+    carries, is refused naming the value and the catalogue's names, and is never mapped
+    onto the declared default.  It is the axis that decides whether the observation carries
+    the frozen estimator's predicted win probability, and a silent substitution would train
+    a model on inputs its spec does not name (`errors.md` §3, `ASM-46`).
+    """
+    if not isinstance(value, str) or value not in declarations.STRENGTHS:
+        raise UnknownStrength(
+            "%s(spec): 'strength' must be one of %r, got %r"
+            % (entry, tuple(declarations.STRENGTHS), value)
+        )
+    return value
+
+
+#: The one row selector the declared source table carries: the fifty-two cards of one
+#: embedding table, ids 1..52, which is what a parameter-space seed copies (`ASM-49`).
+EMBEDDING_ROWS = "cards"
+
+#: How many card rows a seed copies, and the first id it copies to: one row per card, and
+#: row 0 is the pad's and is left alone (`ASM-49`).
+CARD_ROWS = 52
+FIRST_CARD_ROW = 1
+
+
+def _embedding_source(record):
+    """The `(source, rows)` a declared `embedding_init` names, or the refusal.
+
+    A malformed record is refused naming what it is and what it must be: a mapping of
+    exactly the two keys `source` and `rows`, the source a string and the rows either the
+    declared selector `cards` or a real `(52, width)` array-like.  Nothing is defaulted --
+    a record carrying no `rows` is a different record from one naming the cards, and a
+    record naming a third selector is refused rather than read as the cards
+    (`errors.md` §3, `ASM-49`).
+    """
+    if not isinstance(record, Mapping):
+        raise InvalidEmbeddingInit(
+            "build_learner(spec): 'embedding_init' must be a mapping of a 'source' and a "
+            "'rows' selector, got %s" % type(record).__name__
+        )
+    source = record.get("source")
+    rows = record.get("rows")
+    if not isinstance(source, str):
+        raise InvalidEmbeddingInit(
+            "build_learner(spec): 'embedding_init' names the source %r, and a source is a "
+            "name from the declared table (`features.load_strength`'s sources), not a "
+            "path and not a value of another type" % (source,)
+        )
+    if isinstance(rows, str) and rows == EMBEDDING_ROWS:
+        return source, EMBEDDING_ROWS
+    if rows is None:
+        raise InvalidEmbeddingInit(
+            "build_learner(spec): 'embedding_init' carries no 'rows' selector, and the "
+            "rows a seed copies are named rather than guessed -- the declared selector is "
+            "%r (ASM-49)" % (EMBEDDING_ROWS,)
+        )
+    if isinstance(rows, (str, bytes)):
+        raise InvalidEmbeddingInit(
+            "build_learner(spec): 'embedding_init' names the rows selector %r, and the "
+            "declared selector is %r (ASM-49)" % (rows, EMBEDDING_ROWS)
+        )
+    return source, rows
+
+
+def _seed_rows(selector, source, entry):
+    """The `(52, width)` card rows one `embedding_init` seed copies.
+
+    The declared selector `cards` is resolved through the frozen estimator's own entry
+    points -- `features.card_rows(features.load_strength(source))` -- which is the one
+    statement of what a source's card rows are and of the digest the record states
+    (`ASM-49`).  Any other selector is a row array the caller supplied, which is
+    the form a unit case hands in; both reach the same validation below, so the copy has one
+    path and no branch on how the rows were produced.
+    """
+    if isinstance(selector, str) and selector == EMBEDDING_ROWS:
+        try:
+            model = features.load_strength(source)
+            rows, _digest = features.card_rows(model)
+        except Exception as error:
+            raise InvalidEmbeddingInit(
+                "%s(spec): 'embedding_init' names the source %r, and features refuses it: "
+                "%s (ASM-49)" % (entry, source, error)
+            ) from None
+        return rows
+    return selector
+
+
+def _card_rows(selector, source, kind, family, size, width, entry):
+    """The validated `(52, width)` float64 rows, the digest, and the record a save writes.
+
+    Five checks, each naming what it got and what it needed (`errors.md` §3, `ASM-49`):
+    the learner's family must be the token one -- a dense-numeric learner has no embedding
+    table at all (`model.Layout.w_in` is a matrix, not a table); the rows must be
+    `(52, width)`; every value must be a finite real; the learner's width must be the
+    source's declared width; and the learner's vocabulary -- its input dimension -- must
+    hold ids `1..52`.  The conversion to the product's own `float64` happens here, and the
+    **digest is taken over the converted rows**, so a replay compares like with like
+    (`ASM-49`).
+    """
+    if family != declarations.TOKEN_FAMILY:
+        raise InvalidEmbeddingInit(
+            "%s(spec): 'embedding_init' seeds an embedding table, and the kind %r is %s "
+            "-- a dense-numeric learner has no embedding table, so its input block is a "
+            "matrix and not one row per token (ASM-49, architecture.md §4)"
+            % (entry, kind, family)
+        )
+    rows = _seed_rows(selector, source, entry)
+    try:
+        array = numpy.asarray(rows, dtype=numpy.float64)
+    except Exception:
+        raise InvalidEmbeddingInit(
+            "%s(spec): 'embedding_init' from the source %r carries rows that are not real "
+            "numbers, so no value can be copied into the parameter block (ASM-49)"
+            % (entry, source)
+        ) from None
+    wanted = (CARD_ROWS, int(width))
+    if array.shape != wanted:
+        raise InvalidEmbeddingInit(
+            "%s(spec): 'embedding_init' from the source %r carries the rows %r and the "
+            "seed copies %r -- one row per card at the learner's own width, no more and no "
+            "fewer (ASM-49)" % (entry, source, tuple(array.shape), wanted)
+        )
+    if not numpy.isfinite(array).all():
+        raise InvalidEmbeddingInit(
+            "%s(spec): 'embedding_init' from the source %r carries a row that is not "
+            "finite, so the copy would write a value the declared parameter band refuses "
+            "on the first batch (ASM-49, finiteness.md §2)" % (entry, source)
+        )
+    if int(size) < CARD_ROWS + 1:
+        raise InvalidEmbeddingInit(
+            "%s(spec): 'embedding_init' copies the %d card ids and the learner's "
+            "vocabulary is %d, which does not hold ids %d..%d (ASM-49)"
+            % (entry, CARD_ROWS, int(size), FIRST_CARD_ROW, CARD_ROWS)
+        )
+    digest = hashlib.sha256(
+        numpy.ascontiguousarray(array).tobytes()
+    ).hexdigest()[:16]
+    record = {
+        "source": source,
+        "rows": EMBEDDING_ROWS,
+        "width": int(width),
+        "space": "parameter",
+        "digest": digest,
+    }
+    return array, record
+
+
 def _backend(name):
     """The one module that performs this backend's arithmetic (`backends.md` §4).
 
@@ -349,6 +502,12 @@ class Learner:
     arithmetic here at all, because the reward is the caller's and the transform is
     `training`'s (`utilities.md` §4, `surface.md` §4-§7, D-19, D-20).
 
+    `strength` is the catalogue member the learner reads as an **input** -- `none`, the
+    declared default, being no input at all -- and `seeding` is the record of the copy that
+    wrote its embedding table's card rows, or `None`.  Both are carried and reported and
+    neither is read by `act`, `learn`, `param_count` or `as_policy`'s arithmetic, exactly as
+    `utility` and `counterfactual` are not (`ASM-46`, `ASM-49`).
+
     `game` and `actions` are the shape it decides in and that shape's descriptor count
     `A` — the identity a container records and the width its head is built at.  They are
     read by `act` and `learn` (the index range), by `as_policy` (the vocabulary a
@@ -375,6 +534,8 @@ class Learner:
         "rule",
         "utility",
         "counterfactual",
+        "strength",
+        "seeding",
         "game",
         "actions",
         "position",
@@ -404,6 +565,8 @@ class Learner:
         game=None,
         actions=None,
         counterfactual=None,
+        strength=None,
+        seeding=None,
     ):
         self.backend_name = backend_name
         self.backend = _backend(backend_name)
@@ -428,6 +591,18 @@ class Learner:
         self.counterfactual = (
             declarations.DEFAULT_COUNTERFACTUAL if counterfactual is None else counterfactual
         )
+        # The fourth catalogue: what the learner reads as an **input**.  Absent, the
+        # declared default `none`, which is today's learner and today's container
+        # (`ASM-46`).  It is carried and reported and read by no arithmetic here.
+        self.strength = (
+            declarations.DEFAULT_STRENGTH if strength is None else strength
+        )
+        # The seed the embedding table was written with, or `None`: the five-field record
+        # `{"source", "rows", "width", "space", "digest"}`, taken over the rows **as they
+        # were written** so a replay compares like with like.  A learner either carries one
+        # or carries none, and the two are never confused: a `strength: supervised`
+        # learner with no seed records `seeding` absent (`ASM-49`).
+        self.seeding = None if seeding is None else dict(seeding)
         # The shape it decides in, and that shape's descriptor count: absent, the
         # declared default's -- a reading through `features.action_space`, never a
         # constant (`shapes.md` §1–§2, ASM-40).
@@ -537,6 +712,16 @@ def build_learner(spec):
         if "counterfactual" in spec
         else declarations.DEFAULT_COUNTERFACTUAL
     )
+    # The fourth catalogue member, read here on the same rule: absent, the catalogue's
+    # first; named and uncarried, refused before anything is built.  It decides whether the
+    # observation carries the tenth declared field, and it is **never** inferred from the
+    # encoder the caller hands in -- the encoder is built from the member and not the other
+    # way round (`ASM-46`).
+    reads_strength = (
+        strength(spec["strength"], "build_learner")
+        if "strength" in spec
+        else declarations.DEFAULT_STRENGTH
+    )
     # The shape the learner decides in, read beside the two catalogue members and before
     # a parameter is drawn: absent it is the declared default, and a name the catalogue
     # does not carry is refused naming it and the declared names, never substituted —
@@ -591,8 +776,16 @@ def build_learner(spec):
         # **size** is the kind's only on the default shape -- where the two are 203 and
         # 96 anyway -- so on any other shape the shape's encoder is authoritative and
         # the kind's 203 is not consulted as an equality (`shapes.md` §8, ASM-44).
+        # A **declaring** encoder reports a vocabulary the kind's row cannot know -- the
+        # token ladder's 110 against the kind's declared 96 -- so the default shape's size
+        # equality is the absence encoder's statement and is not asked of one that declares
+        # the tenth field.  The family is asked of both, and the encoder's own geometry is
+        # then authoritative, exactly as it is on any other shape (`ASM-46`, `ASM-48`).
+        declaring_strength = "strength" in tuple(encoded["fields"])
         if declared_family != family or (
-            declarations.sized_by_kind(game) and declared_size != size
+            declarations.sized_by_kind(game)
+            and not declaring_strength
+            and declared_size != size
         ):
             raise EncoderMismatch(
                 "build_learner(spec): the encoder is %s and the kind %s"
@@ -617,9 +810,28 @@ def build_learner(spec):
             % (game, kind_side(kind), declarations.DEFAULT_SHAPE)
         )
 
+    # The embedding seed, resolved **before** the draw so a refused seed leaves nothing
+    # built: a dense kind, a row set of the wrong shape, a non-finite row, a vocabulary
+    # that cannot hold ids 1..52 and a source width that is not the learner's are all
+    # refused here, before a parameter is drawn (`errors.md` §1, `ASM-49`).
+    seed_rows = None
+    seeding = None
+    if "embedding_init" in spec:
+        source, selector = _embedding_source(spec["embedding_init"])
+        seed_rows, seeding = _card_rows(
+            selector, source, kind, family, size, width, "build_learner"
+        )
     layout, parameters, masks, _kept = model.initial_draw(
         kind, width, depth, sparsity, seed, size, family, actions=actions
     )
+    if seed_rows is not None:
+        # The copy, between the draw and `new_state` and nowhere else: a learner is never
+        # observable unseeded, the target copy `new_state` writes starts from the seeded
+        # values, and rows 1..52 are the only rows touched -- row 0 is the pad's and rows
+        # 53.. the street, seat, bucket and strength ids' (`ASM-49`).
+        offset, length = layout.w_in
+        table = parameters[offset : offset + length].reshape(layout.input_dim, width)
+        table[FIRST_CARD_ROW : FIRST_CARD_ROW + CARD_ROWS] = seed_rows
     backend = _backend(backend_name)
     state = backend.new_state(layout, parameters, masks)
     return Learner(
@@ -655,6 +867,11 @@ def build_learner(spec):
         # declared default `none`, recorded by every checkpoint it writes
         # (`counterfactual.md` §6, D-43).
         counterfactual=targets_from,
+        # The catalogue member the learner reads as an **input**, and the record of the
+        # copy that wrote its embedding table -- both recorded by every checkpoint it
+        # writes, and neither read by any arithmetic here (`ASM-46`, `ASM-49`).
+        strength=reads_strength,
+        seeding=seeding,
     )
 
 

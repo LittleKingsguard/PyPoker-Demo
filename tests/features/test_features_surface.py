@@ -24,13 +24,13 @@ except ImportError:  # discovered as a plain directory, as pytest's prepend mode
 
 
 class FEA1Surface(S.FeaturesCase):
-    """The seven names exist, are callable, and take their declared arguments."""
+    """The eleven names exist, are callable, and take their declared arguments."""
 
-    def test_fea1_1_the_seven_names_exist_and_are_callable(self):
-        """FEA-1.1 the seven declared names are module-level callables of `features`
-        (surface.md §1, layout.md §2, battery.md §3 FAM-1, D-12)."""
+    def test_fea1_1_the_eleven_names_exist_and_are_callable(self):
+        """FEA-1.1 the eleven declared names are module-level callables of `features`
+        (surface.md §1, layout.md §2, battery.md §3 FAM-1, D-12, `ASM-47`)."""
         surface = self.surface()
-        for name in S.NINE:
+        for name in S.ELEVEN:
             with self.subTest(name=name):
                 self.assertTrue(
                     callable(getattr(surface, name)),
@@ -38,18 +38,19 @@ class FEA1Surface(S.FeaturesCase):
                     "layout.md §2)" % (name,),
                 )
 
-    def test_fea1_2_all_declares_exactly_the_seven_names_in_order(self):
-        """FEA-1.2 `features.__all__` is exactly the seven names, in the declared order,
-        with no eighth name (layout.md §2, guardrails.md G14, D-12)."""
+    def test_fea1_2_all_declares_exactly_the_eleven_names_in_order(self):
+        """FEA-1.2 `features.__all__` is exactly the eleven names, in the declared order,
+        with no twelfth name (layout.md §2, guardrails.md G14, D-12, `ASM-47`)."""
         declared = S.all_names()
         self.assertEqual(
-            declared, S.NINE,
-            "features.__all__ must be exactly the seven entry points, in the order "
-            "layout.md §2 declares them (guardrail G14): %r" % (declared,),
+            declared, S.ELEVEN,
+            "features.__all__ must be exactly the eleven entry points, in the order "
+            "layout.md §2 declares them and the four the frozen card model adds at the "
+            "end (guardrail G14, ASM-47): %r" % (declared,),
         )
         self.assertEqual(
-            len(declared), 7,
-            "an eighth name in __all__ is a second surface no L2 document declares "
+            len(declared), 11,
+            "a twelfth name in __all__ is a second surface no L2 document declares "
             "(guardrails.md G14, D-12): %r" % (declared,),
         )
         for name in declared:
@@ -75,8 +76,9 @@ class FEA1Surface(S.FeaturesCase):
         )
 
     def test_fea1_4_each_name_accepts_its_declared_arguments(self):
-        """FEA-1.4 each of the seven names succeeds when it is called with exactly its
-        declared arguments, and returns the declared kind (surface.md §3-§9)."""
+        """FEA-1.4 each of the seven shape-taking names succeeds when it is called with
+        exactly its declared arguments, and returns the declared kind (surface.md
+        §3-§9)."""
         F = self.surface()
         record = S.readout()
         declared = F.encodings()

@@ -279,6 +279,19 @@ def _hand(pool, shape, seed, index, policy):
     return engine.play_hand(hand_seed, seats=tuple(seating), shape=shape), seat
 
 
+def _stated(model, readout):
+    """The decision's readout as the encoder must see it, or the readout itself (`ASM-47`).
+
+    One line, in one place, so the two `features.encode` calls above cannot disagree about
+    whether the injected fact is there.  `features.stated` returns a **fresh** mapping, so
+    the episode record's own readout -- the engine's, and the one every case compares
+    against the eleven facts -- is never touched.
+    """
+    if model is None:
+        return readout
+    return features.stated(model, readout)
+
+
 def _decision_seat(decision):
     """The acting seat an episode decision records, as one integer.
 
@@ -430,7 +443,7 @@ def _finiteness(records, counted):
     return counted
 
 
-def _transitions(episode, seat, encoder, utility=None, shape=None):
+def _transitions(episode, seat, encoder, utility=None, shape=None, model=None):
     """The learner's transitions for one hand, in decision order (records.md §4).
 
     `reward` is the decision's own, re-expressed at the seat's **terminal** decision by the
@@ -470,7 +483,9 @@ def _transitions(episode, seat, encoder, utility=None, shape=None):
     ]
     records = []
     for position, decision in enumerate(own):
-        observation = features.encode(encoder, decision["readout"])
+        observation = features.encode(
+            encoder, _stated(model, decision["readout"])
+        )
         legal = list(features.legal_indices(decision["legal"]))
         terminal = position + 1 == len(own)
         if terminal:
@@ -481,7 +496,9 @@ def _transitions(episode, seat, encoder, utility=None, shape=None):
             reward = arithmetic(decision, hand_seed, seat, shape)
         else:
             successor = own[position + 1]
-            next_observation = features.encode(encoder, successor["readout"])
+            next_observation = features.encode(
+                encoder, _stated(model, successor["readout"])
+            )
             next_legal = list(features.legal_indices(successor["legal"]))
             reward = float(decision["reward"])
         record = {

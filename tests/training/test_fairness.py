@@ -626,11 +626,19 @@ class FairnessTest(TrainingCase):
         )
         self.assertEqual(
             len(axes),
-            8,
-            "`utility` joins six axes as the seventh and D-43's `counterfactual` joins "
-            "them as the eighth, so a comparison is read on eight and a report can say "
-            "which one a pair differs on (declarations.md §3, utilities.md §8, "
-            "counterfactual.md §6, D-20, D-43): %r" % (axes,),
+            9,
+            "`utility` joins six axes as the seventh, D-43's `counterfactual` joins them "
+            "as the eighth and `ASM-46`'s `strength` as the ninth, so a comparison is read "
+            "on nine and a report can say which one a pair differs on "
+            "(declarations.md §3, utilities.md §8, counterfactual.md §6, D-20, D-43, "
+            "ASM-46): %r" % (axes,),
+        )
+        self.assertIn(
+            "strength",
+            axes,
+            "the strength member is one of the axes a comparison reports — the fourth "
+            "catalogue's, and the one that names what a learner reads as an input rather "
+            "than what it learns from (ASM-46): %r" % (axes,),
         )
         self.assertIn(
             "counterfactual",

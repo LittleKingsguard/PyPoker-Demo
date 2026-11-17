@@ -7,8 +7,8 @@ This module is test support, not part of any subsystem.  It does four things:
   ``SurfaceAbsent`` failure in each case that needed it and never a collection
   error -- ``src/features/`` is written by L4 and the whole battery must stay
   collectable while it does not exist (``docs/L1/battery.md`` §1, §2);
-* it drives the seven entry points of ``docs/L2/features/surface.md`` §3-§9 and
-  nothing below them: no ``src/features/`` submodule, helper, private name,
+* it drives the eleven entry points of ``docs/L2/features/surface.md`` §3-§9 and the
+  four the frozen card model adds and nothing below them: no ``src/features/`` submodule, helper, private name,
   ``Encoder`` class or error class is ever touched (``docs/L3/features/README.md``
   §3, D-12).  The one exception is declared where it is made:
   ``test_features_bounds.py``'s totality case reads the layout's bound table and
@@ -51,7 +51,7 @@ import numpy
 # --------------------------------------------------------------------------
 # The declared surface (docs/L2/features/surface.md §1, layout.md §2)
 # --------------------------------------------------------------------------
-NINE = (
+ELEVEN = (
     "encodings",
     "build_encoder",
     "observation_spec",
@@ -59,6 +59,10 @@ NINE = (
     "action_space",
     "legal_indices",
     "decode_action",
+    "load_strength",
+    "strength",
+    "stated",
+    "card_rows",
 )
 
 # The readout's eleven facts, exactly (docs/L2/features/encodings.md §2, README.md §4,
@@ -113,6 +117,42 @@ DECLARED = {
         "vocabulary": 96,
     },
 }
+
+#: The strength member's two names, in the order the axis declares them, and the default
+#: (`ASM-46`).  The **absence** of the keyword is `ABSENT` and is not a defaulting of a
+#: member: it declares no tenth block, while `STRENGTH_ON` appends one.
+ABSENT = None
+STRENGTH_NONE = "none"
+STRENGTH_ON = "supervised"
+STRENGTH_MEMBERS = (STRENGTH_NONE, STRENGTH_ON)
+
+# The **twin** of `DECLARED` for a declaration that declares the strength member: the
+# tenth block appends one slot (dense) or one id (token), so the width grows by exactly one
+# and the token vocabulary widens to the ladder's own top on **every** row (`ASM-46`,
+# `ASM-48`).  Declared here so no case writes those numbers as a literal, and so the
+# absence rows above stay exactly the numbers the era guard (FEA-12.7) asserts.
+DECLARED_STRENGTH = {
+    FLAT: {
+        "kind": "dense-numeric",
+        "shape": (204,),
+        "dtype": "float32",
+        "vocabulary": None,
+    },
+    TOKENS: {
+        "kind": "token-sequence",
+        "shape": (41,),
+        "dtype": "int32",
+        "vocabulary": 110,
+    },
+}
+
+#: The strength token ladder's own numbers: the first id, the eight edges, the eight ids and
+#: the vocabulary the widest row declares (`ASM-48`).
+STRENGTH_ID_BASE = 102
+STRENGTH_IDS = (102, 103, 104, 105, 106, 107, 108, 109)
+STRENGTH_EDGES = (0.05, 0.10, 0.20, 0.30, 0.45, 0.60, 0.80, None)
+STRENGTH_VOCABULARY = 110
+STRENGTH_FIELD = "strength"
 
 # The two block tables on the **default** shape: (field, offset, width), in the spec's
 # `fields` order (flat-numeric.md §2, card-tokens.md §2, encoder.md §4).  The eight blocks
@@ -172,6 +212,15 @@ DECLARED_BY_SHAPE = {
     DEFAULT_SHAPE: {FLAT: (203,), TOKENS: (40,)},
     SECOND_SHAPE: {FLAT: (329,), TOKENS: (82,)},
     THIRD_SHAPE: {FLAT: (433,), TOKENS: (122,)},
+}
+#: `DECLARED_BY_SHAPE`'s twin for a strength-declaring declaration: the same three rows the
+#: pre-change declaration names, each one slot wider (`ASM-46`).  The block's offset is the
+#: pre-change width the row above names, which is why the two tables are written side by
+#: side and neither is derived from the other.
+DECLARED_BY_SHAPE_STRENGTH = {
+    DEFAULT_SHAPE: {FLAT: (204,), TOKENS: (41,)},
+    SECOND_SHAPE: {FLAT: (330,), TOKENS: (83,)},
+    THIRD_SHAPE: {FLAT: (434,), TOKENS: (123,)},
 }
 # The seat count is the width of both per-seat blocks in both encodings, and the token
 # vocabulary is the shape's: 96 ids on the two-seat rows, 102 on the six-seat one, whose
@@ -384,7 +433,7 @@ def module():
 
 
 def ep(name):
-    """One of the seven declared entry points, or one clear ``SurfaceAbsent``."""
+    """One of the eleven declared entry points, or one clear ``SurfaceAbsent``."""
     package = module()
     try:
         return getattr(package, name)
@@ -866,19 +915,19 @@ def numpy_state():
 
 
 # --------------------------------------------------------------------------
-# The seven names, fetched once
+# The eleven names, fetched once
 # --------------------------------------------------------------------------
 class Surface:
-    """The seven declared entry points of ``features``, fetched by name.
+    """The eleven declared entry points of ``features``, fetched by name.
 
     A case starts with ``surface()``, so a missing package is one clean
     ``SurfaceAbsent`` failure before any assertion runs.
     """
 
-    __slots__ = NINE
+    __slots__ = ELEVEN
 
     def __init__(self):
-        for name in NINE:
+        for name in ELEVEN:
             setattr(self, name, ep(name))
 
     # -- the calls a case is written in ------------------------------------

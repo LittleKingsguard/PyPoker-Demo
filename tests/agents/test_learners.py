@@ -30,8 +30,8 @@ from _agents_support import (
 
 
 class LearnersTest(AgentsCase):
-    def test_agt2_1_six_keys_in_order(self):
-        """AGT-2.1 the record's six keys, in order (`surface.md` §3, `README.md` §5, D-19, D-20, D-43)."""
+    def test_agt2_1_seven_keys_in_order(self):
+        """AGT-2.1 the record's seven keys, in order (`surface.md` §3, `README.md` §5, D-19, D-20, D-43, `ASM-46`)."""
         record = self.agents().learners()
         self.assertEqual(
             tuple(record),
@@ -41,13 +41,15 @@ class LearnersTest(AgentsCase):
                 "learning_rules",
                 "utilities",
                 "counterfactuals",
+                "strengths",
                 "hyper",
             ),
             "learners() must carry backends, architectures, learning_rules, utilities, "
-            "counterfactuals, hyper in that order: D-19 replaced the singular "
+            "counterfactuals, strengths, hyper in that order: D-19 replaced the singular "
             "`learning_rule` with the catalogue `learning_rules`, D-20 publishes the "
-            "utility catalogue after it and before `hyper`, and D-43 publishes the "
-            "counterfactual catalogue after `utilities` and before `hyper` "
+            "utility catalogue after it and before `hyper`, D-43 publishes the "
+            "counterfactual catalogue after `utilities` and before `hyper`, and `ASM-46` "
+            "publishes the strength catalogue after `counterfactuals` and before `hyper` "
             "(surface.md §3, rules.md §2, utilities.md §2, counterfactual.md §6)",
         )
 

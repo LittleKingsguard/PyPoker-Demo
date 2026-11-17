@@ -46,7 +46,7 @@ def require_encoder(value, entry_point):
     return value
 
 
-def build_encoder(name, shape=None):
+def build_encoder(name, shape=None, strength=None):
     """One encoder, by one of the names `encodings` declares, on one declared shape (§4).
 
     The name is matched exactly -- case-sensitively and not stripped -- because a
@@ -56,11 +56,20 @@ def build_encoder(name, shape=None):
     (shapes.md §3, D-29).  An encoding name outside the two is refused before the shape
     is looked at, and a shape name outside the catalogue is refused naming it and the
     declared names -- never defaulted.
+
+    The third argument is the **strength member**, and its absence is the nine-block
+    declaration this module has always built: `none` -- the axis' declared default, which
+    a caller that resolved the catalogue's first member passes -- is that same
+    declaration, and `supervised` appends the tenth block, so the same name on the same
+    shape is two declarations a caller selects between and neither is defaulted onto the
+    other (`ASM-46`, `ASM-48`).
     """
     for declared in ENCODING_NAMES:
         if isinstance(name, str) and name == declared:
             resolved = require_shape(shape, "build_encoder")
-            return Encoder(declared, resolved, declaration(declared, resolved))
+            return Encoder(
+                declared, resolved, declaration(declared, resolved, strength=strength)
+            )
     raise UnknownEncoding(
         "build_encoder(name): the encoding must be one of %r, got %r"
         % (ENCODING_NAMES, name)

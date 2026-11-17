@@ -51,7 +51,7 @@ down: every block's `params` is read from the shape's row here.
 from __future__ import annotations
 
 from .cards import CARD_SLOT
-from .errors import InvalidReadout, UnknownEncoding, UnknownShape
+from .errors import InvalidReadout, UnknownEncoding, UnknownShape, UnknownStrength
 
 # The nine facts an observation carries, in the readout's own order less `legal` and the
 # derived `hand_class` (encoder.md §3.1, ASM-30); it is also both encodings' block order.
@@ -77,6 +77,52 @@ SEAT_TOKEN_BASE = 96         # 96 + seat slot: the six-seat row's own six seat i
 HISTORY_IDS = (93, 94, 95)   # the three action *kinds*: fold, check-call, raise
 
 HISTORY_SLOT_WIDTH = 3       # one slot per action kind in the dense encoding
+
+#: The tenth declared field, and the one that has **no readout position**: a supervised
+#: estimator's win probability for the decision's own deal.  It is a value the observation
+#: carries and the information set does not -- a deterministic function of `hole` and
+#: `board`, so it widens nothing, the argument `hand_class` already makes (`readout.py`
+#: §1-§2).  It is appended **after the history block** in both encodings, so every
+#: pre-existing offset is untouched and only the width grows.
+STRENGTH_FIELD = "strength"
+
+#: The declared members of the strength axis, in the order `agents.learners()["strengths"]`
+#: publishes them: `none` first -- the declared default, today's encoder byte for byte --
+#: then `supervised`, the member that appends the tenth block.  `build_encoder` takes the
+#: member as a keyword whose **absence** is `none` and is not a defaulting of a name: a
+#: member outside the two is refused by name and never substituted (`errors.py`).
+STRENGTH_MEMBERS = ("none", "supervised")
+
+#: The declared default: the first member, which is what an absent keyword builds and what
+#: a declaration that declares no strength block is (`ASM-46`).
+DEFAULT_STRENGTH = STRENGTH_MEMBERS[0]
+
+#: The strength block's id ladder: the eight edges that turn a probability into one token
+#: id, as `(upper bound, id)` pairs read in order.  The last bound is unbounded, so the
+#: ladder is **total over `[0, 1]`** exactly as the five amount ladders are total over the
+#: non-negative integers -- the convention `encode._bucket` states.  The first id is
+#: `STRENGTH_ID_BASE`, which sits above every id any shape row allocates (96-101 are the
+#: six-seat row's seat ids), so **no band can emit the pad** by construction and not by
+#: luck.  The edges put five of the eight bands inside `[0.05, 0.60]`, where the measured
+#: mass and the measured error are, and leave the two ends coarse because a lock needs no
+#: resolution (`D-86`, `D-94`).
+STRENGTH_ID_BASE = 102
+STRENGTH_BANDS = (
+    (0.05, 102),
+    (0.10, 103),
+    (0.20, 104),
+    (0.30, 105),
+    (0.45, 106),
+    (0.60, 107),
+    (0.80, 108),
+    (None, 109),
+)
+
+#: The token encoding's vocabulary on **every** row when the strength block is declared:
+#: derived from the base and the ladder's length, never written down twice.  The two-seat
+#: rows therefore carry the six never-addressed ids the six-seat row's seat block owns;
+#: dead rows receive no gradient, so they cost parameters and no behaviour.
+STRENGTH_VOCABULARY = STRENGTH_ID_BASE + len(STRENGTH_BANDS)
 
 #: The block's capacity is the **shape's** and lives in its row, beside the normalisers
 #: and the ladders (`shapes.md` §8, ASM-42): it is both the number of action slots the
@@ -260,11 +306,15 @@ SHAPE_ROWS = {
 #: ``"saturate"`` -- a scaled block: `encode` clips the writer's values into ``(low, high)``
 #: before the assignment, because the numerator is a chip amount and its relation to the
 #: shape's normaliser is the shape's, not a run's.  ``"exact"`` -- a one-hot, flag or index
-#: block: the writer's value cannot leave ``(0.0, 1.0)`` by construction, so the bound is
-#: asserted and nothing is clipped.  ``"id"`` -- a token block: the value is an integer id
-#: in ``[0, vocabulary)``, and `"vocabulary"` stands for the high the **shape row** declares,
-#: so the bound follows the row -- 96 at two seats, 102 at six -- and never a [0, 1] scale
-#: (D-61, card-tokens.md §6, capacity.md §4).
+#: block, **or a value already inside the interval**: the writer's value cannot leave
+#: ``(0.0, 1.0)`` by construction, so the bound is asserted and nothing is clipped.  The
+#: `strength` block is the second writer class this policy covers -- a probability is a
+#: fraction and cannot leave the interval, and its writer **refuses** a value outside it
+#: rather than clipping one -- so the policy is a statement about the writer on both
+#: counts.  ``"id"`` -- a token block: the value is an integer id in ``[0, vocabulary)``,
+#: and `"vocabulary"` stands for the high the **declaration** reports, so the bound follows
+#: the row -- 96 at two seats, 102 at six, 110 when the strength block widens it -- and
+#: never a [0, 1] scale (D-61, card-tokens.md §6, capacity.md §4).
 BLOCK_BOUNDS = {
     # flat-numeric: `numerator / denominator`, the denominator the shape's normaliser.
     "street-onehot": (0.0, 1.0, "exact"),
@@ -274,6 +324,8 @@ BLOCK_BOUNDS = {
     "stacks-scaled": (0.0, 1.0, "saturate"),
     "amount-scaled": (0.0, 1.0, "saturate"),
     "limit-scaled": (0.0, 1.0, "saturate"),
+    # the tenth block: a probability, which is already in [0, 1] and cannot leave it
+    "strength-scaled": (0.0, 1.0, "exact"),
     # card-tokens: an integer id, the pad 0 first and `vocabulary - 1` last.
     "street-id": (0, "vocabulary", "id"),
     "seat-ids": (0, "vocabulary", "id"),
@@ -282,6 +334,7 @@ BLOCK_BOUNDS = {
     "amount-bucket": (0, "vocabulary", "id"),
     "limit-ids": (0, "vocabulary", "id"),
     "history-ids": (0, "vocabulary", "id"),
+    "strength-bucket": (0, "vocabulary", "id"),
 }
 
 
@@ -341,6 +394,47 @@ def _shape(blocks):
     return (sum(block[2] for block in blocks),)
 
 
+def _declares_strength(member):
+    """Whether one resolved strength member appends the tenth block (`ASM-46`).
+
+    The one test of the declaration's opt-in: a member that is the declared default is
+    today's declaration, and any other member is the ten-block one.  It is read by
+    `_fields`, both block tables and `_vocabulary` so the four cannot disagree, and a
+    member has already been resolved to one of `STRENGTH_MEMBERS` before it arrives
+    (`require_strength`).
+    """
+    return member != DEFAULT_STRENGTH
+
+
+def _fields(member):
+    """The carried facts of one declaration: the nine, or the ten with `strength` last.
+
+    `strength` is the field with no readout position, so it is **appended** and never
+    interleaved: every other fact keeps the index it had, and a declaration that declares
+    no strength block reports the nine-fact tuple this module has always reported
+    (`encoder.md` §3.1, §4, `ASM-46`).
+    """
+    if _declares_strength(member):
+        return FIELDS + (STRENGTH_FIELD,)
+    return FIELDS
+
+
+def _vocabulary(row, encoding, member):
+    """One declaration's token vocabulary: the row's, or the widened one the block needs.
+
+    The flat encoding declares none (`None`).  The token encoding declares the shape row's
+    96 or 102 -- and, when the strength block is declared, `STRENGTH_VOCABULARY` on
+    **every** row, derived from the ladder's own base and length: the block's ids must lie
+    inside the vocabulary a learner is sized by and a checkpoint records, and a per-row
+    base would make one band mean two ids (`ASM-48`).
+    """
+    if encoding != "card-tokens":
+        return None
+    if _declares_strength(member):
+        return max(int(row["vocabulary"]), STRENGTH_ID_BASE) + len(STRENGTH_BANDS)
+    return row["vocabulary"]
+
+
 # flat-numeric: four street slots, one seat slot per seat, two and five card slots of 17,
 # one stack slot per seat, the pot, the amount to call, the limit pair, and the shape's
 # history capacity in slots of 3.  The 127 slots no seat count touches (street, hole,
@@ -355,13 +449,16 @@ def _shape(blocks):
 # the shape declares the `actor-first` order -- its slots are the acting seat's stack, then
 # the other's; a shape declaring `seat-order` writes one slot per seat and reads one fact
 # (flat-numeric.md §4, encoder.md §4).  The five amount params are the shape's normalisers
-# and nothing else (flat-numeric.md §4).
-def _flat_blocks(row):
+# and nothing else (flat-numeric.md §4).  A declaration that declares a strength member
+# **appends** one slot after the history block, so its offset is the width the pre-change
+# declaration named -- 203, 329 or 433 -- its width is one and its bound is `exact`
+# (`ASM-46`).
+def _flat_blocks(row, member=DEFAULT_STRENGTH):
     """The dense encoding's block table on one shape (flat-numeric.md §2)."""
     normalisers = row["normalisers"]
     slots = row["history"]
     seats = row["seats"]
-    return _table((
+    rows = [
         ("street", len(STREETS), "street-onehot", ("street",), STREETS),
         ("seat", seats, "seat-index", ("seat",), (row["seat_mode"], seats)),
         ("hole", 2 * CARD_SLOT, "card-onehot", ("hole",), (2, True)),
@@ -375,7 +472,10 @@ def _flat_blocks(row):
          (normalisers["amount"], normalisers["count"])),
         ("history", slots * HISTORY_SLOT_WIDTH, "history-onehot", ("history",),
          (slots, HISTORY_SLOT_WIDTH)),
-    ))
+    ]
+    if _declares_strength(member):
+        rows.append((STRENGTH_FIELD, 1, "strength-scaled", (STRENGTH_FIELD,), None))
+    return _table(tuple(rows))
 
 
 # card-tokens: one street token, one seat token per seat, two and five card tokens, one
@@ -390,13 +490,16 @@ def _flat_blocks(row):
 # over the shape row's own vocabulary -- 96 ids on the two-seat rows, 102 on the six-seat
 # one, whose seat block emits ids 96-101 above every id the other rows use (card-tokens.md
 # §2, §6, seats.md §3, ASM-44).  The five ladders are the shape's and the ids they emit do
-# not move between shapes (card-tokens.md §4).
-def _token_blocks(row):
+# not move between shapes (card-tokens.md §4).  A declaration that declares a strength
+# member **appends** one token after the history block, so its offset is the width the
+# pre-change declaration named -- 40, 82 or 122 -- and its id is a rung of
+# `STRENGTH_BANDS`, never the pad (`ASM-46`, `ASM-48`).
+def _token_blocks(row, member=DEFAULT_STRENGTH):
     """The token encoding's block table on one shape (card-tokens.md §2)."""
     ladders = row["ladders"]
     slots = row["history"]
     seats = row["seats"]
-    return _table((
+    rows = [
         ("street", 1, "street-id", ("street",), (STREETS, STREET_ID_BASE)),
         ("seat", seats, "seat-ids", ("seat",),
          (row["seat_mode"], seats, SEAT_INDEX_BASE, SEAT_FLAG_BASE, SEAT_TOKEN_BASE)),
@@ -409,7 +512,11 @@ def _token_blocks(row):
          (ladders["amount"], ladders["count"])),
         ("history", slots, "history-ids", ("history",),
          (slots, HISTORY_IDS)),
-    ))
+    ]
+    if _declares_strength(member):
+        rows.append((STRENGTH_FIELD, 1, "strength-bucket", (STRENGTH_FIELD,),
+                     STRENGTH_BANDS))
+    return _table(tuple(rows))
 
 
 def _normalisers_of(row):
@@ -531,41 +638,73 @@ def require_encoding(name, entry_point, argument="name"):
     )
 
 
-def declaration(name, shape=None, entry_point="build_encoder"):
+def require_strength(value, entry_point, argument="strength"):
+    """The strength member `value` denotes, or the refusal naming it and the two members.
+
+    `None` is the declaration's **absence** and not a defaulting of a name: an encoder built
+    with no member is the nine-block declaration this module has always built, which is what
+    keeps every pre-existing width, vocabulary and checkpoint untouched (`ASM-46`).  The
+    declared default member `none` is the same declaration, so a caller that resolved the
+    axis' default and passes it is answered exactly as a caller that passed nothing.  Any
+    other value -- a name outside the two, or a value that is not a string at all -- is
+    refused naming it and both members, and is never mapped onto a member (`errors.py`).
+    """
+    if value is None:
+        return DEFAULT_STRENGTH
+    for member in STRENGTH_MEMBERS:
+        if isinstance(value, str) and value == member:
+            return member
+    raise UnknownStrength(
+        "%s(%s): the strength must be one of %r, got %r"
+        % (entry_point, argument, STRENGTH_MEMBERS, value)
+    )
+
+
+def declaration(name, shape=None, entry_point="build_encoder", strength=None):
     """One encoding on one shape: the six spec keys plus its block table (encoder.md §4).
 
     Built fresh on every call, so a caller's edit of a returned table cannot reach the
-    next caller's (surface.md §1, guardrails.md G11).
+    next caller's (surface.md §1, guardrails.md G11).  `strength` is the opt-in tenth
+    block's member: absent -- or the declared default -- declares today's nine-block
+    record, and any other member appends one block after the history and reports the ten
+    fields (`ASM-46`).
     """
     encoding = require_encoding(name, entry_point)
+    member = require_strength(strength, entry_point)
     row = shape_row(shape, entry_point)
     _require_normalisers(row, entry_point)
-    blocks = _flat_blocks(row) if encoding == "flat-numeric" else _token_blocks(row)
+    if encoding == "flat-numeric":
+        blocks = _flat_blocks(row, member)
+    else:
+        blocks = _token_blocks(row, member)
     record = {
         "representation": _ENCODING_ROWS[encoding]["representation"],
         "kind": _ENCODING_ROWS[encoding]["kind"],
-        "fields": FIELDS,
+        "fields": _fields(member),
         "shape": _shape(blocks),
         "dtype": _ENCODING_ROWS[encoding]["dtype"],
-        "vocabulary": row["vocabulary"] if encoding == "card-tokens" else None,
+        "vocabulary": _vocabulary(row, encoding, member),
         "blocks": blocks,
     }
     return record
 
 
-def spec(name, shape=None, entry_point="build_encoder"):
+def spec(name, shape=None, entry_point="build_encoder", strength=None):
     """The six-key spec record of one encoding on one shape (encoder.md §3).
 
     Four of the six values are the shape-invariant part of a declaration: the
-    representation, the kind and the nine fields, and the dtype.  `shape` is not, because
+    representation, the kind, the nine fields, and the dtype.  `shape` is not, because
     one observation's width follows the history block's capacity, the seat count and the
     shape's own token vocabulary (`shapes.md` §8, `seats.md` §3, ASM-42, ASM-44): the
     two-seat rows declare 96 token ids and the six-seat row 102, because its seat block
     emits six ids of its own above every id the other rows use.  The record still names no
     shape, no normaliser and no capacity of its own -- the width and the vocabulary it
     carries are the whole of what the shape does to it (`surface.md` §5, sizing.md §5).
+    A declaration that declares a strength member reports the ten fields with `strength`
+    last and the widened width and vocabulary; the six keys are the six on both
+    (`ASM-46`, `ASM-48`).
     """
-    record = declaration(name, shape, entry_point)
+    record = declaration(name, shape, entry_point, strength)
     return {
         "representation": record["representation"],
         "kind": record["kind"],

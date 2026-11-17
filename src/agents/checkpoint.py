@@ -63,6 +63,7 @@ from .errors import (
     UnknownCounterfactual,
     UnknownRule,
     UnknownShape,
+    UnknownStrength,
     UnknownUtility,
 )
 
@@ -74,16 +75,25 @@ GAME_FORMAT_VERSION = 4
 #: The version a learner whose counterfactual member is not `none` writes
 #: (`counterfactual.md` §6).
 COUNTERFACTUAL_FORMAT_VERSION = 5
-#: The five versions this module reads, oldest first: 5's counterfactual member, 4's shape
-#: and two members, 3's two members, 2's rule alone, and 1's absence of both
-#: (`checkpoint.md` §3, `utilities.md` §6, `counterfactual.md` §6).
+#: The version a learner that **declares a strength member** or whose embedding table was
+#: **seeded** writes (`ASM-50`).
+STRENGTH_FORMAT_VERSION = 6
+#: The six versions this module reads, oldest first: 6's strength member and its seed, 5's
+#: counterfactual member, 4's shape and two members, 3's two members, 2's rule alone, and
+#: 1's absence of both (`checkpoint.md` §3, `utilities.md` §6, `counterfactual.md` §6,
+#: `ASM-50`).
 SUPPORTED_VERSIONS = (
     1,
     2,
     FORMAT_VERSION,
     GAME_FORMAT_VERSION,
     COUNTERFACTUAL_FORMAT_VERSION,
+    STRENGTH_FORMAT_VERSION,
 )
+
+#: The five keys a version-6 `seeding` record carries, in the order §2.1 writes them
+#: (`ASM-49`, `ASM-50`).
+SEEDING = ("source", "rows", "width", "space", "digest")
 DTYPE = "float64"
 METADATA = "metadata.json"
 PARAMETERS = "parameters.npy"
@@ -200,12 +210,22 @@ def _metadata(learner):
     # sits immediately after `utility` (`counterfactual.md` §6, D-43).
     other_shape = learner.game != declarations.DEFAULT_SHAPE
     revealed = learner.counterfactual != declarations.DEFAULT_COUNTERFACTUAL
+    # The fourth axis and its seed: a learner that declares a strength member, or one whose
+    # embedding table was seeded, writes version 6 -- and a learner that declares neither
+    # writes exactly the version it wrote before, so every shipped container and every
+    # default-shape save is byte-for-byte unchanged (`ASM-49`, `ASM-50`).
+    declaring = learner.strength != declarations.DEFAULT_STRENGTH
+    seeded = learner.seeding is not None
     record = {
         "format": MAGIC,
         "format_version": (
-            COUNTERFACTUAL_FORMAT_VERSION
-            if revealed
-            else (GAME_FORMAT_VERSION if other_shape else FORMAT_VERSION)
+            STRENGTH_FORMAT_VERSION
+            if (declaring or seeded)
+            else (
+                COUNTERFACTUAL_FORMAT_VERSION
+                if revealed
+                else (GAME_FORMAT_VERSION if other_shape else FORMAT_VERSION)
+            )
         ),
         "dtype": DTYPE,
         "backend": learner.backend_name,
@@ -226,6 +246,17 @@ def _metadata(learner):
         # version-5 field, written only when it is not `none`, so a `none` save carries no
         # such key and stays byte-identical (`counterfactual.md` §6, §9, D-43).
         record["counterfactual"] = learner.counterfactual
+    if declaring:
+        # The catalogue member it reads as an **input**, immediately after
+        # `counterfactual`: a version-6 field, written only when it is not `none`
+        # (`ASM-46`, `ASM-50`).
+        record["strength"] = learner.strength
+    if seeded:
+        # ... and the record of the copy that wrote its embedding table, immediately after
+        # `strength`, in §2.1's own five keys (`ASM-49`, `ASM-50`).
+        record["seeding"] = {
+            key: learner.seeding[key] for key in SEEDING
+        }
     record["settings"] = {
         "width": int(learner.width),
         "depth": int(learner.depth),
@@ -424,6 +455,42 @@ SETTING_TYPES = {
 }
 
 
+def _seeding_form(text, value):
+    """Refuse a `seeding` record that is not §2.1's five-key form (`ASM-49`, `ASM-50`).
+
+    Every value the record carries is checked before a reader uses it: the `source` and
+    the `rows` selector are strings, the `width` is a positive integer, the `space` is the
+    one space a copy can be written in, and the `digest` is the sixteen hexadecimal
+    characters the save wrote.  Nothing is coerced and nothing is defaulted, so a record
+    that lost a key or gained a value of another type is refused by name.
+    """
+    record = _recorded(text, value, "seeding")
+    for key in SEEDING:
+        label = "seeding." + key
+        if key not in record:
+            raise CheckpointUnreadable(
+                "load(path): %r has a metadata.json whose 'seeding' record carries no "
+                "field %r" % (text, key)
+            )
+        if key in ("source", "rows", "space"):
+            _named(text, record[key], label)
+        elif key == "width":
+            if _counted(text, record[key], label) < 1:
+                raise _wrong(text, label, "a positive integer", record[key])
+        else:
+            digest = _named(text, record[key], label)
+            if len(digest) != 16 or any(
+                character not in "0123456789abcdef" for character in digest
+            ):
+                raise _wrong(
+                    text,
+                    label,
+                    "sixteen hexadecimal characters",
+                    record[key],
+                )
+    return record
+
+
 def _form(text, metadata):
     """Refuse a `metadata.json` whose form is not §2.1's (`checkpoint.md` §1-§3).
 
@@ -451,6 +518,12 @@ def _form(text, metadata):
         _field(text, metadata, "utility", "utility", _named)
     if "counterfactual" in metadata:
         _field(text, metadata, "counterfactual", "counterfactual", _named)
+    # The two version-6 fields are fields of the form when they are present; whether they
+    # must be is the format version's question and `_declared` answers it (`ASM-50`).
+    if "strength" in metadata:
+        _field(text, metadata, "strength", "strength", _named)
+    if "seeding" in metadata:
+        _seeding_form(text, metadata["seeding"])
     settings = _field(text, metadata, "settings", "settings", _recorded)
     for key in SETTINGS:
         _field(text, settings, key, "settings." + key, SETTING_TYPES[key])
@@ -546,7 +619,7 @@ def _declared(text, metadata):
                 "format version %d one" % (declarations.DEFAULT_SHAPE, FORMAT_VERSION),
                 metadata["game"],
             )
-    elif version == COUNTERFACTUAL_FORMAT_VERSION:
+    elif version in (COUNTERFACTUAL_FORMAT_VERSION, STRENGTH_FORMAT_VERSION):
         if "game" in metadata:
             if metadata["game"] not in declarations.SHAPE_NAMES:
                 raise UnknownShape(
@@ -574,7 +647,12 @@ def _declared(text, metadata):
     # predates the utility, and version 1 predates both — so a file of an older version
     # carrying a field its writer never wrote was edited and is refused by name
     # (`checkpoint.md` §3, `rules.md` §6, `utilities.md` §6, D-19, D-20).
-    if version in (FORMAT_VERSION, GAME_FORMAT_VERSION, COUNTERFACTUAL_FORMAT_VERSION):
+    if version in (
+        FORMAT_VERSION,
+        GAME_FORMAT_VERSION,
+        COUNTERFACTUAL_FORMAT_VERSION,
+        STRENGTH_FORMAT_VERSION,
+    ):
         for field, catalogue, refusal in (
             ("learning_rule", declarations.LEARNING_RULES, UnknownRule),
             ("utility", declarations.UTILITIES, UnknownUtility),
@@ -664,6 +742,35 @@ def _declared(text, metadata):
                 ),
                 metadata["counterfactual"],
             )
+    elif version == STRENGTH_FORMAT_VERSION:
+        # A version-6 container carries the field on version 5's own condition -- present
+        # exactly when the member is not `none` -- and its **absence** is legal there, so
+        # the check is the catalogue's and not the field's (`ASM-50`).
+        if "counterfactual" in metadata:
+            if metadata["counterfactual"] not in declarations.COUNTERFACTUALS:
+                raise UnknownCounterfactual(
+                    "load(path): %r records the field %r, which must be one of %r, got %r"
+                    % (
+                        text,
+                        "counterfactual",
+                        tuple(declarations.COUNTERFACTUALS),
+                        metadata["counterfactual"],
+                    )
+                )
+            if metadata["counterfactual"] == declarations.DEFAULT_COUNTERFACTUAL:
+                raise _wrong(
+                    text,
+                    "counterfactual",
+                    "a member other than the declared default %r, whose container is a "
+                    "format version %d, %d or %d one"
+                    % (
+                        declarations.DEFAULT_COUNTERFACTUAL,
+                        FORMAT_VERSION,
+                        GAME_FORMAT_VERSION,
+                        STRENGTH_FORMAT_VERSION,
+                    ),
+                    metadata["counterfactual"],
+                )
     elif "counterfactual" in metadata:
         raise _wrong(
             text,
@@ -671,6 +778,63 @@ def _declared(text, metadata):
             "absent from a format version %d container" % (version,),
             metadata["counterfactual"],
         )
+    # ... and the two version-6 fields, whose presence is their own condition within the
+    # version and neither of which any older writer ever wrote (`ASM-49`, `ASM-50`).
+    if version == STRENGTH_FORMAT_VERSION:
+        if "strength" not in metadata and "seeding" not in metadata:
+            raise CheckpointUnreadable(
+                "load(path): %r is a format version %d container and carries neither the "
+                "field %r nor the field %r, and a version %d container is written exactly "
+                "when one of the two is declared (ASM-50)"
+                % (
+                    text,
+                    STRENGTH_FORMAT_VERSION,
+                    "strength",
+                    "seeding",
+                    STRENGTH_FORMAT_VERSION,
+                )
+            )
+        if "strength" in metadata:
+            if metadata["strength"] not in declarations.STRENGTHS:
+                raise UnknownStrength(
+                    "load(path): %r records the field %r, which must be one of %r, got %r"
+                    % (
+                        text,
+                        "strength",
+                        tuple(declarations.STRENGTHS),
+                        metadata["strength"],
+                    )
+                )
+            if metadata["strength"] == declarations.DEFAULT_STRENGTH:
+                raise _wrong(
+                    text,
+                    "strength",
+                    "a member other than the declared default %r, whose container is a "
+                    "format version %d, %d or %d one"
+                    % (
+                        declarations.DEFAULT_STRENGTH,
+                        FORMAT_VERSION,
+                        GAME_FORMAT_VERSION,
+                        COUNTERFACTUAL_FORMAT_VERSION,
+                    ),
+                    metadata["strength"],
+                )
+        if "seeding" in metadata:
+            record = metadata["seeding"]
+            for key in ("source", "rows", "space"):
+                if not record[key]:
+                    raise _wrong(
+                        text, "seeding." + key, "a non-empty string", record[key]
+                    )
+    else:
+        for field in ("strength", "seeding"):
+            if field in metadata:
+                raise _wrong(
+                    text,
+                    field,
+                    "absent from a format version %d container" % (version,),
+                    metadata[field],
+                )
     if metadata["dtype"] != DTYPE:
         raise _wrong(text, "dtype", repr(DTYPE), metadata["dtype"])
     if metadata["backend"] not in declarations.BACKENDS:
@@ -713,7 +877,15 @@ def _declared(text, metadata):
                 "%r, the kind %r's own row" % (declared, kind),
                 representation[key],
             )
-    if declarations.sized_by_kind(metadata.get("game")):
+    # The `sized_by_kind` equality is a statement about versions **1 to 5**: it holds a
+    # default-shape container to the kind's declared 203 (or 96), which is true for every
+    # version up to 5 and false for a version-6 container whose declaration carries the
+    # tenth block -- 204 and a vocabulary of 110.  A version-6 container's width is checked
+    # for positivity here and then held to the geometry by `_rebuild`'s `params.count`,
+    # exactly as a version-4 container's own width already is (`ASM-50`).
+    if version < STRENGTH_FORMAT_VERSION and declarations.sized_by_kind(
+        metadata.get("game")
+    ):
         if representation["size"] != row["observation_size"]:
             raise _wrong(
                 text,
@@ -809,12 +981,21 @@ def _read_container(path):
         metadata["learning_rule"] = declarations.DEFAULT_LEARNING_RULE
     if metadata["format_version"] in (1, 2):
         metadata["utility"] = declarations.DEFAULT_UTILITY
-    if metadata["format_version"] in (1, 2, FORMAT_VERSION):
+    if "game" not in metadata:
+        # A version-1, 2 or 3 container carries no `game` and is read as the **default**
+        # shape, the only one its writer could have used; a version-5 or version-6 one
+        # carries none for a default-shape learner and is read as the default too
+        # (`shapes.md` §5, `counterfactual.md` §6, `ASM-50`).
         metadata["game"] = declarations.DEFAULT_SHAPE
-    if metadata["format_version"] == COUNTERFACTUAL_FORMAT_VERSION and "game" not in metadata:
-        metadata["game"] = declarations.DEFAULT_SHAPE
-    if metadata["format_version"] != COUNTERFACTUAL_FORMAT_VERSION:
+    if "counterfactual" not in metadata:
         metadata["counterfactual"] = declarations.DEFAULT_COUNTERFACTUAL
+    # A version-1-to-5 container carries neither of the fourth axis' fields and is read as
+    # the declared default with no seed, the only values its writer could have used; a
+    # version-6 container carries its own, on its own conditions (`ASM-50`).
+    if "strength" not in metadata:
+        metadata["strength"] = declarations.DEFAULT_STRENGTH
+    if "seeding" not in metadata:
+        metadata["seeding"] = None
     try:
         array = numpy.load(io.BytesIO(raw_parameters), allow_pickle=False)
     except (ValueError, OSError):
@@ -905,6 +1086,26 @@ def _compare(spec, metadata):
             raise CheckpointMismatch(
                 "load(spec): the spec's counterfactual %r is not the checkpoint's "
                 "counterfactual %r" % (named_counterfactual, metadata["counterfactual"])
+            )
+    if "strength" in spec:
+        # Validated against the catalogue before it is compared, and a disagreement names
+        # both values exactly as a `learning_rule`'s and a `counterfactual`'s do
+        # (`ASM-46`, `ASM-50`).
+        named_strength = _learner.strength(spec["strength"], "load")
+        if named_strength != metadata["strength"]:
+            raise CheckpointMismatch(
+                "load(spec): the spec's strength %r is not the checkpoint's strength %r"
+                % (named_strength, metadata["strength"])
+            )
+    if "seeding" in spec:
+        # The seed record is compared as the declared values it carries, so a spec that
+        # names one source and one digest and a file that carries another are refused
+        # naming both -- and a container that carries a strength member and no seed is
+        # legal and distinguishable, which is the anti-confusion assertion (`ASM-49`).
+        if spec["seeding"] != metadata["seeding"]:
+            raise CheckpointMismatch(
+                "load(spec): the spec's seeding %r is not the checkpoint's seeding %r"
+                % (spec["seeding"], metadata["seeding"])
             )
     if "game" in spec:
         # The shape is compared exactly as the rule and the utility are: validated
@@ -1055,6 +1256,12 @@ def _rebuild(text, metadata, array):
         # container names, a version-5 one carrying the member it names
         # (`counterfactual.md` §6, D-43).
         counterfactual=metadata["counterfactual"],
+        # The member the file records it read as an input, or the one a version-1-to-5
+        # container is read as -- `none` -- and the record of the copy that wrote its
+        # embedding table, which a version-6 container carries only when it was seeded
+        # (`ASM-49`, `ASM-50`).
+        strength=metadata["strength"],
+        seeding=metadata["seeding"],
     )
 
 

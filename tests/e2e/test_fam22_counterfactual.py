@@ -1417,21 +1417,23 @@ class FAM22Counterfactual(S.SurfaceCase):
             "%r" % (declared,),
         )
         self.assertEqual(
-            len(declared), 6,
-            "the catalogue record carries six keys — the backends, the architecture kinds, "
-            "the learning rules, the utilities, the counterfactuals and the one `hyper` "
-            "block — because D-43's member is a third catalogue beside the two and not a "
-            "seventh record (e2e-surface.md §2, §3.3, counterfactual.md §6): it carries %r"
+            len(declared), 7,
+            "the catalogue record carries seven keys — the backends, the architecture "
+            "kinds, the learning rules, the utilities, the counterfactuals, the strengths "
+            "and the one `hyper` block — because D-43's member is a third catalogue beside "
+            "the two and `ASM-46`'s strength member a fourth, and neither is a new record "
+            "(e2e-surface.md §2, §3.3, counterfactual.md §6, ASM-46): it carries %r"
             % (sorted(str(key) for key in declared),),
         )
         tokens = {R.tok(key) for key in declared}
-        for wanted in ("rule", "util", "counterfactual", "hyper", "backend", "architecture"):
+        for wanted in ("rule", "util", "counterfactual", "strength", "hyper", "backend",
+                       "architecture"):
             self.assertTrue(
                 any(wanted in token for token in tokens),
-                "agents.learners() publishes the %r key beside the others — the record's six "
-                "keys are the backends, the architectures, the rules, the utilities, the "
-                "counterfactuals and the hyper block (e2e-surface.md §3.3, "
-                "counterfactual.md §6): it publishes %r"
+                "agents.learners() publishes the %r key beside the others — the record's "
+                "seven keys are the backends, the architectures, the rules, the utilities, "
+                "the counterfactuals, the strengths and the hyper block "
+                "(e2e-surface.md §3.3, counterfactual.md §6, ASM-46): it publishes %r"
                 % (wanted, sorted(str(key) for key in declared)),
             )
 

@@ -78,6 +78,11 @@ from .seeds import _draw_index, _draw_order
 #: The deepest a recorded fact is looked for in one JSON document (`scheduler.md` §5.1).
 _MAX_DEPTH = 8
 
+#: The strength catalogue's declared default, read off the catalogue rather than written
+#: down: a container recording it is a container that declares no member, and one recording
+#: anything else is a container whose observation carries the tenth field (`ASM-46`).
+_DEFAULT_STRENGTH = next(iter(agents.learners()["strengths"]))
+
 
 class _MemberPolicy:
     """One member as a policy: its id, its capacity, the callable, its rule, utility and shape.
@@ -176,7 +181,7 @@ def _read_documents(path, entry, where):
 
 
 def _checkpoint_facts(path, entry, where):
-    """The recorded seed, encoding-name and shape candidates, or `CheckpointRecordMissing`.
+    """The recorded seed, encoding-name, shape, strength member and source, or a refusal.
 
     A plain zip of `metadata.json` and `parameters.npy` is the container established
     empirically; the walk tolerates names it did not observe, matching a key by its
@@ -209,6 +214,8 @@ def _checkpoint_facts(path, entry, where):
     found_seed = []
     encodings = []
     shapes = []
+    strengths = []
+    sources = []
 
     def walk(value, depth):
         if depth > _MAX_DEPTH:
@@ -222,6 +229,22 @@ def _checkpoint_facts(path, entry, where):
                     inner, str
                 ):
                     encodings.append(inner)
+                elif name == "strength" and isinstance(inner, str):
+                    # The fourth recorded fact, matched by its form being **exactly**
+                    # `strength`, so a key that merely ends in it -- `strength_source`, a
+                    # configuration's own spelling -- cannot move a member to another
+                    # axis (`ASM-46`, `ASM-47`).
+                    strengths.append(inner)
+                elif (
+                    name == "seeding"
+                    and isinstance(inner, Mapping)
+                    and isinstance(inner.get("source"), str)
+                ):
+                    # The seed record names the frozen estimator the learner was seeded
+                    # from, which is also the one its input came from: the one recorded
+                    # fact that says **which** file produced a declaring member's value
+                    # (`ASM-49`, `ASM-51`).
+                    sources.append(inner["source"])
                 elif name == "game" and isinstance(inner, str):
                     # The shape is matched by its form being **exactly** `game`: a suffix
                     # match would let `game_config` or `endgame` move a member to another
@@ -249,10 +272,16 @@ def _checkpoint_facts(path, entry, where):
     # naming the path, the name and the declared names, and is never defaulted
     # (`shape.md` §2-§3, `scheduler.md` §5.1, §6).
     game = require_shape(shapes[0] if shapes else None, entry, where)
-    return found_seed[0], tuple(encodings), game
+    # Absent reads as the catalogue's first member -- `none`, no model input -- which is
+    # what every version-1-to-5 container is read as; and a member that is not `none` is
+    # checked by **building** the encoder with it, exactly as a recorded encoding name is
+    # checked by building it (`ASM-46`, `ASM-47`).
+    member = strengths[0] if strengths else None
+    source = sources[0] if sources else None
+    return found_seed[0], tuple(encodings), game, member, source
 
 
-def _built_encoder(names, game, entry, where, path):
+def _built_encoder(names, game, entry, where, path, strength=None):
     """The encoder the recorded names build **for the recorded shape**, and the name it took.
 
     The candidates the walk collected are offered to `features.build_encoder` in the order
@@ -265,7 +294,7 @@ def _built_encoder(names, game, entry, where, path):
     """
     for name in names:
         try:
-            return name, features.build_encoder(name, shape=game)
+            return name, features.build_encoder(name, shape=game, strength=strength)
         except Exception:
             continue
     raise UnknownEncoding(
@@ -273,6 +302,25 @@ def _built_encoder(names, game, entry, where, path):
         "features.build_encoder refuses that name"
         % (entry, where, path, names[0], game)
     )
+
+
+def _stated(policy, model):
+    """One policy with the readout injected before it decides (`ASM-47`).
+
+    The fourth recorded fact's consumer: a member whose container records a strength member
+    other than `none` was trained on an observation that carries the tenth declared field,
+    so the encoder is built with that member **and** the readout it encodes must carry the
+    value.  The wrapper is outside `agents.as_policy`'s policy because that policy is where
+    the encoding happens, and `features.stated` returns a fresh mapping, so a readout a cell
+    keeps is never touched.
+    """
+    if model is None:
+        return policy
+
+    def wrapped(readout, legal_actions):
+        return policy(features.stated(model, readout), legal_actions)
+
+    return wrapped
 
 
 def _checkpoint_policy(member_id, path, entry, where, exploration=EXPLORATION_DEFAULT):
@@ -288,9 +336,22 @@ def _checkpoint_policy(member_id, path, entry, where, exploration=EXPLORATION_DE
     travels on the returned policy, so a cell can say which game it was played on
     (`shape.md` §4, D-29).
     """
-    seed, encodings, game = _checkpoint_facts(path, entry, where)
-    encoding, encoder = _built_encoder(encodings, game, entry, where, path)
+    seed, encodings, game, member, source = _checkpoint_facts(path, entry, where)
+    encoding, encoder = _built_encoder(encodings, game, entry, where, path, member)
     learner = agents.load(None, path)
+    # The frozen estimator, when the container records a member that reads one: the seed's
+    # own record names it, and a member whose value cannot be produced is refused by name
+    # rather than encoded as a readout the encoder will reject (`ASM-47`, `ASM-49`).
+    model = None
+    if member is not None and member != _DEFAULT_STRENGTH:
+        if source is None:
+            raise CheckpointRecordMissing(
+                "%s(%s): the checkpoint %r records the strength member %r and no "
+                "'seeding.source', so the frozen estimator its observation carries cannot "
+                "be named and no value is substituted for it (ASM-47, ASM-49)"
+                % (entry, where, path, member)
+            )
+        model = features.load_strength(source)
     try:
         policy = agents.as_policy(learner, encoder, seed, exploration)
     except Exception as exc:
@@ -299,16 +360,21 @@ def _checkpoint_policy(member_id, path, entry, where, exploration=EXPLORATION_DE
             "refused the encoder that name builds (%s)"
             % (entry, where, path, encoding, exc)
         ) from exc
+    # The policy's own labels, read **before** the injection wrapper is put in front of it:
+    # the wrapper is a closure and carries no attributes of its own (`ASM-47`).
+    learning_rule = getattr(policy, "learning_rule", None)
+    utility = getattr(policy, "utility", None)
+    policy = _stated(policy, model)
     return _MemberPolicy(
         member_id,
         agents.param_count(learner),
         policy,
         # The rule the file records, reported by the policy `agents.as_policy` built:
         # playback is rule-free, so the built policy is the witness (`rules.md` §6, D-19).
-        learning_rule=getattr(policy, "learning_rule", None),
+        learning_rule=learning_rule,
         # ... and the utility it records, on the same terms: playback is utility-free
         # too, so the policy is again the only witness (`utilities.md` §6, §7, D-20).
-        utility=getattr(policy, "utility", None),
+        utility=utility,
         # ... and the shape its container records, read by the walk because a container's
         # shape has no attribute to read it back from (`scheduler.md` §5.1, `shape.md` §4).
         game=game,

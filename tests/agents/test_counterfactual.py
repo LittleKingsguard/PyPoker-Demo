@@ -294,23 +294,23 @@ class CounterfactualCatalogueTest(AgentsCase):
             "counterfactual.md §6, D-43)",
         )
 
-    def test_agt18_2_six_keys(self):
-        """AGT-18.2 `learners()` carries six keys in order, `counterfactuals` after `utilities` and before `hyper`, and two calls return equal records (`surface.md` §3, `README.md` §5, `counterfactual.md` §6, D-19, D-20, D-43).
+    def test_agt18_2_seven_keys(self):
+        """AGT-18.2 `learners()` carries seven keys in order, `counterfactuals` after `utilities` and `strengths` between it and `hyper`, and two calls return equal records (`surface.md` §3, `README.md` §5, `counterfactual.md` §6, D-19, D-20, D-43, `ASM-46`).
 
         The third catalogue is an **addition** to §3's record and not a replacement of
         either axis beside it: D-19's rule catalogue and D-20's utility catalogue keep
-        their places, `counterfactuals` sits between the second and `hyper`, and the
-        record is rebuilt on every call, so two calls are equal data and not two views of
-        one mutable mapping.
+        their places, `counterfactuals` sits between the second and `hyper`, the fourth
+        catalogue `strengths` sits between it and `hyper`, and the record is rebuilt on
+        every call, so two calls are equal data and not two views of one mutable mapping.
         """
         package = self.agents()
         record = package.learners()
         keys = tuple(record)
         self.assertEqual(
             len(keys),
-            6,
-            "learners() carries the six keys of surface.md §3 and this call carried %d: %r"
-            % (len(keys), keys),
+            7,
+            "learners() carries the seven keys of surface.md §3 and this call carried %d: "
+            "%r" % (len(keys), keys),
         )
         self.assertEqual(
             keys,
@@ -320,24 +320,38 @@ class CounterfactualCatalogueTest(AgentsCase):
                 "learning_rules",
                 "utilities",
                 "counterfactuals",
+                "strengths",
                 "hyper",
             ),
             "learners() must carry backends, architectures, learning_rules, utilities, "
-            "counterfactuals, hyper in that order: D-20 publishes the utility catalogue and "
-            "D-43 the counterfactual one after it and before hyper (surface.md §3, "
-            "counterfactual.md §6)",
+            "counterfactuals, strengths, hyper in that order: D-20 publishes the utility "
+            "catalogue, D-43 the counterfactual one after it, `ASM-46` the strength one "
+            "after that, and `hyper` last (surface.md §3, counterfactual.md §6)",
         )
         self.assertEqual(
-            keys.index("counterfactuals"),
             keys.index("utilities") + 1,
-            "`counterfactuals` is published immediately after `utilities` (surface.md §3, "
-            "counterfactual.md §6): %r" % (keys,),
+            keys.index("counterfactuals"),
+            "`utilities` + 1 is `counterfactuals` (surface.md §3, counterfactual.md §6): %r"
+            % (keys,),
+        )
+        self.assertLess(
+            keys.index("counterfactuals"),
+            keys.index("strengths"),
+            "the counterfactual catalogue is published before the strength one, which "
+            "`ASM-46` places between it and `hyper` (surface.md §3): %r" % (keys,),
         )
         self.assertEqual(
             keys.index("counterfactuals"),
+            keys.index("strengths") - 1,
+            "`strengths` is published immediately after `counterfactuals`, and the fourth "
+            "catalogue is not a second copy of any of the three (surface.md §3, `ASM-46`): "
+            "%r" % (keys,),
+        )
+        self.assertEqual(
+            keys.index("strengths"),
             keys.index("hyper") - 1,
-            "`counterfactuals` is published immediately before `hyper` (surface.md §3, "
-            "counterfactual.md §6): %r" % (keys,),
+            "`strengths` is published immediately before `hyper` (surface.md §3, "
+            "`ASM-46`): %r" % (keys,),
         )
         first = package.learners()
         second = package.learners()
