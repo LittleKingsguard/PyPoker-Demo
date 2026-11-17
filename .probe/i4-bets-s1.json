@@ -1,0 +1,1 @@
+{"arm": "bets", "dim": 57, "chips": 1.106, "ci": 2.4, "showdown": 0.0, "census": {"fold": 80.8, "check-call": 10.3, "raise-minimum": 6.0}, "card_dep": 4, "table": {"AA": ["check-call", "check-call", "check-call"], "KQs": ["raise-quarter", "raise-minimum", "raise-minimum"], "22": ["raise-minimum", "raise-minimum", "raise-minimum"], "87s": ["fold"], "72o": ["fold"]}}

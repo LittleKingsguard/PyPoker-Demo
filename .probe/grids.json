@@ -1,0 +1,112 @@
+{
+ "ref": [
+  [
+   "quad aces",
+   100.0
+  ],
+  [
+   "nut flush",
+   100.0
+  ],
+  [
+   "ace-high straight",
+   97.77
+  ],
+  [
+   "trip aces",
+   91.84
+  ],
+  [
+   "pair of kings (dry)",
+   45.07
+  ],
+  [
+   "2-3 offsuit junk",
+   0.0
+  ],
+  [
+   "2-7 offsuit junk",
+   0.0
+  ],
+  [
+   "2-3 offsuit, all-high board",
+   0.02
+  ]
+ ],
+ "results": {
+  "dead": {
+   "600-scale reward, 3k hands": {
+    "quad aces": "rrrr",
+    "nut flush": "rrrr",
+    "ace-high straight": "rrrr",
+    "trip aces": "rrrr",
+    "pair of kings (dry)": "rrrr",
+    "2-3 offsuit junk": "rrrr",
+    "2-7 offsuit junk": "rrrr",
+    "2-3 offsuit, all-high board": "rrrr"
+   },
+   "600-scale reward, raiser run": {
+    "quad aces": "r",
+    "nut flush": "r",
+    "ace-high straight": "r",
+    "trip aces": "r",
+    "pair of kings (dry)": "r",
+    "2-3 offsuit junk": "r",
+    "2-7 offsuit junk": "r",
+    "2-3 offsuit, all-high board": "r"
+   }
+  },
+  "live": {
+   "normalised, foldloop-high": {
+    "quad aces": "rrrr",
+    "nut flush": "rrrr",
+    "ace-high straight": "rrrr",
+    "trip aces": "rrrr",
+    "pair of kings (dry)": "rrrr",
+    "2-3 offsuit junk": "rrrr",
+    "2-7 offsuit junk": "rrrr",
+    "2-3 offsuit, all-high board": "rrrr"
+   },
+   "normalised, foldloop-control": {
+    "quad aces": "rrcc",
+    "nut flush": "rrrc",
+    "ace-high straight": "rrcc",
+    "trip aces": "rrcc",
+    "pair of kings (dry)": "rrcc",
+    "2-3 offsuit junk": "rrcc",
+    "2-7 offsuit junk": "rrcc",
+    "2-3 offsuit, all-high board": "rrcc"
+   },
+   "normalised + card strength": {
+    "quad aces": "rrrr",
+    "nut flush": "rrrr",
+    "ace-high straight": "rrrr",
+    "trip aces": "rrrr",
+    "pair of kings (dry)": "rrrr",
+    "2-3 offsuit junk": "rrrr",
+    "2-7 offsuit junk": "f",
+    "2-3 offsuit, all-high board": "rrrr"
+   },
+   "probe, eps 0.60": {
+    "quad aces": "r",
+    "nut flush": "r",
+    "ace-high straight": "r",
+    "trip aces": "r",
+    "pair of kings (dry)": "f",
+    "2-3 offsuit junk": "f",
+    "2-7 offsuit junk": "f",
+    "2-3 offsuit, all-high board": "f"
+   },
+   "probe, eps 0.60 + opponent": {
+    "quad aces": "cr",
+    "nut flush": "r",
+    "ace-high straight": "r",
+    "trip aces": "cccc",
+    "pair of kings (dry)": "ccr",
+    "2-3 offsuit junk": "f",
+    "2-7 offsuit junk": "f",
+    "2-3 offsuit, all-high board": "f"
+   }
+  }
+ }
+}

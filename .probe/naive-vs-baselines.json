@@ -1,0 +1,62 @@
+{
+ "random": {
+  "chips": 11.561,
+  "ci": 10.048,
+  "hands": 1000,
+  "census": {
+   "check-call": 65.6,
+   "raise-minimum": 16.5,
+   "fold": 9.2
+  }
+ },
+ "always-call": {
+  "chips": 0.929,
+  "ci": 9.856,
+  "hands": 1000,
+  "census": {
+   "check-call": 36.3,
+   "raise-quarter": 21.7,
+   "raise-half": 19.2
+  }
+ },
+ "oracle": {
+  "chips": -0.742,
+  "ci": 1.073,
+  "hands": 1000,
+  "census": {
+   "check-call": 47.3,
+   "raise-minimum": 18.7,
+   "raise-quarter": 11.6
+  }
+ },
+ "fold-no-pair-or-face": {
+  "chips": -6.115,
+  "ci": 7.083,
+  "hands": 1000,
+  "census": {
+   "check-call": 41.4,
+   "raise-half": 18.0,
+   "raise-minimum": 16.8
+  }
+ },
+ "fold-no-pair-or-better": {
+  "chips": -7.82,
+  "ci": 8.218,
+  "hands": 1000,
+  "census": {
+   "check-call": 35.4,
+   "raise-half": 21.7,
+   "raise-quarter": 19.4
+  }
+ },
+ "fold-large-bet": {
+  "chips": 11.304,
+  "ci": 0.587,
+  "hands": 1000,
+  "census": {
+   "check-call": 44.9,
+   "raise-minimum": 21.0,
+   "raise-half": 17.3
+  }
+ }
+}

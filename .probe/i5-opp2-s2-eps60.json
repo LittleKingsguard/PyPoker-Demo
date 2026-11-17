@@ -1,0 +1,16 @@
+
+[per-seat history, NO identity] train class mix (fold/call/raise): 33.9/50.4/15.7
+  held-out rows 759 | accuracy 0.702 | balanced accuracy 0.730
+   folder                 n=  151 actual     70/1/28  pred    58/13/28  acc 0.868 base 0.702  rec F/C/R 0.82/0.50/1.00
+   raiser-50-50           n=  118 actual     87/0/13  pred     87/0/13  acc 1.000 base 0.873  rec F/C/R 1.00/nan/1.00
+   raiser-83              n=  156 actual    12/52/36  pred    62/16/22  acc 0.506 base 0.519  rec F/C/R 1.00/0.31/0.62
+   fold-no-pair-or-face   n=  334 actual     17/83/0  pred     0/61/39  acc 0.614 base 0.826  rec F/C/R 0.00/0.74/nan
+
+[per-seat history + identity] train class mix (fold/call/raise): 33.9/50.4/15.7
+  held-out rows 759 | accuracy 0.814 | balanced accuracy 0.821
+   folder                 n=  151 actual     70/1/28  pred     71/1/28  acc 0.980 base 0.702  rec F/C/R 0.99/0.00/1.00
+   raiser-50-50           n=  118 actual     87/0/13  pred     100/0/0  acc 0.873 base 0.873  rec F/C/R 1.00/nan/0.00
+   raiser-83              n=  156 actual    12/52/36  pred     7/22/71  acc 0.583 base 0.519  rec F/C/R 0.00/0.43/1.00
+   fold-no-pair-or-face   n=  334 actual     17/83/0  pred     0/100/0  acc 0.826 base 0.826  rec F/C/R 0.00/1.00/nan
+frozen per-seat artefact: .probe/opp_seat.pt
+{"arm": "opp2", "seed": 2, "eps_floor": 0.6, "dim": 59, "chips": 13.839, "ci": 4.851, "census": {"fold": 52.1, "check-call": 37.2, "raise-all-in": 9.8}, "card_dep": 3, "table": {"AA": ["raise-all-in"], "KQs": ["raise-minimum", "raise-all-in"], "22": ["fold"], "87s": ["raise-all-in"], "72o": ["fold"]}}

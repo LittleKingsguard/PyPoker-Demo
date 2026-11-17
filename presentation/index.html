@@ -140,13 +140,6 @@ html.no-motion .slide[data-active].is-entering { animation: none; }
 /* the overflow guarantee: the card clips, and every block inside clips itself */
 html.js .card { overflow: hidden; }
 html.js .card > *:not(.suit) { overflow: hidden; }
-/* the fixed-height boxes one level deeper than .card clip themselves; a cell's height is only a minimum, so its line is one line */
-html.js #s10 .a-body .t-list li,
-html.js #s11 .a-side .t-group p,
-html.js #s11 .a-wide .t-table th,
-html.js #s11 .a-wide .t-table td { overflow: hidden; }
-html.js #s11 .a-wide .t-table th,
-html.js #s11 .a-wide .t-table td { white-space: nowrap; }
 /* content.md §2: the plan's rows are grandchildren of the card, so §2's second
    tier does not reach them. Each fixed-height box clips itself, and `nowrap` on
    both spans is what holds a 104px row, because a height is a minimum here. */
@@ -158,7 +151,7 @@ html.js #s3 .a-hero .t-plan .t-step { white-space: nowrap; }
 /* the contact slides' own deep boxes (contact.md §3). The two .t-url line spans
    are grandchildren of .card, so they clip themselves, one line each. */
 html.js #s2 .a-wide .t-url span,
-html.js #s14 .a-side-bottom .t-url span { overflow: hidden; white-space: nowrap; }
+html.js #s9 .a-side-bottom .t-url span { overflow: hidden; white-space: nowrap; }
 /* one #sN-scoped clip rule per new fixed-height box, as the README's step 3 asks;
    for .qr the clip is a no-op (the box is exactly its viewBox) but it is
    declared so the shape is uniform (contact.md §3) */
@@ -168,22 +161,18 @@ html.js #s2 .a-wide .t-email,
 html.js #s2 .a-wide .t-url,
 html.js #s2 .a-side .qr,
 html.js #s2 .a-side .t-note,
-html.js #s14 .a-wide .t-h1,
-html.js #s14 .a-wide .qr,
-html.js #s14 .a-wide .t-note,
-html.js #s14 .a-side-top .t-h2,
-html.js #s14 .a-side-top .t-note,
-html.js #s14 .a-side-bottom .t-h3,
-html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
+html.js #s9 .a-wide .t-h1,
+html.js #s9 .a-wide .qr,
+html.js #s9 .a-wide .t-note,
+html.js #s9 .a-side-top .t-h2,
+html.js #s9 .a-side-top .t-note,
+html.js #s9 .a-side-bottom .t-h3,
+html.js #s9 .a-side-bottom .t-url { overflow: hidden; }
 
 /* section 4: area classes, in literal px inside the 1192x568 slide box */
-.a-hero        { left: 0;    top: 0;   width: 1192px; height: 568px; } /* inner 1136x512 */
-.a-lead        { left: 0;    top: 0;   width: 1192px; height: 236px; } /* inner 1136x180 */
-.a-body        { left: 0;    top: 260px; width: 1192px; height: 308px; } /* 236+24 = 260; inner 1136x252 */
+.a-hero        { left: 0;    top: 0;   width: 1192px; height: 568px; } /* 236+24 = 260; inner 1136x252 */
 .a-wide        { left: 0;    top: 0;   width: 776px;  height: 568px; } /* inner 720x512 */
-.a-side        { left: 800px; top: 0;  width: 392px;  height: 568px; } /* 776+24 = 800; inner 336x512 */
-.a-chart       { left: 0;    top: 0;   width: 1192px; height: 420px; } /* inner 1136x364 */
-.a-legend      { left: 0;    top: 444px; width: 1192px; height: 124px; } /* 420+24 = 444; inner 1136x68 */
+.a-side        { left: 800px; top: 0;  width: 392px;  height: 568px; } /* 420+24 = 444; inner 1136x68 */
 .a-side-top    { left: 800px; top: 0;   width: 392px; height: 272px; } /* inner 336x216 */
 .a-side-bottom { left: 800px; top: 296px; width: 392px; height: 272px; } /* 272+24 = 296; inner 336x216 */
 /* #s6's caption card beside network-compare (content.md §4): 653 + 24 + 515 = 1192 */
@@ -191,7 +180,6 @@ html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
 
 /* --- section 3: the type ramp, verbatim ---------------------------------- */
 .t-display { font-family: var(--font-display); font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--ls-display); font-weight: 600; }
-.t-quote   { font-family: var(--font-display); font-size: var(--fs-quote);   line-height: var(--lh-quote);   letter-spacing: var(--ls-quote);   font-weight: 400; }
 .t-h1      { font-family: var(--font-display); font-size: var(--fs-h1);      line-height: var(--lh-h1);      letter-spacing: var(--ls-h1);      font-weight: 600; }
 .t-h2      { font-family: var(--font-display); font-size: var(--fs-h2);      line-height: var(--lh-h2);      letter-spacing: var(--ls-h2);      font-weight: 600; }
 .t-h3      { font-family: var(--font-body);    font-size: var(--fs-h3);      line-height: var(--lh-h3);      letter-spacing: var(--ls-h3);      font-weight: 600; }
@@ -254,23 +242,7 @@ html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
    inverted, never a theme accent, no fill attribute on any <rect>. The quiet
    zone is the card face: nothing is drawn in it. */
 .qr { display: block; }
-#s2 .qr rect, #s14 .qr rect { fill: var(--ink); }
-
-/* demo badge: --fs-badge, uppercase, flat ink chip on the card face */
-.demo-badge {
-  display: inline-block;
-  height: var(--lh-badge);
-  padding: 0 10px;
-  border-radius: 2px;
-  background: var(--ink);
-  color: var(--card-face);
-  font-family: var(--font-body);
-  font-size: var(--fs-badge);
-  line-height: var(--lh-badge);
-  letter-spacing: var(--ls-badge);
-  text-transform: uppercase;
-  vertical-align: top;
-}
+#s2 .qr rect, #s9 .qr rect { fill: var(--ink); }
 
 /* 1px hairline under a card heading (2px box, 1px visible line) */
 .card__rule {
@@ -387,10 +359,8 @@ html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
        (content.md §5), so the shape is one budget with two occupants and the
        rules are shared. The eyebrow takes the --fs-badge tokens on its own
        block name; it is not the demo chip. */
-#s7 .a-hero,
-#s9 .a-hero { text-align: center; }
-#s7 .suit-circle,
-#s9 .suit-circle {
+#s7 .a-hero { text-align: center; }
+#s7 .suit-circle {
   width: 96px;
   height: 96px;
   margin: 0 auto 24px;
@@ -400,107 +370,10 @@ html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
   text-align: center;
   font-size: 34px;
 }
-#s7 .suit-circle__pip,
-#s9 .suit-circle__pip { color: var(--suit-red); }
+#s7 .suit-circle__pip { color: var(--suit-red); }
 #s7 .a-hero .t-eyebrow { height: 24px; margin: 0 0 12px; }
-#s9 .a-hero .t-badge { height: 24px; margin: 0 0 12px; line-height: 24px; }
-#s7 .a-hero .t-h1,
-#s9 .a-hero .t-h1    { height: 64px; margin: 0 0 12px; }
-#s7 .a-hero .t-h3,
-#s9 .a-hero .t-h3    { height: 36px; margin: 0; }
-
-/* --- 5.4 bullets — a-lead inner 180: 24+12 . 48 = 84 / 180
-       a-body inner 252: 3x38 + 2x16 (=146) +12 . 28 = 186 / 252 */
-#s10 .a-lead .t-badge { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
-#s10 .a-lead .t-h2    { height: 48px; margin: 0; }
-#s10 .a-body .t-list  { height: 146px; margin: 0 0 12px; padding: 0; list-style: disc; list-style-position: inside; }
-#s10 .a-body .t-list li { height: 38px; margin: 0; }
-#s10 .a-body .t-list li + li { margin-top: 16px; }
-#s10 .a-body .t-note  { height: 28px; margin: 0; }
-
-/* --- 5.5 comparison — a-wide inner 512: 48+16 . 44+6x44 (=308) +16 . 28 = 416 / 512
-       a-side inner 512: 48+16 . 3x120 . 24+12 = 460 / 512 */
-#s11 .a-wide .t-h2   { height: 48px; margin: 0 0 16px; }
-#s11 .a-wide .t-table { width: 100%; height: 308px; margin: 0 0 16px; border-collapse: collapse; table-layout: fixed; }
-#s11 .a-wide .t-table th,
-#s11 .a-wide .t-table td {
-  height: 44px;
-  padding: 0 8px 0 0;
-  border: 0;
-  text-align: left;
-  font-family: var(--font-body);
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
-  font-weight: 400;
-}
-#s11 .a-wide .t-table thead th { color: var(--ink-muted); font-weight: 600; letter-spacing: var(--ls-small); }
-#s11 .a-wide .t-table tbody th { font-weight: 600; }
-#s11 .a-wide .cell-num { font-family: var(--font-mono); }
-#s11 .a-wide .t-note { height: 28px; margin: 0; }
-
-#s11 .a-side .t-h2    { height: 48px; margin: 0 0 16px; }
-#s11 .a-side .t-group { height: 120px; margin: 0; }
-#s11 .a-side .t-group h3 { height: 36px; margin: 0 0 8px; }
-#s11 .a-side .t-group p  { height: 76px; margin: 0; }
-#s11 .a-side .t-badge { height: 24px; margin: 12px 0 0; line-height: 24px; }
-
-/* --- 5.6 chart placeholder — inner 364: 48+12 . 256 . +12 . 24 = 352 / 364 */
-#s12 .a-chart .t-h2 { height: 48px; margin: 0 0 12px; }
-#s12 .plot {
-  position: relative;
-  height: 256px;
-  margin: 0 0 12px;
-  background-image: repeating-linear-gradient(0deg, rgba(27, 42, 37, .09) 0 1px, rgba(27, 42, 37, 0) 1px 32px);
-}
-#s12 .bar { position: absolute; bottom: 0; width: 120px; }
-#s12 .bar--a { left: 80px;  height: 96px;  background: var(--status-a); }
-#s12 .bar--b { left: 294px; height: 148px; background: var(--status-a); }
-#s12 .bar--c { left: 508px; height: 180px; background: var(--status-a); }
-#s12 .bar--d { left: 722px; height: 124px; background: var(--status-b); }
-#s12 .bar--e { left: 936px; height: 64px;  background: var(--status-b); }
-#s12 .bar__label {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -32px;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-  letter-spacing: var(--ls-small);
-  color: var(--ink);
-}
-#s12 .axis { position: relative; height: 24px; margin: 0; }
-#s12 .axis__label {
-  position: absolute;
-  top: 0;
-  width: 120px;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  line-height: var(--lh-small);
-  letter-spacing: var(--ls-small);
-  color: var(--ink-muted);
-}
-#s12 .axis__label:nth-child(1) { left: 80px; }
-#s12 .axis__label:nth-child(2) { left: 294px; }
-#s12 .axis__label:nth-child(3) { left: 508px; }
-#s12 .axis__label:nth-child(4) { left: 722px; }
-#s12 .axis__label:nth-child(5) { left: 936px; }
-
-/* legend card, inner 68: 28+8 . 28 = 64 / 68 */
-#s12 .a-legend .t-note { height: 28px; margin: 0 0 8px; }
-#s12 .a-legend .t-note:last-child { margin: 0; }
-
-/* --- 5.7 quote — card.a-hero, inner 512: 56+16 . 180+16 . 2+16 . 38+12 . 24 = 360 / 512 */
-#s13 .a-hero { text-align: center; }
-/* 60+12 = 56+16: the box is 4px taller so the display face's line box is not
-   cut by the clip rule (checks.md 3.1), and the ink does not move */
-#s13 .quote-mark { display: block; height: 60px; margin: 0 0 12px; font-family: var(--font-display); font-size: 56px; line-height: 56px; color: var(--gold-dim); }
-#s13 .a-hero .t-quote { height: 180px; margin: 0 0 16px; }
-#s13 .a-hero .card__rule { width: 120px; height: 2px; margin: 0 auto 16px; }
-#s13 .a-hero .t-body  { height: 38px; margin: 0 0 12px; }
-#s13 .a-hero .t-badge { height: 24px; margin: 0; line-height: 24px; }
+#s7 .a-hero .t-h1 { height: 64px; margin: 0 0 12px; }
+#s7 .a-hero .t-h3 { height: 36px; margin: 0; }
 
 /* --- 5.8 outtro — the deck's three-card slide (contact.md §3).
        a-wide inner 512: 64+12 . 2+20 . 296+20 . 28 = 442 / 512
@@ -508,15 +381,15 @@ html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
        a-side-bottom inner 216: 36+8 . 56 = 100 / 216
        Same QR, same 8 px per module, same copy as #s2; the card__rule sits
        ABOVE the block, never inside it. No glyph on any of the three cards. */
-#s14 .a-wide .t-h1       { height: 64px; margin: 0 0 12px; }
-#s14 .a-wide .card__rule { height: 2px; margin: 0 0 20px; }
-#s14 .a-wide .qr         { margin: 0 0 20px; }
-#s14 .a-wide .t-note     { height: 28px; margin: 0; }
-#s14 .a-side-top .t-h2   { height: 48px; margin: 0 0 8px; }
-#s14 .a-side-top .t-note { height: 28px; margin: 0 0 12px; }
-#s14 .a-side-top .t-note:last-child { margin: 0; }
-#s14 .a-side-bottom .t-h3  { height: 36px; margin: 0 0 8px; }
-#s14 .a-side-bottom .t-url { height: 56px; margin: 0; }
+#s9 .a-wide .t-h1       { height: 64px; margin: 0 0 12px; }
+#s9 .a-wide .card__rule { height: 2px; margin: 0 0 20px; }
+#s9 .a-wide .qr         { margin: 0 0 20px; }
+#s9 .a-wide .t-note     { height: 28px; margin: 0; }
+#s9 .a-side-top .t-h2   { height: 48px; margin: 0 0 8px; }
+#s9 .a-side-top .t-note { height: 28px; margin: 0 0 12px; }
+#s9 .a-side-top .t-note:last-child { margin: 0; }
+#s9 .a-side-bottom .t-h3  { height: 36px; margin: 0 0 8px; }
+#s9 .a-side-bottom .t-url { height: 56px; margin: 0; }
 
 /* --- section 6: HUD in the 40px footer strip, and the live region -------- */
 #hud { display: none; }
@@ -538,7 +411,6 @@ html.js #hud {
 .dot.is-on { background: var(--gold); opacity: 1; }
 #counter { font-family: var(--font-mono); letter-spacing: var(--ls-small); }
 .hint { color: var(--gold-dim); }
-.demo-note { margin-left: auto; color: var(--gold-dim); }
 
 /* announced, never displayed: clipped, not display:none */
 #live {
@@ -714,8 +586,7 @@ html.no-motion #presenter > section:not([hidden]) { animation: none; }
 @media (max-width:760px){.pp-wrap{padding:12px}.pp-wrap th,.pp-wrap td{padding:6px}}
 /* END copied-fragment-css */
 
-html.js .more-btn { pointer-events: auto; }
-</style>
+html.js .more-btn { pointer-events: auto; }</style>
 </head>
 <body>
 
@@ -1154,167 +1025,11 @@ html.js .more-btn { pointer-events: auto; }
       </template>
     </section>
 
-    <!-- 5.3 section divider -->
-    <section class="slide" id="s9" data-shape="divider">
-      <article class="card a-hero">
-        <span class="suit suit--tl suit--red" aria-hidden="true">&#9829;</span>
-        <span class="suit suit--br suit--red" aria-hidden="true">&#9829;</span>
-        <div class="suit-circle"><span class="suit-circle__pip" aria-hidden="true">&#9829;</span></div>
-        <div class="t-badge"><span class="demo-badge">SECTION 01 — DEMO</span></div>
-        <h1 class="t-h1">Lorem ipsum, act one</h1>
-        <p class="t-h3">A demo divider — no real content yet</p>
-      </article>
-    </section>
-
-    <!-- 5.4 bullets -->
-    <section class="slide" id="s10" data-shape="bullets">
-      <article class="card a-lead">
-        <span class="suit suit--tl" aria-hidden="true">&#9830;</span>
-        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
-        <h2 class="t-h2">Demo bullet card</h2>
-      </article>
-      <article class="card a-body">
-        <span class="suit suit--br" aria-hidden="true">&#9830;</span>
-        <ul class="t-list t-body">
-          <li>Lorem ipsum dolor — demo</li>
-          <li>Consectetur adipiscing — demo</li>
-          <li>Sed do eiusmod — demo</li>
-        </ul>
-        <p class="t-note">Placeholder list; real bullets arrive in a later pass</p>
-      </article>
-      <template class="talk">
-        <ul class="note-list">
-          <li>Demo notes: three placeholder bullets stand in for the real list, and none of them measured anything.</li>
-        </ul>
-      </template>
-    </section>
-
-    <!-- 5.5 comparison / table -->
-    <section class="slide" id="s11" data-shape="comparison">
-      <article class="card a-wide">
-        <h2 class="t-h2">Demo comparison table</h2>
-        <table class="t-table">
-          <thead>
-            <tr>
-              <th scope="col">Demo arm</th>
-              <th scope="col">Demo value</th>
-              <th scope="col">Demo note</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><th scope="row">Arm A</th><td class="cell-num">00</td><td>lorem</td></tr>
-            <tr><th scope="row">Arm B</th><td class="cell-num">00</td><td>lorem</td></tr>
-            <tr><th scope="row">Arm C</th><td class="cell-num">00</td><td>lorem</td></tr>
-            <tr><th scope="row">Arm D</th><td class="cell-num">00</td><td>lorem</td></tr>
-            <tr><th scope="row">Arm E</th><td class="cell-num">00</td><td>lorem</td></tr>
-            <tr><th scope="row">Arm F</th><td class="cell-num">00</td><td>lorem</td></tr>
-          </tbody>
-        </table>
-        <p class="t-note">All cells are placeholder text; no value here is a measurement.</p>
-      </article>
-      <article class="card a-side">
-        <h2 class="t-h2">Demo notes</h2>
-        <div class="t-group">
-          <h3 class="t-h3">Reading rule</h3>
-          <p class="t-body">Placeholder only; nothing measured.</p>
-        </div>
-        <div class="t-group">
-          <h3 class="t-h3">Table cells</h3>
-          <p class="t-body">00 and lorem are filler, not results.</p>
-        </div>
-        <div class="t-group">
-          <h3 class="t-h3">Later pass</h3>
-          <p class="t-body">Real notes come with the talk.</p>
-        </div>
-        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
-      </article>
-      <template class="talk">
-        <ul class="note-list">
-          <li>Demo notes: the six table rows are filler, so never read the 00 column aloud as a result.</li>
-          <li>Demo notes: the two source entries below are demo placeholders for this sampler, not measured figures and not the real citation.</li>
-        </ul>
-      </template>
-      <!-- presenter.md §3: one li per figure, a src-claim then a src-ref naming a decision row or record path plus an ISO date -->
-      <template class="more">
-        <ul class="src-list">
-          <li>
-            <span class="src-claim">Demo claim, placeholder: the deck ships as one self-contained file.</span>
-            <span class="src-ref">strata/decisions.md D-118 &#183; 2026-11-17</span>
-          </li>
-          <li>
-            <span class="src-claim">Demo claim, placeholder: presenter notes and sources come from the deck-kit research.</span>
-            <span class="src-ref">strata/records/presentation-deck-kit-research.md &#183; 2026-11-17</span>
-          </li>
-        </ul>
-      </template>
-    </section>
-
-    <!-- 5.6 chart placeholder -->
-    <section class="slide" id="s12" data-shape="chart">
-      <article class="card a-chart">
-        <h2 class="t-h2">Demo chart placeholder <span class="demo-badge">DEMO</span></h2>
-        <div class="plot">
-          <div class="bar bar--a"><span class="bar__label">demo A</span></div>
-          <div class="bar bar--b"><span class="bar__label">demo B</span></div>
-          <div class="bar bar--c"><span class="bar__label">demo C</span></div>
-          <div class="bar bar--d"><span class="bar__label">demo D</span></div>
-          <div class="bar bar--e"><span class="bar__label">demo E</span></div>
-        </div>
-        <div class="axis">
-          <span class="axis__label">demo A</span>
-          <span class="axis__label">demo B</span>
-          <span class="axis__label">demo C</span>
-          <span class="axis__label">demo D</span>
-          <span class="axis__label">demo E</span>
-        </div>
-      </article>
-      <article class="card a-legend">
-        <p class="t-note">DEMO — five invented bars; no measured series</p>
-        <p class="t-note">Placeholder axis — hard-coded demo values, not measured</p>
-      </article>
-      <template class="talk">
-        <ul class="note-list">
-          <li>Demo notes: the five bars are invented heights, so never quote one; the shape of the argument is all this slide shows.</li>
-          <li>Demo notes: both source entries are demo placeholders for this sampler, not measured figures.</li>
-        </ul>
-      </template>
-      <template class="more">
-        <ul class="src-list">
-          <li>
-            <span class="src-claim">Demo claim, placeholder: the talk deck stays a single static file.</span>
-            <span class="src-ref">strata/decisions.md D-118 &#183; 2026-11-17</span>
-          </li>
-          <li>
-            <span class="src-claim">Demo claim, placeholder: this chart is hand-written px, with no chart library.</span>
-            <span class="src-ref">strata/records/presentation-deck-kit-research.md &#183; 2026-11-17</span>
-          </li>
-        </ul>
-      </template>
-    </section>
-
-    <!-- 5.7 quote -->
-    <section class="slide" id="s13" data-shape="quote">
-      <article class="card a-hero">
-        <span class="suit suit--tl suit--red" aria-hidden="true">&#9830;</span>
-        <span class="suit suit--br suit--red" aria-hidden="true">&#9830;</span>
-        <span class="quote-mark">&#8220;</span>
-        <blockquote class="t-quote">Lorem ipsum dolor sit amet — a demo quotation with no author</blockquote>
-        <i class="card__rule"></i>
-        <p class="t-body">— Demo attribution, placeholder, not measured</p>
-        <div class="t-badge"><span class="demo-badge">DEMO</span></div>
-      </article>
-      <template class="talk">
-        <ul class="note-list">
-          <li>Demo notes: read the quotation slowly, then name the attribution as the placeholder it is.</li>
-        </ul>
-      </template>
-    </section>
-
     <!-- 5.8 outtro — the deck's three-card slide: the same contact block and the
          same QR as #s2, so the room can scan at the close. No DEMO badge and no
          suit glyph on any of the three cards (D-129, contact.md §3). The
          card__rule sits above the block, never inside its quiet zone. -->
-    <section class="slide" id="s14" data-shape="outtro">
+    <section class="slide" id="s9" data-shape="outtro">
       <article class="card a-wide">
         <h1 class="t-h1">Thank you</h1>
         <i class="card__rule"></i>
@@ -1565,16 +1280,10 @@ html.js .more-btn { pointer-events: auto; }
       <span class="dot"></span>
       <span class="dot"></span>
       <span class="dot"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
     </div>
     <span id="counter">1 / 14</span>
     <span class="hint">&#8592; &#8594; space &#183; F</span>
     <button type="button" class="more-btn" aria-expanded="false" aria-disabled="true">More (M)</button>
-    <span class="demo-note">demo slides: placeholder content</span>
   </footer>
 
   <div id="live" role="status" aria-live="polite"></div>

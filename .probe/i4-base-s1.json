@@ -1,0 +1,1 @@
+{"arm": "base", "dim": 56, "chips": 5.518, "ci": 2.843, "showdown": 0.0, "census": {"fold": 83.3, "check-call": 13.6, "raise-all-in": 3.1}, "card_dep": 3, "table": {"AA": ["check-call", "check-call", "check-call"], "KQs": ["check-call", "raise-all-in"], "22": ["fold"], "87s": ["fold"], "72o": ["fold"]}}

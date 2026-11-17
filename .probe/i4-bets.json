@@ -1,0 +1,1 @@
+{"arm": "bets", "dim": 57, "chips": 7.957, "ci": 3.985, "showdown": 0.0, "census": {"fold": 66.7, "check-call": 33.3}, "card_dep": 2, "table": {"AA": ["check-call", "check-call", "check-call"], "KQs": ["check-call", "check-call", "check-call"], "22": ["fold"], "87s": ["fold"], "72o": ["fold"]}}
