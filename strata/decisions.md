@@ -3445,3 +3445,33 @@ has been every record's finding since D-84.
 **Caveats:** one seed each; the base arm ranged +3.68 to +9.09 across seeds (D-120); the probe's learner; and the
 "extra dimensions collapse it" claim is an observation, not a mechanism — a controlled test of three irrelevant *varying*
 dimensions against three constant ones would separate perturbation from degeneracy.
+
+---
+
+## D-124 — The collapse is the opponent model's *content*, not the extra width
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Corrects:** D-123's hypothesis
+
+**Source (user, verbatim):** "Proceed" — the controlled test D-123 named.
+
+| arm | dim | extra dimensions hold | chips/hand | census |
+|---|---|---|---|---|
+| base | 56 | — | +3.68 ±3.22 | fold 78 % |
+| **+ constant** | 59 | three zeros | **+2.71 ±2.03** | fold 92 % |
+| **+ noise** | 59 | three irrelevant **varying** values | **+8.52 ±3.42** | fold 78 % |
+| **+ opponent model** | 59 | three action probabilities | **−0.56 ±0.11** | **fold 99.7 %** |
+
+**D-123's hypothesis is refuted.** Widening the input is harmless — three constant dimensions cost 1 chip, three
+*varying* dimensions give the best arm measured. So it is **not** the width and **not** the perturbation.
+
+**It is specifically the opponent model's content.** Its probabilities are near-constant *within* a run (the league is
+three fixed policies), which makes them a **table-identity signal**; handed that, the learner can learn "against these
+raisers, fold", and since folding is never punished harder than the blind while raising into raisers is, the fold corner
+becomes the reachable optimum — **99.7 % fold**.
+
+**This is a statement about the league and the learner, not about opponent modelling**: any input that identifies a pool
+containing raisers hands the policy the "always fold" exploit in three numbers. The fix is an exploration floor that keeps
+the aggressive actions sampled (D-72: ε_end 0.60 → 0 % fold) or a pool where folding is not free.
+
+**Caveat:** one seed per arm and the base arm ranges +3.68 to +9.09 across seeds, so magnitudes are not established —
+but the collapse is categorical (99.7 % against 78 %) and appears only in the arm carrying the identity-like signal.
