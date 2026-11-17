@@ -2933,3 +2933,32 @@ project on this table; and everything between is **break-even within noise**.
 
 **Conclusion:** ranking these members needs the head-to-head instrument (D-21) with far more games or a much stronger
 pool — the same conclusion D-105 reached from the other side.
+
+---
+
+## D-107 — The trained model never folds: 4,400 hands, three opponent sets, zero folds
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Does the trained model always go to the reveal, or does it fold eventually if it gets
+raised into on a bad hand?"
+
+**Answer: it always goes to the reveal.** The 15,000-hand product learner against **three** opponent sets
+(league / five 20 %-all-in raisers / five scripted oracles), 4,400 hands total:
+
+| opponents | hands | reached the reveal | folds |
+|---|---|---|---|
+| league | 2,000 | **100.0 %** | **0** |
+| five all-in raisers | 1,200 | **100.0 %** | **0** |
+| five oracles | 1,200 | **100.0 %** | **0** |
+
+**And not even with a bad hand facing an all-in**: of **2,261 decisions facing a bet with a strength estimate below
+0.10**, it folded **0 (0.0 %)** — the same rate as its strongest hands (1,642 decisions, 0 folds).
+
+**The shape:** the policy occupies the two corners of the action simplex and nothing between — **fold 100 %** at 5,000
+hands (D-104), **fold 0 % / call ≥83 %** at 15,000. It does not learn a selective fold rule. That is D-72's
+fold-pinning from the other side: the value spread is smaller than the exploration noise, so whichever corner the early
+updates reach, ε → 0.05 locks in.
+
+**What it costs:** a policy that never folds **cannot bluff and cannot be bluffed out** — the exact behaviour the
+project's bonus goal was about — and against strong opponents it pays off every made hand.
