@@ -1,40 +1,23 @@
-# P-talk-deck — exit walkthrough (D-14), run 5
+# P-talk-deck — exit walkthrough (D-14): WAIVED at run 6
 
-- **Date:** 2026-11-17 · **Verdict:** `PASS` · **Runner:** fresh L3 examiner, blind, staged to
-  `/tmp/deck-walkthrough/` (4 design docs + README + deck + gate + FACTCHECK; `work/` scratch)
-- **Scenarios:** 11, L0-authored · **Stage:** docs only — no staged file edited, no source access
+- **Date:** 2026-11-17 · **Status:** waived for `presentation/` by **D-130** (user: "this is html. I will inspect visually")
+- **Last completed run:** run 5, `PASS`, against the **seven-slide** deck (record history in git).
+- **Run 6** was staged against the eight-slide deck (the contact slides and the QR, D-129) and **cancelled** at the
+  user's instruction. The eight-slide deck is therefore **not** walkthrough-verified, and this file does not claim
+  that it is.
 
-| # | what was attempted | outcome |
-|---|---|---|
-| 1 | open, one key step | `2 / 7`, dot 2 lit, `#live` "Slide 2 of 7 — divider" |
-| 2 | cold jump to slide 5 | `#/5` renders the chart slide |
-| 3 | `#/99`, `#/0`, then `←`/`→` in each | bar keeps the typed value; `→` at the clamped end writes nothing; the first real move rewrites it |
-| 4 | notes for slide 4, then steps | drawer 435 px outside `#stage`, 20 px notes, stage rect and `--scale` unchanged; notes follow the slide, `#/2` says "No notes for this slide" |
-| 5 | sources on `#/4`, then `#/3` | two entries each containing a `D-\d+` row or `strata/records/` path plus an ISO date; on `#/3` the control is focusable, `aria-disabled`, and opens nothing; four demo entries in the file, two slides |
-| 6 | fullscreen, `Esc` with both panes | `Esc` closes the most recently opened, then the other, then nothing; no navigation |
-| 7 | bullet at 2× budget | clipped at its own 38 px box, words lost silently; found before the talk by gate G4 (measured 39 px clipped) |
-| 8 | run the gate | `slides: 7 (derived from section.slide)` then `no issues`, exit 0, 16 PNGs at 1280×720 and 1600×1000 |
-| 9 | eighth slide by the recipe | recipe followed literally produced `slides: 8` + `no issues`, exit 0 |
-| 10 | a training figure | only from `strata/` records with the date, plus a `FACTCHECK.md` row; no row, no slide |
-| 11 | Python surface | deck is not a module; `check.mjs`, `FACTCHECK.md`, the docs are dev-only |
+## The evidence that replaces the loop
 
-**docs-insufficient:** none. **docs-stale:** none.
+| check | result |
+|---|---|
+| `node presentation/check.mjs --out …` | `slides: 8 (derived from section.slide)`, `no issues`, exit 0, 18 screenshots at 1280×720 and 1600×1000 |
+| static, `presentation/index.html` (1,637 lines) | `http` 0, `<img` 0, `url(` 0, `src=` 0, `xmlns` 0, one `<style>`, one `<script>`, 8 slides, 8 distinct `data-shape`, 424 QR rects, 6 demo badges, 8 dots |
+| QR from the **render**, not the asset | both contact slides screenshotted at 1280×720, the drawn code re-sampled out of the pixels (8 px/module), decoded by an independent decoder: version 3, EC L, mask 2, payload `https://www.linkedin.com/in/ryan-rasey-930403a4/`, 0 of 841 modules differing from the verified source matrix |
+| contact copy | `#s2`: Ryan Rasey · Founder/Dev @ Auspicion · ryan.rasey@auspicion.ai · the URL; `#s8`: "Thank you", the same three details in the side cards plus the URL; no `DEMO` badge on either |
+| no collateral damage | slides 1, 3–7 differ from their pre-change renders only inside the HUD strip (y 642–670), where the dots and counter went from seven to eight |
+| gate not vacuous | a planted clipped bullet is caught at both sizes, exit 1; G11 was negative-tested on QR copies (a rect outside the quiet zone, `aria-hidden`, 211 rects) |
 
-**undocumented:** the gate counts a clipped block's hidden line boxes as overlapping text (a 2× bullet
-reports an `overlap` line while the pixels show no ink outside the block) — an editor cannot tell an
-invisible line box from text painted over its neighbour. Carried, not blocking: one code comment at
-`refreshPanels()` still reads "an open drawer follows the slide" (true for notes only), and the README's
-wheel row omits the 250 ms quiet reset that `design.md` §6 states.
-
-**Prior findings, all fixed:** the source-entry count (docs now say two slides, two entries each, four in
-the file); the pane behaviour (notes follow the slide, sources never outlive it, the drawer closes with the
-last pane, nothing reopens); `disabled` vs `aria-disabled` in the README's controls table; and the clamped
-`#/0` address-bar rule in `design.md` §6.
-
-**History:** run 1 STALE (clipping claimed but absent) → run 2 STALE (stale §2 wording, `data-shape`
-contradiction) → run 3 DOC-GAP (incomplete eighth-slide recipe, stale cross-references) → run 4 STALE
-(source count, pane promise, `disabled` wording, `#/0` bar) → run 5 PASS. Each run's findings were routed
-to the owning layer and the record replaced.
-
-**Reported ready:** `presentation/index.html` (7 sampler slides, presenter mode, fixed 16:9 stage, offline, one
-file) with `presentation/check.mjs` as its dev gate and the four design documents that pass this walkthrough.
+**What is left to the eye (the user's):** the theme and card composition, the contact slides' balance, whether the QR
+reads at projector size, and the HUD with eight dots. Known cosmetics carried: one stale code comment at
+`refreshPanels()` ("follows the slide", true for notes only), the README wheel row omits the 250 ms quiet reset, and
+the printed URL wraps at its path boundary across two mono lines by design.

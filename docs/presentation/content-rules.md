@@ -2,7 +2,7 @@
 
 - **Layer:** L3 · **Artifact:** `presentation/index.html` (content pass) · **Rev:** 1 · **Date:** 2026-11-17 · **Ceiling:** 100 lines
 - **Realises D-121 §4**, from `strata/records/presentation-deck-kit-research.md` row 8. Each rule was paid for once already, in another author's deck; these are the ones that transfer to ours.
-- **Binding from the next content pass, not before.** The seven sampler slides are placeholder (`DEMO`) and are judged by `docs/presentation/design.md` A1–A15, not by this page. The first real slide makes every rule below binding, and the fact-check trace in `docs/presentation/checks.md` §7 is how a rule-3 breach gets caught.
+- **Binding now on two slides, and on the rest from the next content pass.** The six demo slides are placeholder (`DEMO`) and are judged by `docs/presentation/design.md` A1–A15, not by this page; `#s2` and `#s8` are the deck's first real slides (D-129, `docs/presentation/contact.md`) and every rule below binds on them from this pass. The fact-check trace in `docs/presentation/checks.md` §7 is how a rule-3 breach gets caught.
 - **Read with:** `docs/presentation/design.md` (§5 shapes, the character budgets), `docs/presentation/presenter.md` (notes and sources), `docs/presentation/checks.md` (§7 the fact-check form), `presentation/README.md`.
 
 ## The rules
@@ -37,7 +37,7 @@
 ## What this deck already commits to
 
 - **A measured number may be pasted only from `strata/decisions.md` or `strata/records/`, with the record's date beside it** (D-118 Scope, `presentation/README.md` §Numbers). This stands unchanged; `presentation/FACTCHECK.md` is the trace that makes it checkable.
-- **Demo content is marked `DEMO`** on every slide that carries it (design A4), and the HUD says `placeholder content`. A demo figure and a measured one are never confusable.
+- **Demo content is marked `DEMO`** on every slide that carries it (design A4), and the HUD says `demo slides: placeholder content`. A demo figure and a measured one are never confusable, and the two real slides carry no badge at all (D-129).
 - **Sources are per slide, in the file** (`presenter.md` §3), so a figure's record is reachable at the moment it is spoken rather than in an appendix nobody reaches.
 
 ## Not adopted from the kit

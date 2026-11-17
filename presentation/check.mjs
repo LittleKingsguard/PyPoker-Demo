@@ -413,6 +413,97 @@ const PROBE_LEAK = '(function () {' + PAGE_HELPERS + `
   });
 }())`;
 
+/* G11: the contact slides' QR, as geometry and naming, never as a picture
+ * (contact.md C5-C7). Everything here is a DOM assertion on the active slide's
+ * own svg.qr, so it needs no sixth BiDi command; the rendered DECODE (C8) is
+ * the reviewer's step and is not this probe. */
+const PROBE_QR = '(function () {' + PAGE_HELPERS + `
+  const slide = document.querySelector('section.slide[data-active]');
+  const scale = scaleOf();
+  const blocks = [];
+  const isInt = (v) => v !== null && /^-?\\d+$/.test(v);
+  if (slide) {
+    for (const svg of Array.prototype.slice.call(slide.querySelectorAll('svg.qr'))) {
+      const box = rectOf(svg);
+      const cs = getComputedStyle(svg);
+      const card = svg.closest('article.card');
+      const cardRect = card ? rectOf(card) : null;
+      const inner = cardRect ? {
+        x: cardRect.x + 28 * scale, y: cardRect.y + 28 * scale,
+        w: cardRect.w - 56 * scale, h: cardRect.h - 56 * scale,
+      } : null;
+      const rects = Array.prototype.slice.call(svg.querySelectorAll('rect'));
+      let badRects = 0;
+      let offGrid = 0;
+      const rows = {};
+      for (const el of rects) {
+        const x = el.getAttribute('x'); const y = el.getAttribute('y');
+        const w = el.getAttribute('width'); const h = el.getAttribute('height');
+        if (el.getAttribute('fill') !== null) { badRects += 1; }
+        if (!isInt(x) || !isInt(y) || !isInt(w) || !isInt(h)) { badRects += 1; continue; }
+        if (+h !== 1) { badRects += 1; }
+        if (+x < 4 || +x + +w > 33 || +y < 4 || +y > 32) { offGrid += 1; }
+        rows[+y] = true;
+      }
+      const titleEl = svg.querySelector('title');
+      /* nothing else may paint inside the block: the quiet zone is the card
+       * face. Ancestors (the card, the slide, #stage) are skipped, and so is
+       * anything aria-hidden, because the rail behind the cards paints under
+       * an opaque card and a card glyph is a separate assertion below. */
+      const intruders = [];
+      for (const el of Array.prototype.slice.call(document.querySelectorAll('#stage *'))) {
+        if (svg === el || svg.contains(el) || el.contains(svg) || ariaHidden(el)) { continue; }
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) { continue; }
+        const ox = Math.min(r.right, box.x + box.w) - Math.max(r.left, box.x);
+        const oy = Math.min(r.bottom, box.y + box.h) - Math.max(r.top, box.y);
+        if (ox <= 0 || oy <= 0) { continue; }
+        const c = getComputedStyle(el);
+        if (ownText(el) || c.backgroundColor !== 'rgba(0, 0, 0, 0)' || c.backgroundImage !== 'none' ||
+            c.boxShadow !== 'none' || parseFloat(c.borderTopWidth) > 0 || parseFloat(c.borderLeftWidth) > 0) {
+          intruders.push(pathOf(el));
+        }
+      }
+      const all = Array.prototype.slice.call(svg.querySelectorAll('*'));
+      blocks.push({
+        id: svg.id,
+        viewBox: svg.getAttribute('viewBox'),
+        width: svg.getAttribute('width'),
+        height: svg.getAttribute('height'),
+        role: svg.getAttribute('role'),
+        labelledby: svg.getAttribute('aria-labelledby'),
+        ariaHidden: svg.getAttribute('aria-hidden'),
+        ns: svg.getAttribute('xmlns'),
+        crisp: svg.getAttribute('shape-rendering'),
+        transform: svg.getAttribute('transform'),
+        title: titleEl ? { id: titleEl.id, text: titleEl.textContent.replace(/\\s+/g, ' ').trim() } : null,
+        nested: svg.querySelectorAll('use, defs, image, style, pattern, mask, filter, symbol, a').length,
+        refs: all.filter((el) => el.hasAttribute('href') || el.hasAttribute('xlink:href')).length,
+        rects: rects.length,
+        badRects, offGrid,
+        rows: Object.keys(rows).length,
+        display: cs.display,
+        fill: rects.length ? getComputedStyle(rects[0]).fill : null,
+        box: { w: box.w / scale, h: box.h / scale },
+        inCard: inner ? (box.x >= inner.x - 1 && box.y >= inner.y - 1 &&
+          box.x + box.w <= inner.x + inner.w + 1 && box.y + box.h <= inner.y + inner.h + 1) : false,
+        glyphs: card ? card.querySelectorAll('.suit, .pip, .suit-circle').length : 0,
+        border: parseFloat(cs.borderTopWidth) + parseFloat(cs.borderLeftWidth),
+        background: cs.backgroundColor,
+        shadow: cs.boxShadow,
+        radius: cs.borderTopLeftRadius,
+        intruders,
+      });
+    }
+  }
+  return JSON.stringify({
+    count: slide ? slide.querySelectorAll('svg.qr').length : 0,
+    blocks,
+    ink: getComputedStyle(document.documentElement).getPropertyValue('--ink').trim(),
+    innerW: innerWidth, innerH: innerHeight,
+  });
+}())`;
+
 /* ---------------------------------------------------------------------------
  * Reporting
  * ------------------------------------------------------------------------- */
@@ -522,6 +613,98 @@ function checkScene(sizeTag, probe) {
     if (probe.inSlidePaths.indexOf(item.path) === -1) { continue; }
     if (item.fs < MIN_FONT) {
       report(slideLabel, sizeTag, 'small', 'G6 ' + item.path + ' is ' + item.fs + 'px: "' + item.text + '"');
+    }
+  }
+}
+
+/* G11: the QR block's geometry and naming (contact.md C5-C7). Kinds are the
+ * closed set: 'leak' for a block that would not scan or is not named (the code
+ * is content and a dead code is an audience hazard), 'outside' for a module
+ * outside its own quietly-zoned viewBox or a block that does not render at its
+ * declared size, 'overlap' for anything painted inside the quiet zone. */
+function hexToRgb(hex) {
+  const found = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!found) { return null; }
+  const value = parseInt(found[1], 16);
+  return 'rgb(' + ((value >> 16) & 255) + ', ' + ((value >> 8) & 255) + ', ' + (value & 255) + ')';
+}
+
+function checkQr(label, sizeTag, qr) {
+  const ink = hexToRgb(qr.ink || '');
+  for (const block of qr.blocks) {
+    const at = label + ' svg.qr#' + block.id;
+    const expects = [
+      ['viewBox', block.viewBox, '0 0 37 37'],
+      ['width', block.width, '296'],
+      ['height', block.height, '296'],
+      ['role', block.role, 'img'],
+      ['shape-rendering', block.crisp, 'crispEdges'],
+    ];
+    for (const [name, got, want] of expects) {
+      if (got !== want) {
+        report(label, sizeTag, 'leak', 'G11 ' + at + ' has ' + name + '="' + got + '", expected "' + want + '"');
+      }
+    }
+    if (block.ariaHidden !== null) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' is aria-hidden: the code is content, not decoration');
+    }
+    if (block.ns !== null) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' carries a namespace declaration (no xmlns allowed)');
+    }
+    if (block.transform !== null) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' carries transform="' + block.transform + '"');
+    }
+    if (block.nested > 0 || block.refs > 0) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' holds ' + block.nested + ' use/defs/image/style-like elements and ' +
+        block.refs + ' href/xlink references (only <title> and <rect> are allowed)');
+    }
+    if (!block.title) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' has no <title>, so the code is unnamed');
+    }
+    if (block.title && block.labelledby !== block.title.id) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' aria-labelledby="' + block.labelledby +
+        '" does not point at its own <title> id "' + block.title.id + '"');
+    }
+    if (block.title && !/LinkedIn profile QR code/.test(block.title.text)) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' title reads "' + block.title.text + '", expected the profile code to be named');
+    }
+    if (block.rects !== 212) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' holds ' + block.rects + ' <rect> elements, expected 212');
+    }
+    if (block.badRects > 0) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' has ' + block.badRects + ' <rect> without integer x/y/width or with height != 1 or with a fill attribute');
+    }
+    if (block.offGrid > 0) {
+      report(label, sizeTag, 'outside', 'G11 ' + at + ' has ' + block.offGrid +
+        ' dark runs outside the 4-module quiet zone (need 4 <= x, x + width <= 33, 4 <= y <= 32)');
+    }
+    if (block.rows !== 29) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' shows ' + block.rows + ' distinct y values, expected 29 rows');
+    }
+    if (block.display !== 'block') {
+      report(label, sizeTag, 'outside', 'G11 ' + at + ' is display: ' + block.display + ', expected block');
+    }
+    if (Math.abs(block.box.w - 296) > 1 || Math.abs(block.box.h - 296) > 1) {
+      report(label, sizeTag, 'outside', 'G11 ' + at + ' renders ' + round(block.box.w) + 'x' + round(block.box.h) +
+        ' design px, expected 296x296 (8 px per module)');
+    }
+    if (!block.inCard) {
+      report(label, sizeTag, 'outside', 'G11 ' + at + ' is not inside its card\'s inner box');
+    }
+    if (block.glyphs > 0) {
+      report(label, sizeTag, 'overlap', 'G11 the card holding ' + at + ' carries ' + block.glyphs +
+        ' suit glyph(s); a corner glyph lands in the quiet zone');
+    }
+    if (ink && block.fill !== ink) {
+      report(label, sizeTag, 'leak', 'G11 ' + at + ' paints its modules ' + block.fill + ', expected the --ink token ' + ink);
+    }
+    if (block.border > 0 || block.background !== 'rgba(0, 0, 0, 0)' || block.shadow !== 'none' || block.radius !== '0px') {
+      report(label, sizeTag, 'overlap', 'G11 ' + at + ' carries a border (' + block.border + 'px), background (' +
+        block.background + '), shadow (' + block.shadow + ') or radius (' + block.radius +
+        '); the block itself is undecorated');
+    }
+    for (const intruder of block.intruders) {
+      report(label, sizeTag, 'overlap', 'G11 ' + intruder + ' paints inside the quiet zone of ' + at);
     }
   }
 }
@@ -717,6 +900,20 @@ async function main() {
             ', expected exactly .dot ' + n);
         }
         checkScene(sizeTag, scene);
+        /* G11: the QR as geometry and naming, and the deck's own statement of
+         * which slides carry one — the contact shapes hold exactly one block
+         * each and no other slide holds any, so nothing here counts slides. */
+        const qr = await json(PROBE_QR);
+        const wantsQr = entry.shape === 'contact' || entry.shape === 'outtro';
+        if (wantsQr && qr.count !== 1) {
+          report(slideLabel, sizeTag, 'leak', 'G11 #' + entry.id + ' (data-shape "' + entry.shape + '") holds ' +
+            qr.count + ' svg.qr, expected exactly one');
+        }
+        if (!wantsQr && qr.count !== 0) {
+          report(slideLabel, sizeTag, 'leak', 'G11 #' + entry.id + ' (data-shape "' + entry.shape + '") holds ' +
+            qr.count + ' svg.qr, and only the contact slides may');
+        }
+        checkQr(slideLabel, sizeTag, qr);
         await shoot('s' + n + '-' + sizeTag + '.png');
 
         /* G9: the More control on this slide, and what M does */

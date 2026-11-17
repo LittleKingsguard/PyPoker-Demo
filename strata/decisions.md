@@ -3656,3 +3656,28 @@ re-checked.
 
 **Note for the deck session:** the live grid includes the two ε 0.60 probe policies, which required retraining and saving
 them (`.probe/saved-*.pt`) because earlier runs kept no policy artefact.
+
+---
+
+## D-130 — The deck's exit walkthrough is waived: visual inspection is its acceptance
+
+**Status:** ACTIVE · **Date:** 2026-11-17
+
+**Source (user, verbatim):** "The full walkthrough loop is time-consuming and for production code quality, this is
+html. I will inspect visually."
+
+**Decision:** for `presentation/` the D-14 exit walkthrough stops. The deck is a presentation artifact, not shipped
+code: the user inspects it visually and that inspection is its acceptance, so no blind-run cycle is owed before the
+deck is called ready. The automated evidence stays and is the standing substitute for the loop: `presentation/check.mjs`
+(eight slides, two window sizes, screenshots, G1–G11 including the QR checks) and the render-and-decode check that the
+drawn QR still decodes to the profile URL (D-129). Documentation findings now reach L0 from the user's review rather
+than from a staged runner; when one arrives it routes to the owning layer as before.
+
+**Consequence recorded honestly:** the eight-slide deck (D-129) is **not** walkthrough-verified. Run 5 passed the
+seven-slide deck; the sixth run, staged against the contact slides, was cancelled at the user's instruction, so
+`strata/records/P-talk-deck-walkthrough.md` stands as the run-5 record with the eighth-slide change marked as
+un-walked. This row supersedes the D-14 obligation for `presentation/` only; every other unit in the project keeps it.
+
+Rejected: running the loop "because the process says so" on an artifact whose whole risk is visual taste (the user
+is the only reviewer who can judge a projector, and the loop was measuring documents, not the wall); and dropping the
+gate with the loop (the gate caught a real clipped-bullet defect and is cheap enough to keep running before a talk).
