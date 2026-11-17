@@ -3475,3 +3475,30 @@ the aggressive actions sampled (D-72: ε_end 0.60 → 0 % fold) or a pool where 
 
 **Caveat:** one seed per arm and the base arm ranges +3.68 to +9.09 across seeds, so magnitudes are not established —
 but the collapse is categorical (99.7 % against 78 %) and appears only in the arm carrying the identity-like signal.
+
+---
+
+## D-125 — The exploration floor fixes the collapse: +11.81 chips/hand, mixed play, opponent model harmless
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Confirms:** D-72 · **Reverses:** D-123/D-124's reading of the opponent model
+
+**Source (user, verbatim):** "Try the exploration change"
+
+| arm | ε floor | chips/hand | census | card-dep |
+|---|---|---|---|---|
+| base | 0.05 | +3.68 ±3.21 | fold 78 %, call 22 % | 3/5 |
+| **base** | **0.60** | **+11.81 ±5.03** | fold 47 %, call 46 %, all-in 7 % | **4/5** |
+| opponent model | 0.05 | −0.56 ±0.11 | fold 99.7 % | 1/5 |
+| **opponent model** | **0.60** | **+10.49 ±4.24** | fold 60 %, call 29 %, all-in 10 % | 3/5 |
+
+**It un-collapses the opponent arm** (−0.56 → **+10.49**, card-dependence restored 1/5 → 3/5) and **improves the base arm
+more than fourfold** (+3.68 → **+11.81**), whose repertoire becomes **mixed** — fold 47 %, call 46 %, shove 7 %. Both arms
+converge to the same place with overlapping intervals, so **the opponent model stops being harmful once the learner is not
+corner-locked**: the model was never the problem (reversing D-123/D-124's reading of it).
+
+**This is the best policy the project has measured** — **+11.81 ±5.03** against the league, card-dependent on 4 of 5 loaded
+hands, mixed repertoire — and the evaluation is **greedy**, so it is a better learned policy rather than exploration noise
+in the score.
+
+**Owed:** seeds 1–2 of both ε 0.60 arms before the magnitude is quoted (the base arm alone ranged +3.68 to +9.09 at ε 0.05,
+D-120), and the same configuration on the product's learner.
