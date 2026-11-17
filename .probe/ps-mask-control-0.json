@@ -1,0 +1,1 @@
+{"arm": "control", "seed": 0, "budget": 15000, "format": null, "chips": -4.054, "ci": 0.477, "utility": "net-chips-normalised", "census": {"fold": 90.5, "raise-quarter": 6.7, "raise-half": 2.4, "raise-minimum": 0.4}}

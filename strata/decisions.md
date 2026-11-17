@@ -3173,3 +3173,34 @@ from D-79 through D-113 is era-bound and may not be compared with a post-mask ru
 
 **Documentation owed:** nine statements in `docs/L3/agents/*`, `docs/L2/agents/learner.md` and `docs/L1/normalisation.md`
 assert an unmasked mean and now need an L3 pass (recorded in `masked-pooler-landed.md`, not silently edited by L4).
+
+---
+
+## D-115 — With the mask the product's policy reads its cards for the first time — and loses more
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Post-mask era begins**
+
+**Source (user, verbatim):** "Try the mask on the pooler"
+
+**Result** (`net-chips-normalised`, 15,000 hands, six seats, league, seed 0):
+
+| arm | pooler | chips/hand | census | card-dependence |
+|---|---|---|---|---|
+| control | unmasked | −0.600 ±0.04 | fold 100 % | 1/5 |
+| control | **masked** | **−4.05 ±0.48** | fold 90 %, raise 9 % | 1/5 |
+| strength | unmasked | −9.97 ±0.88 | fold 83 %, raise-half 15 % | — |
+| **strength** | **masked** | **−1.70 ±0.24** | fold 86 %, raise-min 13 % | **2/5** |
+
+**The mask ended the degenerate corner**: unmasked the control folded 100 % of everything; masked it folds 90 % and
+raises 9 %, so the policy's actions vary **within** a run for the first time in the product.
+
+**And with the strength input it produces the product's first card-dependence**: on the loaded-deal suite `AA`, `KQs`,
+`22` and `87s` raise-minimum while **`72o` folds** — 2/5 distinct, against 1/5 everywhere before.
+
+**But it produced no skill**: both masked arms **lose more than folding did** (−4.05 and −1.70 against −0.60) and still
+reach showdown in **0.0 %** of hands. The card-dependence is a **threshold, not a ranking** — it raises `AA` and `22`
+alike — consistent with the card model's lock-detector shape (D-95) and with a league that punishes raises (D-106).
+
+**So the pooler was *a* blocker and removing it was necessary, not sufficient.** The remaining problem is that the
+fold/raise choice is not ranked by strength. **The immediate obligation is a seed check**: 2/5 on one seed and one arm is
+a sighting, not a result — D-82's flicker was exactly this and did not survive 15,000 hands across seeds.
