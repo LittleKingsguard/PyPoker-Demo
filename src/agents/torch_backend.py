@@ -10,9 +10,11 @@ with `torch.randn` (§2, §4, `architecture.md` §4).
 
 **The token family's input block is the bounded embedding**, the same expression in this
 library's operators (`input-read.md` §1-§2, D-61): each addressed row is read through
-`row = (1 + tanh θ)/2`, the trunk consumes the mean of values in `(0, 1)` whatever the
-table holds, and the hand-written backward pass carries the squash's derivative
-`(1 - tanh²θ)/2` gathered at each addressed id.  The dense family's block is untouched:
+`row = (1 + tanh θ)/2`, the trunk consumes the mean over the sequence's **real** rows —
+the positions whose id is not the pad — of values in `(0, 1)` whatever the table holds,
+and the hand-written backward pass carries the squash's derivative `(1 - tanh²θ)/2`
+gathered at each addressed id, dividing by that same real count and scattering nothing
+into the pad's row (D-79, D-80).  The dense family's block is untouched:
 `relu(x @ W_in + b_in)`, with no squash anywhere (`normalisation.md` §3-§5).
 
 This is the only module of the project that imports `torch`, and it does so inside a
@@ -24,6 +26,11 @@ from __future__ import annotations
 import numpy
 
 DTYPE = "float64"
+
+#: The one pad of the token encoding: the id a fixed-width sequence leaves where a
+#: decision carries no token, and not a token itself (`card-tokens.md` §3, D-79).  The
+#: pool and its gradient read it once here and nowhere else.
+PAD = 0
 
 
 def _torch():
@@ -99,6 +106,28 @@ def _weight(state, layout, layer, base):
     return matrix.reshape(layout.width, layout.width)
 
 
+def _pooled(rows, real, width):
+    """The mean of the sequence's **real** rows, and zeros when it has none.
+
+    `real` marks the positions whose id is not `PAD`.  The denominator is the count of
+    those positions, never `len(rows)`: a pad position carries no token, so it is no part
+    of the value the trunk reads (D-79, `backends.md` §2 item 1).  A sequence that is
+    padding throughout addressed no row at all and therefore has **no** mean — the width
+    is a fixed allocation and not a statement that this decision carried a token — so its
+    pooled value is the **zero vector**, chosen rather than computed: an empty mean would
+    divide by zero.  The zero vector is the one value the squash cannot produce, which is
+    what makes "this observation carried no token" a distinct value in the trunk, and it is
+    the value the frozen card model's own masked pool reads when its mask is empty
+    (`features/cardmodel.py`).
+    """
+    torch = _torch()
+    count = int(real.sum().item())
+    if count == 0:
+        return torch.zeros(width, dtype=torch.float64)
+    addressed = torch.nonzero(real, as_tuple=False).reshape(-1)
+    return rows.index_select(0, addressed).sum(dim=0) / float(count)
+
+
 def forward(state, layout, observation, target=False, need_cache=True):
     """The three values of one observation, and the cache the backward pass reads."""
     torch = _torch()
@@ -134,7 +163,12 @@ def forward(state, layout, observation, target=False, need_cache=True):
         # and so does any mean of rows.  NumPy's and torch's expressions are the same
         # arithmetic on the same values (`backends.md` §2).
         rows = (1.0 + torch.tanh(table.index_select(0, ids))) / 2.0
-        carried = rows.mean(dim=0)
+        # The pool covers the positions that carry a token and not the width the
+        # encoding reserves: `PAD` is a slot's filler, not a token, and at six seats a
+        # preflop decision is 14 real ids of 122, so an unmasked mean would make one
+        # constant vector 89 % of the value the trunk consumes (D-79, D-80).
+        real = ids != PAD
+        carried = _pooled(rows, real, width)
         block = (rows, ids)
     layers = []
     for layer in range(layout.trunk):
@@ -198,7 +232,18 @@ def apply(state, layout, cache, action, delta, rate):
         # `(1 - tanh²θ)/2` is `(1 - (2·row - 1)²)/2`, the same expression the NumPy
         # backward pass writes (`input-read.md` §2, `backends.md` §2 item 5).
         slope = (1.0 - (2.0 * rows - 1.0) ** 2) / 2.0
-        share = (upstream / float(len(ids))).unsqueeze(0).expand(len(ids), width) * slope
-        gathered.index_add_(0, ids, share)
+        # The scatter is the pool's own mask: the step divides by the **real** count the
+        # forward pass pooled over, and only an addressed, non-pad position is scattered
+        # into, so the pad's row receives **no** gradient at all and stays exactly where
+        # it was (D-79, D-80).  A sequence that is padding throughout pooled to the zero
+        # vector `_pooled` chose and addressed no row, so it has no share to divide and
+        # the whole block's gradient stays zero rather than dividing by zero.
+        addressed = torch.nonzero(ids != PAD, as_tuple=False).reshape(-1)
+        if int(addressed.numel()):
+            share = (
+                (upstream / float(addressed.numel())).unsqueeze(0)
+                * slope.index_select(0, addressed)
+            )
+            gathered.index_add_(0, ids.index_select(0, addressed), share)
         gradient[offset : offset + length] = gathered.reshape(-1)
     state.params[: layout.count] += (rate * delta) * gradient

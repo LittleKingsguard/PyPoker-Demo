@@ -9,10 +9,12 @@ intermediate and accumulation is `float64` (§4).
 
 **The token family's input block is the bounded embedding** (`input-read.md` §1-§2,
 D-61): each addressed row is read through the one squash `row = (1 + tanh θ)/2`, so the
-value the trunk consumes is a mean of values in `(0, 1)` whatever the table holds, and
-the backward pass carries the squash's derivative `(1 - tanh²θ)/2` gathered at each
-addressed id.  The dense family's block is untouched: `relu(x @ W_in + b_in)`, with no
-squash anywhere (`normalisation.md` §3-§5).
+value the trunk consumes is a mean over the sequence's **real** rows — the positions
+whose id is not the pad — of values in `(0, 1)` whatever the table holds, and the
+backward pass carries the squash's derivative `(1 - tanh²θ)/2` gathered at each
+addressed id, dividing by that same real count and scattering nothing into the pad's
+row (D-79, D-80).  The dense family's block is untouched: `relu(x @ W_in + b_in)`, with
+no squash anywhere (`normalisation.md` §3-§5).
 """
 
 from __future__ import annotations
@@ -20,6 +22,11 @@ from __future__ import annotations
 import numpy
 
 DTYPE = numpy.float64
+
+#: The one pad of the token encoding: the id a fixed-width sequence leaves where a
+#: decision carries no token, and not a token itself (`card-tokens.md` §3, D-79).  The
+#: pool and its gradient read it once here and nowhere else.
+PAD = 0
 
 
 class State:
@@ -81,6 +88,26 @@ def _weight(state, layout, layer, base):
     return matrix.reshape(layout.width, layout.width)
 
 
+def _pooled(rows, real, width):
+    """The mean of the sequence's **real** rows, and zeros when it has none.
+
+    `real` marks the positions whose id is not `PAD`.  The denominator is the count of
+    those positions, never `len(rows)`: a pad position carries no token, so it is no part
+    of the value the trunk reads (D-79, `backends.md` §2 item 1).  A sequence that is
+    padding throughout addressed no row at all and therefore has **no** mean — the width
+    is a fixed allocation and not a statement that this decision carried a token — so its
+    pooled value is the **zero vector**, chosen rather than computed: an empty mean would
+    divide by zero.  The zero vector is the one value the squash cannot produce, which is
+    what makes "this observation carried no token" a distinct value in the trunk, and it is
+    the value the frozen card model's own masked pool reads when its mask is empty
+    (`features/cardmodel.py`).
+    """
+    count = int(real.sum())
+    if count == 0:
+        return numpy.zeros(width, dtype=DTYPE)
+    return rows[real].sum(axis=0) / DTYPE(count)
+
+
 def forward(state, layout, observation, target=False, need_cache=True):
     """The three values of one observation, and the cache the backward pass reads.
 
@@ -113,7 +140,12 @@ def forward(state, layout, observation, target=False, need_cache=True):
         # addressed row is read through one squash, so every row lies in (0, 1) for
         # every finite parameter value and so does any mean of rows.
         rows = (1.0 + numpy.tanh(table[ids])) / 2.0
-        carried = rows.mean(axis=0)
+        # The pool covers the positions that carry a token and not the width the
+        # encoding reserves: `PAD` is a slot's filler, not a token, and at six seats a
+        # preflop decision is 14 real ids of 122, so an unmasked mean would make one
+        # constant vector 89 % of the value the trunk consumes (D-79, D-80).
+        real = ids != PAD
+        carried = _pooled(rows, real, width)
         block = (rows, ids)
     layers = []
     for layer in range(layout.trunk):
@@ -175,6 +207,16 @@ def apply(state, layout, cache, action, delta, rate):
         # would step the table by a gradient no squash produces, and clipping instead
         # of squashing would zero it exactly where the reward scale pushed hardest.
         slope = (1.0 - (2.0 * rows - 1.0) ** 2) / 2.0
-        numpy.add.at(gathered, ids, (upstream / len(ids)) * slope)
+        # The scatter is the pool's own mask: the step divides by the **real** count the
+        # forward pass pooled over, and only an addressed, non-pad position is scattered
+        # into, so the pad's row receives **no** gradient at all and stays exactly where
+        # it was (D-79, D-80).  A sequence that is padding throughout pooled to the zero
+        # vector `_pooled` chose and addressed no row, so it has no share to divide and
+        # the whole block's gradient stays zero rather than dividing by zero.
+        real = ids != PAD
+        count = int(real.sum())
+        if count:
+            share = (upstream / DTYPE(count)) * slope
+            numpy.add.at(gathered, ids[real], share[real])
         gradient[offset : offset + length] = gathered.reshape(-1)
     state.params[: layout.count] += (rate * delta) * gradient

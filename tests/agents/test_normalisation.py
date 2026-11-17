@@ -5,25 +5,29 @@ states the token reading of "bounded" in two parts, and only the second reaches 
 network: the label is an id inside the shape's vocabulary, and **the value the trunk
 consumes is the mean of the addressed embedding rows read through the bounded embedding**
 `row = (1 + tanh θ)/2`, so every row lies in `(0, 1)` and so does any mean of rows,
-"whatever the parameters do". §1 says why the token family is where the change bites — its
-only magnitude is the table, which is where the reward scale lands — and §5 says where
-INV-2's second half is asserted: here, because the cache's `input` block is a value no entry
-point returns. `act` answers an index, `learn` two statistics, `save` a path, so a sweep of
-real hands can say what `features.encode` emitted but never *what the trunk consumed* or
-*what derivative the table was stepped by* — D-61's two token-side claims, which only a case
-calling a backend's `forward` and reading the returned cache can state (`battery.md` §5,
-`architecture.md` §2, `rule.md` §3, §8).
+"whatever the parameters do". The mean runs over the **real** addressed rows only — id 0
+is the fixed width's pad and not a token, so the pool's denominator is the real count
+(D-79, D-80, `docs/L3/agents/input-read.md` §1). §1 says why the token family is where the
+change bites — its only magnitude is the table, which is where the reward scale lands —
+and §5 says where INV-2's second half is asserted: here, because the cache's `input` block
+is a value no entry point returns. `act` answers an index, `learn` two statistics, `save` a
+path, so a sweep of real hands can say what `features.encode` emitted but never *what the
+trunk consumed* or *what derivative the table was stepped by* — D-61's two token-side
+claims, which only a case calling a backend's `forward` and reading the returned cache can
+state (`battery.md` §5, `architecture.md` §2, `rule.md` §3, §8).
 
 The five cases: **AGT-20.1** the cache's `input` is `(rows, ids)` and the trunk consumed
-exactly `rows.mean(axis=0)`, recomputed through the whole pass from the container's
-parameters and discriminated from the old raw-row arithmetic; **AGT-20.2** a table doctored
-to alternating `±1e6` still feeds the trunk a value in `[0, 1]` in both backends, while the
-raw mean of the same rows keeps a magnitude of the doctored order; **AGT-20.3** the table
-block of `P1 − P0` is `(rate·td)·Σ_ids (upstream/len(ids))·(1 − (2·row − 1)²)/2`, it moved,
-and the derivative-free expression differs from it; **AGT-20.4** the two backends agree on
-one parameter set and one observation, before and after the doctoring; **AGT-20.5** what the
-change does not move — `param_count`, a container's round trip, and the dense family's
-forward, which carries no squash anywhere (`architecture.md` §2, §5, `checkpoint.md` §1-§4).
+exactly the mean over the sequence's non-pad rows, recomputed through the whole pass from
+the container's parameters and discriminated from the old raw-row arithmetic; **AGT-20.2**
+a table doctored to alternating `±1e6` still feeds the trunk a value in `[0, 1]` in both
+backends, while the raw mean of the same rows keeps a magnitude of the doctored order;
+**AGT-20.3** the table block of `P1 − P0` is `(rate·td)` times the gather of
+`(upstream/N_real)·(1 − (2·row − 1)²)/2` at the addressed non-pad positions, `N_real`
+their count, the pad's row unmoved, and the derivative-free expression differs from it;
+**AGT-20.4** the two backends agree on one parameter set and one observation, before and
+after the doctoring; **AGT-20.5** what the change does not move — `param_count`, a
+container's round trip, and the dense family's forward, which carries no squash anywhere
+(`architecture.md` §2, §5, `checkpoint.md` §1-§4).
 
 Every number is read from the module or invented (`battery.md` §4, D-15): vocabulary, width,
 offsets, counts and parameter count come from the container `save` writes (`checkpoint.md`
@@ -87,6 +91,28 @@ def squash_slope(rows):
     `1 − tanh²θ` is `1 − (2·row − 1)²` once the row is the value the forward pass stored.
     """
     return (1.0 - (2.0 * np.asarray(rows, dtype=np.float64) - 1.0) ** 2) / 2.0
+
+
+#: The one pad of the token encoding: the id a fixed-width sequence leaves where a decision
+#: carries no token (`card-tokens.md` §3, D-79). It is not a token, so it is neither pooled
+#: nor scattered into.
+PAD = 0
+
+
+def pooled(rows, ids):
+    """The value the trunk consumes: the mean over the sequence's **non-pad** rows.
+
+    The denominator is the count of positions whose id is not `PAD`, never `len(ids)`: the
+    pad is the width's filler and carries no token (D-79). A sequence that is padding
+    throughout addressed no row and has no mean, so its pooled value is the zero vector
+    rather than a division by zero.
+    """
+    rows = np.asarray(rows, dtype=np.float64)
+    real = np.asarray(ids) != PAD
+    count = int(real.sum())
+    if count == 0:
+        return np.zeros(rows.shape[1], dtype=np.float64)
+    return rows[real].sum(axis=0) / float(count)
 
 
 class NormalisationTest(AgentsCase):
@@ -207,15 +233,17 @@ class NormalisationTest(AgentsCase):
         output = self.tensor(array, metadata, "output.weights").reshape(width, actions)
         return carried @ output + self.tensor(array, metadata, "output.bias")
 
-    def assert_unit_band(self, label, rows):
-        """Assert one arm's cached rows and their mean lie in `[0, 1]`, and answer the mean.
+    def assert_unit_band(self, label, rows, ids):
+        """Assert one arm's cached rows and the pooled value lie in `[0, 1]`, and answer it.
 
         §3 bounds the read in two steps — every row in `(0, 1)`, hence any mean of rows — and
         `[0, 1]` is the closed form a doctored table is held to: a saturated row reads exactly
-        `0.0` or `1.0` without leaving the band.
+        `0.0` or `1.0` without leaving the band. The mean is the one the trunk consumed, taken
+        over the sequence's non-pad rows (`pooled`), so the second bound is asserted of that
+        value and not of a mean the pool never takes (D-79).
         """
         rows = np.asarray(rows, dtype=np.float64)
-        carried = rows.mean(axis=0)
+        carried = pooled(rows, ids)
         for what, low, high in (
             ("a cached row", float(rows.min()), float(rows.max())),
             ("the value the trunk consumed", float(carried.min()), float(carried.max())),
@@ -288,21 +316,28 @@ class NormalisationTest(AgentsCase):
 
         `backends.md` §2 item 5's walk: `upstream = output @ chosen`, then each trunk layer
         descending with the ReLU derivative taken from that layer's pre-activation, the input
-        block's upstream last; its table gradient is the gather of `(upstream / len(ids)) ·
-        slope` at the addressed ids, `slope` being the squash's `(1 − (2·row − 1)²)/2`.
-        `with_slope=False` is the derivative-free expression AGT-20.3 discriminates against
-        (`normalisation.md` §3, `rule.md` §3).
+        block's upstream last; its table gradient is the gather of `(upstream / N_real) ·
+        slope` at the addressed **non-pad** positions, `N_real` their count and `slope` the
+        squash's `(1 − (2·row − 1)²)/2` — the pad's row is scattered into by nothing (D-79,
+        D-80). `with_slope=False` is the derivative-free expression AGT-20.3 discriminates
+        against (`normalisation.md` §3, `rule.md` §3).
         """
         chosen = np.zeros(int(np.asarray(held["output"]).shape[1]), dtype=np.float64)
         chosen[int(action)] = 1.0
         upstream = held["output"] @ chosen
         for _carried, matrix, pre in reversed(held["layers"]):
             upstream = (upstream * (pre > 0.0)) @ matrix.T
-        share = upstream / float(len(held["ids"]))
-        if with_slope:
-            share = share * squash_slope(held["rows"])
         gathered = np.zeros(shape, dtype=np.float64)
-        np.add.at(gathered, held["ids"], share)
+        positions = np.asarray(held["ids"])
+        rows = np.asarray(held["rows"], dtype=np.float64)
+        real = positions != PAD
+        count = int(real.sum())
+        if count == 0:
+            return gathered
+        share = np.broadcast_to(upstream / float(count), rows.shape)
+        if with_slope:
+            share = share * squash_slope(rows)
+        np.add.at(gathered, positions[real], share[real])
         return gathered
 
     def invented_batch(self, rows):
@@ -332,7 +367,7 @@ class NormalisationTest(AgentsCase):
 
     # -- AGT-20.1 ----------------------------------------------------------
     def test_agt20_1_the_forward_cache_carries_the_squashed_rows_and_their_mean(self):
-        """AGT-20.1 the token cache's `input` is `(rows, ids)` — the `(n, W)` rows `(1 + tanh θ)/2` at the observation's own ids, every entry strictly inside `(0, 1)` — and the trunk consumed exactly `rows.mean(axis=0)`, recomputed through the whole pass from the container's parameters, while the raw mean of the same rows differs from it by more than `1e-3` (`normalisation.md` §1, §3, §5, `architecture.md` §2, `backends.md` §2 item 1, D-61).
+        """AGT-20.1 the token cache's `input` is `(rows, ids)` — the `(n, W)` rows `(1 + tanh θ)/2` at the observation's own ids, every entry strictly inside `(0, 1)` — and the trunk consumed exactly the mean over the sequence's non-pad rows, recomputed through the whole pass from the container's parameters, while the raw mean of the same rows differs from it by more than `1e-3` (`normalisation.md` §1, §3, §5, `architecture.md` §2, `backends.md` §2 item 1, D-61, D-79).
 
         §3's second part is the one that reaches the network, and the cache is the only place a
         case can see it happen: the block is the **value the trunk consumed**, `(rows, ids)`,
@@ -340,7 +375,9 @@ class NormalisationTest(AgentsCase):
         order, the rows as the squash of the container's table at those ids, the bound as open
         at both ends — a clip would read exactly `0.0` or `1.0` — and the mean as what the
         trunk read, by recomputing `relu(h @ W + b)` per trunk layer and `h @ W_out + b_out`
-        (`architecture.md` §2, §5). The last assertion is the discriminating half: the old
+        (`architecture.md` §2, §5). The mean is taken over the sequence's non-pad rows and not
+        over every position, so the case pins the pool's denominator as well as its numerator
+        (D-79). The last assertion is the discriminating half: the old
         `table[ids].mean(axis=0)` differs by more than `1e-3`, so a pass that only renamed the
         cache block is red.
         """
@@ -396,16 +433,16 @@ class NormalisationTest(AgentsCase):
             "a cached row read exactly 1.0, and the bound of normalisation.md §3 is open at both "
             "ends for a table at ordinary magnitudes",
         )
-        carried = rows.mean(axis=0)
+        carried = pooled(rows, ids)
         np.testing.assert_allclose(
             np.asarray(values, dtype=np.float64),
             self.recomputed(metadata, array, carried),
             rtol=0.0,
             atol=1e-10,
-            err_msg="recomputing the pass from the container's parameters with "
-            "`rows.mean(axis=0)` as what the trunk consumes does not reproduce the returned "
-            "values, so the trunk read a table, a sum, or an unsquashed vector "
-            "(architecture.md §2, backends.md §2 item 1)",
+            err_msg="recomputing the pass from the container's parameters with the mean over "
+            "the sequence's non-pad rows as what the trunk consumes does not reproduce the "
+            "returned values, so the trunk read a table, a sum, an unsquashed vector, or a mean "
+            "the padding was left in (architecture.md §2, backends.md §2 item 1, D-79)",
         )
         self.assertGreater(
             float(np.abs(table[ids].mean(axis=0) - carried).max()),
@@ -448,7 +485,9 @@ class NormalisationTest(AgentsCase):
                 values, cache = numpy_backend.forward(
                     restored.state, restored.layout, observation, need_cache=True
                 )
-                self.assert_unit_band("%s's numpy arm" % label, cache["input"][0])
+                self.assert_unit_band(
+                    "%s's numpy arm" % label, cache["input"][0], cache["input"][1]
+                )
                 self.assertTrue(
                     np.isfinite(np.asarray(values, dtype=np.float64)).all(),
                     "the pass over a %s-doctored table returned a non-finite value, and a "
@@ -479,7 +518,9 @@ class NormalisationTest(AgentsCase):
                     torch_learner.state, torch_learner.layout, observation, need_cache=True
                 )
                 self.assert_unit_band(
-                    "%s's torch arm" % label, torch_cache["input"][0].detach().numpy()
+                    "%s's torch arm" % label,
+                    torch_cache["input"][0].detach().numpy(),
+                    torch_cache["input"][1].detach().numpy(),
                 )
                 self.assertTrue(
                     np.isfinite(torch_values.detach().numpy()).all(),
@@ -497,16 +538,17 @@ class NormalisationTest(AgentsCase):
 
     # -- AGT-20.3 ----------------------------------------------------------
     def test_agt20_3_the_backward_pass_carries_the_squash_s_derivative(self):
-        """AGT-20.3 the table block of `P1 − P0` after one terminal transition is `(rate·td)·Σ_ids (upstream/len(ids))·(1 − (2·row − 1)²)/2` read off the cache's own rows and ids, the block moved, and the same expression **without** that factor differs from the observed delta by more than `1e-6` (`normalisation.md` §3, `backends.md` §2 item 5, `rule.md` §2-§3, `architecture.md` §2).
+        """AGT-20.3 the table block of `P1 − P0` after one terminal transition is `(rate·td)` times the gather of `(upstream/N_real)·(1 − (2·row − 1)²)/2` at the addressed non-pad positions, `N_real` their count, read off the cache's own rows and ids, the pad's row unmoved, the block moved, and the same expression **without** that factor differs from the observed delta by more than `1e-6` (`normalisation.md` §3, `backends.md` §2 item 5, `rule.md` §2-§3, `architecture.md` §2, D-79).
 
         §3 rejects a clamp on the table precisely because it zeroes a gradient exactly where the
         reward scale has driven it, which makes the derivative part of the bound: the
-        semi-gradient is `θ ← θ + α·td·∂q[a]/∂θ`, and `∂(mean of squashed rows)/∂θ_id` is `1/n`
-        times the squash's `(1 − tanh²θ)/2` (`rule.md` §3). The case builds a `token-embedding`
-        learner — the plain chain, no residual delta and no mask — saves it as `P0`, forwards
-        one real token observation with a cache, and drives **one terminal** transition, so the
-        target is the reward alone and `td = reward − values[action]` (`rule.md` §2). It then
-        walks the same cache in the backend's own descending order and holds the block to
+        semi-gradient is `θ ← θ + α·td·∂q[a]/∂θ`, and `∂(mean over the real rows of squashed
+        rows)/∂θ_id` is `1/N_real` times the squash's `(1 − tanh²θ)/2` (`rule.md` §3), with the
+        pad's row receiving nothing at all (D-79, D-80). The case builds a `token-embedding`
+        learner — the plain chain, no residual delta and no kind-level mask — saves it as `P0`,
+        forwards one real token observation with a cache, and drives **one terminal** transition,
+        so the target is the reward alone and `td = reward − values[action]` (`rule.md` §2). It
+        then walks the same cache in the backend's own descending order and holds the block to
         `(rate·td)` times that gather. The block must move, so a zeroed derivative is red; the
         derivative-free gather must differ, so a dropped factor is red rather than a rounding
         difference.
@@ -590,11 +632,12 @@ class NormalisationTest(AgentsCase):
         self.assertLessEqual(
             difference,
             1e-12 * scale + floor,
-            "the table block's delta is not (rate·td) times the gather "
-            "`Σ_ids (upstream/len(ids))·(1 − (2·row − 1)²)/2` read off the cache's own rows: "
-            "max |Δ − expected| = %r against a block scale of %r, so the backward pass dropped "
-            "the squash's derivative or differentiated another function (backends.md §2 item 5). "
-            "The second tolerance term is float64 addition's own rounding floor, %r"
+            "the table block's delta is not (rate·td) times the gather of "
+            "`(upstream/N_real)·(1 − (2·row − 1)²)/2` at the addressed non-pad positions, read "
+            "off the cache's own rows: max |Δ − expected| = %r against a block scale of %r, so "
+            "the backward pass dropped the squash's derivative, differentiated another function,"
+            " or divided by the sequence's length instead of the real count (backends.md §2 item "
+            "5, D-79). The second tolerance term is float64 addition's own rounding floor, %r"
             % (difference, scale, floor),
         )
         derivative_free = (rate * td) * self.table_gradient(
@@ -640,8 +683,12 @@ class NormalisationTest(AgentsCase):
             err_msg="the two backends gathered their rows at different ids for one observation, "
             "so they read two different observations (backends.md §2 item 1)",
         )
-        numpy_carried = self.assert_unit_band("the numpy arm", numpy_rows)
-        torch_carried = self.assert_unit_band("the torch arm", torch_rows)
+        numpy_carried = self.assert_unit_band(
+            "the numpy arm", numpy_rows, numpy_cache["input"][1]
+        )
+        torch_carried = self.assert_unit_band(
+            "the torch arm", torch_rows, torch_cache["input"][1].detach().numpy()
+        )
         np.testing.assert_allclose(
             numpy_rows,
             torch_rows,
@@ -694,10 +741,14 @@ class NormalisationTest(AgentsCase):
                     "(checkpoint.md §2.1)",
                 )
                 doctored_carried = self.assert_unit_band(
-                    "%s's doctored numpy arm" % label, doctored_rows
+                    "%s's doctored numpy arm" % label,
+                    doctored_rows,
+                    doctored_numpy_cache["input"][1],
                 )
                 other_carried = self.assert_unit_band(
-                    "%s's doctored torch arm" % label, doctored_other
+                    "%s's doctored torch arm" % label,
+                    doctored_other,
+                    doctored_torch_cache["input"][1].detach().numpy(),
                 )
                 np.testing.assert_allclose(
                     doctored_rows,

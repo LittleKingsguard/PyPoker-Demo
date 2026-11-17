@@ -3147,3 +3147,29 @@ found no home for (K14). And with 95.8 % of decisions being calls, **accuracy is
 
 **Not established:** any deployable read — precision is too low, and one collection seed, 800 hands and a 120-draw equity
 label are not enough. The record establishes **where the signal is**, not how well it can be extracted.
+
+---
+
+## D-114 — The mask is in the product's pooler; every prior token result is now pre-mask era
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Implements:** D-79/D-80's remedy, named by D-110
+
+**Source (user, verbatim):** "Try the mask on the pooler"
+
+**Landed in both backends**: `numpy` and `torch` pool only the **real** rows (`ids != 0`) — all-pad → zeros — and
+`apply` scatters with the **real** count and skips pad positions, so **the pad row receives no gradient**. Nothing else
+moved: vocabulary, widths, layout, declarations, checkpoint version, trunk, output layer.
+
+**The tests discriminate** (`tests/agents/test_pooling.py`, AGT-21.1–21.5): `[card,0,0,0]` pools to the card's own row
+exactly, the pool is invariant to trailing pads, the **row-0 delta after one step is exactly zero**, an all-pad sequence
+pools to zeros with a zero embedding gradient, and numpy/torch agree at `rtol 0` / `atol 1e-12` (sum/count, so the pool
+is bit-identical). **All five fail against the pre-change backends**, so they cannot pass on an unmasked pass. Two cases
+that pinned the old behaviour (AGT-20.1, AGT-20.3) were corrected rather than deleted. `tests/agents` 207 → **212
+passed** (1463 subtests); other batteries unchanged; `strata-lint` **404 → 408 checks**, no failures.
+
+**Era boundary declared:** the pooler is a **forward pass**, so every token checkpoint trained before this change is
+**pre-mask era** — trained with the pad row inside its mean, behaving differently under the mask. Every token result
+from D-79 through D-113 is era-bound and may not be compared with a post-mask run. The dense family is unaffected.
+
+**Documentation owed:** nine statements in `docs/L3/agents/*`, `docs/L2/agents/learner.md` and `docs/L1/normalisation.md`
+assert an unmasked mean and now need an L3 pass (recorded in `masked-pooler-landed.md`, not silently edited by L4).
