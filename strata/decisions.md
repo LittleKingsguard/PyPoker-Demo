@@ -3052,3 +3052,35 @@ identifies the mechanism.
 **The change this earns:** **mask the product's token pooler** (D-79's remedy), which the strength change was forbidden
 from shipping alongside (D-3). With the trunk already revived at `net-chips-normalised`, it is now the single
 highest-value change in the project.
+
+---
+
+## D-111 — The opponent-history model is deferred: its target is absent from the population we can measure
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Gate:** D-10 intake, two independent reviews
+
+**Source (user, verbatim):** "Can the history inputs be replaced by output from a trained attention model that attempts
+to predict the raise/call/fold and hand strength of an opponent by their history (across this hand and prior), similar
+to the card model?"
+
+**The falsifying test, run before any design** (fixed dry board, the D-70 hole set, both seatings): **every league
+member plays all five hole sets identically** — folder 1/5, raiser-50-50 1/5, raiser-83 1/5, mask-no-squash 2/5 with an
+identical first action. **The opponents are card-invariant, so their history cannot carry their hand strength**: the
+proposal's second output has a **ceiling of zero on the only population the project has**, and its first output
+predicts a constant (D-59, D-71, D-82, D-108).
+
+**Validity: FAIL.** The history block holds **three action kinds only** (`features/history.py:35` — no seat, amount or
+street), so an opponent's history is not in the block at all; cross-hand memory has **no carrier** (`play_hand` is one
+hand per call, opponents re-drawn and anonymous, and cross-hand state breaks checkpoint-equals-policy, protocol §5); and
+the proposal **is D-9's deferred Phase 2**, whose exploiting premise D-23/D-34/D-57 measured negative.
+
+**Critique: ADJUDICATION**, three blocking findings: removing the 98-token block removes ~90 % of the padding the
+unmasked pooler averages, **shipping D-110's mask effect** alongside the change (the bundling D-102 forbade); the
+`strength` licence does not reach a cross-hand estimate and the league's matrix/antisymmetry invariants break; and
+**accuracy on a deterministic pool is a base-rate artefact** that this project has mistaken for a result three times.
+
+**Disposition — deferred, with the conditions that would unfreeze it:** (1) the **pooler masked** first (D-110), as its
+own arm; (2) a population with **measured card-sensitivity** — today's league has none, so the target does not exist;
+(3) the **cross-hand carrier** designed as its own unit, with the checkpoint-equals-policy and matrix invariants
+addressed; (4) an evaluation with the block zeroed and the sequence held at fixed width, so the null cannot be the
+pooler. Until (1)–(2) hold, building it would produce a number the project has already learned to misread.
