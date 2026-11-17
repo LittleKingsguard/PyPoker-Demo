@@ -141,16 +141,24 @@ html.no-motion .slide[data-active].is-entering { animation: none; }
 html.js .card { overflow: hidden; }
 html.js .card > *:not(.suit) { overflow: hidden; }
 /* the fixed-height boxes one level deeper than .card clip themselves; a cell's height is only a minimum, so its line is one line */
-html.js #s4 .a-body .t-list li,
-html.js #s5 .a-side .t-group p,
-html.js #s5 .a-wide .t-table th,
-html.js #s5 .a-wide .t-table td { overflow: hidden; }
-html.js #s5 .a-wide .t-table th,
-html.js #s5 .a-wide .t-table td { white-space: nowrap; }
+html.js #s10 .a-body .t-list li,
+html.js #s11 .a-side .t-group p,
+html.js #s11 .a-wide .t-table th,
+html.js #s11 .a-wide .t-table td { overflow: hidden; }
+html.js #s11 .a-wide .t-table th,
+html.js #s11 .a-wide .t-table td { white-space: nowrap; }
+/* content.md §2: the plan's rows are grandchildren of the card, so §2's second
+   tier does not reach them. Each fixed-height box clips itself, and `nowrap` on
+   both spans is what holds a 104px row, because a height is a minimum here. */
+html.js #s3 .a-hero .t-plan li,
+html.js #s3 .a-hero .t-plan .t-num,
+html.js #s3 .a-hero .t-plan .t-step { overflow: hidden; }
+html.js #s3 .a-hero .t-plan .t-num,
+html.js #s3 .a-hero .t-plan .t-step { white-space: nowrap; }
 /* the contact slides' own deep boxes (contact.md §3). The two .t-url line spans
    are grandchildren of .card, so they clip themselves, one line each. */
 html.js #s2 .a-wide .t-url span,
-html.js #s8 .a-side-bottom .t-url span { overflow: hidden; white-space: nowrap; }
+html.js #s14 .a-side-bottom .t-url span { overflow: hidden; white-space: nowrap; }
 /* one #sN-scoped clip rule per new fixed-height box, as the README's step 3 asks;
    for .qr the clip is a no-op (the box is exactly its viewBox) but it is
    declared so the shape is uniform (contact.md §3) */
@@ -160,13 +168,13 @@ html.js #s2 .a-wide .t-email,
 html.js #s2 .a-wide .t-url,
 html.js #s2 .a-side .qr,
 html.js #s2 .a-side .t-note,
-html.js #s8 .a-wide .t-h1,
-html.js #s8 .a-wide .qr,
-html.js #s8 .a-wide .t-note,
-html.js #s8 .a-side-top .t-h2,
-html.js #s8 .a-side-top .t-note,
-html.js #s8 .a-side-bottom .t-h3,
-html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
+html.js #s14 .a-wide .t-h1,
+html.js #s14 .a-wide .qr,
+html.js #s14 .a-wide .t-note,
+html.js #s14 .a-side-top .t-h2,
+html.js #s14 .a-side-top .t-note,
+html.js #s14 .a-side-bottom .t-h3,
+html.js #s14 .a-side-bottom .t-url { overflow: hidden; }
 
 /* section 4: area classes, in literal px inside the 1192x568 slide box */
 .a-hero        { left: 0;    top: 0;   width: 1192px; height: 568px; } /* inner 1136x512 */
@@ -178,6 +186,8 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
 .a-legend      { left: 0;    top: 444px; width: 1192px; height: 124px; } /* 420+24 = 444; inner 1136x68 */
 .a-side-top    { left: 800px; top: 0;   width: 392px; height: 272px; } /* inner 336x216 */
 .a-side-bottom { left: 800px; top: 296px; width: 392px; height: 272px; } /* 272+24 = 296; inner 336x216 */
+/* #s6's caption card beside network-compare (content.md §4): 653 + 24 + 515 = 1192 */
+.a-fignote     { left: 677px; top: 0;  width: 515px;  height: 568px; } /* inner 459x512 */
 
 /* --- section 3: the type ramp, verbatim ---------------------------------- */
 .t-display { font-family: var(--font-display); font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--ls-display); font-weight: 600; }
@@ -194,13 +204,57 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
 .t-url { font-family: var(--font-mono); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; }
 .t-url span { display: block; }
 
+/* content.md §2/§4/§5's three new block names. Every size they take is a §3 ramp
+   token: t-plan is the list primitive, t-num and t-step the two spans of a row,
+   t-count the trunk's two count lines, t-eyebrow the card-model divider's
+   eyebrow. No new size is added to the ramp. */
+.t-plan { margin: 0; padding: 0; list-style: none; }
+.t-num {
+  display: block;
+  flex: 0 0 64px;
+  width: 64px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-h1);
+  line-height: var(--lh-h1);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+.t-step {
+  display: block;
+  flex: 1 1 auto;
+  width: 1052px;
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-h3);
+  font-weight: 600;
+  color: var(--ink);
+}
+.t-count {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  line-height: var(--lh-h2);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.t-eyebrow {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--fs-badge);
+  line-height: var(--lh-badge);
+  letter-spacing: var(--ls-badge);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
 /* the QR block (contact.md §2): 37 viewBox units at exactly 8 design px per
    module, block-level so no baseline gap opens under it, and every module
    painted by ONE rule from the ink token — 13.4:1 dark on the card face, never
    inverted, never a theme accent, no fill attribute on any <rect>. The quiet
    zone is the card face: nothing is drawn in it. */
 .qr { display: block; }
-#s2 .qr rect, #s8 .qr rect { fill: var(--ink); }
+#s2 .qr rect, #s14 .qr rect { fill: var(--ink); }
 
 /* demo badge: --fs-badge, uppercase, flat ink chip on the card face */
 .demo-badge {
@@ -268,9 +322,75 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
 #s2 .a-side .qr         { margin: 24px auto; }
 #s2 .a-side .t-note     { height: 28px; margin: 0; }
 
-/* --- 5.3 section divider — card.a-hero, inner 512: 96+24 . 24+12 . 64+12 . 36 = 268 / 512 */
-#s3 .a-hero { text-align: center; }
-#s3 .suit-circle {
+/* --- content.md §2: #s3 the plan — card.a-hero, interior 1136x512
+       64+16 . 2+28 . 3x104 + 2x16 (=344) . 24+28 = 506 / 512
+       Each li is one numbered row: a 64px mono column, a 20px gap, then the
+       step line across the remaining 1052px. No box, rule, tint or glyph is
+       added to the rows (content.md §2). */
+#s3 .a-hero .t-h1       { height: 64px; margin: 0 0 16px; }
+#s3 .a-hero .card__rule { height: 2px; margin: 0 0 28px; }
+#s3 .a-hero .t-plan     { height: 344px; margin: 0; }
+#s3 .a-hero .t-plan li  { display: flex; align-items: center; gap: 20px; height: 104px; margin: 0; }
+#s3 .a-hero .t-plan li + li { margin-top: 16px; }
+#s3 .a-hero .t-plan .t-num  { height: 64px; }
+#s3 .a-hero .t-plan .t-step { height: 36px; }
+#s3 .a-hero .t-note     { height: 28px; margin: 24px 0 0; }
+
+/* --- content.md §3: #s4 the pivot and #s5 the live grid — the fragment's
+       plate on the felt, never inside a card. The plate is 1100px wide and is
+       scaled by transform (layout size is untouched), so a fixed-size clipping
+       wrapper holds its layout box inside the 1192x568 slide box.
+       #s4: 60 title + 527x0.96 = 506 rendered = 566 / 568
+       #s5: 36 caption + 564x0.94 = 530 rendered = 566 / 568 */
+.plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1192px;
+  height: 568px;
+  overflow: hidden;
+}
+.plate .pp-wrap {
+  position: absolute;
+  width: 1100px;
+  box-shadow: var(--card-shadow);   /* the plate reads as a card on the felt */
+}
+#s4 > .t-h1 { height: 48px; margin: 0 0 12px; font-size: var(--fs-h2); line-height: var(--lh-h2); color: var(--card-face); }
+#s4 .plate .pp-wrap { left: 68px; top: 60px; transform: scale(0.96); transform-origin: top left; }
+#s5 > .t-note { height: 28px; margin: 0 0 8px; color: var(--card-face); }
+#s5 .plate .pp-wrap { left: 79px; top: 36px; transform: scale(0.94); transform-origin: top left; }
+
+/* --- content.md §4: #s6 the trunk figure — <img> at (0,0), 653x568 design px
+       (0.990 of the SVG's intrinsic size), and the .a-fignote caption card at
+       (677, 0, 515, 568), interior 459x512: 48+12 . 2+20 . 28+4 . 48+20 .
+       28+4 . 48+24 . 56 = 342 / 512. The felt is the figure's surface and the
+       card carries the words, so this card is the only one with no glyph. */
+.fig { display: block; position: absolute; }
+#s6 .fig { left: 0; top: 0; }
+#s6 .a-fignote .t-h2      { height: 48px; margin: 0 0 12px; }
+#s6 .a-fignote .card__rule { height: 2px; margin: 0 0 20px; }
+#s6 .a-fignote .t-note    { height: 28px; margin: 0 0 4px; }
+#s6 .a-fignote .t-count   { height: 48px; margin: 0 0 20px; }
+#s6 .a-fignote .t-count:nth-last-child(2) { margin: 0 0 24px; }
+#s6 .a-fignote .t-note:last-child { height: 56px; margin: 0; }
+
+/* --- content.md §5: #s7 the card model's divider — the demo divider's own
+       shape with real copy; interior 512: 96+24 . 24+12 . 64+12 . 36 = 268 / 512 */
+/* --- content.md §5: #s8 the card model's first content slide — no card.
+       60 heading . 468 figure . 36 note = 564 / 568 */
+#s8 > .t-h1 { height: 48px; margin: 0 0 12px; font-size: var(--fs-h2); line-height: var(--lh-h2); color: var(--card-face); }
+#s8 .fig { left: 218px; top: 60px; }
+#s8 > .t-note { position: absolute; left: 218px; top: 528px; width: 756px; height: 28px; margin: 8px 0 0; color: var(--card-face); }
+
+/* --- 5.3 section divider — card.a-hero, inner 512: 96+24 . 24+12 . 64+12 . 36 = 268 / 512
+       #s9 is the sampler's demo divider; #s7 is the card model's real one
+       (content.md §5), so the shape is one budget with two occupants and the
+       rules are shared. The eyebrow takes the --fs-badge tokens on its own
+       block name; it is not the demo chip. */
+#s7 .a-hero,
+#s9 .a-hero { text-align: center; }
+#s7 .suit-circle,
+#s9 .suit-circle {
   width: 96px;
   height: 96px;
   margin: 0 auto 24px;
@@ -280,26 +400,30 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
   text-align: center;
   font-size: 34px;
 }
-#s3 .suit-circle__pip { color: var(--suit-red); }
-#s3 .a-hero .t-badge { height: 24px; margin: 0 0 12px; line-height: 24px; }
-#s3 .a-hero .t-h1    { height: 64px; margin: 0 0 12px; }
-#s3 .a-hero .t-h3    { height: 36px; margin: 0; }
+#s7 .suit-circle__pip,
+#s9 .suit-circle__pip { color: var(--suit-red); }
+#s7 .a-hero .t-eyebrow { height: 24px; margin: 0 0 12px; }
+#s9 .a-hero .t-badge { height: 24px; margin: 0 0 12px; line-height: 24px; }
+#s7 .a-hero .t-h1,
+#s9 .a-hero .t-h1    { height: 64px; margin: 0 0 12px; }
+#s7 .a-hero .t-h3,
+#s9 .a-hero .t-h3    { height: 36px; margin: 0; }
 
 /* --- 5.4 bullets — a-lead inner 180: 24+12 . 48 = 84 / 180
        a-body inner 252: 3x38 + 2x16 (=146) +12 . 28 = 186 / 252 */
-#s4 .a-lead .t-badge { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
-#s4 .a-lead .t-h2    { height: 48px; margin: 0; }
-#s4 .a-body .t-list  { height: 146px; margin: 0 0 12px; padding: 0; list-style: disc; list-style-position: inside; }
-#s4 .a-body .t-list li { height: 38px; margin: 0; }
-#s4 .a-body .t-list li + li { margin-top: 16px; }
-#s4 .a-body .t-note  { height: 28px; margin: 0; }
+#s10 .a-lead .t-badge { height: 24px; margin: 0 0 12px 44px; line-height: 24px; }
+#s10 .a-lead .t-h2    { height: 48px; margin: 0; }
+#s10 .a-body .t-list  { height: 146px; margin: 0 0 12px; padding: 0; list-style: disc; list-style-position: inside; }
+#s10 .a-body .t-list li { height: 38px; margin: 0; }
+#s10 .a-body .t-list li + li { margin-top: 16px; }
+#s10 .a-body .t-note  { height: 28px; margin: 0; }
 
 /* --- 5.5 comparison — a-wide inner 512: 48+16 . 44+6x44 (=308) +16 . 28 = 416 / 512
        a-side inner 512: 48+16 . 3x120 . 24+12 = 460 / 512 */
-#s5 .a-wide .t-h2   { height: 48px; margin: 0 0 16px; }
-#s5 .a-wide .t-table { width: 100%; height: 308px; margin: 0 0 16px; border-collapse: collapse; table-layout: fixed; }
-#s5 .a-wide .t-table th,
-#s5 .a-wide .t-table td {
+#s11 .a-wide .t-h2   { height: 48px; margin: 0 0 16px; }
+#s11 .a-wide .t-table { width: 100%; height: 308px; margin: 0 0 16px; border-collapse: collapse; table-layout: fixed; }
+#s11 .a-wide .t-table th,
+#s11 .a-wide .t-table td {
   height: 44px;
   padding: 0 8px 0 0;
   border: 0;
@@ -309,32 +433,32 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
   line-height: var(--lh-body);
   font-weight: 400;
 }
-#s5 .a-wide .t-table thead th { color: var(--ink-muted); font-weight: 600; letter-spacing: var(--ls-small); }
-#s5 .a-wide .t-table tbody th { font-weight: 600; }
-#s5 .a-wide .cell-num { font-family: var(--font-mono); }
-#s5 .a-wide .t-note { height: 28px; margin: 0; }
+#s11 .a-wide .t-table thead th { color: var(--ink-muted); font-weight: 600; letter-spacing: var(--ls-small); }
+#s11 .a-wide .t-table tbody th { font-weight: 600; }
+#s11 .a-wide .cell-num { font-family: var(--font-mono); }
+#s11 .a-wide .t-note { height: 28px; margin: 0; }
 
-#s5 .a-side .t-h2    { height: 48px; margin: 0 0 16px; }
-#s5 .a-side .t-group { height: 120px; margin: 0; }
-#s5 .a-side .t-group h3 { height: 36px; margin: 0 0 8px; }
-#s5 .a-side .t-group p  { height: 76px; margin: 0; }
-#s5 .a-side .t-badge { height: 24px; margin: 12px 0 0; line-height: 24px; }
+#s11 .a-side .t-h2    { height: 48px; margin: 0 0 16px; }
+#s11 .a-side .t-group { height: 120px; margin: 0; }
+#s11 .a-side .t-group h3 { height: 36px; margin: 0 0 8px; }
+#s11 .a-side .t-group p  { height: 76px; margin: 0; }
+#s11 .a-side .t-badge { height: 24px; margin: 12px 0 0; line-height: 24px; }
 
 /* --- 5.6 chart placeholder — inner 364: 48+12 . 256 . +12 . 24 = 352 / 364 */
-#s6 .a-chart .t-h2 { height: 48px; margin: 0 0 12px; }
-#s6 .plot {
+#s12 .a-chart .t-h2 { height: 48px; margin: 0 0 12px; }
+#s12 .plot {
   position: relative;
   height: 256px;
   margin: 0 0 12px;
   background-image: repeating-linear-gradient(0deg, rgba(27, 42, 37, .09) 0 1px, rgba(27, 42, 37, 0) 1px 32px);
 }
-#s6 .bar { position: absolute; bottom: 0; width: 120px; }
-#s6 .bar--a { left: 80px;  height: 96px;  background: var(--status-a); }
-#s6 .bar--b { left: 294px; height: 148px; background: var(--status-a); }
-#s6 .bar--c { left: 508px; height: 180px; background: var(--status-a); }
-#s6 .bar--d { left: 722px; height: 124px; background: var(--status-b); }
-#s6 .bar--e { left: 936px; height: 64px;  background: var(--status-b); }
-#s6 .bar__label {
+#s12 .bar { position: absolute; bottom: 0; width: 120px; }
+#s12 .bar--a { left: 80px;  height: 96px;  background: var(--status-a); }
+#s12 .bar--b { left: 294px; height: 148px; background: var(--status-a); }
+#s12 .bar--c { left: 508px; height: 180px; background: var(--status-a); }
+#s12 .bar--d { left: 722px; height: 124px; background: var(--status-b); }
+#s12 .bar--e { left: 936px; height: 64px;  background: var(--status-b); }
+#s12 .bar__label {
   position: absolute;
   left: 0;
   right: 0;
@@ -346,8 +470,8 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
   letter-spacing: var(--ls-small);
   color: var(--ink);
 }
-#s6 .axis { position: relative; height: 24px; margin: 0; }
-#s6 .axis__label {
+#s12 .axis { position: relative; height: 24px; margin: 0; }
+#s12 .axis__label {
   position: absolute;
   top: 0;
   width: 120px;
@@ -358,25 +482,25 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
   letter-spacing: var(--ls-small);
   color: var(--ink-muted);
 }
-#s6 .axis__label:nth-child(1) { left: 80px; }
-#s6 .axis__label:nth-child(2) { left: 294px; }
-#s6 .axis__label:nth-child(3) { left: 508px; }
-#s6 .axis__label:nth-child(4) { left: 722px; }
-#s6 .axis__label:nth-child(5) { left: 936px; }
+#s12 .axis__label:nth-child(1) { left: 80px; }
+#s12 .axis__label:nth-child(2) { left: 294px; }
+#s12 .axis__label:nth-child(3) { left: 508px; }
+#s12 .axis__label:nth-child(4) { left: 722px; }
+#s12 .axis__label:nth-child(5) { left: 936px; }
 
 /* legend card, inner 68: 28+8 . 28 = 64 / 68 */
-#s6 .a-legend .t-note { height: 28px; margin: 0 0 8px; }
-#s6 .a-legend .t-note:last-child { margin: 0; }
+#s12 .a-legend .t-note { height: 28px; margin: 0 0 8px; }
+#s12 .a-legend .t-note:last-child { margin: 0; }
 
 /* --- 5.7 quote — card.a-hero, inner 512: 56+16 . 180+16 . 2+16 . 38+12 . 24 = 360 / 512 */
-#s7 .a-hero { text-align: center; }
+#s13 .a-hero { text-align: center; }
 /* 60+12 = 56+16: the box is 4px taller so the display face's line box is not
    cut by the clip rule (checks.md 3.1), and the ink does not move */
-#s7 .quote-mark { display: block; height: 60px; margin: 0 0 12px; font-family: var(--font-display); font-size: 56px; line-height: 56px; color: var(--gold-dim); }
-#s7 .a-hero .t-quote { height: 180px; margin: 0 0 16px; }
-#s7 .a-hero .card__rule { width: 120px; height: 2px; margin: 0 auto 16px; }
-#s7 .a-hero .t-body  { height: 38px; margin: 0 0 12px; }
-#s7 .a-hero .t-badge { height: 24px; margin: 0; line-height: 24px; }
+#s13 .quote-mark { display: block; height: 60px; margin: 0 0 12px; font-family: var(--font-display); font-size: 56px; line-height: 56px; color: var(--gold-dim); }
+#s13 .a-hero .t-quote { height: 180px; margin: 0 0 16px; }
+#s13 .a-hero .card__rule { width: 120px; height: 2px; margin: 0 auto 16px; }
+#s13 .a-hero .t-body  { height: 38px; margin: 0 0 12px; }
+#s13 .a-hero .t-badge { height: 24px; margin: 0; line-height: 24px; }
 
 /* --- 5.8 outtro — the deck's three-card slide (contact.md §3).
        a-wide inner 512: 64+12 . 2+20 . 296+20 . 28 = 442 / 512
@@ -384,15 +508,15 @@ html.js #s8 .a-side-bottom .t-url { overflow: hidden; }
        a-side-bottom inner 216: 36+8 . 56 = 100 / 216
        Same QR, same 8 px per module, same copy as #s2; the card__rule sits
        ABOVE the block, never inside it. No glyph on any of the three cards. */
-#s8 .a-wide .t-h1       { height: 64px; margin: 0 0 12px; }
-#s8 .a-wide .card__rule { height: 2px; margin: 0 0 20px; }
-#s8 .a-wide .qr         { margin: 0 0 20px; }
-#s8 .a-wide .t-note     { height: 28px; margin: 0; }
-#s8 .a-side-top .t-h2   { height: 48px; margin: 0 0 8px; }
-#s8 .a-side-top .t-note { height: 28px; margin: 0 0 12px; }
-#s8 .a-side-top .t-note:last-child { margin: 0; }
-#s8 .a-side-bottom .t-h3  { height: 36px; margin: 0 0 8px; }
-#s8 .a-side-bottom .t-url { height: 56px; margin: 0; }
+#s14 .a-wide .t-h1       { height: 64px; margin: 0 0 12px; }
+#s14 .a-wide .card__rule { height: 2px; margin: 0 0 20px; }
+#s14 .a-wide .qr         { margin: 0 0 20px; }
+#s14 .a-wide .t-note     { height: 28px; margin: 0; }
+#s14 .a-side-top .t-h2   { height: 48px; margin: 0 0 8px; }
+#s14 .a-side-top .t-note { height: 28px; margin: 0 0 12px; }
+#s14 .a-side-top .t-note:last-child { margin: 0; }
+#s14 .a-side-bottom .t-h3  { height: 36px; margin: 0 0 8px; }
+#s14 .a-side-bottom .t-url { height: 56px; margin: 0; }
 
 /* --- section 6: HUD in the 40px footer strip, and the live region -------- */
 #hud { display: none; }
@@ -555,6 +679,41 @@ html.no-motion #presenter > section:not([hidden]) { animation: none; }
   cursor: pointer;
 }
 .more-btn[aria-disabled="true"] { cursor: default; }
+
+/* ==========================================================================
+   content.md §3: the reference grids, carried from figures/reference-grids.html.
+   This block is that fragment's own style content, copied once and verbatim: every
+   selector it declares begins with .pp, so the prefix is the scope and no rule
+   here can reach a deck element (content.md §3, checks.md G12). The deck adds
+   exactly one thing to it, in #s4/#s5's own block above: the plate's box-shadow.
+   ========================================================================== */
+/* BEGIN copied-fragment-css (checks.md G12 reads this region) */
+.pp-wrap{--pp-bg:#14120f;--pp-card:#1d1a15;--pp-line:#3a332a;--pp-ink:#f2e8d5;--pp-mute:#a2968a;
+  --pp-gold:#d9a441;--pp-green:#4fbf8b;--pp-red:#d4553f;--pp-sky:#6fa8dc;
+  background:var(--pp-bg);color:var(--pp-ink);font:14px/1.45 ui-sans-serif,system-ui,sans-serif;
+  padding:22px;border-radius:14px}
+.pp-wrap h3{font-size:15px;letter-spacing:.09em;text-transform:uppercase;color:var(--pp-gold);margin:26px 0 4px}
+.pp-wrap h3:first-of-type{margin-top:4px}
+.pp-note{color:var(--pp-mute);font-size:12.5px;margin:0 0 10px}
+.pp-wrap table{width:100%;border-collapse:separate;border-spacing:0 4px}
+.pp-wrap th,.pp-wrap td{padding:7px 9px;text-align:left;background:var(--pp-card)}
+.pp-wrap thead th{background:transparent;color:var(--pp-mute);font-size:11px;letter-spacing:.07em;
+  text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--pp-line);padding-bottom:6px}
+.pp-wrap tbody th{border-radius:9px 0 0 9px}
+.pp-wrap tbody td:last-child{border-radius:0 9px 9px 0}
+.pp-hand{display:block;font-weight:600}
+.pp-cards{display:block;color:var(--pp-mute);font-size:12px;letter-spacing:.06em}
+.pp-eq{font-variant-numeric:tabular-nums;font-weight:700}
+.pp-hi{color:var(--pp-green)} .pp-mid{color:var(--pp-gold)} .pp-lo{color:var(--pp-mute)}
+.pp-wrap td span{font:13px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.16em;margin-right:2px}
+.pp-r{color:var(--pp-gold)} .pp-c{color:var(--pp-sky)} .pp-f{color:var(--pp-red)}
+.pp-dash{color:var(--pp-mute)}
+.pp-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;color:var(--pp-mute);font-size:12px}
+.pp-legend b{font:13px ui-monospace,monospace}
+.pp-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:760px){.pp-wrap{padding:12px}.pp-wrap th,.pp-wrap td{padding:6px}}
+/* END copied-fragment-css */
+
 html.js .more-btn { pointer-events: auto; }
 </style>
 </head>
@@ -830,8 +989,173 @@ html.js .more-btn { pointer-events: auto; }
       </template>
     </section>
 
+<!-- content.md §2: the plan — card.a-hero, interior 1136x512.
+         64+16 . 2+28 . 3x104 + 2x16 (=344) . 24+28 = 506 / 512. Three numbered
+         rows in the speaker's own words, nothing else on the card. -->
+    <section class="slide" id="s3" data-shape="plan">
+      <article class="card a-hero">
+        <h1 class="t-h1">The plan</h1>
+        <i class="card__rule"></i>
+        <ol class="t-plan">
+          <li><span class="t-num">1</span><span class="t-step">Naive, flat model</span></li>
+          <li><span class="t-num">2</span><span class="t-step">Tokenize the cards</span></li>
+          <li><span class="t-num">3</span><span class="t-step">Use attention to pick out opponent patterns</span></li>
+        </ol>
+        <p class="t-note">Three steps, in the order the talk takes them.</p>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>These three steps are the promise the rest of the talk either keeps or breaks, so say them plainly and come back to the list when a section seems to wander.</li>
+          <li>Nothing on this slide is measured, so no source is owed and the More control stays disabled.</li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- content.md §3: the pivot — one title line, then the dead-trunk grid.
+         60 title + 527 x 0.96 = 506 rendered = 566 / 568. The plate is the
+         fragment's own .pp-wrap on the felt, never inside an ivory card; the
+         five grey narration blocks are not carried (content.md §3) and every
+         datum, header, scope and title attribute is. -->
+    <section class="slide" id="s4" data-shape="pivot">
+      <h1 class="t-h1">No plan survives contact with the enemy…</h1>
+      <div class="plate">
+        <div class="pp-wrap">
+<section class="pp-grid" aria-label="Dead trunk · 600-scale reward">
+  <table>
+    <caption class="pp-sr">Reference hands and each model's action, by street: preflop, flop, turn, river.</caption>
+    <thead><tr><th scope="col">hand</th><th scope="col">true equity</th><th scope="col">600-scale reward, 3k hands</th><th scope="col">600-scale reward, raiser run</th></tr></thead>
+    <tbody><tr><th scope="row"><span class="pp-hand">quad aces</span><span class="pp-cards">A♠ A♦</span></th><td class="pp-eq pp-hi">100%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">nut flush</span><span class="pp-cards">A♠ Q♠</span></th><td class="pp-eq pp-hi">100%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">ace-high straight</span><span class="pp-cards">A♠ K♦</span></th><td class="pp-eq pp-hi">98%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">trip aces</span><span class="pp-cards">A♠ A♦</span></th><td class="pp-eq pp-hi">92%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">pair of kings (dry)</span><span class="pp-cards">K♥ K♦</span></th><td class="pp-eq pp-mid">45%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">2-3 offsuit junk</span><span class="pp-cards">2♣ 3♦</span></th><td class="pp-eq pp-lo">0.0%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">2-7 offsuit junk</span><span class="pp-cards">2♦ 7♣</span></th><td class="pp-eq pp-lo">0.0%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">2-3 offsuit, all-high board</span><span class="pp-cards">2♣ 3♦</span></th><td class="pp-eq pp-lo">0.02%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr></tbody>
+  </table>
+</section>
+        </div>
+      </div>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Read the title, then let the grid do the work: the same eight hands and the same equity column, with one action per street beside it.</li>
+          <li>Name the two columns: 600-scale reward, 3k hands, and 600-scale reward, raiser run. Read the key aloud: r raise, c call, f fold, one letter per street from preflop to the river.</li>
+          <li>Say the punchline: every cell in both of these columns is the same action for all eight hands.</li>
+        </ul>
+      </template>
+      <template class="more">
+        <ul class="src-list">
+          <li>
+            <span class="src-claim">The reference hands and every model's per-street action on this grid.</span>
+            <span class="src-ref">D-129 &#183; 2026-11-08 (grids regenerated 2026-11-17)</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- content.md §3: the live grid — one line, then the live-trunk grid.
+         36 caption + 564 x 0.94 = 530 rendered = 566 / 568. Same fragment, the
+         other section's table, carried whole. -->
+    <section class="slide" id="s5" data-shape="livegrid">
+      <p class="t-note">Live trunk: some of these models change their action with the hand, and some do not.</p>
+      <div class="plate">
+        <div class="pp-wrap">
+<section class="pp-grid" aria-label="Live trunk · normalised reward">
+  <table>
+    <caption class="pp-sr">Reference hands and each model's action, by street: preflop, flop, turn, river.</caption>
+    <thead><tr><th scope="col">hand</th><th scope="col">true equity</th><th scope="col">normalised, foldloop-high</th><th scope="col">normalised, foldloop-control</th><th scope="col">normalised + card strength</th><th scope="col">probe, eps 0.60</th><th scope="col">probe, eps 0.60 + opponent</th></tr></thead>
+    <tbody><tr><th scope="row"><span class="pp-hand">quad aces</span><span class="pp-cards">A♠ A♦</span></th><td class="pp-eq pp-hi">100%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td><td><span class="pp-c" title="call">c</span><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">nut flush</span><span class="pp-cards">A♠ Q♠</span></th><td class="pp-eq pp-hi">100%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">ace-high straight</span><span class="pp-cards">A♠ K♦</span></th><td class="pp-eq pp-hi">98%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">trip aces</span><span class="pp-cards">A♠ A♦</span></th><td class="pp-eq pp-hi">92%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span></td><td><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td></tr><tr><th scope="row"><span class="pp-hand">pair of kings (dry)</span><span class="pp-cards">K♥ K♦</span></th><td class="pp-eq pp-mid">45%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-f" title="fold">f</span></td><td><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span><span class="pp-r" title="raise">r</span></td></tr><tr><th scope="row"><span class="pp-hand">2-3 offsuit junk</span><span class="pp-cards">2♣ 3♦</span></th><td class="pp-eq pp-lo">0.0%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-f" title="fold">f</span></td><td><span class="pp-f" title="fold">f</span></td></tr><tr><th scope="row"><span class="pp-hand">2-7 offsuit junk</span><span class="pp-cards">2♦ 7♣</span></th><td class="pp-eq pp-lo">0.0%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-f" title="fold">f</span></td><td><span class="pp-f" title="fold">f</span></td><td><span class="pp-f" title="fold">f</span></td></tr><tr><th scope="row"><span class="pp-hand">2-3 offsuit, all-high board</span><span class="pp-cards">2♣ 3♦</span></th><td class="pp-eq pp-lo">0.02%</td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-c" title="call">c</span><span class="pp-c" title="call">c</span></td><td><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span><span class="pp-r" title="raise">r</span></td><td><span class="pp-f" title="fold">f</span></td><td><span class="pp-f" title="fold">f</span></td></tr></tbody>
+  </table>
+</section>
+        </div>
+      </div>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Name the five columns left to right: foldloop-high, foldloop-control, card strength, and the two eps 0.60 probes.</li>
+          <li>Point at the rows that change: foldloop-control turns to c at the river, and the two eps 0.60 probes fold the kings and the junk.</li>
+          <li>Then point at the column that does not: foldloop-high is rrrr for all eight hands, which is why one live column is not the whole story.</li>
+        </ul>
+      </template>
+      <template class="more">
+        <ul class="src-list">
+          <li>
+            <span class="src-claim">The reference hands and every model's per-street action on this grid.</span>
+            <span class="src-ref">D-129 &#183; 2026-11-08 (grids regenerated 2026-11-17)</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- content.md §4: the trunk figure — the referenced SVG on the felt at
+         (0, 0), 653x568 design px, and the .a-fignote caption card at
+         (677, 0, 515, 568). 653 + 24 + 515 = 1192. The four counts are the
+         generator's own and the checkpoint is named on the slide. -->
+    <section class="slide" id="s6" data-shape="trunk">
+      <img class="fig" src="../figures/network-compare.svg" width="653" height="568" alt="Two network diagrams side by side: the left has empty hidden layers, the right has lit units and edges.">
+      <article class="card a-fignote">
+        <h2 class="t-h2">The trunk</h2>
+        <i class="card__rule"></i>
+        <p class="t-note">600-scale reward</p>
+        <p class="t-count">0 / 50 &#183; 0 / 50</p>
+        <p class="t-note">normalised reward &#183; foldloop-high</p>
+        <p class="t-count">23 / 50 &#183; 24 / 50</p>
+        <p class="t-note">Two numbers per panel: hidden layer 1 and hidden layer 2, of 50 units each.</p>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Read the four counts: 0 and 0 of 50 under the 600-scale reward, then 23 and 24 of 50 under the normalised reward.</li>
+          <li>Name the checkpoint: the 23 and the 24 are foldloop-high under the normalised reward, and figures/demo-data.json's trunk_health block says 22 / 50 because it measures a different run. The two numbers are never the same measurement.</li>
+          <li>The dead panel is a different checkpoint again, .probe/dead/dead-ckpt, so the two panels are not one training curve.</li>
+        </ul>
+      </template>
+      <template class="more">
+        <ul class="src-list">
+          <li>
+            <span class="src-claim">0 / 50 &#183; 0 / 50 and 23 / 50 &#183; 24 / 50, on the foldloop-high checkpoint.</span>
+            <span class="src-ref">D-132 &#183; 2026-11-17</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- content.md §5: the card model's divider — the demo divider's own shape
+         with real copy. 96+24 . 24+12 . 64+12 . 36 = 268 / 512. No figure, no
+         number, so no source. -->
+    <section class="slide" id="s7" data-shape="cardmodel">
+      <article class="card a-hero">
+        <span class="suit suit--tl suit--red" aria-hidden="true">&#9829;</span>
+        <span class="suit suit--br suit--red" aria-hidden="true">&#9829;</span>
+        <div class="suit-circle"><span class="suit-circle__pip" aria-hidden="true">&#9829;</span></div>
+        <span class="t-eyebrow">THE CARD MODEL</span>
+        <h1 class="t-h1">What the cards explain</h1>
+        <p class="t-h3">From the hole cards to the river, by how many are known</p>
+      </article>
+      <template class="talk">
+        <ul class="note-list">
+          <li>This section asks how much of a six-way showdown the cards explain, from the hole cards to the river. No number on this slide, so no source is owed.</li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- content.md §5: the card model's first content slide — no card.
+         60 heading . 468 figure . 36 note = 564 / 568. One claim, and its two
+         numerals are the figure's own two endpoints. -->
+    <section class="slide" id="s8" data-shape="signal">
+      <h1 class="t-h1">Where the signal comes from</h1>
+      <img class="fig" src="../figures/signal-by-street.svg" width="756" height="468" alt="Bars: 2.4% preflop, 14.4% flop, 20.9% turn, 52.8% river.">
+      <p class="t-note">By how many are known: 2.4 % preflop, 52.8 % at the river.</p>
+      <template class="talk">
+        <ul class="note-list">
+          <li>Point at the preflop bar as the punchline: knowing only the hole cards explains 2.4 % of a six-way showdown.</li>
+          <li>Then say the era plainly: 2.4 % is the flat one-hot's preflop rung (D-86) and 52.8 % is the attention model's converged river (D-93), and the figure's four bars are not one checkpoint's four streets.</li>
+          <li>strata/records/card-model-design.md's 2.4 / 17.4 / 30.6 / 36.3 % table, 28.1 % pooled, is the epoch-60 snapshot D-90 and D-93 superseded: 40.16 % pooled at epoch 360 and 52.81 % at the river.</li>
+        </ul>
+      </template>
+      <template class="more">
+        <ul class="src-list">
+          <li>
+            <span class="src-claim">2.4 % preflop, 52.8 % at the river.</span>
+            <span class="src-ref">D-86 &#183; 2026-11-08; D-93 &#183; 2026-11-08</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
     <!-- 5.3 section divider -->
-    <section class="slide" id="s3" data-shape="divider">
+    <section class="slide" id="s9" data-shape="divider">
       <article class="card a-hero">
         <span class="suit suit--tl suit--red" aria-hidden="true">&#9829;</span>
         <span class="suit suit--br suit--red" aria-hidden="true">&#9829;</span>
@@ -843,7 +1167,7 @@ html.js .more-btn { pointer-events: auto; }
     </section>
 
     <!-- 5.4 bullets -->
-    <section class="slide" id="s4" data-shape="bullets">
+    <section class="slide" id="s10" data-shape="bullets">
       <article class="card a-lead">
         <span class="suit suit--tl" aria-hidden="true">&#9830;</span>
         <div class="t-badge"><span class="demo-badge">DEMO</span></div>
@@ -866,7 +1190,7 @@ html.js .more-btn { pointer-events: auto; }
     </section>
 
     <!-- 5.5 comparison / table -->
-    <section class="slide" id="s5" data-shape="comparison">
+    <section class="slide" id="s11" data-shape="comparison">
       <article class="card a-wide">
         <h2 class="t-h2">Demo comparison table</h2>
         <table class="t-table">
@@ -926,7 +1250,7 @@ html.js .more-btn { pointer-events: auto; }
     </section>
 
     <!-- 5.6 chart placeholder -->
-    <section class="slide" id="s6" data-shape="chart">
+    <section class="slide" id="s12" data-shape="chart">
       <article class="card a-chart">
         <h2 class="t-h2">Demo chart placeholder <span class="demo-badge">DEMO</span></h2>
         <div class="plot">
@@ -969,7 +1293,7 @@ html.js .more-btn { pointer-events: auto; }
     </section>
 
     <!-- 5.7 quote -->
-    <section class="slide" id="s7" data-shape="quote">
+    <section class="slide" id="s13" data-shape="quote">
       <article class="card a-hero">
         <span class="suit suit--tl suit--red" aria-hidden="true">&#9830;</span>
         <span class="suit suit--br suit--red" aria-hidden="true">&#9830;</span>
@@ -990,7 +1314,7 @@ html.js .more-btn { pointer-events: auto; }
          same QR as #s2, so the room can scan at the close. No DEMO badge and no
          suit glyph on any of the three cards (D-129, contact.md §3). The
          card__rule sits above the block, never inside its quiet zone. -->
-    <section class="slide" id="s8" data-shape="outtro">
+    <section class="slide" id="s14" data-shape="outtro">
       <article class="card a-wide">
         <h1 class="t-h1">Thank you</h1>
         <i class="card__rule"></i>
@@ -1240,8 +1564,14 @@ html.js .more-btn { pointer-events: auto; }
       <span class="dot"></span>
       <span class="dot"></span>
       <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
     </div>
-    <span id="counter">1 / 8</span>
+    <span id="counter">1 / 14</span>
     <span class="hint">&#8592; &#8594; space &#183; F</span>
     <button type="button" class="more-btn" aria-expanded="false" aria-disabled="true">More (M)</button>
     <span class="demo-note">demo slides: placeholder content</span>

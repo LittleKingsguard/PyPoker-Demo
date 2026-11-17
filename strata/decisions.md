@@ -3708,3 +3708,81 @@ event/date line the user did not give.
 
 **Scope:** the title slide's two text blocks, the tab title, that slide's presenter note, and the counts those move.
 No other slide, no layout, no theme.
+
+---
+
+## D-132 — The deck starts carrying real content, and may reference the repo's figures
+
+**Status:** ACTIVE · **Date:** 2026-11-17
+
+**Source (user, verbatim):** "Next, the first content slide (after the speaker intro) outlines the plan:
+1. Naive, flat model 2. Tokenize the cards 3. Use attention to pick out opponent patterns. Then, next slide:
+Title: \"No plan survives contact with the enemy...\" Show the dead/live trunk html grid (figures/reference-grids.html)
+Next slide: The live/dead trunk svg (network-compare.svg). Then start on the card model information"
+
+**Source (user, verbatim, on assets):** "As long as the files are in the same repo and can be displayed from a local
+copy it's fine to use external data"
+
+**Decision:** the deck stops being a pure sampler and begins carrying the talk. Four beats enter it after the speaker
+contact slide: (1) **the plan** — three numbered items in the user's words: "Naive, flat model", "Tokenize the cards",
+"Use attention to pick out opponent patterns"; (2) **the pivot** — the title "No plan survives contact with the enemy…"
+with the dead/live trunk reference grids; (3) **the trunk** — the `network-compare` figure; (4) the opening of the
+**card model** section. All four are real content and carry no `DEMO` badge.
+
+**External figures are allowed, and only from this repo.** D-118's single-file rule is amended to: `presentation/index.html`
+stays one file with inline CSS and JS and **no network request**, and it may additionally reference files inside this
+repository by relative path (`../figures/…`) — a figure may be an `<img>`, an `<iframe>` or an inlined fragment, but it
+must live in the repo, load from a local copy with no server, and never need the internet. `figures/` therefore becomes a
+sibling asset directory the deck may use (it already carries eight generated SVGs, `reference-grids.html`, a data pack
+and a README with per-figure provenance).
+
+**The grid cannot be one slide, and that is measured:** `figures/reference-grids.html` renders **1271 px tall at
+1100 px wide** (dead grid 541 px, live grid 578 px, 14 px cells). A 1280×720 slide holds 512 px of content, so showing
+both grids on one slide means ~0.40 scale and **≈5.6 px type** on the projector. The beat therefore splits: the pivot
+slide carries the title and the dead-trunk grid, and the live-trunk grid gets its own slide immediately after, before
+`network-compare`. The two grids are the same file shown once each; nothing is invented, cropped or re-typed.
+
+**Numbers rule unchanged, and it bites here.** Every figure on these slides traces to a decision row or record and gets a
+`presentation/FACTCHECK.md` row: the grids' equities and per-street actions come from the replay behind
+`figures/reference-grids.html` (`.probe/make_grids.py`, regenerated 2026-11-17); `network-compare`'s counts are the ones
+its own generator printed (hidden layer 1 **0/50**, layer 2 **0/50** under the 600-scale reward; **23/50** and **24/50**
+under the normalised reward, on the `foldloop-high` checkpoint); and `demo-data.json`'s `trunk_health` block says **22/50**
+alive for the normalised reward because it measures a different run — the slide must say which checkpoint it shows rather
+than presenting one number as the other. The card-model section uses the record's current figures (by-street 2.4 → 36.3 %
+and the representation ladder 13.1 → 40.0 %), not a superseded snapshot.
+
+Rejected: inlining `network-compare.svg` verbatim (61 kB, and it carries `xmlns`, five `http` strings and 172 internal
+`url(#…)` refs, which would end the A2 greps that keep the file provably offline); re-drawing the figures by hand (the
+repo already carries generated ones with provenance); shrinking both grids onto one slide at 5.6 px (a projected grid
+nobody can read is not a figure); and copying the figures into `presentation/` (two copies that drift, when a relative
+path into `figures/` is one).
+
+**Scope:** the four beats and the asset rule. The sampler's remaining slides stay until their content arrives, and the
+content rules (R1–R9) now bind every new slide.
+
+---
+
+## D-133 — The demo sampler slides are deleted; the deck ships as nine real slides
+
+**Status:** ACTIVE · **Date:** 2026-11-17
+
+**Source (user, verbatim):** "Delete the remaining demo slides, out of time"
+
+**Decision:** the five demo sampler slides — `divider`, `bullets`, `comparison`, `chart`, `quote` — are **deleted**
+from the deck, not moved to the tail. The deck ships as **nine real slides** in narrative order: title · contact
+(intro) · the plan · the pivot (dead-trunk grid) · the live-trunk grid · the trunk figure · card-model divider ·
+card-model opening · outtro (contact). There is **no `DEMO` badge left anywhere**, no demo HUD note, and the demo
+slide layouts' CSS goes with them.
+
+Counts that move: A3 = **nine** sections, A4 = **zero** badges (the rule stays true vacuously: nothing demo remains),
+A9 = `#/1`…`#/9`, A11 `#/99` → **9**, the `data-shape` vocabulary is **nine** words
+(`title contact plan pivot livegrid trunk cardmodel signal outtro`), the HUD carries **nine** dots and `n / 9`, and
+presenter notes/sources cover all nine (sources on the six figure/pivot slides).
+
+Rejected: keeping the sampler at the tail (it was scaffolding for theme work, and a talk does not end on placeholder
+copy); rendering the demo layouts as real content (inventing bullets and tables the user has not written); deleting
+only their badges (the slides would still be placeholder copy on stage).
+
+**Scope:** the deletion, the nine-slide renumbering, the counts and the dead CSS. The four content beats designed under
+D-132 are unchanged in substance; the grid split (dead grid on the pivot slide, live grid on the next) stands because
+D-132 measured that both cannot be legible on one slide.

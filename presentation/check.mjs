@@ -38,7 +38,34 @@ const CLIP_PX = 3;            /* G4: fractional line boxes and padding only */
 const OVERLAP_DESIGN_PX = 4;  /* G5: both axes */
 const MIN_FONT = 14;          /* G6: the design floor, measured pre-transform */
 const WHEEL_DELTA = 120;
-const KINDS = ['outside', 'clipped', 'overlap', 'small', 'hash', 'panel', 'leak'];
+const KINDS = ['outside', 'clipped', 'overlap', 'small', 'hash', 'panel', 'leak', 'asset'];
+
+/* G12 (docs/presentation/checks.md §3.2): the asset rule. The two figures are
+ * named here because content.md §4/§5 declares each one's slide and its box;
+ * nothing about a session, a window or a count is held here. */
+const SRC_FORM = /^\.\.\/figures\/[a-z0-9-]+\.svg$/;
+const FIGURES = {
+  6: { src: '../figures/network-compare.svg', w: 653, h: 568 },
+  8: { src: '../figures/signal-by-street.svg', w: 756, h: 468 },
+};
+/* C14: the two grid plates and their declared scales (content.md §3). */
+const PLATES = { 4: 0.96, 5: 0.94 };
+const PLATE_W = 1100;         /* the width the fragment was measured at */
+const PLATE_LETTER = 13;      /* the action letter, at the fragment's own 13px */
+const PLATE_CELL = 14;        /* the hand name and equity, at 14px */
+const PLATE_FLOOR = 12;       /* content.md §3: 13x and 14x the ratio are both >= 12 design px */
+const PLATE_FRAME = 'html.js .pp-wrap';   /* the copied fragment's own text, scoped by its prefix */
+/* C10, C11, C15 and C16 check the copy of these slides (content.md §1). */
+const PLAN_SLIDE = 3;
+const PIVOT_SLIDE = 4;
+const LIVEGRID_SLIDE = 5;
+const TRUNK_SLIDE = 6;
+const SIGNAL_SLIDE = 8;
+const PLAN_STEPS = ['Naive, flat model', 'Tokenize the cards', 'Use attention to pick out opponent patterns'];
+const PLAN_NOTE = 'Three steps, in the order the talk takes them.';
+const PIVOT_TITLE = 'No plan survives contact with the enemy\u2026';   /* U+2026, one character */
+const LIVEGRID_LINE = 'Live trunk: some of these models change their action with the hand, and some do not.';
+const SIGNAL_NUMERALS = ['2.4', '52.8'];
 
 const problems = [];
 
@@ -264,6 +291,10 @@ const PAGE_HELPERS = `
     return isFinite(computed) && computed > 0 ? computed : 1;
   };
   const boxOf = (el) => el ? rectOf(el) : null;
+  /* the copied reference-grid plate: a referenced fragment with its own type
+     ladder (content.md §3), so the deck's own floor and clip rules do not judge
+     it; C14 measures its ratio and G12 its box instead. */
+  const inPlate = (el) => el.closest ? el.closest('.pp-wrap') !== null : false;
   const textRecords = (root) => {
     const out = [];
     for (const el of Array.prototype.slice.call(root.querySelectorAll('*'))) {
@@ -276,6 +307,7 @@ const PAGE_HELPERS = `
         ovx: cs.overflowX, ovy: cs.overflowY,
         sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, ch: el.clientHeight,
         truncate: el.getAttribute('data-truncate') === 'ok',
+        plate: inPlate(el),
         text: el.textContent.trim().slice(0, 80),
       });
     }
@@ -312,7 +344,7 @@ const PROBE_SCENE = '(function () {' + PAGE_HELPERS + `
     range.selectNodeContents(el);
     for (const r of Array.prototype.slice.call(range.getClientRects())) {
       if (r.width <= 0 || r.height <= 0) { continue; }
-      boxes.push({ el, path: pathOf(el), text: el.textContent.trim().slice(0, 40), rect: { x: r.left, y: r.top, w: r.width, h: r.height } });
+      boxes.push({ el, path: pathOf(el), text: el.textContent.trim().slice(0, 40), plate: inPlate(el), rect: { x: r.left, y: r.top, w: r.width, h: r.height } });
     }
   }
   for (let i = 0; i < boxes.length; i += 1) {
@@ -320,6 +352,9 @@ const PROBE_SCENE = '(function () {' + PAGE_HELPERS + `
       const a = boxes[i];
       const b = boxes[j];
       if (a.el === b.el || a.el.contains(b.el) || b.el.contains(a.el)) { continue; }
+      /* the plate's own screen-reader caption is 1px wide on purpose, so its
+         line boxes stack over the table: the fragment's geometry, not the deck's */
+      if (a.plate || b.plate) { continue; }
       const ox = Math.min(a.rect.x + a.rect.w, b.rect.x + b.rect.w) - Math.max(a.rect.x, b.rect.x);
       const oy = Math.min(a.rect.y + a.rect.h, b.rect.y + b.rect.h) - Math.max(a.rect.y, b.rect.y);
       if (ox > 0 && oy > 0) { overlap.push({ a: a.path, b: b.path, at: a.text, bt: b.text, ox: ox, oy: oy }); }
@@ -504,6 +539,73 @@ const PROBE_QR = '(function () {' + PAGE_HELPERS + `
   });
 }())`;
 
+/* G12's render half, and C10, C11, C14, C15 and C16 (content.md §5): the
+ * figures' load state and boxes, the two plates' scale, and the copy each of
+ * these slides carries in its own type. "Own text" is the slide's text minus
+ * its inert templates and minus the copied plate, so a datum the plate draws
+ * is never mistaken for a number the deck prints. */
+const PROBE_CONTENT = '(function () {' + PAGE_HELPERS + `
+  const slide = document.querySelector('section.slide[data-active]');
+  const scale = scaleOf();
+  const design = (el) => { const r = el.getBoundingClientRect(); return { x: r.left / scale, y: r.top / scale, w: r.width / scale, h: r.height / scale }; };
+  const norm = (s) => s.replace(/\\s+/g, ' ').trim();
+  const deckText = (() => {
+    if (!slide) { return ''; }
+    let out = '';
+    for (const node of Array.prototype.slice.call(slide.childNodes)) {
+      if (node.nodeType === 3) { out += node.nodeValue; continue; }
+      if (node.nodeType !== 1) { continue; }
+      if (node.tagName === 'TEMPLATE' || node.tagName === 'IMG') { continue; }
+      if (node.classList.contains('plate')) { continue; }
+      out += node.textContent;
+    }
+    return norm(out);
+  })();
+  const h1 = slide ? slide.querySelector('h1') : null;
+  const plate = slide ? slide.querySelector('.pp-wrap') : null;
+  const frame = plate ? plate.parentElement : null;
+  const imgs = slide ? Array.prototype.map.call(slide.querySelectorAll('img'), (el) => {
+    const cs = getComputedStyle(el);
+    return {
+      src: el.getAttribute('src'), complete: el.complete === true,
+      nw: el.naturalWidth, nh: el.naturalHeight,
+      alt: el.getAttribute('alt'), ariaHidden: el.getAttribute('aria-hidden'),
+      box: design(el), display: cs.display,
+    };
+  }) : [];
+  return JSON.stringify({
+    id: slide ? slide.id : '', shape: slide ? slide.getAttribute('data-shape') : '',
+    scale, slide: slide ? design(slide) : null,
+    ownText: deckText,
+    h1: h1 ? {
+      text: h1.textContent, trimmed: h1.textContent.trim(),
+      childNodes: h1.childNodes.length,
+      childTypes: Array.prototype.map.call(h1.childNodes, (n) => n.nodeType),
+      fs: parseFloat(getComputedStyle(h1).fontSize),
+    } : null,
+    planSteps: slide ? Array.prototype.map.call(slide.querySelectorAll('.t-plan .t-step'), (el) => el.textContent.trim()) : [],
+    planItems: slide ? slide.querySelectorAll('.t-plan li').length : 0,
+    plate: plate ? {
+      offsetW: plate.offsetWidth, offsetH: plate.offsetHeight,
+      ratio: plate.getBoundingClientRect().width / plate.offsetWidth / scale,
+      letterFs: (function () { const el = plate.querySelector('td span'); return el ? parseFloat(getComputedStyle(el).fontSize) : 0; })(),
+      cellFs: (function () { const el = plate.querySelector('.pp-hand'); return el ? parseFloat(getComputedStyle(el).fontSize) : 0; })(),
+      box: design(plate),
+      rows: plate.querySelectorAll('tbody tr').length,
+      /* the last row of datum, in slide-relative design px: this is what the
+         clipping wrapper must not cut (the plate's own bottom padding may be) */
+      lastRowBottom: (function () {
+        const rows = plate.querySelectorAll('tbody tr');
+        if (!rows.length || !slide) { return null; }
+        const r = rows[rows.length - 1].getBoundingClientRect();
+        return (r.bottom - slide.getBoundingClientRect().top) / scale;
+      })(),
+      framed: frame ? { overflow: getComputedStyle(frame).overflow, box: design(frame) } : null,
+    } : null,
+    imgs,
+  });
+}())`;
+
 /* ---------------------------------------------------------------------------
  * Reporting
  * ------------------------------------------------------------------------- */
@@ -515,7 +617,10 @@ function report(slide, sizeTag, kind, detail) {
 
 /* G1: static checks on the file the gate was pointed at, carried forward
  * mechanically from design.md A1/A2/A6. Kind leak: a network dependency or an
- * unsafe write reaching the presented file is an audience hazard. */
+ * unsafe write reaching the presented file is an audience hazard.
+ * A2's <img = 0 and src = 0 greps are GONE and must not be left in place
+ * (checks.md §3.2): a figure may be referenced by relative path, and the rule
+ * that replaces the ban is G12, below. */
 function checkStatic(deckPath) {
   const source = readFileSync(deckPath, 'utf8');
   const bytes = statSync(deckPath).size;
@@ -526,13 +631,92 @@ function checkStatic(deckPath) {
   };
   must('inline <style> blocks', (source.match(/<style(\s|>)/g) || []).length, 1);
   must('inline <script> blocks', (source.match(/<script(\s|>)/g) || []).length, 1);
-  for (const banned of ['http', 'url(', '@import', '@font-face', '<link', '<img', 'src=', 'eval', 'new Function', 'innerHTML']) {
+  for (const banned of ['http', 'url(', '@import', '@font-face', '<link', 'eval', 'new Function', 'innerHTML']) {
     if (source.indexOf(banned) !== -1) {
       report('-', 'static', 'leak', 'G1 the file contains "' + banned + '" (0 allowed): ' + deckPath);
     }
   }
   if (bytes < 12288) {
     report('-', 'static', 'leak', 'G1 the file is ' + bytes + ' bytes, under the 12 kB floor');
+  }
+}
+
+/* G12's static half (checks.md §3.2): every src is relative, resolves to a file
+ * inside this repo, carries no scheme, no leading //, no data: and no query
+ * string; exactly two of them; each is one of the two figures content.md
+ * declares; and the copied fragment's CSS is scoped by its own .pp prefix. It
+ * needs no browser, so a missing figure fails in a second rather than after
+ * fourteen slides. */
+function checkAssetsStatic(deckPath) {
+  const source = readFileSync(deckPath, 'utf8');
+  const base = dirname(deckPath);
+  const found = [];
+  const re = /\ssrc\s*=\s*"([^"]*)"/g;
+  let match;
+  while ((match = re.exec(source)) !== null) {
+    const src = match[1];
+    found.push(src);
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(src)) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" carries a scheme (no scheme is allowed)');
+    }
+    if (src.startsWith('//')) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" begins with // (that is a network path)');
+    }
+    if (src.indexOf('data:') !== -1) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" is a data: URI');
+    }
+    if (src.indexOf('?') !== -1) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" carries a query string');
+    }
+    if (!SRC_FORM.test(src)) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" does not match ../figures/<name>.svg');
+    }
+    const resolved = resolve(base, src);
+    if (!insideRepo(resolved)) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" resolves to ' + resolved + ', outside the repo');
+      continue;
+    }
+    let exists = false;
+    try { exists = statSync(resolved).isFile(); } catch { exists = false; }
+    if (!exists) {
+      report('-', 'static', 'asset', 'G12 src="' + src + '" resolves to ' + resolved + ', which does not exist');
+    }
+  }
+  if (found.length !== 2) {
+    report('-', 'static', 'asset', 'G12 the file carries ' + found.length + ' src attributes, expected 2 (the two figures)');
+  }
+  const wantSrcs = Object.keys(FIGURES).map((n) => FIGURES[n].src).sort();
+  if (found.length === 2 && found.slice().sort().join(',') !== wantSrcs.join(',')) {
+    report('-', 'static', 'asset', 'G12 the two src values are ' + found.join(' and ') + ', expected ' + wantSrcs.join(' and '));
+  }
+  if (source.indexOf('<img') === -1) {
+    report('-', 'static', 'asset', 'G12 the file carries no <img>: both declared figures are missing');
+  }
+
+  /* C13: every rule inside the copied fragment CSS begins with .pp, so no
+   * fragment rule can match a deck element and no deck rule can match a
+   * fragment element. Its one @media block wraps nothing else. */
+  const begin = source.indexOf('/* BEGIN copied-fragment-css');
+  const end = source.indexOf('/* END copied-fragment-css');
+  if (begin < 0 || end < 0 || end < begin) {
+    report('-', 'static', 'asset', 'G12 the copied fragment CSS is not marked between /* BEGIN copied-fragment-css and /* END copied-fragment-css');
+    return;
+  }
+  /* the region's own comments are the deck's (they mark it), not the fragment's rules */
+  const fragment = source.slice(begin, end).replace(/\/\*[\s\S]*?\*\//g, '');
+  const selectors = fragment.match(/[^{}]+\{/g) || [];
+  for (const raw of selectors) {
+    const selector = raw.slice(0, -1).trim();
+    if (selector === '' || selector.startsWith('@')) { continue; }   /* the one @media wrapper */
+    for (const part of selector.split(',')) {
+      const one = part.trim();
+      if (!one.startsWith('.pp')) {
+        report('-', 'static', 'asset', 'G12 a copied fragment rule is not .pp-scoped: "' + one + '" can reach a deck element');
+      }
+    }
+  }
+  if (fragment.indexOf('@font-face') !== -1 || fragment.indexOf('@import') !== -1) {
+    report('-', 'static', 'asset', 'G12 the copied fragment CSS carries @font-face or @import');
   }
 }
 
@@ -593,9 +777,12 @@ function checkScene(sizeTag, probe) {
     }
   }
 
-  /* G4: clipped text on either axis, 3px tolerance, exemptions per checks.md 3.1 */
+  /* G4: clipped text on either axis, 3px tolerance, exemptions per checks.md 3.1.
+   * The copied reference-grid plate is exempt on both axes: its screen-reader
+   * caption is clipped by construction and its type ladder is content.md §3's
+   * own, measured by C14 rather than by this deck's floor. */
   for (const item of probe.texts) {
-    if (item.truncate) { continue; }
+    if (item.truncate || item.plate) { continue; }
     if (item.ovx === 'hidden' || item.ovx === 'clip') {
       if (item.sw > item.cw + CLIP_PX) {
         report(slideLabel, sizeTag, 'clipped', 'G4 ' + item.path + ' clips ' + (item.sw - item.cw) + 'px horizontally: "' + item.text + '"');
@@ -608,9 +795,12 @@ function checkScene(sizeTag, probe) {
     }
   }
 
-  /* G6: text under 14px, computed pre-transform, active slide only */
+  /* G6: text under 14px, computed pre-transform, active slide only. The plate's
+   * own 11/12/13px lines are the fragment's declared ladder (content.md §3 names
+   * them and C14 measures the ratio that keeps its cells over 12 design px). */
   for (const item of probe.texts) {
     if (probe.inSlidePaths.indexOf(item.path) === -1) { continue; }
+    if (item.plate) { continue; }
     if (item.fs < MIN_FONT) {
       report(slideLabel, sizeTag, 'small', 'G6 ' + item.path + ' is ' + item.fs + 'px: "' + item.text + '"');
     }
@@ -713,6 +903,133 @@ function rectText(rect) {
   return '[' + round(rect.x) + ',' + round(rect.y) + ' ' + round(rect.w) + 'x' + round(rect.h) + ']';
 }
 
+/* G12's render half and C10/C11/C14/C15/C16 (content.md §5), read off the slide
+ * the gate is standing on. `staticCopy` is true at the design size only: these
+ * are facts about the file's own words, not about the glass, so they are stated
+ * once per run rather than once per window. */
+function checkContent(n, sizeTag, data, staticCopy, manifest) {
+  const label = '#' + (data.id || 's' + n);
+  const at = '§' + n;
+  if (n === PLAN_SLIDE) {
+    if (data.planItems !== 3) {
+      report(label, sizeTag, 'hash', 'C10 ' + at + ' holds ' + data.planItems + ' .t-plan li, expected 3');
+    }
+    if (staticCopy && data.planSteps.join(' | ') !== PLAN_STEPS.join(' | ')) {
+      report(label, sizeTag, 'hash', 'C10 ' + at + ' plan steps are "' + data.planSteps.join(' | ') + '", expected "' + PLAN_STEPS.join(' | ') + '"');
+    }
+    if (staticCopy && data.ownText.indexOf(PLAN_NOTE) === -1) {
+      report(label, sizeTag, 'hash', 'C10 ' + at + ' does not carry the note line "' + PLAN_NOTE + '"');
+    }
+  }
+  if (n === PIVOT_SLIDE) {
+    if (!data.h1) {
+      report(label, sizeTag, 'hash', 'C11 ' + at + ' has no h1, so the pivot title is missing');
+    } else {
+      if (staticCopy && data.h1.trimmed !== PIVOT_TITLE) {
+        report(label, sizeTag, 'hash', 'C11 ' + at + ' h1 reads "' + data.h1.trimmed + '", expected "' + PIVOT_TITLE + '" (U+2026 as the last character)');
+      }
+      if (staticCopy && data.h1.childNodes !== 1) {
+        report(label, sizeTag, 'hash', 'C11 ' + at + ' h1 holds ' + data.h1.childNodes + ' child nodes (' + data.h1.childTypes.join(',') + '), expected one text node');
+      }
+    }
+  }
+  if (n === LIVEGRID_SLIDE && staticCopy) {
+    if (data.ownText !== LIVEGRID_LINE) {
+      report(label, sizeTag, 'hash', 'C15 ' + at + ' own text reads "' + data.ownText + '", expected "' + LIVEGRID_LINE + '"');
+    }
+  }
+  if (n === TRUNK_SLIDE && staticCopy) {
+    const wants = [['0 / 50', 2], ['23 / 50', 1], ['24 / 50', 1], ['600-scale', 1], ['normalised', 1], ['foldloop-high', 1]];
+    for (const [needle, times] of wants) {
+      const seen = data.ownText.split(needle).length - 1;
+      if (seen !== times) {
+        report(label, sizeTag, 'asset', 'C15 ' + at + ' prints "' + needle + '" ' + seen + ' times, expected ' + times);
+      }
+    }
+  }
+  if (n === SIGNAL_SLIDE && staticCopy) {
+    const numerals = data.ownText.match(/\d+(?:\.\d+)?/g) || [];
+    if (numerals.join(',') !== SIGNAL_NUMERALS.join(',')) {
+      report(label, sizeTag, 'asset', 'C16 ' + at + ' prints the numerals [' + numerals.join(', ') + '], expected exactly [' + SIGNAL_NUMERALS.join(', ') + ']');
+    }
+  }
+
+  /* G12: the figures. Each declared slide holds exactly one <img>, it loaded,
+   * it sits in its declared box within 1 design px, and its alt is the string
+   * figures/manifest.json gives for that file. Any other slide holds none. */
+  const want = FIGURES[n];
+  if (want) {
+    if (data.imgs.length !== 1) {
+      report(label, sizeTag, 'asset', 'G12 ' + at + ' holds ' + data.imgs.length + ' <img> elements, expected 1 (' + want.src + ')');
+    }
+    for (const img of data.imgs) {
+      const name = (img.src || '').split('/').pop();
+      if (img.src !== want.src) {
+        report(label, sizeTag, 'asset', 'G12 ' + at + ' references ' + img.src + ', expected ' + want.src);
+      }
+      if (img.complete !== true || !(img.nw > 0)) {
+        report(label, sizeTag, 'asset', 'G12 ' + at + ' ' + img.src + ' did not load (complete ' + img.complete + ', naturalWidth ' + img.nw + ')');
+      }
+      if (Math.abs(img.box.w - want.w) > 1 || Math.abs(img.box.h - want.h) > 1) {
+        report(label, sizeTag, 'asset', 'G12 ' + at + ' renders ' + round(img.box.w) + 'x' + round(img.box.h) +
+          ' design px, expected ' + want.w + 'x' + want.h);
+      }
+      if (img.ariaHidden !== null) {
+        report(label, sizeTag, 'asset', 'G12 ' + at + ' ' + img.src + ' is aria-hidden: a figure is content (design A14)');
+      }
+      const entry = manifest[name];
+      if (!entry) {
+        report(label, sizeTag, 'asset', 'G12 figures/manifest.json has no entry for ' + name);
+      } else if (img.alt !== entry.alt) {
+        report(label, sizeTag, 'asset', 'G12 ' + at + ' alt is "' + img.alt + '", expected the manifest string "' + entry.alt + '"');
+      }
+    }
+  } else if (data.imgs.length > 0) {
+    report(label, sizeTag, 'asset', 'G12 ' + at + ' holds ' + data.imgs.length + ' <img>, and only the declared figure slides may');
+  }
+
+  /* C14: the two plates. gBCR / offsetWidth / --scale is the fragment's own
+   * scale, and 13x and 14x it keep the action letter and the cell text over the
+   * 12 design px floor content.md §3 states. */
+  const wantScale = PLATES[n];
+  if (wantScale) {
+    if (!data.plate) {
+      report(label, sizeTag, 'asset', 'G12 ' + at + ' holds no div.pp-wrap plate');
+      return;
+    }
+    const plate = data.plate;
+    if (Math.abs(plate.ratio - wantScale) > 0.005) {
+      report(label, sizeTag, 'asset', 'G12 ' + at + ' .pp-wrap scales at ' + round(plate.ratio) +
+        ' (getBoundingClientRect().width / offsetWidth / --scale), expected ' + wantScale + ' +/- 0.005');
+    }
+    if (plate.offsetW !== PLATE_W) {
+      report(label, sizeTag, 'asset', 'G12 ' + at + ' .pp-wrap is ' + plate.offsetW + 'px wide, expected the measured ' + PLATE_W + 'px');
+    }
+    if (plate.rows !== 8) {
+      report(label, sizeTag, 'asset', 'G12 ' + at + ' .pp-wrap shows ' + plate.rows + ' body rows, expected the fragment\'s 8');
+    }
+    if (PLATE_LETTER * plate.ratio < PLATE_FLOOR || PLATE_CELL * plate.ratio < PLATE_FLOOR) {
+      report(label, sizeTag, 'small', 'C14 ' + at + ' at scale ' + round(plate.ratio) + ' drops the 13px action letter to ' +
+        round(PLATE_LETTER * plate.ratio) + 'px and the 14px cell text to ' + round(PLATE_CELL * plate.ratio) + 'px, under the ' + PLATE_FLOOR + 'px floor');
+    }
+    if (plate.letterFs < PLATE_LETTER - 0.01 || plate.cellFs < PLATE_CELL - 0.01) {
+      report(label, sizeTag, 'small', 'C14 ' + at + ' the fragment\'s own sizes are not what renders: letter ' + plate.letterFs + 'px, cell ' + plate.cellFs + 'px');
+    }
+    if (!plate.framed || plate.framed.overflow !== 'hidden') {
+      report(label, sizeTag, 'asset', 'C14 ' + at + ' the plate is not inside a clipping wrapper (overflow: ' + (plate.framed ? plate.framed.overflow : 'no wrapper') + ')');
+    }
+    /* the datum must stay inside the slide box the plate is clipped by: a grown
+       table (a wrapped hand name, an extra row) is what this catches, and the
+       plate's own bottom padding is what the wrapper is allowed to cut */
+    if (plate.lastRowBottom !== null && plate.lastRowBottom > 568 + 1) {
+      report(label, sizeTag, 'asset', 'C14 ' + at + ' the plate\'s last row ends at ' + round(plate.lastRowBottom) +
+        ' design px, past the 568px slide box: the wrapper cuts a datum');
+    }
+  } else if (data.plate) {
+    report(label, sizeTag, 'asset', 'G12 ' + at + ' holds a div.pp-wrap plate, and only the two grid slides may');
+  }
+}
+
 function round(value) {
   return Math.round(value * 100) / 100;
 }
@@ -735,6 +1052,20 @@ async function main() {
   process.stderr.write('check: ' + opts.deck + '\ncheck: screenshots in ' + out + '\n');
 
   checkStatic(opts.deck);
+  checkAssetsStatic(opts.deck);
+
+  /* the manifest's alt strings are the authority for a figure's alt; read once,
+   * before any launch, beside the static half it belongs with */
+  let manifest = {};
+  try {
+    const parsed = JSON.parse(readFileSync(join(REPO, 'figures', 'manifest.json'), 'utf8'));
+    for (const key of Object.keys(parsed)) {
+      const entry = parsed[key];
+      if (entry && entry.file) { manifest[entry.file] = entry; }
+    }
+  } catch (error) {
+    report('-', 'static', 'asset', 'G12 figures/manifest.json could not be read: ' + (error && error.message ? error.message : error));
+  }
 
   const deckUrl = pathToFileURL(opts.deck).href;
   const state = { panel: {}, live: {}, total: null, slideList: null };
@@ -914,6 +1245,11 @@ async function main() {
             qr.count + ' svg.qr, and only the contact slides may');
         }
         checkQr(slideLabel, sizeTag, qr);
+        /* G12's render half and C10/C11/C14/C15/C16 (checks.md §3.2, content.md
+         * §5): the figures, the plates and the copy these five slides carry. The
+         * copy half is a fact about the file, so it is stated once, at the design
+         * size; the geometry and the load state are measured at both. */
+        checkContent(n, sizeTag, await json(PROBE_CONTENT), sizeTag === '1280x720', manifest);
         await shoot('s' + n + '-' + sizeTag + '.png');
 
         /* G9: the More control on this slide, and what M does */
