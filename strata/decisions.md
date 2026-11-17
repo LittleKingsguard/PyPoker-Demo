@@ -3561,3 +3561,28 @@ agent reads its cards; this quantifies the remaining gap and names the fix: the 
 *texture* rather than *equity*, which a Monte-Carlo target or the card-model ranking fed in directly would change.
 
 **The last measurement owed on the policy side.**
+
+---
+
+## D-128 — Presentation figures and demo data are generated from the record
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Another session is starting the design work for the presentation slides — this session
+should pivot to setting up the graphs/charts and other performance demonstrations to be used in the slides"
+
+**Produced** in `figures/`: **eight SVGs** (signal by street, representation ladder, card-model convergence, the extremes
+battery, the chips ladder, trunk health, monotonicity, padding composition) plus `manifest.json` (title, caption,
+**provenance decision row**, alt text per figure), `demo-data.json` (nine structured blocks with CIs and ladders) and a
+`README.md` with inlining instructions and suggested slide pairings.
+
+**Discipline kept:** every number is annotated with the decision row it comes from; the generator is one script
+(`figures/make_figures.py`) that can be re-run if a number changes; figures are **transparent-background SVG** because the
+deck is a self-contained felt-themed page (D-118) and must inline them.
+
+**Verified by inspection, not assumed**: four of the eight were rendered to PNG and viewed; two had real defects
+(a white axes panel that would have sat on the felt as a bright rectangle, and label collisions in the monotonicity
+cluster) and were fixed before commit.
+
+**Left to the deck session:** slide layout, the felt theme, inlining, and the narrative — this record supplies only the
+data and the pictures.

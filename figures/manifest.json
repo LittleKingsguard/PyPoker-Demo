@@ -1,0 +1,58 @@
+{
+ "signal-by-street": {
+  "title": "Signal by street",
+  "caption": "How much of a six-way showdown the cards explain, by how many are known.",
+  "provenance": "D-83, D-86, D-93",
+  "alt": "Bars: 2.4% preflop, 14.4% flop, 20.9% turn, 52.8% river.",
+  "file": "signal-by-street.svg"
+ },
+ "representation-ladder": {
+  "title": "Representation ladder",
+  "caption": "The same target, five encodings. Attention with positions wins; the embedding buys the ceiling, not the mechanism.",
+  "provenance": "D-84, D-86, D-87, D-88, D-89, D-93, D-96",
+  "alt": "Horizontal bars from 13.1% (mean pool) to 40.0% (attention, 400 epochs).",
+  "file": "representation-ladder.svg"
+ },
+ "card-model-convergence": {
+  "title": "Card model convergence",
+  "caption": "Every early figure was a snapshot: the model was still improving at 320 epochs and flattened at 360-400.",
+  "provenance": "D-85, D-93",
+  "alt": "Line: R-squared rises from 25% at 20 epochs to 40% at 360, with the 60-epoch snapshot marked.",
+  "file": "card-model-convergence.svg"
+ },
+ "battery-error": {
+  "title": "Extremes battery",
+  "caption": "The converged card model predicts 2.7% for trip aces whose true equity is 91.8% \u2014 the failure a pooled R-squared could not show.",
+  "provenance": "D-91, D-94, D-95",
+  "alt": "Grouped bars comparing true and predicted equity across seven verified extreme hands.",
+  "file": "battery-error.svg"
+ },
+ "chips-ladder": {
+  "title": "Chips per hand",
+  "caption": "Same representation, same pooler, same league: the epsilon floor moves the agent from folding every hand to a mixed policy worth +11 to +13 chips per hand.",
+  "provenance": "D-72, D-105, D-125, D-126",
+  "alt": "Horizontal bars with error bars: fold -0.6, product +1.8, eps 0.05 +3.7, eps 0.60 +11.3, +opponent model +12.9.",
+  "file": "chips-ladder.svg"
+ },
+ "trunk-health": {
+  "title": "Dead trunk",
+  "caption": "At the 600-scale reward every hidden unit was dead and the policy was a constant; the normalised reward revives 22 of 50.",
+  "provenance": "D-60, D-67, D-108",
+  "alt": "Two stacked bars: 0 of 50 live units under the 600-scale reward, 22 of 50 under the normalised reward.",
+  "file": "trunk-health.svg"
+ },
+ "monotonicity": {
+  "title": "Monotonicity",
+  "caption": "Aggression should rise with equity. Suited junk is shoved while a small pair folds, and queens are called while an offsuit ace is shoved: 12 violations.",
+  "provenance": "D-116, D-127",
+  "alt": "Scatter of action (fold, call, raise) against true equity for twelve hole sets, showing inversions.",
+  "file": "monotonicity.svg"
+ },
+ "padding": {
+  "title": "Padding composition",
+  "caption": "A six-seat observation is 122 tokens; a preflop decision uses 14. The unmasked pool averaged the other 108 into every decision.",
+  "provenance": "D-78, D-79, D-110",
+  "alt": "Stacked bar: 14 real tokens and 108 padding positions out of 122.",
+  "file": "padding.svg"
+ }
+}

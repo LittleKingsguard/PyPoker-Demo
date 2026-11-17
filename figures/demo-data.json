@@ -1,0 +1,52 @@
+{
+ "_note": "Demo data for the deck. Every number is from a decision row or record; provenance per block.",
+ "chips_per_hand": {
+  "provenance": "D-72, D-105, D-125, D-126",
+  "rows": [
+   {"config": "fold every hand", "chips": -0.60, "ci": 0.04, "seeds": 3},
+   {"config": "product learner, net-chips", "chips": 1.82, "ci": 8.81, "seeds": 3},
+   {"config": "probe, exploration floor 0.05", "chips": 3.68, "ci": 3.21, "seeds": 1},
+   {"config": "probe, exploration floor 0.60", "chips": 11.30, "ci": 4.16, "seeds": 3},
+   {"config": "floor 0.60 + opponent model", "chips": 12.92, "ci": 5.28, "seeds": 3}
+  ]
+ },
+ "signal_by_street": {"provenance": "D-83, D-86, D-93", "rows": [
+   {"known_cards": 2, "street": "preflop", "variance_explained": 2.4},
+   {"known_cards": 5, "street": "flop", "variance_explained": 14.4},
+   {"known_cards": 6, "street": "turn", "variance_explained": 20.9},
+   {"known_cards": 7, "street": "river", "variance_explained": 52.8}]},
+ "representation_ladder": {"provenance": "D-84, D-87, D-88, D-89, D-96", "rows": [
+   {"representation": "tokens + mean pool", "variance_explained": 13.1},
+   {"representation": "tokens + positions + mean", "variance_explained": 15.3},
+   {"representation": "flat one-hot (433)", "variance_explained": 20.4},
+   {"representation": "attention + positions, 120 epochs", "variance_explained": 32.4},
+   {"representation": "attention + positions, 400 epochs", "variance_explained": 40.0}]},
+ "battery": {"provenance": "D-91, D-94, D-95", "model": "attention, 400 epochs", "rows": [
+   {"hand": "quad aces", "true": 100.0, "predicted": 99.66},
+   {"hand": "nut flush", "true": 100.0, "predicted": 99.65},
+   {"hand": "ace-high straight", "true": 97.77, "predicted": 11.21},
+   {"hand": "trip aces", "true": 91.84, "predicted": 2.71},
+   {"hand": "pair of kings (dry)", "true": 45.07, "predicted": 28.03},
+   {"hand": "2-3 offsuit junk", "true": 0.0, "predicted": 0.0}]},
+ "trunk_health": {"provenance": "D-60, D-67, D-108", "rows": [
+   {"reward": "600-scale net-chips", "units": 50, "alive": 0, "distinct_activations": 1},
+   {"reward": "normalised", "units": 50, "alive": 22, "distinct_activations": 277}]},
+ "monotonicity": {"provenance": "D-116, D-127", "violations": 12, "pairs": 66, "rows": [
+   {"hand": "72o", "equity": 6.8, "action": "fold"}, {"hand": "32o", "equity": 9.3, "action": "fold"},
+   {"hand": "82o", "equity": 10.6, "action": "fold"}, {"hand": "72s", "equity": 10.5, "action": "raise"},
+   {"hand": "43s", "equity": 12.2, "action": "raise"}, {"hand": "22", "equity": 12.3, "action": "fold"},
+   {"hand": "87s", "equity": 19.3, "action": "call"}, {"hand": "KQo", "equity": 22.8, "action": "raise"},
+   {"hand": "T9s", "equity": 25.2, "action": "call"}, {"hand": "AKo", "equity": 30.8, "action": "raise"},
+   {"hand": "QQ", "equity": 41.1, "action": "call"}, {"hand": "AA", "equity": 50.9, "action": "raise"}]},
+ "policy_on_extreme_states": {"provenance": "D-116", "note": "masked pooler, pre-floor arms", "rows": [
+   {"hand": "quad aces", "equity": 100.0, "control": "fold", "strength_arm": "raise-minimum"},
+   {"hand": "nut flush", "equity": 100.0, "control": "fold", "strength_arm": "raise-minimum"},
+   {"hand": "trip aces", "equity": 91.84, "control": "fold", "strength_arm": "raise-minimum"},
+   {"hand": "pair of kings (dry)", "equity": 45.07, "control": "raise", "strength_arm": "raise-minimum"},
+   {"hand": "2-3 offsuit junk", "equity": 0.0, "control": "raise", "strength_arm": "raise-minimum"}]},
+ "opponent_model": {"provenance": "D-121, D-122, D-113", "rows": [
+   {"model": "table-level target", "balanced_accuracy": 0.0, "raise_recall": 0.0, "note": "degenerate: lift <= 0 against every opponent; 95.9% of labels were calls"},
+   {"model": "per-seat", "balanced_accuracy": 0.730, "raise_recall": 0.62},
+   {"model": "per-seat + identity", "balanced_accuracy": 0.821, "raise_recall": 1.00}]},
+ "padding": {"provenance": "D-78, D-79, D-110", "real": 14, "pad": 108, "total": 122, "pad_share": 0.885}
+}
