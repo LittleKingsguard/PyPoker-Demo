@@ -3204,3 +3204,35 @@ alike — consistent with the card model's lock-detector shape (D-95) and with a
 **So the pooler was *a* blocker and removing it was necessary, not sufficient.** The remaining problem is that the
 fold/raise choice is not ranked by strength. **The immediate obligation is a seed check**: 2/5 on one seed and one arm is
 a sighting, not a result — D-82's flicker was exactly this and did not survive 15,000 hands across seeds.
+
+---
+
+## D-116 — On the extreme states the policy folds locks and raises junk: it does not rank hands
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "How does it behave under best-possible-hand scenarios?"
+
+**Measured** on the eight verified battery states (D-91), both masked arms, every street:
+
+| state | truth | masked control | masked strength |
+|---|---|---|---|
+| quad aces / nut flush / trip aces | 100 / 100 / 91.8 % | **fold preflop** | raise-min ×4 |
+| ace-high straight | 97.8 % | raise ¼ → ½ | raise-min ×4 |
+| pair of kings, dry | 45.1 % | raise ¼ → ½ | raise-min ×4 |
+| **2-3 offsuit junk** | **0.00 %** | **raise ¼ → ½ ×3** | **raise-min ×4** |
+| 2-7 offsuit | 0.00 % | fold preflop | **fold preflop** |
+
+**The control is anti-correlated**: it folds quads, the nut flush and trip aces preflop and raises the worst hand to the
+river. **The strength arm is a single-point threshold**: it raise-minimums everything — including the 2-3 junk — and
+folds only 2-7 offsuit. So D-115's "card-dependence" is **one distinction keyed to one hand shape**, not a strength
+ordering: quads and 2-3 are played identically.
+
+**What it settles:** the mask fixed the input channel and the policy still has **no monotone relationship between equity
+and aggression** — one arm inverts it, the other flattens it. That is the card model's binary-target defect arriving in
+the policy: a lock detector (D-95: 2.7 % for trip aces at 91.8 %) cannot support a policy that tells a lock from a
+coin-flip.
+
+**The next measurement owed is a monotonicity test**, not another census: rank a ladder of hands by true equity and check
+that aggression is non-decreasing along it. Both arms fail today, and that is the number to quote beside the card
+model's calibration error.
