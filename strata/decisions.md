@@ -2842,3 +2842,34 @@ rule, not sufficient.
 
 **Next**: a declared **Monte-Carlo return target** as a learning-rule axis, then the same two-arm comparison — the only
 explanation consistent with every measurement in this line.
+
+---
+
+## D-104 — The difference was the budget: D-103 is withdrawn and the probe has no demonstrated advantage
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Withdraws:** D-103
+
+**Source (user, verbatim):** "What is the difference between the product and the probe that is causing the trained
+behavior difference?"
+
+**Answer: the training budget, and nothing else that has been tested.**
+
+| arm | budget | chips/hand vs the league |
+|---|---|---|
+| control | 5,000 | −0.60 ± 0.04 (fold 100 %) |
+| strength + seeded | 5,000 | −0.60 ± 0.04 (fold 100 %) |
+| **control** | **15,000** | **+3.46 ± 7.16** (call 83 %, raise 17 %) |
+| **strength + seeded** | **15,000** | **+3.46 ± 7.16** (call 83 %, raise 17 %) |
+
+**D-103 withdrawn:** the product does not fold everything with the strength input — at the probe's own 15,000-hand
+budget it learns a calling policy worth **+3.46 ± 7.16** against the league. The 5,000-hand collapse was an
+**under-trained learner**, not a structural difference.
+
+**And the probe's +1.61 sits inside that ±7.16 interval**, so **the probe has no demonstrated advantage over the
+product at equal budget**; the "probe +1.9, product −0.6" comparison mixed two budgets and may not be quoted.
+
+**Excluded along the way:** the utility is not the cause (`net-chips` and `stack-shortfall` both fold 100 % at 5,000);
+and diluting the representation like the product's pooler moves the probe the *wrong* way but not significantly.
+
+**What survives of D-103:** the strength input and the seeded embeddings change **nothing** — measured at 5,000 hands
+across three seeds and at 15,000 hands on both arms, with distinct containers and identical decisions.
