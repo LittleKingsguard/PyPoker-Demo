@@ -3084,3 +3084,36 @@ own arm; (2) a population with **measured card-sensitivity** — today's league 
 (3) the **cross-hand carrier** designed as its own unit, with the checkpoint-equals-policy and matrix invariants
 addressed; (4) an evaluation with the block zeroed and the sequence held at fixed width, so the null cannot be the
 pooler. Until (1)–(2) hold, building it would produce a number the project has already learned to misread.
+
+---
+
+## D-112 — Correction: the scripted folders are card-sensitive, so the target exists after all
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Corrects:** D-111's scope
+
+**Source (user, verbatim):** "I know there were some deterministic-fold policies created for different training runs
+(ex. keep face cards + pairs, play to flop and fold if still on high card, etc.)"
+
+**The correction is right.** D-111 tested the **checkpoint** members only and generalised to "the opponents". Measured on
+the same instrument (fixed dry board, the D-70 hole set, opening seat):
+
+| policy | distinct decisions over five hole sets | behaviour |
+|---|---|---|
+| **`fold-no-pair-or-face`** | **2 / 5** | folds 87s and 72o, calls AA / KQs / 22 |
+| **`oracle`** | **2 / 5** | calls AA, folds the other four |
+| `fold-no-pair-or-better` | 1 / 5 preflop | by design — it folds from the flop |
+| `fold-large-bet` | 1 / 5 preflop | by design — it folds on large bets |
+| the four checkpoint members | 1 / 5 each | card-invariant |
+
+**So a history→strength estimator has a non-zero ceiling** against `fold-no-pair-or-face` and `oracle`, whose actions
+genuinely depend on their holding. **D-111's "the target is absent" is true of the checkpoint league only**, and both
+families sit in the pool the product runs against.
+
+**The deferral nonetheless stands**, on the critique's grounds rather than on absence of a target: the card-sensitive
+members are **transparent** (their rule is published source at `baselines.py:477-487`), so predicting them demonstrates
+learning an explicit rule, **not reading an opponent** — a feasibility demo, not a bluff detector. And the blocking
+findings are unchanged: three action kinds with no seat or amount in the history block, no cross-hand carrier, and
+removing 98 pad-heavy tokens ships D-110's mask effect (K7/K14).
+
+**Corrected summary:** *one card-sensitive, transparent opponent family and one card-blind, opaque one — testable on
+the first, only interesting on the second.*
