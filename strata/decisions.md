@@ -2962,3 +2962,32 @@ updates reach, ε → 0.05 locks in.
 
 **What it costs:** a policy that never folds **cannot bluff and cannot be bluffed out** — the exact behaviour the
 project's bonus goal was about — and against strong opponents it pays off every made hand.
+
+---
+
+## D-108 — The 15,000-hand model's trunk is dead (0/50 both layers); D-104/D-105/D-107 must be re-read
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Reframes:** D-104, D-105, D-107
+
+**Source (user, verbatim):** "Did it die at the trunk again?"
+
+**Answer: yes, completely.** The D-60 instrument on the checkpoints in play:
+
+| checkpoint | utility | layer 1 alive | layer 2 alive | ‖W1‖ | distinct activations |
+|---|---|---|---|---|---|
+| **ours, 15,000 hands** | **`net-chips`** | **0 / 50** | **0 / 50** | 10.08 | **1** |
+| foldloop-high / -control | `net-chips-normalised` | 23 / 50 | 23 / 50 | 10.13 | 277 |
+| raiser-seed | `net-chips` | 9 / 50 | **0 / 50** | **1,377.16** | 277 |
+
+**Every unit dead in both layers, one distinct activation vector across 300 observations** — the policy is a constant
+plus its output bias and **cannot condition on its input**, which explains the never-fold behaviour (D-107) and why the
+strength input changed nothing (D-104): **the input was never reaching the decision.**
+
+**This is D-60/D-67's bug reintroduced by me**: the 600-scale `net-chips` reward kills the trunk and the normalised
+reward revives it (‖w_in‖ 298.6 → 8.4–10.0; 14–30 active units). I switched to `net-chips` for comparability with the
+probe's chip reward and reproduced the defect on three of the last four records.
+
+**Consequences:** D-107's behaviour is real but its cause is **not** a learned policy; D-105's +1.82 ±8.81 is the
+measurement of a **constant-action** policy; D-104 is correct but non-informative, because with a dead trunk no input
+can matter. D-106 is unaffected (its members were trained independently, two of three normalised). The same 15,000-hand
+comparison at `net-chips-normalised` is in flight and re-opens all three questions.
