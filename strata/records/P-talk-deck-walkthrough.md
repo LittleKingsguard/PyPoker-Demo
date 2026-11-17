@@ -1,36 +1,40 @@
-# P-talk-deck — exit walkthrough (D-14)
+# P-talk-deck — exit walkthrough (D-14), run 3
 
-- **Date:** 2026-11-17 · **Verdict:** `STALE` · **Runner:** fresh L3 examiner, blind, staged to
-  `/tmp/deck-walkthrough/` (docs + artifact only; `work/` scratch) · **Scenario set:** 10 steps, L0-authored
-- **Staged:** `docs/presentation/design.md`, `presentation/README.md`, `presentation/index.html`
-- One row per step: action · citation · outcome · guessed?. Verdict closed set `PASS|DOC-GAP|STALE|UNUSABLE`.
+- **Date:** 2026-11-17 · **Verdict:** `DOC-GAP` · **Runner:** fresh L3 examiner, blind, staged to
+  `/tmp/deck-walkthrough/` (5 docs + deck + gate + FACTCHECK; `work/` scratch) · **Scenarios:** 11, L0-authored
+- **Staged:** `docs/presentation/{design,presenter,checks,content-rules}.md`, `presentation/README.md`,
+  `presentation/index.html`, `presentation/check.mjs`, `presentation/FACTCHECK.md`
 
-| # | action | citation | outcome | guessed |
-|---|---|---|---|---|
-| 1 | `→` from slide 1 | README §Controls; design §6 | slide 2, `2 / 7`, `#/2`, `#live` announces | no |
-| 2 | open `…#/5` cold | README §Opening it; design §7 A9 | chart slide renders | no |
-| 3 | open `…#/99` | design §6 Hash; §7 A11 | closing slide; address keeps `#/99` | no |
-| 4 | `f` then `Esc` | README §Controls; design §6 Fullscreen | fullscreen, guarded | no |
-| 5 | lengthen a slide-3 bullet | README §Editing; design §2, §5.3 | **bullet overprints the separator and the next bullet** | no |
-| 6 | add an eighth slide | README §Editing; design §4, §5 | works; `data-shape` vocabulary undocumented | **yes** |
-| 7 | paste a measured figure | README §Numbers; design header, §5 | allowed only from `strata/` records, with date | no |
-| 8 | re-skin the felt | design §3 Theme tokens | one `:root`, `--felt-*` in one place | no |
-| 9 | is it a Python module? | design header bullet (D-118) | not a module; no lint/test owed | no |
-| 10 | why no network; what breaks it | design §1, §8 row 1 | inline only; a `<link href>`/`@font-face url()` breaks it | no |
+| # | what was attempted | outcome |
+|---|---|---|
+| 1 | open, one key step | `2 / 7`, `#/2`, dots + counter + `#live` all agree |
+| 2 | cold jump to slide 5 | `#/5` renders the chart slide |
+| 3 | `#/99`, `#/0` | 7 and 1, exactly as A11 predicts; address bar keeps the typed value |
+| 4 | notes for slide 4 | drawer 435×720, `20/28` notes, `16px` refs, stage untouched, closed → no notes text in `innerText` |
+| 5 | sources on `#/4`, then `#/3` | two entries with `D-118 · 2026-11-17` and the records path; `.more-btn` `aria-disabled` on the slide with none |
+| 6 | fullscreen, `Esc`, slide change with a pane open | panes close `Esc`-newest-first; the pane follows the slide |
+| 7 | bullet at 2× budget | gate flags `G4 li clips 39px vertically` on an injected copy, exit 1 — the documented procedure answers it |
+| 8 | run the gate | `no issues`, exit 0, 16 PNGs at 1280×720 and 1600×1000 |
+| 9 | add an eighth slide | **incomplete: the recipe omits the `#sN` clip/`nowrap` rules and the four seven-slide constants** |
+| 10 | a training figure | only from `strata/` records with the date, plus a `FACTCHECK.md` row and a sources entry |
+| 11 | Python surface? | deck is not a module; `check.mjs`, `FACTCHECK.md`, `docs/presentation/` are dev-only |
 
-**docs-insufficient:** no per-bullet character limit (a bullet must hold one 38px line; §5.3 gives heights only);
-`data-shape` values have no vocabulary and no stated effect; the two `strata/` paths and `modules.json` are cited
-but outside the quarantine, so steps 7 and 9 were read, not verified.
+**docs-insufficient:** the eighth-slide recipe (`README.md` §Editing a slide) omits that the clip and
+`nowrap` rules are `#sN`-scoped, so a copied shape lands unclipped; and no doc says that A3 ("exactly
+seven"), A4 (seven badges), A9 (`#/7` shows three cards) and `check.mjs`'s own slide total must move with
+it — following the docs leaves the deck red at its own gate. Minor: nothing states that a step press at a
+clamped `#/99` is a no-op, so the address bar stays stale (`design.md` §6 reads as "next keypress").
 
-**docs-stale:** (1) README §Editing and design §2 claim longer copy "clips in its own block" — measured false: the
-clipping rule is `.card > *` (direct children), so `.t-list li` (38px), `.t-group p` (76px) and table cells (44px)
-paint over what follows; A8's re-added sum and `.card{overflow:hidden}` both pass while the text collides.
-(2) §7 A11 says an out-of-range hash clamps to the **last** slide, but `#/0` opens slide 1 (byte-identical render
-to `#/1`), which is what §6's "clamped into range" implies.
+**docs-stale:** `design.md` §5 cites "`presentation/README.md`, §6" — README has no numbered sections and
+the rule lives under "Editing a slide"; and `design.md` §2's HUD sketch omits `button.more-btn`, which sits
+in the HUD and is documented two sections later.
 
-**undocumented:** an out-of-range hash is swallowed without normalising the address bar (`#/99` stays displayed);
-Ctrl/Alt/Meta+arrow is ignored outright, so it neither navigates nor reads as unavailable.
+**undocumented:** none.
 
-**Routing (walkthrough §6):** both stale findings cite L3-owned documents → amend at L3 (design §2/§4/§5, A8, A11;
-README §Editing), with the clipping correction stated as the CSS rule L4 must apply to `presentation/index.html`.
-Step 6's vocabulary gap is L3's too. Re-run this walkthrough after the correction; this record is replaced.
+**Prior findings:** the stale clipping passage (§2) is **fixed** — three clip tiers as described, deck
+G4-clean, a 2× injection clips at its own box; the `data-shape` contradiction is **fixed** — both docs call
+it a label, no CSS parses it, only the `#live` string reads it.
+
+**Routing (§6):** both stale citations and the gap sit in L3-owned documents; the gate's slide-count
+constant is an L3 design question (derive it, or make the number one declared place) with a small L4 change.
+Re-run this walkthrough after the correction; this record is replaced.

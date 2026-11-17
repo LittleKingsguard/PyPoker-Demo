@@ -3502,3 +3502,32 @@ in the score.
 
 **Owed:** seeds 1–2 of both ε 0.60 arms before the magnitude is quoted (the base arm alone ranged +3.68 to +9.09 at ε 0.05,
 D-120), and the same configuration on the product's learner.
+
+---
+
+## D-126 — The exploration floor replicates: +11.30 / +12.92 chips/hand, six of six runs clear zero
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Replicates:** D-125
+
+**Source (user, verbatim):** "Run seeds"
+
+| arm | seed 0 | seed 1 | seed 2 | mean | 95 % CI (t, df 2) | card-dep |
+|---|---|---|---|---|---|---|
+| **base** | +11.81 ±5.03 | +12.67 ±5.75 | +9.44 ±3.97 | **+11.30** | **[+7.15, +15.46]** | 4 / 5 / 4 |
+| **+ opponent model** | +10.49 ±4.24 | +14.44 ±6.25 | +13.84 ±4.85 | **+12.92** | **[+7.64, +18.21]** | 3 / 3 / 3 |
+
+**Every one of the six runs clears zero on its own interval** — against the fold baseline's −0.60 and the earlier
+break-even product runs (+1.8 ±8.8, D-105), this is a different regime.
+
+**Established:** (1) **the exploration floor is the mechanism** — same representation, pooler and league; ε 0.05 gave
++3.68 and a fold-99.7 % collapse, ε 0.60 gives **+11.30 to +12.92** with a **mixed** repertoire, as D-72 predicted;
+(2) **the opponent model is not harmful once the learner is not corner-locked** — the arm carrying it is **+1.62 better**
+on average, intervals overlapping, so D-123/D-124's "it destroys the policy" was a property of the collapsed learner;
+(3) **card-dependence replicates** in all six runs, against seven earlier experiments in which every policy played one
+action for every hand.
+
+**Not established:** that the play is **ordered by strength** — the loaded-deal tables show card-dependence without
+monotonicity (one seed raises `72o` twice while folding `22`). **D-116's monotonicity test is still owed**, and it is the
+difference between "reads cards" and "plays well".
+
+**Caveats:** the probe's learner, not the product's; 5,000 hands; one league of three checkpoints plus a caller.
