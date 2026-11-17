@@ -3264,3 +3264,97 @@ fed a model that predicts **70.6 %** there and still played **quads and 2-3 offs
 **The corrected conclusion is stronger:** the failure is **in the policy's use of the signal, not the signal's quality** —
 a credit-assignment failure (D-84) — which is consistent with the strength input having helped at no budget (D-104,
 D-109). **D-95 stands as a card-model finding and must not be cited to explain policy behaviour.**
+
+---
+
+## D-118 — The talk deck is one self-contained static HTML slideshow
+
+**Status:** ACTIVE · **Date:** 2026-11-17
+
+**Source (user, verbatim):** "This session will be focused on building the actual presentation, as a static
+html page that will behave as a slideshow. The presentation background and styling should be themed like a
+casino table, with information displayed on cards. Start with a few placeholder/demo slides to scroll through
+to test theming and function"
+
+**Source (user, options chosen):** form — "One self-contained index.html — inline CSS + JS, no CDN"; nav —
+"Discrete slides: arrow keys / space / PageUp-Down / wheel / click zones, fixed 16:9 stage scaled to the window,
+URL hash per slide"; demo slides — "Layout-sampler: title card, section divider, bullet card, comparison/table
+card, chart placeholder, big-quote, closing"; process — "Skip the gate; I record one L0 decision row for the deck
+and dispatch design + build".
+
+**Decision:** The presentation ships as `presentation/index.html`: a single file with inline CSS and JS and no
+network dependency, so it opens from `file://` on the talk machine with no server and no sibling assets to lose.
+Its theme is a casino table — felt background, and every block of content sits on a card. Navigation is discrete
+slides on a fixed 16:9 stage scaled to the window: arrows, space, PageUp/PageDown, wheel, and click zones, with
+the slide index carried in the URL hash. The first pass is a layout sampler — one placeholder slide per content
+shape (title, section divider, bullets, comparison table, chart placeholder, quote, closing) — so theme and
+function are testable before any real content is authored.
+
+The deck is a presentation asset, not a Python module: it is not entered in `modules.json` and strata-lint
+ownership does not apply to it. Its behaviour lives entirely in the one file; the only sibling document is
+`presentation/README.md` (controls, how to edit, and the rule that a measured number may be pasted only from
+`strata/decisions.md` or `strata/records/`), which is the document the D-14 walkthrough stages.
+
+Rejected: split HTML/CSS/JS/assets (a talk laptop is one copy, and a missing sibling is a blank slide); a
+Markdown/JSON build step (a toolchain on the talk machine to edit text); continuous scroll as the model (a stray
+scroll puts two slides on a projector); inventing stand-in figures for real talk beats (in a deck that will be
+cited, a mock number is indistinguishable from a measured one).
+
+**Scope:** theming, navigation and sampler slides now; real content is a later pass, and it draws its numbers from
+`strata/decisions.md` and `strata/records/` only.
+
+---
+
+## D-119 — Four-arm integration: card + bet size gives the best policy measured (+7.96); the opponent model collapses it
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Test with the pooler fix, the att-60 card model, and the opponent model in place of the
+history set. If something critical is missing from the history set (ex. the current bet size) add as new input like the
+opponent model output. Time budget is about 3 hours"
+
+**Result** (masked pooling, attn-60, league, 5,000 train + 2,000 greedy, seed 0):
+
+| arm | chips/hand | census | card-dep |
+|---|---|---|---|
+| base (card + strength + facts) | **+6.29 ±3.63** | fold 70 %, call 23 %, all-in 7 % | 2/5 |
+| **+ `bet_size`** | **+7.96 ±3.99** | fold 67 %, call 33 % | 2/5 |
+| + opponent model | **−0.60 ±0.04** | **fold 100 %** | 1/5 |
+| full | **−0.60 ±0.04** | **fold 100 %** | 1/5 |
+
+**The strongest policy the project has measured**: +7.96 chips/hand against the league, interval clear of zero and of
+the −0.60 fold baseline, card-dependent in the right direction — against every earlier figure on this league being
+break-even or worse (D-101, D-105, D-109).
+
+**And the opponent model destroys it**, collapsing both arms to fold-100 % — its outputs are near-constant (95.9 % of
+its labels are calls) and four near-constant dimensions are enough to move the optimiser back into the fold corner.
+
+**The bet size is worth more than the whole opponent model** (+1.7 chips/hand) and was already in the readout, discarded
+by the encoder — cheap win, now measured (K15 confirmed).
+
+**Owed before any of this is quoted:** a seed check on the two positive arms (D-82's flicker died at exactly this point),
+and the same arms on the product's learner rather than the probe's.
+
+---
+
+## D-120 — Three seeds: the base arm replicates (+6.97); the bet-size advantage does not
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Corrects:** D-119's second finding
+
+**Source (user, verbatim):** "Proceed with the other seeds"
+
+| arm | seed 0 | seed 1 | seed 2 | mean | 95 % CI (t, df 2) | card-dep |
+|---|---|---|---|---|---|---|
+| **base** | +6.29 ±3.63 | +5.52 ±2.84 | +9.09 ±4.44 | **+6.97** | **[+2.29, +11.64]** | 2 / 3 / 4 of 5 |
+| **+ `bet_size`** | +7.96 ±3.99 | +1.11 ±2.40 | +4.08 ±2.82 | +4.38 | [−4.15, +12.92] | 2 / 4 / 3 of 5 |
+
+**D-119's "bet size is worth +1.7 chips/hand" does not replicate**: it was seed 0's luck. On three seeds the **base arm
+is better by +2.59** and far more consistent (sd 1.88 against 3.44), and **every base seed clears zero on its own
+interval while `bet_size` seed 1 does not**.
+
+**What replicates is card-dependence**: both arms play 2–4 distinct decisions of 5 in **all three seeds** — the first
+replicated card-dependent policy in the project, after seven experiments in which every policy played one action for
+every hand.
+
+**Still owed:** the same comparison on the product's learner, and the monotonicity test (D-116) on the base arm — its
+card-dependence is real but has not been shown to be *ordered* by strength.
