@@ -39,6 +39,25 @@ class UnknownStrength(FeaturesError):
     """
 
 
+class UnknownFact(FeaturesError):
+    """`build_encoder`: an injected fact outside the four the declaration may append.
+
+    The keyword's absence is the absence of a block and is not an empty declaration; a name
+    outside the four, a duplicate and a value that is not a sequence are refused naming what
+    was written, exactly as an encoding or a shape name is (`errors.md` §2,
+    `strength-design.md` §A.5).
+    """
+
+
+class ConflictingFacts(FeaturesError):
+    """`build_encoder`: a named strength member the declared `facts` leave out.
+
+    The member appends the strength block, so a declaration that names the member and omits
+    the fact would carry a declaration its caller wrote and its block table dropped; the two
+    spellings are refused rather than reconciled (`errors.md` §3, `ASM-46`).
+    """
+
+
 class InvalidEncoder(FeaturesError):
     """`observation_spec`/`encode`: a value that is not an encoder this module built."""
 

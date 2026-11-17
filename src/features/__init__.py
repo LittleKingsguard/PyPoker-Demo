@@ -49,13 +49,16 @@ def encodings():
     return _encoder.encodings()
 
 
-def build_encoder(name, *, shape=None, strength=None):
+def build_encoder(name, *, shape=None, strength=None, facts=None):
     """One encoder, by a declared encoding's name, on one declared shape (§4).
 
     `strength` is the optional tenth block's member; its absence is today's declaration
-    and an uncatalogued member is refused by name (`ASM-46`).
+    and an uncatalogued member is refused by name (`ASM-46`).  `facts` names the injected
+    facts the declaration appends -- any subset of `("strength", "bet_size",
+    "opp_action", "opp_strength")`, answered in that order -- and its absence declares
+    none, so no existing caller's record moves (`strength-design.md` §A.5).
     """
-    return _encoder.build_encoder(name, shape, strength)
+    return _encoder.build_encoder(name, shape, strength, facts)
 
 
 def observation_spec(encoder):
@@ -93,9 +96,19 @@ def strength(model, readout):
     return _cardmodel.strength(model, readout)
 
 
-def stated(model, readout):
-    """`readout` plus `{"strength": p}`, as a **fresh** mapping (`ASM-47`)."""
-    return _cardmodel.stated(model, readout)
+def stated(model, readout, *, encoder=None, shape=None, values=None):
+    """`readout` plus the injected facts, as a **fresh** mapping (`ASM-47`).
+
+    With no `encoder` it is the injection this module has always made -- `readout` plus
+    `{"strength": p}` from the frozen estimator.  With one, it attaches exactly the facts
+    that encoder **declares**, in the declared order: `strength` from the estimator,
+    `bet_size` from the readout's `to_call` and the shape's chips in play, and the
+    opponent model's two readings from `values` -- a fact whose value cannot be produced is
+    refused by name, never defaulted (`ASM-46`).
+    """
+    return _cardmodel.stated(
+        model, readout, encoder=encoder, shape=shape, values=values
+    )
 
 
 def card_rows(model):

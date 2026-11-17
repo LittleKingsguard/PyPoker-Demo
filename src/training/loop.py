@@ -444,6 +444,24 @@ def _declared_seed(configuration, entry):
     return None
 
 
+def _declared_facts(configuration, entry):
+    """The injected facts a variant declares — its entry's, else its configuration's.
+
+    Read here and forwarded to `features.build_encoder`, which is the one home for the
+    facts' names: a spelling the declaration does not carry is refused there, naming it and
+    the four, and is never dropped from the encoder a variant was written into.  Absent is
+    the absence of the keyword -- not an empty tuple -- so a variant that declares nothing
+    builds today's declaration (`strength-design.md` §A.5).
+    """
+    declared = entry.get("facts")
+    if declared is not None:
+        return declared
+    declared = configuration.get("facts")
+    if declared is not None:
+        return declared
+    return None
+
+
 def _train_variant_seed(
     configuration,
     entry,
@@ -516,8 +534,14 @@ def _train_variant_seed(
     # today's declaration byte for byte, and one that declares `supervised` gets the ten
     # fields, the one-slot-wider observation and the vocabulary 110 (`ASM-46`, `ASM-48`).
     trained_strength = _trained_strength(configuration, entry)
+    # The injected facts a variant declares, its entry's else its configuration's: absent
+    # is the absence of the keyword and not an empty declaration, so a variant that declares
+    # none builds the record it always built.  A name outside the four is refused by
+    # `features.build_encoder` here -- before the pool is built and before the first hand,
+    # which is where every declaration of a run is judged (`strength-design.md` §A.5).
+    declared_facts = _declared_facts(configuration, entry)
     encoder = features.build_encoder(
-        entry["encoding"], shape=shape, strength=trained_strength
+        entry["encoding"], shape=shape, strength=trained_strength, facts=declared_facts
     )
     features.observation_spec(encoder)
     spec = {
@@ -618,7 +642,10 @@ def _train_variant_seed(
         seed,
         greedy._sample(budget),
         policies._stated_policy(
-            agents.as_policy(learner, encoder, int(seed), greedy.MODE), model
+            agents.as_policy(learner, encoder, int(seed), greedy.MODE),
+            model,
+            encoder,
+            shape,
         ),
         "training.run at the variant %r and seed %r" % (variant, int(seed)),
     )

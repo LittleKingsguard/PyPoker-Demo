@@ -34,10 +34,20 @@ from __future__ import annotations
 import hashlib
 import os
 from collections.abc import Mapping
+from numbers import Integral
 
 import numpy
 
 from . import cards
+from .declarations import (
+    BET_SIZE_FIELD,
+    INJECTED_FACTS,
+    OPP_ACTION_FIELD,
+    OPP_STRENGTH_FIELD,
+    STRENGTH_FIELD,
+    shape_row,
+)
+from .encoder import require_encoder
 from .errors import InvalidModel, InvalidReadout, UnknownSource
 
 #: The declared frozen estimators, in the declared order, one row each (`ASM-51`).  A row
@@ -360,22 +370,117 @@ def strength(model, readout):
     return float(value)
 
 
-def stated(model, readout):
-    """The injection, written once: `readout` plus `{"strength": p}`, as a **fresh** mapping.
+def _declared_facts(encoder):
+    """The injected facts one encoder's declaration appends, in the declared order.
+
+    Read off the declaration rather than off a second keyword, so the injection a caller
+    makes and the blocks the encoder writes are one statement: a fact the encoder declares
+    is a fact `stated` must attach, and a fact it does not declare is never attached --
+    which is what makes the keyword's absence and its declared subset one code path
+    (`strength-design.md` §B.2).
+    """
+    held = require_encoder(encoder, "stated")
+    return tuple(fact for fact in held._declaration["fields"] if fact in INJECTED_FACTS)
+
+
+def _bet_size(readout, shape):
+    """The bet facing the acting seat over the shape's chips in play, as a fraction.
+
+    The one fact of the three that needs no model: `to_call` is the amount the acting seat
+    must put in to continue and the shape's chips in play is the pot normaliser every seat's
+    stack is a fraction of -- 40, 200 or 600 on the three declared rows -- so the value is
+    `to_call / chips` and lies in `[0, 1]` for every readout the engine can produce.  It is
+    **not** clamped here: a value that leaves the interval is a broken readout and `encode`
+    refuses it by name (`strength-design.md` §A.3's rule, applied to the fact that carries
+    an amount rather than a probability).
+    """
+    row = shape_row(shape, "stated")
+    chips = int(row["normalisers"]["pot"])
+    value = readout.get("to_call")
+    if isinstance(value, bool) or not isinstance(value, Integral) or value < 0:
+        raise InvalidReadout(
+            "stated(readout): 'bet_size' is the amount to call over the shape's chips in "
+            "play, and 'to_call' must be a non-negative integer, got %r" % (value,)
+        )
+    return float(value) / float(chips)
+
+
+def _injected_fact(fact, model, readout, shape, values):
+    """One declared fact's value, or the refusal naming what could not produce it.
+
+    Three producers, tried in one order: a value the caller **supplied** (the two opponent
+    readings have no producer in this module -- there is no frozen opponent estimator in the
+    tree yet -- so they are supplied, and a declared one that is supplied by nothing is
+    refused rather than encoded as a zero); the frozen card estimator, for `strength`; and
+    the readout's own `to_call` against the shape's chips in play, for `bet_size`.  No
+    producer is a default and none is a fallback: a declaration whose value cannot be
+    produced is a named `InvalidReadout`, which is the anti-silence rule the block's own
+    missing-key refusal states one layer down (`errors.md` §3, `ASM-46`).
+    """
+    if fact in values:
+        return values[fact]
+    if fact == STRENGTH_FIELD:
+        if model is None:
+            raise InvalidReadout(
+                "stated(readout, encoder): the encoder declares %r and no frozen estimator "
+                "was handed to stated(), so no value is produced for it -- none is "
+                "substituted (ASM-46, ASM-47)" % (fact,)
+            )
+        return strength(model, readout)
+    if fact == BET_SIZE_FIELD:
+        if shape is None:
+            raise InvalidReadout(
+                "stated(readout, encoder): the encoder declares %r, which is the amount to "
+                "call over the shape's chips in play, and no shape was named -- none is "
+                "assumed (strength-design.md §A.1)" % (fact,)
+            )
+        return _bet_size(readout, shape)
+    raise InvalidReadout(
+        "stated(readout, encoder): the encoder declares %r and no value was supplied for "
+        "it -- it is read off a frozen opponent estimator through 'values', and a missing "
+        "value is refused, never defaulted to a constant (errors.md §3): the two facts are "
+        "%r and %r" % (fact, OPP_ACTION_FIELD, OPP_STRENGTH_FIELD)
+    )
+
+
+def stated(model, readout, *, encoder=None, shape=None, values=None):
+    """The injection, written once: `readout` plus its declared facts, as a **fresh** mapping.
 
     Never a mutation.  The readout a policy or a transition step is handed stays the
     eleven facts it arrived with -- `test_join_purity.py` and FEA-3.7 both assert that an
-    encode leaves its argument untouched -- so the value is carried by a copy and the
+    encode leaves its argument untouched -- so the values are carried by a copy and the
     caller's mapping is left exactly as it was (`ASM-47`).
+
+    **With no `encoder`** this is the injection it has always been: the frozen estimator's
+    probability, as `{"strength": p}`.  **With one**, the facts the encoder *declares* are
+    attached in the declared order and nothing else is -- an encoder that declares none
+    answers the readout itself, unchanged, so a caller may hand every readout through this
+    one call without paying for a copy it does not need.  `shape` is read for `bet_size`
+    alone and `values` for the two opponent readings alone; a declared fact with no
+    producer is a refusal, never a zero (`strength-design.md` §B.2-§B.3, `ASM-46`).
     """
-    held = require_model(model, "stated")
     if not isinstance(readout, Mapping):
         raise InvalidReadout(
             "stated(readout): the readout must be a mapping of the decision's facts, got "
             "%s" % type(readout).__name__
         )
+    if encoder is None:
+        held = require_model(model, "stated")
+        record = dict(readout)
+        record[STRENGTH_FIELD] = strength(held, readout)
+        return record
+    declared = _declared_facts(encoder)
+    if not declared:
+        return readout
+    supplied = {} if values is None else values
+    if not isinstance(supplied, Mapping):
+        raise InvalidReadout(
+            "stated(values): the values must be a mapping of injected facts, got %s"
+            % type(supplied).__name__
+        )
     record = dict(readout)
-    record["strength"] = strength(held, readout)
+    for fact in declared:
+        record[fact] = _injected_fact(fact, model, readout, shape, supplied)
     return record
 
 

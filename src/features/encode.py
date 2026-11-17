@@ -156,27 +156,27 @@ def _bucket(value, ladder):
     return ladder[-1][1]
 
 
-def _probability(value):
-    """The tenth field's value: a real in `[0.0, 1.0]`, or the refusal naming the key.
+def _probability(value, field):
+    """One injected field's value: a real in `[0.0, 1.0]`, or the refusal naming the key.
 
-    The one validator both writers reach, and it **refuses** and never clamps: a silently
-    clipped probability hides a broken estimator, so a value outside the interval, a
-    non-finite one and a value that is not a real at all (a `bool` included, `errors.md`
-    §4's house rule) are all this module's `InvalidReadout`, naming the injected key
-    (`ASM-46`).  The value is a probability and cannot leave the interval, which is what
-    makes its block's declared bound a statement about the writer, exactly as an
-    indicator's is.
+    The one validator **all four** injected writers reach, and it **refuses** and never
+    clamps: a silently clipped probability hides a broken estimator, so a value outside the
+    interval, a non-finite one and a value that is not a real at all (a `bool` included,
+    `errors.md` §4's house rule) are all this module's `InvalidReadout`, naming the injected
+    key the block declared it reads (`ASM-46`).  The value is a probability and cannot leave
+    the interval, which is what makes its block's declared bound a statement about the
+    writer, exactly as an indicator's is.
     """
     if isinstance(value, bool) or not isinstance(value, Real):
         raise InvalidReadout(
-            "encode(readout): 'strength' must be a probability in [0.0, 1.0], got %r"
-            % (value,)
+            "encode(readout): %r must be a probability in [0.0, 1.0], got %r"
+            % (field, value)
         )
     number = float(value)
     if not numpy.isfinite(number) or not 0.0 <= number <= 1.0:
         raise InvalidReadout(
-            "encode(readout): 'strength' must be a probability in [0.0, 1.0], got %r"
-            % (value,)
+            "encode(readout): %r must be a probability in [0.0, 1.0], got %r"
+            % (field, value)
         )
     return number
 
@@ -318,25 +318,30 @@ def _limit_ids(readout, reads, params):
     return [_bucket(bet, bet_ladder), _bucket(raises, raise_ladder)]
 
 
-def _strength_scaled(readout, reads, params):
-    """The tenth field's one slot: the probability itself, exactly (`ASM-46`).
+def _injected_scaled(readout, reads, params):
+    """One injected field's one slot: the probability itself, exactly (`ASM-46`).
 
     `params` is `None` because the block reads one fact and holds no constant of its own:
     the writer's whole rule is `_probability`, so a value outside `[0.0, 1.0]` is refused
-    and never saturated into the block's declared bound.
+    and never saturated into the block's declared bound.  All four injected dense tags
+    (`strength-scaled`, `bet-size-scaled`, `opp-action-scaled`, `opp-strength-scaled`) name
+    this one writer, so the four slots cannot drift apart.
     """
-    return [_probability(readout[reads[0]])]
+    field = reads[0]
+    return [_probability(readout[field], field)]
 
 
-def _strength_bucket(readout, reads, params):
-    """The tenth field as one id of the declared eight-band ladder (`ASM-48`).
+def _injected_bucket(readout, reads, params):
+    """One injected field as one id of its own eight-band ladder (`ASM-48`).
 
-    `params` is the shape-invariant ladder `declarations.STRENGTH_BANDS`: the edges are
-    the same on every row, unlike the chip ladders, and the last one is unbounded, so the
-    ladder is total over `[0, 1]`.  The lowest id is above every id any shape row
-    allocates, so the block can never emit the pad.
+    `params` is the shape-invariant ladder `declarations.INJECTED_BANDS[field]`: the edges
+    are the same on every row, unlike the chip ladders, and the last one is unbounded, so
+    the ladder is total over `[0, 1]`.  Each fact's ids sit in their own band above every id
+    any shape row allocates, so the block can never emit the pad.  All four injected token
+    tags name this one writer.
     """
-    return [_bucket(_probability(readout[reads[0]]), params)]
+    field = reads[0]
+    return [_bucket(_probability(readout[field], field), params)]
 
 
 def _history_onehot(readout, reads, params):
@@ -378,7 +383,10 @@ WRITERS = {
     "stacks-scaled": _stacks_scaled,
     "amount-scaled": _amount_scaled,
     "limit-scaled": _limit_scaled,
-    "strength-scaled": _strength_scaled,
+    "strength-scaled": _injected_scaled,
+    "bet-size-scaled": _injected_scaled,
+    "opp-action-scaled": _injected_scaled,
+    "opp-strength-scaled": _injected_scaled,
     "history-onehot": _history_onehot,
     "street-id": _street_id,
     "seat-ids": _seat_ids,
@@ -387,7 +395,10 @@ WRITERS = {
     "amount-bucket": _amount_bucket,
     "limit-ids": _limit_ids,
     "history-ids": _history_ids,
-    "strength-bucket": _strength_bucket,
+    "strength-bucket": _injected_bucket,
+    "bet-size-bucket": _injected_bucket,
+    "opp-action-bucket": _injected_bucket,
+    "opp-strength-bucket": _injected_bucket,
 }
 
 

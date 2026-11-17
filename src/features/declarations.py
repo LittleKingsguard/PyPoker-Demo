@@ -50,8 +50,17 @@ down: every block's `params` is read from the shape's row here.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from .cards import CARD_SLOT
-from .errors import InvalidReadout, UnknownEncoding, UnknownShape, UnknownStrength
+from .errors import (
+    ConflictingFacts,
+    InvalidReadout,
+    UnknownEncoding,
+    UnknownFact,
+    UnknownShape,
+    UnknownStrength,
+)
 
 # The nine facts an observation carries, in the readout's own order less `legal` and the
 # derived `hand_class` (encoder.md §3.1, ASM-30); it is also both encodings' block order.
@@ -123,6 +132,74 @@ STRENGTH_BANDS = (
 #: rows therefore carry the six never-addressed ids the six-seat row's seat block owns;
 #: dead rows receive no gradient, so they cost parameters and no behaviour.
 STRENGTH_VOCABULARY = STRENGTH_ID_BASE + len(STRENGTH_BANDS)
+
+#: The three further **injected** facts, and the order a declaration appends them in:
+#: `strength` first -- so a declaration that declares it alone is the ten-field record
+#: `ASM-46` fixed, byte for byte -- then the bet facing the acting seat, then the frozen
+#: opponent model's two readings of the seat that acted last.  All four are values the
+#: observation carries and the information set does not: none has a readout position, and
+#: each is attached to a **copy** of the readout by its producer immediately before
+#: encoding, so `engine` stays model-free and the eleven readout facts do not grow
+#: (`strength-design.md` §B.1, `ASM-46`).
+BET_SIZE_FIELD = "bet_size"
+OPP_ACTION_FIELD = "opp_action"
+OPP_STRENGTH_FIELD = "opp_strength"
+INJECTED_FACTS = (STRENGTH_FIELD, BET_SIZE_FIELD, OPP_ACTION_FIELD, OPP_STRENGTH_FIELD)
+
+#: The eight ladder edges every injected fact is bucketed by, identical to the strength
+#: ladder's and shape-invariant: a probability is a fraction on every row, so unlike the
+#: chip ladders these edges never move (`strength-design.md` §A.3).
+INJECTED_EDGES = (0.05, 0.10, 0.20, 0.30, 0.45, 0.60, 0.80, None)
+
+
+def _bands(position):
+    """One injected fact's ladder: the shared eight edges over **its own** eight ids.
+
+    The ids are `STRENGTH_ID_BASE + 8 * position` upwards, so the ladders sit one after
+    another in `INJECTED_FACTS`' order -- 102-109 for `strength`, 110-117 for `bet_size`,
+    118-125 for `opp_action` and 126-133 for `opp_strength` -- and the band a fact is
+    bucketed into means the same id whatever else a declaration carries.  A fact's ladder
+    is therefore a function of the fact's place in the declared order and never of the
+    shape or of which other facts are declared.
+    """
+    base = STRENGTH_ID_BASE + len(STRENGTH_BANDS) * position
+    return tuple((edge, base + rung) for rung, edge in enumerate(INJECTED_EDGES))
+
+
+#: Each injected fact's token ladder, keyed by the field the block declares it reads.
+#: `strength`'s is the declared `STRENGTH_BANDS` itself, so the ten-field token
+#: declaration this module has always built is unchanged; the other three are the same
+#: eight edges over the next three id bands, appended **after** the strength band.
+INJECTED_BANDS = {
+    fact: (STRENGTH_BANDS if fact == STRENGTH_FIELD else _bands(position))
+    for position, fact in enumerate(INJECTED_FACTS)
+}
+
+#: The token vocabulary each injected fact's band needs, derived from the base, the ladder's
+#: length and the fact's position: a declaration reports the widest one it declares, and
+#: `max(row, ...)` keeps the six-seat row's own 102 from being narrowed.  The absence
+#: declaration reports the row's 96 or 102 and a strength-only declaration its 110, exactly
+#: as before (`ASM-46`, `ASM-48`).
+INJECTED_VOCABULARY = {
+    fact: STRENGTH_ID_BASE + len(STRENGTH_BANDS) * (position + 1)
+    for position, fact in enumerate(INJECTED_FACTS)
+}
+
+#: The writer tag each injected fact's dense block names, and the one its token block names.
+#: One tag per fact per encoding, so a block table says which fact a slot carries without a
+#: reader having to count offsets, and every tag of `encode.WRITERS` has one bound record.
+_DENSE_WRITERS = {
+    STRENGTH_FIELD: "strength-scaled",
+    BET_SIZE_FIELD: "bet-size-scaled",
+    OPP_ACTION_FIELD: "opp-action-scaled",
+    OPP_STRENGTH_FIELD: "opp-strength-scaled",
+}
+_TOKEN_WRITERS = {
+    STRENGTH_FIELD: "strength-bucket",
+    BET_SIZE_FIELD: "bet-size-bucket",
+    OPP_ACTION_FIELD: "opp-action-bucket",
+    OPP_STRENGTH_FIELD: "opp-strength-bucket",
+}
 
 #: The block's capacity is the **shape's** and lives in its row, beside the normalisers
 #: and the ladders (`shapes.md` §8, ASM-42): it is both the number of action slots the
@@ -326,6 +403,10 @@ BLOCK_BOUNDS = {
     "limit-scaled": (0.0, 1.0, "saturate"),
     # the tenth block: a probability, which is already in [0, 1] and cannot leave it
     "strength-scaled": (0.0, 1.0, "exact"),
+    # the three later injected facts: the same statement about their own writers
+    "bet-size-scaled": (0.0, 1.0, "exact"),
+    "opp-action-scaled": (0.0, 1.0, "exact"),
+    "opp-strength-scaled": (0.0, 1.0, "exact"),
     # card-tokens: an integer id, the pad 0 first and `vocabulary - 1` last.
     "street-id": (0, "vocabulary", "id"),
     "seat-ids": (0, "vocabulary", "id"),
@@ -335,6 +416,9 @@ BLOCK_BOUNDS = {
     "limit-ids": (0, "vocabulary", "id"),
     "history-ids": (0, "vocabulary", "id"),
     "strength-bucket": (0, "vocabulary", "id"),
+    "bet-size-bucket": (0, "vocabulary", "id"),
+    "opp-action-bucket": (0, "vocabulary", "id"),
+    "opp-strength-bucket": (0, "vocabulary", "id"),
 }
 
 
@@ -394,44 +478,31 @@ def _shape(blocks):
     return (sum(block[2] for block in blocks),)
 
 
-def _declares_strength(member):
-    """Whether one resolved strength member appends the tenth block (`ASM-46`).
+def _fields(declared):
+    """The carried facts of one declaration: the nine, then the declared injected ones.
 
-    The one test of the declaration's opt-in: a member that is the declared default is
-    today's declaration, and any other member is the ten-block one.  It is read by
-    `_fields`, both block tables and `_vocabulary` so the four cannot disagree, and a
-    member has already been resolved to one of `STRENGTH_MEMBERS` before it arrives
-    (`require_strength`).
+    An injected fact has no readout position, so it is **appended** in `INJECTED_FACTS`'
+    order and never interleaved: every other fact keeps the index it had, a declaration
+    that declares nothing reports the nine-fact tuple this module has always reported, and
+    one that declares `strength` alone reports `FIELDS + ("strength",)` -- the ten fields
+    `ASM-46` fixed (`encoder.md` §3.1, §4).
     """
-    return member != DEFAULT_STRENGTH
+    return FIELDS + tuple(declared)
 
 
-def _fields(member):
-    """The carried facts of one declaration: the nine, or the ten with `strength` last.
-
-    `strength` is the field with no readout position, so it is **appended** and never
-    interleaved: every other fact keeps the index it had, and a declaration that declares
-    no strength block reports the nine-fact tuple this module has always reported
-    (`encoder.md` §3.1, §4, `ASM-46`).
-    """
-    if _declares_strength(member):
-        return FIELDS + (STRENGTH_FIELD,)
-    return FIELDS
-
-
-def _vocabulary(row, encoding, member):
-    """One declaration's token vocabulary: the row's, or the widened one the block needs.
+def _vocabulary(row, encoding, declared):
+    """One declaration's token vocabulary: the row's, or the widened one its facts need.
 
     The flat encoding declares none (`None`).  The token encoding declares the shape row's
-    96 or 102 -- and, when the strength block is declared, `STRENGTH_VOCABULARY` on
-    **every** row, derived from the ladder's own base and length: the block's ids must lie
-    inside the vocabulary a learner is sized by and a checkpoint records, and a per-row
-    base would make one band mean two ids (`ASM-48`).
+    96 or 102 -- and, when injected facts are declared, the widest band they address:
+    `INJECTED_VOCABULARY[declared[-1]]`, which is 110 for `strength` alone and 134 with all
+    four.  `max(row, ...)` is what keeps the six-seat row's own 102 from being narrowed, and
+    a per-row base would make one band mean two ids (`ASM-48`).
     """
     if encoding != "card-tokens":
         return None
-    if _declares_strength(member):
-        return max(int(row["vocabulary"]), STRENGTH_ID_BASE) + len(STRENGTH_BANDS)
+    if declared:
+        return max(int(row["vocabulary"]), INJECTED_VOCABULARY[declared[-1]])
     return row["vocabulary"]
 
 
@@ -449,11 +520,11 @@ def _vocabulary(row, encoding, member):
 # the shape declares the `actor-first` order -- its slots are the acting seat's stack, then
 # the other's; a shape declaring `seat-order` writes one slot per seat and reads one fact
 # (flat-numeric.md §4, encoder.md §4).  The five amount params are the shape's normalisers
-# and nothing else (flat-numeric.md §4).  A declaration that declares a strength member
-# **appends** one slot after the history block, so its offset is the width the pre-change
-# declaration named -- 203, 329 or 433 -- its width is one and its bound is `exact`
-# (`ASM-46`).
-def _flat_blocks(row, member=DEFAULT_STRENGTH):
+# and nothing else (flat-numeric.md §4).  A declaration that declares injected facts
+# **appends** one slot per fact after the history block, so the first of them sits at the
+# width the pre-change declaration named -- 203, 329 or 433 -- each is one slot wide and
+# each one's bound is `exact` (`ASM-46`).
+def _flat_blocks(row, declared=()):
     """The dense encoding's block table on one shape (flat-numeric.md §2)."""
     normalisers = row["normalisers"]
     slots = row["history"]
@@ -473,8 +544,8 @@ def _flat_blocks(row, member=DEFAULT_STRENGTH):
         ("history", slots * HISTORY_SLOT_WIDTH, "history-onehot", ("history",),
          (slots, HISTORY_SLOT_WIDTH)),
     ]
-    if _declares_strength(member):
-        rows.append((STRENGTH_FIELD, 1, "strength-scaled", (STRENGTH_FIELD,), None))
+    for fact in declared:
+        rows.append((fact, 1, _DENSE_WRITERS[fact], (fact,), None))
     return _table(tuple(rows))
 
 
@@ -490,11 +561,11 @@ def _flat_blocks(row, member=DEFAULT_STRENGTH):
 # over the shape row's own vocabulary -- 96 ids on the two-seat rows, 102 on the six-seat
 # one, whose seat block emits ids 96-101 above every id the other rows use (card-tokens.md
 # §2, §6, seats.md §3, ASM-44).  The five ladders are the shape's and the ids they emit do
-# not move between shapes (card-tokens.md §4).  A declaration that declares a strength
-# member **appends** one token after the history block, so its offset is the width the
-# pre-change declaration named -- 40, 82 or 122 -- and its id is a rung of
-# `STRENGTH_BANDS`, never the pad (`ASM-46`, `ASM-48`).
-def _token_blocks(row, member=DEFAULT_STRENGTH):
+# not move between shapes (card-tokens.md §4).  A declaration that declares injected facts
+# **appends** one token per fact after the history block, so the first of them sits at the
+# width the pre-change declaration named -- 40, 82 or 122 -- and every one's id is a rung of
+# its own ladder, never the pad (`ASM-46`, `ASM-48`).
+def _token_blocks(row, declared=()):
     """The token encoding's block table on one shape (card-tokens.md §2)."""
     ladders = row["ladders"]
     slots = row["history"]
@@ -513,9 +584,8 @@ def _token_blocks(row, member=DEFAULT_STRENGTH):
         ("history", slots, "history-ids", ("history",),
          (slots, HISTORY_IDS)),
     ]
-    if _declares_strength(member):
-        rows.append((STRENGTH_FIELD, 1, "strength-bucket", (STRENGTH_FIELD,),
-                     STRENGTH_BANDS))
+    for fact in declared:
+        rows.append((fact, 1, _TOKEN_WRITERS[fact], (fact,), INJECTED_BANDS[fact]))
     return _table(tuple(rows))
 
 
@@ -660,36 +730,96 @@ def require_strength(value, entry_point, argument="strength"):
     )
 
 
-def declaration(name, shape=None, entry_point="build_encoder", strength=None):
+def require_facts(facts, entry_point, argument="facts"):
+    """The injected facts `facts` declares, in the declared order, or the refusal.
+
+    `None` is the **absence** of the keyword and is not an empty declaration: it answers
+    `None`, which is what keeps `build_encoder(name, shape)` on today's declaration byte for
+    byte (`ASM-46`).  A declared tuple must be a non-`str` sequence of distinct names from
+    `INJECTED_FACTS`, and it is answered in `INJECTED_FACTS`' order -- so one set of facts is
+    one declaration whatever order the caller wrote, and the strength block is always the
+    first appended one.  A name outside the four, a duplicate, or a value that is not a
+    sequence at all is refused naming it and the four, and is never dropped from the
+    declaration it was written into (`errors.py` §2-§3).
+    """
+    if facts is None:
+        return None
+    if isinstance(facts, (str, bytes)) or not isinstance(facts, Sequence):
+        raise UnknownFact(
+            "%s(%s): the facts must be a sequence of names from %r, got %r"
+            % (entry_point, argument, INJECTED_FACTS, facts)
+        )
+    declared = tuple(facts)
+    for fact in declared:
+        if not isinstance(fact, str) or fact not in INJECTED_FACTS:
+            raise UnknownFact(
+                "%s(%s): the fact must be one of %r, got %r"
+                % (entry_point, argument, INJECTED_FACTS, fact)
+            )
+    if len(set(declared)) != len(declared):
+        raise UnknownFact(
+            "%s(%s): the facts must be distinct, got %r"
+            % (entry_point, argument, declared)
+        )
+    return tuple(fact for fact in INJECTED_FACTS if fact in declared)
+
+
+def _resolved_facts(strength, facts, entry_point):
+    """The injected facts one declaration appends, resolved from both keywords.
+
+    Two spellings name the same declaration and the module answers one record for both:
+    `strength="supervised"` and `facts=("strength",)` both append the strength block, and
+    `strength`'s absence with no facts is the nine-block record (`ASM-46`).  When `facts` is
+    given it decides what is appended; a **named** non-default member that `facts` leaves out
+    would then be a declaration the caller wrote and the encoder dropped, so it is refused
+    by name rather than ignored (`errors.py` §3, `ASM-46`).  `strength="none"` names nothing
+    and constrains nothing -- it is the axis' declared default, not a second declaration.
+    """
+    declared = require_facts(facts, entry_point)
+    member = require_strength(strength, entry_point)
+    if declared is None:
+        return (STRENGTH_FIELD,) if member != DEFAULT_STRENGTH else ()
+    if member != DEFAULT_STRENGTH and STRENGTH_FIELD not in declared:
+        raise ConflictingFacts(
+            "%s(strength, facts): the strength member %r appends the %r block and the facts "
+            "%r leave it out, so the declaration would carry a member it does not declare -- "
+            "name it in the facts or leave the member at %r (ASM-46)"
+            % (entry_point, member, STRENGTH_FIELD, declared, DEFAULT_STRENGTH)
+        )
+    return declared
+
+
+def declaration(name, shape=None, entry_point="build_encoder", strength=None, facts=None):
     """One encoding on one shape: the six spec keys plus its block table (encoder.md §4).
 
     Built fresh on every call, so a caller's edit of a returned table cannot reach the
     next caller's (surface.md §1, guardrails.md G11).  `strength` is the opt-in tenth
-    block's member: absent -- or the declared default -- declares today's nine-block
-    record, and any other member appends one block after the history and reports the ten
-    fields (`ASM-46`).
+    block's member and `facts` the injected facts the declaration appends: both absent --
+    or the member at the declared default with no facts -- declares today's nine-block
+    record, and each declared fact appends one block after the history and reports one more
+    field (`ASM-46`, `strength-design.md` §A.5).
     """
     encoding = require_encoding(name, entry_point)
-    member = require_strength(strength, entry_point)
+    declared = _resolved_facts(strength, facts, entry_point)
     row = shape_row(shape, entry_point)
     _require_normalisers(row, entry_point)
     if encoding == "flat-numeric":
-        blocks = _flat_blocks(row, member)
+        blocks = _flat_blocks(row, declared)
     else:
-        blocks = _token_blocks(row, member)
+        blocks = _token_blocks(row, declared)
     record = {
         "representation": _ENCODING_ROWS[encoding]["representation"],
         "kind": _ENCODING_ROWS[encoding]["kind"],
-        "fields": _fields(member),
+        "fields": _fields(declared),
         "shape": _shape(blocks),
         "dtype": _ENCODING_ROWS[encoding]["dtype"],
-        "vocabulary": _vocabulary(row, encoding, member),
+        "vocabulary": _vocabulary(row, encoding, declared),
         "blocks": blocks,
     }
     return record
 
 
-def spec(name, shape=None, entry_point="build_encoder", strength=None):
+def spec(name, shape=None, entry_point="build_encoder", strength=None, facts=None):
     """The six-key spec record of one encoding on one shape (encoder.md §3).
 
     Four of the six values are the shape-invariant part of a declaration: the
@@ -700,11 +830,11 @@ def spec(name, shape=None, entry_point="build_encoder", strength=None):
     emits six ids of its own above every id the other rows use.  The record still names no
     shape, no normaliser and no capacity of its own -- the width and the vocabulary it
     carries are the whole of what the shape does to it (`surface.md` §5, sizing.md §5).
-    A declaration that declares a strength member reports the ten fields with `strength`
-    last and the widened width and vocabulary; the six keys are the six on both
-    (`ASM-46`, `ASM-48`).
+    A declaration that declares injected facts reports them after the nine, in the
+    declared order, with the widened width and vocabulary; the six keys are the six on
+    every declaration (`ASM-46`, `ASM-48`).
     """
-    record = declaration(name, shape, entry_point, strength)
+    record = declaration(name, shape, entry_point, strength, facts)
     return {
         "representation": record["representation"],
         "kind": record["kind"],

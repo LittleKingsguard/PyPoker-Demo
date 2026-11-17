@@ -304,7 +304,7 @@ def _built_encoder(names, game, entry, where, path, strength=None):
     )
 
 
-def _stated(policy, model):
+def _stated(policy, model, encoder=None, shape=None, values=None):
     """One policy with the readout injected before it decides (`ASM-47`).
 
     The fourth recorded fact's consumer: a member whose container records a strength member
@@ -312,13 +312,20 @@ def _stated(policy, model):
     so the encoder is built with that member **and** the readout it encodes must carry the
     value.  The wrapper is outside `agents.as_policy`'s policy because that policy is where
     the encoding happens, and `features.stated` returns a fresh mapping, so a readout a cell
-    keeps is never touched.
+    keeps is never touched.  The **encoder** decides which facts are injected, so a container
+    whose encoder declares none is played through a wrapper that hands the readout on
+    unchanged (`strength-design.md` §B.3).
     """
-    if model is None:
+    if model is None and encoder is None:
         return policy
 
     def wrapped(readout, legal_actions):
-        return policy(features.stated(model, readout), legal_actions)
+        return policy(
+            features.stated(
+                model, readout, encoder=encoder, shape=shape, values=values
+            ),
+            legal_actions,
+        )
 
     return wrapped
 
@@ -364,7 +371,7 @@ def _checkpoint_policy(member_id, path, entry, where, exploration=EXPLORATION_DE
     # the wrapper is a closure and carries no attributes of its own (`ASM-47`).
     learning_rule = getattr(policy, "learning_rule", None)
     utility = getattr(policy, "utility", None)
-    policy = _stated(policy, model)
+    policy = _stated(policy, model, encoder, game)
     return _MemberPolicy(
         member_id,
         agents.param_count(learner),

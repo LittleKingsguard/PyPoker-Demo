@@ -46,7 +46,7 @@ def require_encoder(value, entry_point):
     return value
 
 
-def build_encoder(name, shape=None, strength=None):
+def build_encoder(name, shape=None, strength=None, facts=None):
     """One encoder, by one of the names `encodings` declares, on one declared shape (§4).
 
     The name is matched exactly -- case-sensitively and not stripped -- because a
@@ -62,13 +62,20 @@ def build_encoder(name, shape=None, strength=None):
     a caller that resolved the catalogue's first member passes -- is that same
     declaration, and `supervised` appends the tenth block, so the same name on the same
     shape is two declarations a caller selects between and neither is defaulted onto the
-    other (`ASM-46`, `ASM-48`).
+    other (`ASM-46`, `ASM-48`).  The fourth is the **injected facts** the declaration
+    appends -- `("strength", "bet_size", "opp_action", "opp_strength")` or any subset, in
+    the declared order -- and its absence is not an empty declaration but the absence of
+    the keyword: no facts appends nothing, so `build_encoder(name, shape)` is the record it
+    has always been, and each declared fact is one slot (dense) or one id (token) wider
+    (`strength-design.md` §A.1, §A.5).
     """
     for declared in ENCODING_NAMES:
         if isinstance(name, str) and name == declared:
             resolved = require_shape(shape, "build_encoder")
             return Encoder(
-                declared, resolved, declaration(declared, resolved, strength=strength)
+                declared,
+                resolved,
+                declaration(declared, resolved, strength=strength, facts=facts),
             )
     raise UnknownEncoding(
         "build_encoder(name): the encoding must be one of %r, got %r"

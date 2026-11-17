@@ -279,17 +279,21 @@ def _hand(pool, shape, seed, index, policy):
     return engine.play_hand(hand_seed, seats=tuple(seating), shape=shape), seat
 
 
-def _stated(model, readout):
+def _stated(model, readout, encoder=None, shape=None, values=None):
     """The decision's readout as the encoder must see it, or the readout itself (`ASM-47`).
 
     One line, in one place, so the two `features.encode` calls above cannot disagree about
-    whether the injected fact is there.  `features.stated` returns a **fresh** mapping, so
+    whether the injected facts are there.  `features.stated` returns a **fresh** mapping, so
     the episode record's own readout -- the engine's, and the one every case compares
-    against the eleven facts -- is never touched.
+    against the eleven facts -- is never touched, and an encoder that declares no injected
+    fact is handed the readout itself, unchanged, so a run that declares none pays for no
+    copy (`strength-design.md` §B.3).
     """
-    if model is None:
+    if model is None and encoder is None:
         return readout
-    return features.stated(model, readout)
+    return features.stated(
+        model, readout, encoder=encoder, shape=shape, values=values
+    )
 
 
 def _decision_seat(decision):
@@ -443,7 +447,8 @@ def _finiteness(records, counted):
     return counted
 
 
-def _transitions(episode, seat, encoder, utility=None, shape=None, model=None):
+def _transitions(episode, seat, encoder, utility=None, shape=None, model=None,
+                 injected=None):
     """The learner's transitions for one hand, in decision order (records.md §4).
 
     `reward` is the decision's own, re-expressed at the seat's **terminal** decision by the
@@ -464,8 +469,12 @@ def _transitions(episode, seat, encoder, utility=None, shape=None, model=None):
     not resolve, which is the fallback `counterfactual.md` §4 and D-40 pin (`_branch_values`,
     `counterfactual.md` §2, §4, §6).
 
-    `shape` is the run's own shape and reaches the arithmetic that reads the game — the
-    chips in play and the starting stack a shortfall is normalised against — so a run on
+    `model` is the frozen card estimator and `injected` the caller-supplied injected facts:
+    both reach `features.stated`, which attaches exactly the facts the encoder declares and
+    refuses a declared one it cannot produce, so a transition never carries a defaulted
+    fact (`strength-design.md` §B.3).  `shape` is the run's own shape and reaches the
+    arithmetic that reads the game — the chips in play and the starting stack a shortfall
+    is normalised against — so a run on
     the six-descriptor shape normalises against that shape's 200 chips and never against
     the default shape's 40 (`shapes.md` §2, `reward.md` §4, D-29).  The transitions
     themselves hold indices and observations only, and both are the shape's own; `A` — the
@@ -484,7 +493,7 @@ def _transitions(episode, seat, encoder, utility=None, shape=None, model=None):
     records = []
     for position, decision in enumerate(own):
         observation = features.encode(
-            encoder, _stated(model, decision["readout"])
+            encoder, _stated(model, decision["readout"], encoder, shape, injected)
         )
         legal = list(features.legal_indices(decision["legal"]))
         terminal = position + 1 == len(own)
@@ -497,7 +506,7 @@ def _transitions(episode, seat, encoder, utility=None, shape=None, model=None):
         else:
             successor = own[position + 1]
             next_observation = features.encode(
-                encoder, _stated(model, successor["readout"])
+                encoder, _stated(model, successor["readout"], encoder, shape, injected)
             )
             next_legal = list(features.legal_indices(successor["legal"]))
             reward = float(decision["reward"])
