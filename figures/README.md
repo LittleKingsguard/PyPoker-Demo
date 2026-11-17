@@ -28,6 +28,9 @@ linked:
 | `trunk-health.svg` | a network with **0 of 50 units alive** under the 600-scale reward | D-60, D-67, D-108 |
 | `monotonicity.svg` | reads cards, does not rank them — suited junk shoved while a small pair folds | D-116, D-127 |
 | `padding.svg` | **88 % of the input was the token for "nothing here"** | D-78, D-79, D-110 |
+| `network-dead.svg` | the network under the 600-scale reward: **0 of 50 units firing**, both hidden layers | D-60, D-67, D-108 |
+| `network-live.svg` | the same network with the normalised reward: **23 and 24 of 50 firing**, densely wired | D-67, D-108 |
+| `network-compare.svg` | the two side by side, for one slide | D-108 |
 
 ## Demo data
 
@@ -43,3 +46,13 @@ split) so a slide can build a table or animate a value without re-deriving anyth
 3. **"The aggregate lied"** → `battery-error` alone, large.
 4. **"What fixed it"** → `chips-ladder`, then `trunk-health` and `padding` as the two defects it took to get there.
 5. **"What it still cannot do"** → `monotonicity`, closing the talk on an honest limit.
+
+`network-compare.svg` works as the *cause* slide before `chips-ladder`: the dead trunk is why the earlier policy could
+not use any input, and the exploration floor is why it could not escape once it could.
+
+## Regenerating the network diagrams
+
+`python figures/make_network.py` — it reads the parameters straight out of the two checkpoints
+(`.probe/dead/dead-ckpt/...` and `/tmp/foldloop/high/...`), measures each unit's firing rate on 300 real observations,
+and draws hollow rings for dead units, lit nodes for firing ones, with edges only between units that fire. The counts in
+the caption are the measured ones, printed by the script.

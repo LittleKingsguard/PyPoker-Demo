@@ -54,5 +54,26 @@
   "provenance": "D-78, D-79, D-110",
   "alt": "Stacked bar: 14 real tokens and 108 padding positions out of 122.",
   "file": "padding.svg"
+ },
+ "network-dead": {
+  "title": "Dead trunk",
+  "caption": "Under the 600-scale reward every hidden unit is dead: the two hidden columns are hollow rings with no wiring, while the input and the action layer are lit. The network outputs a constant.",
+  "provenance": "D-60, D-67, D-108 (measured: 0 of 50 and 0 of 50 units firing)",
+  "alt": "A four-column network diagram whose two hidden layers are open rings with no edges between them.",
+  "file": "network-dead.svg"
+ },
+ "network-live": {
+  "title": "Live trunk",
+  "caption": "With the normalised reward 23 of 50 hidden-1 units and 24 of 50 hidden-2 units fire, and the wiring between them is dense. Same architecture, same data, different reward scale.",
+  "provenance": "D-67, D-108 (measured: 23 of 50 and 24 of 50 units firing)",
+  "alt": "The same network diagram with most hidden units filled and dense edges between layers.",
+  "file": "network-live.svg"
+ },
+ "network-compare": {
+  "title": "Dead vs live trunk, side by side",
+  "caption": "Same 102-by-50 token learner, same league, two reward scales. Left: 0 of 50 units firing in both hidden layers. Right: 23 and 24 of 50.",
+  "provenance": "D-60, D-67, D-108",
+  "alt": "Two network diagrams side by side: the left has empty hidden layers, the right has lit units and edges.",
+  "file": "network-compare.svg"
  }
 }
