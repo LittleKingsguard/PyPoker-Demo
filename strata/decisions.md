@@ -3236,3 +3236,31 @@ coin-flip.
 **The next measurement owed is a monotonicity test**, not another census: rank a ladder of hands by true equity and check
 that aggression is non-decreasing along it. Both arms fail today, and that is the number to quote beside the card
 model's calibration error.
+
+---
+
+## D-117 — The policy already used the better-midrange model; D-116's attribution is corrected
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Corrects:** D-116's explanation
+
+**Source (user, verbatim):** "Use the less-converged card model that has better midrange performance, not the overfitted
+400-epoch one"
+
+**Verified from the artefacts: it is already the model in the loop.** The strength-arm checkpoint records
+`seeding.source = 'attn-60'`, and every probe that drove a policy loads `.probe/attn60.pt`. The 400-epoch model was used
+**only** for the card-model battery, never behind a policy.
+
+| state | truth | **attn-60 (in the loop)** | attn-400 (not used) |
+|---|---|---|---|
+| quad aces · nut flush | 100 % | **93.6 % · 99.7 %** | 99.7 % · 99.6 % |
+| ace-high straight · trip aces | 97.8 % · 91.8 % | **63.9 % · 70.6 %** | **11.2 % · 2.7 %** |
+| pair of kings | 45.1 % | 12.0 % | 28.0 % |
+| junk | 0.0 % | 0.0–0.1 % | 0.0 % |
+
+**attn-60 does rank hands** — locks 93–100 %, trip aces 71 %, kings 12 %, junk ~0 %. **So D-116's explanation was
+wrong**: it attributed the policy's flat response to the 400-epoch lock detector's 2.7 % on trip aces, but the policy was
+fed a model that predicts **70.6 %** there and still played **quads and 2-3 offsuit identically**.
+
+**The corrected conclusion is stronger:** the failure is **in the policy's use of the signal, not the signal's quality** —
+a credit-assignment failure (D-84) — which is consistent with the strength input having helped at no budget (D-104,
+D-109). **D-95 stands as a card-model finding and must not be cited to explain policy behaviour.**
