@@ -2,6 +2,7 @@
 Arms: 'strength' (strength=supervised + embedding_init from attn-60) and 'control' (neither)."""
 import copy, os, sys, json, collections, numpy as np, training, agents, evaluation, engine
 ARM=sys.argv[1]; SEED=int(sys.argv[2]); BUDGET=int(sys.argv[3]); EVAL=2000
+UTIL=sys.argv[4] if len(sys.argv)>4 else 'stack-shortfall'
 SH='six-seat-no-limit-100'
 LEAGUE=['/tmp/foldloop/control/foldloop-control/card-tokens/seed-0/final.ckpt',
         '/tmp/cfmeasure/checkpoints/raiser-seed/raiser-seed/seed-0/final.ckpt',
@@ -19,7 +20,7 @@ for i,p in enumerate(LEAGUE):
 POOL={'game':SH,'members':members,'m':5,'frozen':True,'baselines':['fold-no-pair-or-face','fold-no-pair-or-better','fold-large-bet']}
 c=copy.deepcopy(training.rung('R3')); c['name']=f'strength-{ARM}-s{SEED}'; c['game']=SH
 for v in c['variants']:
-    v['game']=SH; v['utility']='stack-shortfall'
+    v['game']=SH; v['utility']=UTIL
     if ARM=='strength':
         v['strength']='supervised'; v['strength_source']='attn-60'
         v['embedding_init']={'source':'attn-60','rows':'cards'}
@@ -44,4 +45,4 @@ m=float(np.mean(chips)); ci=2*float(np.std(chips))/len(chips)**0.5
 tot=sum(census.values()) or 1
 print(json.dumps({'arm':ARM,'seed':SEED,'budget':BUDGET,'format':rec['checkpoints'].get('format_version'),
                   'chips':round(m,3),'ci':round(ci,3),
-                  'census':{k:round(100*v/tot,1) for k,v in census.most_common()}}))
+                  'utility':UTIL,'census':{k:round(100*v/tot,1) for k,v in census.most_common()}}))
