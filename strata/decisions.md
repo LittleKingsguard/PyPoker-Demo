@@ -3531,3 +3531,33 @@ monotonicity (one seed raises `72o` twice while folding `22`). **D-116's monoton
 difference between "reads cards" and "plays well".
 
 **Caveats:** the probe's learner, not the product's; 5,000 hands; one league of three checkpoints plus a caller.
+
+---
+
+## D-127 — Monotonicity fails: 12 violations, suited junk played harder than a pair
+
+**Status:** ACTIVE · **Date:** 2026-11-08 · **Runs:** D-116's owed test
+
+**Source (user, verbatim):** "Try the monotonicity test"
+
+**Result** (masked pooler, attn-60, league, ε 0.60, seed 0, base arm; 12 hole sets, preflop decisions only, true equity by
+300-draw Monte Carlo):
+
+| hand | equity | action | | hand | equity | action |
+|---|---|---|---|---|---|---|
+| 72o · 32o · 82o | 6.8 · 9.3 · 10.6 % | **fold** | | **KQo** | **22.8 %** | **all-in** |
+| **72s · 43s** | **10.5 · 12.2 %** | **all-in** | | QQ | 41.1 % | call |
+| **22** | **12.3 %** | **fold** | | AA · AKo | 50.9 · 30.8 % | all-in |
+
+**12 violating pairs; the aggression is not monotone in equity.**
+
+**It folds the three worst hands** (the floor is real) and then **raises all-in with suited junk (72s, 43s) while folding
+22 at the same equity**, and **calls with QQ while shoving KQo**. So the policy is keyed on **suitedness and shape, not
+strength**.
+
+**What this settles:** card-dependence and strength-ordering are **different properties**, and the project has the first
+without the second — exactly as D-116 suspected from the extreme states. Every result since the mask established that the
+agent reads its cards; this quantifies the remaining gap and names the fix: the learner uses card information for
+*texture* rather than *equity*, which a Monte-Carlo target or the card-model ranking fed in directly would change.
+
+**The last measurement owed on the policy side.**
