@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>PyPoker — Play the league</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">♠</div>
+        <div class="brand-text">
+          <h1>PyPoker</h1>
+          <p>Play the league</p>
+        </div>
+      </div>
+
+      <div class="match-strip" id="match-strip">
+        <div class="score-block">
+          <span class="score-label">You</span>
+          <strong class="score-value" id="score-you">0</strong>
+        </div>
+        <div class="score-divider" aria-hidden="true">·</div>
+        <div class="score-block score-block-them">
+          <strong class="score-value" id="score-them">0</strong>
+          <span class="score-label score-label-them" id="score-opp">No opponent</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="top-btn" id="league-btn" type="button">
+          <span class="top-btn-icon" aria-hidden="true">♣</span>
+          <span>League</span>
+          <span class="kbd">L</span>
+        </button>
+        <button class="top-btn icon-btn" id="log-btn" type="button" aria-label="Hand log" title="Hand log">☰</button>
+        <button class="top-btn icon-btn" id="help-btn" type="button" aria-label="How to play" title="How to play">?</button>
+        <button class="top-btn icon-btn" id="new-match-btn" type="button" aria-label="New match" title="New match">↻</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="table-stage" id="table-stage" aria-label="Poker table">
+        <div class="poker-table" id="poker-table">
+          <div class="felt">
+            <div class="felt-watermark" aria-hidden="true">PYPOKER</div>
+
+            <div class="opponent-seats" id="opponent-seats" aria-label="Opponents"></div>
+
+            <div class="board-area">
+              <div class="pot-badge" id="pot-badge">
+                <span class="chip-icon" aria-hidden="true"></span>
+                <span class="pot-label">Pot</span>
+                <strong id="pot-value">0</strong>
+              </div>
+              <div class="board" id="board" aria-label="Community cards"></div>
+              <div class="street-row">
+                <span id="street-label">Pre-flop</span>
+                <span class="dot-sep" aria-hidden="true">·</span>
+                <span id="hand-seed">seed —</span>
+              </div>
+            </div>
+
+            <div class="seat seat-human" id="seat-human">
+              <div class="bet-pill bet-pill-you" id="you-bet" hidden></div>
+              <div class="cards" id="you-cards" aria-label="Your cards"></div>
+              <div class="rank-badge rank-badge-you" id="you-rank" hidden></div>
+              <div class="player-plate" id="you-plate">
+                <div class="avatar avatar-you" aria-hidden="true">You</div>
+                <div class="player-meta">
+                  <div class="player-name">You</div>
+                  <div class="player-sub" id="you-sub">Button · Small blind</div>
+                  <div class="player-last" id="you-last"></div>
+                </div>
+                <div class="stack" id="you-stack">—</div>
+                <div class="dealer-chip" id="you-dealer" title="Dealer button" hidden>D</div>
+              </div>
+              <div class="delta-badge" id="you-delta" hidden></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state" id="empty-state">
+          <div class="empty-card">
+            <p class="eyebrow">Fixed-limit and no-limit hold'em</p>
+            <h2>The table is open</h2>
+            <p>Pick a trained model or a deterministic policy from the league to deal in.</p>
+            <button class="btn btn-primary" id="empty-choose" type="button">Choose an opponent</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="sidebar" id="sidebar" aria-label="Hand log">
+        <div class="sidebar-head">
+          <div>
+            <p class="eyebrow">This hand</p>
+            <h2>Hand log</h2>
+          </div>
+          <div class="sidebar-hand" id="sidebar-hand">—</div>
+          <button class="top-btn icon-btn" id="log-close" type="button" aria-label="Close hand log">×</button>
+        </div>
+        <div class="log-scroll" id="log-scroll">
+          <p class="log-empty">Choose an opponent to deal the first hand.</p>
+        </div>
+        <div class="league-card" id="league-card"></div>
+      </aside>
+    </main>
+
+    <footer class="actionbar" id="actionbar">
+      <div class="turn-hint" id="turn-hint" aria-live="polite">
+        <p class="eyebrow" id="turn-eyebrow">Welcome</p>
+        <h2 id="turn-title">Choose an opponent</h2>
+        <p id="turn-sub">The league is ready when you are.</p>
+      </div>
+      <div class="actions" id="actions"></div>
+      <div class="hand-meta" id="hand-meta"></div>
+    </footer>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <aside class="drawer" id="drawer" aria-hidden="true" aria-label="Choose an opponent">
+    <div class="drawer-head">
+      <div>
+        <p class="eyebrow">The league</p>
+        <h2>Choose your opponent</h2>
+      </div>
+      <button class="icon-btn drawer-close" id="drawer-close" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="drawer-settings">
+      <div class="setting-row">
+        <label class="field-label" for="shape-select">Table</label>
+        <select class="text-input select-input" id="shape-select"></select>
+      </div>
+      <div class="setting-row">
+        <label class="field-label" for="seed-input">Match seed <span>optional</span></label>
+        <input class="text-input" id="seed-input" inputmode="numeric" autocomplete="off" placeholder="random">
+      </div>
+      <div class="setting-row setting-wide">
+        <span class="field-label">Your seat</span>
+        <div class="seat-options" id="seat-toggle" role="group" aria-label="Your seat"></div>
+      </div>
+      <label class="setting-row setting-wide mix-row" id="mix-row" hidden>
+        <span class="mix-check">
+          <input type="checkbox" id="mix-input">
+          <span class="mix-box" aria-hidden="true"></span>
+        </span>
+        <span class="mix-text">
+          <strong>Mix the league across seats</strong>
+          <span>Keep the selected member, then fill the table with other models and a fixed policy or two.</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="tabs" id="tabs" role="tablist">
+      <button type="button" data-tab="models" class="is-on" role="tab" aria-selected="true">
+        League models <span class="tab-count" id="count-models">0</span>
+      </button>
+      <button type="button" data-tab="baselines" role="tab" aria-selected="false">
+        Deterministic policies <span class="tab-count" id="count-baselines">0</span>
+      </button>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input id="opp-search" type="search" autocomplete="off" placeholder="Search the league…" aria-label="Search opponents">
+    </div>
+
+    <div class="opponent-list" id="opponent-list" role="tabpanel"></div>
+
+    <div class="drawer-foot">
+      <p id="drawer-foot-note">A new opponent starts a new match.</p>
+      <button class="btn btn-ghost btn-small" id="restart-btn" type="button" disabled>Restart current match</button>
+    </div>
+  </aside>
+
+  <div class="modal" id="help-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <button class="icon-btn modal-close" id="help-close" type="button" aria-label="Close">×</button>
+      <p class="eyebrow">How to play</p>
+      <h2 id="help-title">The table</h2>
+      <p class="modal-lead">
+        Each league member carries the game it was trained on. The shipped R1 checkpoints
+        play heads-up fixed-limit: 20 chips each, blinds 1/2, bets of 2 before the flop
+        and on it and 4 on the turn and river, with four raises per street. The probe
+        checkpoints play six-seat no-limit: 100 chips each, blinds 1/2, and any bet from
+        the minimum raise up to all-in. Baselines play whichever table you choose.
+      </p>
+      <div class="help-grid">
+        <div>
+          <h3>Your move</h3>
+          <p><span class="kbd">F</span> fold · <span class="kbd">C</span> check/call ·
+            <span class="kbd">R</span> raise · <span class="kbd">↵</span> next hand</p>
+        </div>
+        <div>
+          <h3>The league</h3>
+          <p>Checkpoints play greedily with exploration off. The six deterministic
+            policies are fixed rules and never learn. A mixed six-seat table keeps your
+            chosen member and fills the other seats from the league.</p>
+        </div>
+      </div>
+      <p class="modal-note">
+        This is a demonstration table, not a claim of poker skill. Model cards are
+        revealed only at showdown; a folded hand stays mucked. A checkpoint whose external
+        training artefact is missing is shown as unavailable rather than played.
+      </p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

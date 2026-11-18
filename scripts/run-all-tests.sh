@@ -13,7 +13,7 @@ fail=0
 for d in tests/engine tests/features tests/agents tests/evaluation tests/training tests/harness \
          tests/integration/engine tests/integration/features tests/integration/agents \
          tests/integration/evaluation tests/integration/training tests/integration/harness \
-         tests/e2e; do
+         tests/e2e tests/ui; do
   line=$("$python" -m pytest "$d" -q 2>&1 | tail -1)
   printf '%-38s %s\n' "$d" "$line"
   case "$line" in *failed*) fail=1 ;; esac

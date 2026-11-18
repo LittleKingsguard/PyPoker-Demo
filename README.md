@@ -65,6 +65,25 @@ through end to end:
 jupyter lab notebooks/r1-naive-numpy.ipynb
 ```
 
+### Play against the league in a browser
+
+The `ui/` folder is a demonstration table over the same public entry points the notebooks use:
+you take one seat, the league takes the others, and the model's cards stay hidden until a showdown.
+
+```sh
+.venv/bin/python ui/serve.py --open
+```
+
+The server is the Python standard library and binds to `127.0.0.1:8000`; it has no
+authentication, so do not expose it to a network. It discovers the shipped checkpoints in
+`checkpoints/` and the research checkpoints in `.probe/`. PyTorch checkpoints need the `torch`
+extra, and a checkpoint that declares a training artefact the tree does not carry (some probe
+runs reference `.probe/attn60.pt`) is listed as unavailable rather than failing mid-hand. The
+drawer also lets you pick a table shape: the shipped R1 models play heads-up fixed-limit, the
+probe models play six-seat no-limit, and the fixed baselines play either. On a six-seat table,
+*Mix the league across seats* keeps your chosen member and fills the other seats from the rest
+of the league. `ui/README.md` covers the layout and the JSON API.
+
 ### Using a GPU
 
 This project trains on **CPU**, which is the supported path and the one the shipped evidence came
@@ -109,6 +128,7 @@ It compares architectures on one small game. In particular:
 | `notebooks/` | one notebook per rung (D-5) — thin, importing the modules, never a copy of the code |
 | `tables/` | the shipped full league table |
 | `checkpoints/` | the shipped R1 checkpoint set and its evidence record |
+| `ui/` | the browser table: one seat for you, the league in the others (a viewer over `src/`, not a seventh module) |
 | `docs/` | the layered design record: L1 module map and protocol, L2 integration surfaces, L3 module designs |
 | `strata/` | the development workflow's own record: brief, decisions, platform facts, walkthrough |
 
