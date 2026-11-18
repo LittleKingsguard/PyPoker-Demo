@@ -56,6 +56,10 @@ class Client:
 
 class UIServer(ThreadingHTTPServer):
     daemon_threads = True
+    #: The default backlog is 5.  A browser fires several requests when a model is changed, and a
+    #: probe policy's first load takes ~2.5 s, so a small backlog drops connections and the page
+    #: reports "failed to fetch".  Queue the burst instead.
+    request_queue_size = 128
     allow_reuse_address = True
 
     def __init__(self, address, registry: Registry):
@@ -365,6 +369,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     registry = Registry(args.checkpoint_root, args.probe_root)
+    # Warm the saved probe heads: their first load pulls torch into the process, and paying that
+    # inside a request makes the first model change feel broken (and fills the accept queue).
+    for member in registry.models():
+        if getattr(member, "kind", None) == "probe-policy" and member.meta.get("available"):
+            try:
+                registry.policy_for(member, 0, member.shape)
+            except Exception as error:  # a warm-up must never stop the server
+                print("warm-up skipped %s: %s" % (member.name, error))
     league = registry.opponents()
     try:
         server = make_server(registry, args.host, args.port)

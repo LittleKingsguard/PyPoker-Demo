@@ -514,6 +514,10 @@ class Registry:
             "torch_available": self.torch_available,
         }
 
+    def models(self) -> list["Opponent"]:
+        """Every discovered model member — checkpoints and the saved probe heads."""
+        return list(self._models)
+
     def _featured(self) -> list[str]:
         """A small, stable set of playable starters for the welcome drawer."""
         featured: list[str] = []

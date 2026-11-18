@@ -101,31 +101,54 @@ def _per_seat_tokens(history, seat):
     return ids[-MAXT:]
 
 
+_HEADS: dict = {}
+_MODELS: dict = {}
+
+
+def _card_model(root):
+    """The frozen attn-60 estimator, loaded once per process."""
+    key = ('card', root)
+    if key not in _MODELS:
+        card = _Card()
+        ckpt = torch.load(os.path.join(root, 'attn60.pt'), map_location='cpu', weights_only=True)
+        remap = {'pos.': 'posemb.', 'n1.': 'norm.', 'n2.': 'ffn.'}
+        fixed = {}
+        for k, v in ckpt.items():
+            for a, b in remap.items():
+                if k.startswith(a):
+                    k = b + k[len(a):]
+                    break
+            fixed[k] = v
+        card.load_state_dict(fixed)
+        card.eval()
+        _MODELS[key] = card
+    return _MODELS[key]
+
+
+def _opp_model(root):
+    """The frozen per-seat opponent model, loaded once per process."""
+    key = ('opp', root)
+    if key not in _MODELS:
+        opp = _Opp()
+        opp.load_state_dict(torch.load(os.path.join(root, 'opp_seat.pt'), map_location='cpu', weights_only=True))
+        opp.eval()
+        _MODELS[key] = opp
+    return _MODELS[key]
+
+
 def load(path, root='.probe'):
     """Build a callable policy from a saved probe state dict."""
+    cached = _HEADS.get(path)
+    if cached is not None:
+        return cached
     state = torch.load(path, map_location='cpu', weights_only=True)
     dim = int(state['q.0.weight'].shape[1])
     uses_opp = dim >= 59
     head = _Head(dim)
     head.load_state_dict(state)
     head.eval()
-    card = _Card()
-    ckpt = torch.load(os.path.join(root, 'attn60.pt'), map_location='cpu', weights_only=True)
-    remap = {'pos.': 'posemb.', 'n1.': 'norm.', 'n2.': 'ffn.'}
-    fixed = {}
-    for k, v in ckpt.items():
-        for a, b in remap.items():
-            if k.startswith(a):
-                k = b + k[len(a):]
-                break
-        fixed[k] = v
-    card.load_state_dict(fixed)
-    card.eval()
-    opp = None
-    if uses_opp:
-        opp = _Opp()
-        opp.load_state_dict(torch.load(os.path.join(root, 'opp_seat.pt'), map_location='cpu', weights_only=True))
-        opp.eval()
+    card = _card_model(root)
+    opp = _opp_model(root) if uses_opp else None
 
     def policy(readout, legal):
         ids = _cards(readout)
@@ -161,4 +184,5 @@ def load(path, root='.probe'):
             q = head(x)[0]
         return max(legal, key=lambda a: float(q[ACTIONS.index(a)]))
 
+    _HEADS[path] = policy
     return policy
