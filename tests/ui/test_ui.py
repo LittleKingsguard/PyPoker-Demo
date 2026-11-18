@@ -361,3 +361,25 @@ def test_discovered_groups_carry_readable_labels(registry):
     assert not any(" · card-tokens" in name for name in labels), labels
     assert any("Dead trunk" in name for name in labels), labels
     assert any("Live trunk" in name for name in labels), labels
+
+
+def test_models_are_ordered_by_measured_performance(registry):
+    """The drawer lists the best-measured models first, ranked on the pessimistic estimate."""
+    models = registry.models()
+    scored = [m for m in models if m.meta.get("performance")]
+    assert scored, "no model carries a measured performance figure"
+    lows = [
+        float(m.meta["performance"]["chips"]) - 0.5 * float(m.meta["performance"].get("ci") or 0.0)
+        for m in scored
+    ]
+    assert lows == sorted(lows, reverse=True), "the models are not ordered by their lower bound"
+    unscored = [m for m in models if not m.meta.get("performance")]
+    assert not unscored or models[-1].meta.get("performance") is None, "unmeasured models must sort last"
+
+
+def test_performance_table_is_loaded_for_every_group(registry):
+    """Every group the drawer can show either carries a figure or is explicitly unmeasured."""
+    groups = {m.meta.get("group") for m in registry.models()}
+    measured = {m.meta.get("group") for m in registry.models() if m.meta.get("performance")}
+    assert "Top performers" in groups
+    assert "Top performers" in measured, "the top performers are unmeasured in the drawer"

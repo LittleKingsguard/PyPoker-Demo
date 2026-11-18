@@ -1,0 +1,74 @@
+{
+ "Dead trunk \u00b7 600-scale reward": {
+  "chips": 6.598,
+  "ci": 16.039,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Live trunk + card strength \u00b7 seed 0": {
+  "chips": -1.47,
+  "ci": 0.345,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Live trunk + card strength \u00b7 seed 1": {
+  "chips": 0.71,
+  "ci": 2.713,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Live trunk + card strength \u00b7 seed 2": {
+  "chips": 2.01,
+  "ci": 5.935,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Live trunk, masked pooler \u00b7 seed 0": {
+  "chips": -3.72,
+  "ci": 0.947,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Live trunk, masked pooler \u00b7 seed 1": {
+  "chips": 4.603,
+  "ci": 15.542,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Live trunk, masked pooler \u00b7 seed 2": {
+  "chips": 4.603,
+  "ci": 15.542,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Naive \u00b7 flat numbers": {
+  "chips": -0.665,
+  "ci": 1.379,
+  "hands": 400,
+  "note": "two-seat fixed-limit, vs always-call"
+ },
+ "Naive, six seats \u00b7 flat numbers": {
+  "chips": 0.42,
+  "ci": 14.574,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Seeded card embeddings \u00b7 probe": {
+  "chips": -6.2,
+  "ci": 1.093,
+  "hands": 400,
+  "note": "six-seat, vs the league mix"
+ },
+ "Top performer \u00b7 exploration floor 0.60": {
+  "chips": 11.3,
+  "ci": 4.16,
+  "hands": 6000,
+  "note": "six-seat, vs the league mix; 3 seeds (D-126)"
+ },
+ "Top performer \u00b7 floor 0.60 + opponent model": {
+  "chips": 12.92,
+  "ci": 5.28,
+  "hands": 6000,
+  "note": "six-seat, vs the league mix; 3 seeds (D-126)"
+ }
+}

@@ -1865,3 +1865,43 @@ body.drawer-open .drawer { transform: none; }
     transition-duration: .001ms !important;
   }
 }
+
+/* -- cluster headers: now a toggle, plus the measured figure ------------------ */
+.opp-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 8px 4px 6px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.opp-group-head:hover { background: rgba(255, 255, 255, 0.03); border-radius: 8px; }
+.opp-group-head h3 { display: flex; align-items: center; gap: 7px; margin: 0; }
+.opp-group-caret {
+  display: inline-block;
+  width: 0.85em;
+  font-size: 0.9em;
+  opacity: 0.65;
+  transition: transform 120ms ease;
+}
+.opp-group:not(.is-collapsed) .opp-group-caret { transform: rotate(90deg); }
+.opp-group-perf {
+  font: 12px/1 ui-monospace, SFMono-Regular, monospace;
+  color: var(--gold, #d9a441);
+  background: rgba(217, 164, 65, 0.12);
+  border: 1px solid rgba(217, 164, 65, 0.35);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.opp-group-list[hidden] { display: none; }
+.opp-perf {
+  font: 11.5px/1 ui-monospace, SFMono-Regular, monospace;
+  color: var(--muted, #a2968a);
+}
+.opp-perf.is-ahead { color: #4fbf8b; }
+.opp-perf.is-behind { color: #d4553f; }

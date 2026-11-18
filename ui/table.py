@@ -169,6 +169,21 @@ PROBE_POLICIES = {
 }
 
 
+PERFORMANCE_FILE = Path(__file__).with_name("performance.json")
+
+
+def load_performance() -> dict[str, dict]:
+    """The measured chips-per-hand of each model group, or {} when the table is absent.
+
+    Written by a measurement over one fixed opponent set (see the file's own notes); the drawer sorts
+    by it so the best-measured models are listed first instead of alphabetically by path.
+    """
+    try:
+        return json.loads(PERFORMANCE_FILE.read_text())
+    except Exception:
+        return {}
+
+
 def probe_params(path: Path) -> int | None:
     """The parameter count of a saved probe head, or None when it cannot be read."""
     try:
@@ -427,7 +442,8 @@ class Registry:
                         "step": step,
                         "rung": rung,
                         "variant": variant,
-                        "group": group,
+                        "group": display_name(group),
+                        "group_path": group,
                         "encoding": representation.get("encoding"),
                         "learning_rule": metadata.get("learning_rule", "masked-q-learning"),
                         "utility": metadata.get("utility", "net-chips"),
@@ -481,7 +497,7 @@ class Registry:
                             shape="six-seat-no-limit-100",
                             source="probe",
                             meta={
-                                "group": "top performers · probe policies",
+                                "group": "Top performers",
                                 "available": True,
                                 "unavailable_reason": None,
                                 "source_label": "Probe",
@@ -492,7 +508,28 @@ class Registry:
                     )
                 )
         found.sort(key=lambda pair: pair[0])
-        return [opponent for _key, opponent in found]
+        performance = load_performance()
+        models = [opponent for _key, opponent in found]
+        for opponent in models:
+            figure = performance.get(opponent.meta.get("group") or "") or performance.get(opponent.name)
+            if figure:
+                opponent.meta["performance"] = figure
+
+        def rank(opponent: "Opponent") -> tuple:
+            """Best first, by the *pessimistic* estimate: chips minus half the interval.
+
+            Ordering on the point estimate alone would put a +6.6 ±16.0 group above the +11.3 ±4.2 one,
+            which is not what "best performer" means when the interval is eight times wider.  A model
+            with no measurement sorts last.
+            """
+            figure = opponent.meta.get("performance")
+            if not figure or figure.get("chips") is None:
+                return (1, 0.0, str(opponent.meta.get("group") or opponent.name), 0)
+            low = float(figure["chips"]) - 0.5 * float(figure.get("ci") or 0.0)
+            return (0, -low, str(opponent.meta.get("group") or ""), -(opponent.meta.get("seed") or 0))
+
+        models.sort(key=rank)
+        return models
 
     # -- read-back ---------------------------------------------------------
 

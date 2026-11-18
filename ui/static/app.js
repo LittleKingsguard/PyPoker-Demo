@@ -35,6 +35,9 @@
     5: ["pos-lower-left", "pos-upper-left", "pos-top", "pos-upper-right", "pos-lower-right"],
   };
 
+  //: Which clusters the reader has shut, keyed by source and group, so it survives a re-render.
+  const collapsedGroups = new Set();
+
   const state = {
     league: null,
     match: null,
@@ -134,6 +137,12 @@
       } else {
         setShape(state.shape || league.default_shape, { keepSeat: true });
         render();
+      }
+      // A deep link can open the league drawer straight away: ?open=models (or ?open=league).
+      const wanted = new URLSearchParams(location.search).get("open");
+      if (wanted === "models" || wanted === "league" || wanted === "opponents") {
+        setTab("models");
+        openDrawer();
       }
     } catch (error) {
       render();
@@ -1342,22 +1351,49 @@
         groups.get(key).push(model);
       }
       for (const rows of groups.values()) {
+        const groupKey = rows[0].source_label + "|" + rows[0].group;
         const group = document.createElement("section");
         group.className = "opp-group";
-        const head = document.createElement("div");
+        const collapsed = collapsedGroups.has(groupKey);
+        const head = document.createElement("button");
+        head.type = "button";
         head.className = "opp-group-head";
+        head.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        head.title = collapsed ? "Expand this cluster" : "Collapse this cluster";
         const title = document.createElement("h3");
-        title.textContent = rows[0].group;
+        const caret = document.createElement("span");
+        caret.className = "opp-group-caret";
+        caret.textContent = "▸";
+        title.append(caret, document.createTextNode(rows[0].group));
         const source = document.createElement("span");
         source.className = "source-pill" + (rows[0].source === "probe" ? " is-probe" : "");
         source.textContent = rows[0].source_label;
         const count = document.createElement("span");
         count.className = "opp-group-count";
         count.textContent = rows.length + (rows.length === 1 ? " checkpoint" : " checkpoints");
-        head.append(title, source, count);
+        const best = rows[0].performance;
+        if (best && typeof best.chips === "number") {
+          const figure = document.createElement("span");
+          figure.className = "opp-group-perf";
+          figure.textContent = (best.chips >= 0 ? "+" : "") + best.chips.toFixed(2);
+          figure.title = "best measured chips per hand in this cluster";
+          head.append(title, figure, source, count);
+        } else {
+          head.append(title, source, count);
+        }
 
         const list = document.createElement("div");
+        list.className = "opp-group-list";
+        if (collapsed) list.hidden = true;
         for (const model of rows) list.append(modelRow(model, activeId));
+        head.addEventListener("click", () => {
+          const nowCollapsed = !list.hidden;
+          list.hidden = nowCollapsed;
+          head.setAttribute("aria-expanded", nowCollapsed ? "false" : "true");
+          group.classList.toggle("is-collapsed", nowCollapsed);
+          if (nowCollapsed) collapsedGroups.add(groupKey); else collapsedGroups.delete(groupKey);
+        });
+        group.classList.toggle("is-collapsed", collapsed);
         group.append(head, list);
         els.opponentList.append(group);
       }
@@ -1419,6 +1455,14 @@
     sub.textContent =
       formatNumber(model.params) + " params · " + model.shape_label +
       " · " + (model.backend === "torch" ? "torch" : "numpy");
+    const perf = model.performance;
+    if (perf && typeof perf.chips === "number") {
+      const chipEl = document.createElement("span");
+      chipEl.className = "opp-perf" + (perf.chips - perf.ci / 2 > 0 ? " is-ahead" : perf.chips + perf.ci / 2 < 0 ? " is-behind" : "");
+      chipEl.textContent = (perf.chips >= 0 ? "+" : "") + perf.chips.toFixed(2) + " chips/hand";
+      chipEl.title = "measured over " + formatNumber(perf.hands) + " hands · " + (perf.note || "");
+      sub.append(" · ", chipEl);
+    }
     info.append(title, sub);
 
     const go = document.createElement("span");

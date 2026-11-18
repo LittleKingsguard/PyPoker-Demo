@@ -3850,3 +3850,46 @@ counts are read from the state dicts, and they **play** — verified through the
 **Two defects caught by running rather than reading:** the discovery block first landed inside `_discover_baselines`
 (both functions end with `return found`), and a probe entry with `params=None` crashed the JSON record
 (`int(None)`); both fixed, and the record now tolerates an undeclared count.
+
+---
+
+## D-136 — The drawer ranks models by measured performance and collapses by cluster
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Sort the models in the UI by performance, descending, and make the clusters collapsible"
+
+**Measured, not assumed.** A new `.probe/ui_performance.py` plays **every group the drawer offers** against **one fixed
+opponent set** (the league mix for six-seat groups, `always-call` in its own two-seat shape for the shipped `R1`
+models), 400 hands each, writing `ui/performance.json`. The two saved probe heads keep their **3-seed, 6,000-hand**
+figures from D-126. One finding fell out of it: `strength-control-s1` and `-s2` are **different files that converge to
+the same constant policy** — both play check-call for every decision, so their identical chips are real, not a bug.
+
+| group | chips/hand | interval |
+|---|---|---|
+| **Top performers** (ε 0.60, +opponent) | **+12.92** | ±5.28 |
+| Live trunk + card strength · seed 2 | +2.01 | ±5.93 |
+| Live trunk + card strength · seed 1 | +0.71 | ±2.71 |
+| Naive · flat numbers (two-seat) | −0.67 | ±1.38 |
+| Dead trunk · 600-scale reward | +6.60 | ±16.04 |
+| Live trunk + card strength · seed 0 | −1.47 | ±0.34 |
+| Live trunk, masked pooler · seeds 1 / 2 | +4.60 | ±15.54 |
+| Live trunk, masked pooler · seed 0 | −3.72 | ±0.95 |
+| Seeded card embeddings · probe | −6.20 | ±1.09 |
+| Naive, six seats · flat numbers | +0.42 | ±14.57 |
+
+**Sorted by the pessimistic estimate — chips minus half the interval — not the point estimate.** Ordering on the point
+estimate puts the dead trunk (+6.60 ±16.04) above the top performers (+11.30 ±4.16), which is not what "best performer"
+means when one interval is four times wider. Unmeasured models sort last.
+
+**Collapsible clusters**: each drawer group's header is now a `<button>` carrying `aria-expanded` and a rotating caret,
+toggling its list; the shut set is kept in the page so it survives re-renders. Each row gained its measured figure with
+a green/red marker by sign, and each header shows its cluster's best figure.
+
+**Also fixed while here**: the drawer printed the *raw* path group (`strength-control-s0 · card-tokens`) rather than the
+readable name (D-135's `DISPLAY_NAMES`) — the grouping key is now the display name, with the raw path kept as
+`group_path`. And `?open=models` deep-links straight to the open drawer.
+
+**Verified**: the API serves the models in ranked order; two new tests pin that ordering and that every group carries a
+figure; `tests/ui` 14 → **16 passed**. **Not verified visually** — headless Firefox screenshots fire before the app's
+async init resolves, so the drawer is closed in every capture; the render needs a real browser.
