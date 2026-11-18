@@ -3789,7 +3789,7 @@ D-132 measured that both cannot be legible on one slide.
 
 ---
 
-## D-130 — The naive model vs the baselines: it beats the trivial opponents and loses to the selective ones
+## D-134 — The naive model vs the baselines: it beats the trivial opponents and loses to the selective ones
 
 **Status:** ACTIVE · **Date:** 2026-11-08
 

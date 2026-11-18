@@ -2,7 +2,7 @@
 
 The project's starting point, trained fresh at six seats for this figure: **flat numbers, plain stack** (`flat-numeric`,
 433 slots; `naive-stack`, 36 wide, 2 layers, 18,510 parameters; normalised reward; 5,000 hands). Each cell is 1,000 hands
-with the model in one seat and **five copies of that baseline** at the table (D-14).
+with the model in one seat and **five copies of that baseline** at the table (D-14; D-134).
 
 | opponent | **naive model** | live model (token embedding, normalised) |
 |---|---|---|
