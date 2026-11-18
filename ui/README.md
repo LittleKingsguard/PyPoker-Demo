@@ -33,8 +33,24 @@ each checkpoint's `metadata.json` inside the container, and derives:
 
 A checkpoint that declares a training artefact outside itself — some probe runs were fitted
 from the frozen `attn-60` estimator — is offered only if the artefact is present. The three
-`strength-strength-*` probe groups reference `.probe/attn60.pt`, which this tree does not
-carry, so they are shown as unavailable with that reason. Everything else in `.probe/` loads.
+`strength-strength-*` probe groups reference `.probe/attn60.pt`; while that file is in the tree
+they load, and if it is removed they are listed as unavailable with that reason rather than
+failing at the table.
+
+Every entry is **labelled by what it is**, not by where it lives: `DISPLAY_NAMES` in `table.py`
+maps a discovered group to a readable name — `Naive · flat numbers`, `Dead trunk · 600-scale
+reward`, `Live trunk, masked pooler · seed 2`, `Live trunk + card strength · seed 0` — and an
+unlisted group falls back to its derived path label.
+
+### Top performers
+
+The two best-measured policies of the integration experiments were saved as **torch state dicts**,
+not checkpoint containers: `.probe/saved-base-s0-eps0.6.pt` and `.probe/saved-opp2-s0-eps0.6.pt`.
+`ui/probe_policies.py` is an adapter that presents them with the same `(readout, legal) → action`
+signature as any other member, so they appear in the drawer as **Top performer · exploration floor
+0.60** and **Top performer · floor 0.60 + opponent model** and are playable at six seats. Their
+inputs are the frozen `attn-60` card model plus five table facts (and, for the second, the frozen
+per-seat opponent model); both artefacts must be present.
 
 Checkpoints play greedily with exploration off. The six deterministic policies
 (`random`, `always-call`, `oracle`, `fold-no-pair-or-face`, `fold-no-pair-or-better`,

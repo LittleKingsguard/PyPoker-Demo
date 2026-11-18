@@ -327,3 +327,37 @@ def test_http_static_pages_are_served(client):
     status, icon = client.call("GET", "/favicon.svg")
     assert status == 200
     assert icon.startswith(b"<svg")
+
+
+def test_top_performer_probe_policies_are_offered_and_playable(registry):
+    """The two best-measured integration arms are saved probe heads, not checkpoints; they must appear
+    with a readable label and be loadable through the adapter."""
+    tops = [m for m in registry._models if m.kind == "probe-policy"]
+    assert tops, "the saved probe policies are not discovered"
+    names = {m.name for m in tops}
+    assert any("exploration floor 0.60" in n for n in names), names
+    for member in tops:
+        assert member.meta["available"] is True, member.meta.get("unavailable_reason")
+        assert member.shape == "six-seat-no-limit-100"
+        policy = registry.policy_for(member, 0, "six-seat-no-limit-100")
+        assert callable(policy)
+        legal = ("fold", "check-call", "raise-quarter", "raise-half", "raise-all-in", "raise-minimum")
+        readout = {
+            "street": "preflop",
+            "seat": (0, True),
+            "hole": ("As", "Ad"),
+            "board": (),
+            "stacks": (100,) * 6,
+            "pot": 3,
+            "to_call": 2,
+            "history": [],
+        }
+        assert policy(readout, legal) in legal
+
+
+def test_discovered_groups_carry_readable_labels(registry):
+    """A drawer entry says what a model is, not where it lives."""
+    labels = {m.name for m in registry._models}
+    assert not any(" · card-tokens" in name for name in labels), labels
+    assert any("Dead trunk" in name for name in labels), labels
+    assert any("Live trunk" in name for name in labels), labels

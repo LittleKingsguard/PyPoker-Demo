@@ -145,6 +145,46 @@ def shape_config(shape: str) -> dict:
     return engine.game_config(shape)
 
 
+#: Readable names for the checkpoint groups the table discovers, so a drawer entry says what a model *is*
+#: rather than where it lives.  An unlisted group falls back to its derived path label.
+DISPLAY_NAMES = {
+    "R1 · naive-numeric": "Naive · flat numbers",
+    "naive · naive6 · card-tokens": "Naive, six seats · flat numbers",
+    "dead · dead-ckpt · card-tokens": "Dead trunk · 600-scale reward",
+    "ckpt · wire-sup-emb · card-tokens": "Seeded card embeddings · probe",
+    "strength-control-s0 · card-tokens": "Live trunk, masked pooler · seed 0",
+    "strength-control-s1 · card-tokens": "Live trunk, masked pooler · seed 1",
+    "strength-control-s2 · card-tokens": "Live trunk, masked pooler · seed 2",
+    "strength-strength-s0 · card-tokens": "Live trunk + card strength · seed 0",
+    "strength-strength-s1 · card-tokens": "Live trunk + card strength · seed 1",
+    "strength-strength-s2 · card-tokens": "Live trunk + card strength · seed 2",
+}
+
+#: The saved probe policies: the best-measured arms of the integration experiments.
+PROBE_POLICIES = {
+    "saved-base-s0-eps0.6.pt": ("Top performer · exploration floor 0.60",
+                                "probe policy · card model + strength · seed 0"),
+    "saved-opp2-s0-eps0.6.pt": ("Top performer · floor 0.60 + opponent model",
+                                "probe policy · card model + strength + opponent read · seed 0"),
+}
+
+
+def probe_params(path: Path) -> int | None:
+    """The parameter count of a saved probe head, or None when it cannot be read."""
+    try:
+        import torch
+
+        state = torch.load(str(path), map_location="cpu", weights_only=True)
+        return int(sum(value.numel() for value in state.values()))
+    except Exception:
+        return None
+
+
+def display_name(group: str) -> str:
+    """The readable name for a discovered group, or the group itself."""
+    return DISPLAY_NAMES.get(group, group)
+
+
 def shape_label(shape: str | None) -> str:
     if not shape:
         return "Any shape"
@@ -202,7 +242,7 @@ class Opponent:
             "name": self.name,
             "subtitle": self.subtitle,
             "description": self.description,
-            "params": int(self.params),
+            "params": int(self.params) if self.params is not None else None,
             "shape": self.shape,
             "shape_label": shape_label(self.shape),
             "source": self.source,
@@ -375,7 +415,7 @@ class Registry:
                 opponent = Opponent(
                     id=member_id,
                     kind="model",
-                    name=group,
+                    name=display_name(group),
                     subtitle=subtitle,
                     description=description,
                     params=params,
@@ -418,6 +458,37 @@ class Registry:
                             step_number,
                         ),
                         opponent,
+                    )
+                )
+        # The integration experiments saved their best heads as torch state dicts rather than
+        # checkpoint containers; offer them through the adapter so the top performers are playable.
+        probe_root = next((root for root, label in self.roots if label == "probe"), None)
+        if probe_root is not None and _torch_available():
+            for path in sorted(probe_root.glob("saved-*.pt")):
+                row = PROBE_POLICIES.get(path.name)
+                name, subtitle = row if row else (path.stem, "probe policy")
+                found.append(
+                    (
+                        (2, path.as_posix()),
+                        Opponent(
+                            id="probe-policy:" + path.relative_to(probe_root).as_posix(),
+                            kind="probe-policy",
+                            name=name,
+                            subtitle=subtitle,
+                            description="probe head · attn-60 card model · six seats",
+                            params=probe_params(path),
+                            path=str(path),
+                            shape="six-seat-no-limit-100",
+                            source="probe",
+                            meta={
+                                "group": "top performers · probe policies",
+                                "available": True,
+                                "unavailable_reason": None,
+                                "source_label": "Probe",
+                                "path": opponent_path(path),
+                                "kind": "probe-policy",
+                            },
+                        ),
                     )
                 )
         found.sort(key=lambda pair: pair[0])
@@ -525,6 +596,18 @@ class Registry:
             return cached
         if not opponent.path:
             raise UIError("The opponent %r has no checkpoint path" % (opponent.name,))
+        if opponent.kind == "probe-policy":
+            try:
+                import probe_policies
+
+                policy = probe_policies.load(opponent.path)
+            except Exception as error:
+                opponent.meta["available"] = False
+                opponent.meta["unavailable_reason"] = str(error)
+                raise UIError("Could not load %s: %s" % (opponent.name, error)) from error
+            with self._lock:
+                self._policies[opponent.id] = policy
+            return policy
         try:
             policy = evaluation.policy_from(opponent.path, exploration="off")
         except Exception as error:

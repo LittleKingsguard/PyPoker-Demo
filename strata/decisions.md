@@ -3818,3 +3818,35 @@ better against equity** (the oracle) and much worse everywhere else, because it 
 **Caveats:** one seed per model, and the two differ in both representation and reward, so the contrast is not
 controlled — it is the starting point against something built later. The baselines are five copies of one policy, not a
 real table. Figure: `figures/naive-vs-baselines.svg`.
+
+---
+
+## D-135 — The browser table labels its models by what they are, and offers the top performers
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Check the changes made and pulled from main and confirm nothing is broken from local work.
+Then label the models in the new UI and check if the most recent top performer models are included (add if not)"
+
+**Nothing broken.** The pulled UI (`c8ab6b0`, `ui/` — table, server, static front-end, 329-line test file) and its
+siblings are green: `tests/ui` 12 → **14 passed** (2 skipped), and the full suite passes in every directory —
+engine 109, features 177, agents 212, evaluation 172, training 144, harness 91, integration 370, e2e untouched. The
+`ui/` discovery finds **145 checkpoint models + 6 baselines** and every group loads (`available: true`), which also
+**corrected a stale README claim** that the `strength-strength-*` groups were unavailable for a missing
+`.probe/attn60.pt` — that artefact is in the tree, so they load.
+
+**Labelled.** `DISPLAY_NAMES` in `ui/table.py` maps each discovered group to a readable name — `Naive · flat numbers`,
+`Naive, six seats · flat numbers`, `Dead trunk · 600-scale reward`, `Live trunk, masked pooler · seed N`,
+`Live trunk + card strength · seed N`, `Seeded card embeddings · probe` — with the derived path label as fallback. No
+entry now shows `· card-tokens`; two new tests pin both properties.
+
+**Top performers were missing, and are added.** The best-measured arms were saved as torch state dicts
+(`.probe/saved-base-s0-eps0.6.pt`, `saved-opp2-s0-eps0.6.pt`), which the checkpoint walker cannot see. A new
+`ui/probe_policies.py` adapter presents them through the same `(readout, legal) → action` contract, they are discovered
+as their own group (**Top performer · exploration floor 0.60**, **· floor 0.60 + opponent model**), their parameter
+counts are read from the state dicts, and they **play** — verified through the registry (`policy_for` → hands played,
+`AA` → raise, `72o` → fold).
+
+**Two defects caught by running rather than reading:** the discovery block first landed inside `_discover_baselines`
+(both functions end with `return found`), and a probe entry with `params=None` crashed the JSON record
+(`int(None)`); both fixed, and the record now tolerates an undeclared count.
