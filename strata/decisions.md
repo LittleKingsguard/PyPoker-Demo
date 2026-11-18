@@ -3786,3 +3786,35 @@ only their badges (the slides would still be placeholder copy on stage).
 **Scope:** the deletion, the nine-slide renumbering, the counts and the dead CSS. The four content beats designed under
 D-132 are unchanged in substance; the grid split (dead grid on the pivot slide, live grid on the next) stands because
 D-132 measured that both cannot be legible on one slide.
+
+---
+
+## D-130 — The naive model vs the baselines: it beats the trivial opponents and loses to the selective ones
+
+**Status:** ACTIVE · **Date:** 2026-11-08
+
+**Source (user, verbatim):** "Graph the naive model performance as compared to the deterministic/random baseline
+opponents"
+
+**Trained for this figure** — the project's starting point at six seats: **flat-numeric** encoding (433 slots),
+**`naive-stack`** (36 wide, 2 layers, 18,510 parameters), normalised reward, 5,000 hands. Measured 1,000 hands per cell,
+model in one seat, five copies of each baseline (D-14):
+
+| opponent | naive | live (token embedding, normalised) |
+|---|---|---|
+| `fold-large-bet` | **+11.30 ±0.59** | **+7.40 ±0.18** |
+| `random` | **+11.56 ±10.05** | −3.45 ±8.74 |
+| `always-call` | +0.93 ±9.86 | **−14.20 ±12.84** |
+| `oracle` | −0.74 ±1.07 | **+0.84 ±0.87** |
+| `fold-no-pair-or-face` | −6.12 ±7.08 | **−17.80 ±9.44** |
+| `fold-no-pair-or-better` | −7.82 ±8.22 | −2.72 ±11.16 |
+
+**Both models beat the trivial exploiter** (`fold-large-bet`, the tightest intervals on the chart) and **neither beats a
+selective opponent** — the two scripted folders beat the naive model by 6–8 chips and the live model by up to 18.
+
+**The split** is that the **naive model is better against noise** (`random`, `always-call`) while the **live model is
+better against equity** (the oracle) and much worse everywhere else, because it **raises on 70–90 % of decisions**.
+
+**Caveats:** one seed per model, and the two differ in both representation and reward, so the contrast is not
+controlled — it is the starting point against something built later. The baselines are five copies of one policy, not a
+real table. Figure: `figures/naive-vs-baselines.svg`.

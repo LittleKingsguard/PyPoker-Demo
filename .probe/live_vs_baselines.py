@@ -1,7 +1,7 @@
 """Naive model (flat-numeric + naive-stack) against each deterministic/random baseline, five copies at the table."""
 import json, collections, numpy as np, engine, agents, evaluation
 SH='six-seat-no-limit-100'; HANDS=1000
-NAIVE='.probe/naive/naive6/card-tokens/seed-0/final.ckpt'
+NAIVE='/tmp/foldloop/high/foldloop-high/card-tokens/seed-0/final.ckpt'
 BASES=['random','always-call','oracle','fold-no-pair-or-face','fold-no-pair-or-better','fold-large-bet']
 naive=evaluation.policy_from(NAIVE, exploration='off')
 out={}

@@ -75,5 +75,12 @@
   "provenance": "D-60, D-67, D-108",
   "alt": "Two network diagrams side by side: the left has empty hidden layers, the right has lit units and edges.",
   "file": "network-compare.svg"
+ },
+ "naive-vs-baselines": {
+  "title": "Naive model vs the baselines",
+  "caption": "The naive model (flat numbers, plain stack) against each deterministic or random baseline, with a live token-embedding model beside it. Both beat the trivial opponents and both lose to the selective ones; the live model raises on three quarters of its decisions and is punished hardest.",
+  "provenance": "trained for this figure at six seats (flat-numeric + naive-stack, 5,000 hands) and /tmp/foldloop/high; 1,000 hands per cell, 95% CI",
+  "alt": "Grouped horizontal bars of chips per hand for twenty-four cells: two models against six opponents.",
+  "file": "naive-vs-baselines.svg"
  }
 }
